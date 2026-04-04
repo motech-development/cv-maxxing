@@ -24,6 +24,7 @@ These rules always apply. Follow project-local rules first when they are more sp
 ### Project-Specific Conventions
 
 - Use `pnpm` as the package manager. The repository already declares `pnpm@10.28.0` in `package.json`.
+- When building new functionality or making material refactors, consult `ARCHITECTURE.md` and align implementation with its current decisions unless a newer explicit decision supersedes it.
 - Treat `design/app.pen` as the source of truth for desktop app UI states and layout.
 - Treat `design/cv.pen` as the source of truth for CV/PDF visual layout, with `design/cv.html` as the implementation reference for HTML-based rendering and PDF export.
 - The product is Electron-first and local desktop-first; do not introduce a required web backend unless a later task proves it necessary.
@@ -252,6 +253,7 @@ Use this protocol for new features, refactors, and non-bug changes.
 
 - Perform full read-only system scan.
 - Produce a concise digest.
+- Read `ARCHITECTURE.md` for any task that builds new functionality or materially changes system structure.
 
 ### Phase 1: Planning
 
