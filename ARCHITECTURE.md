@@ -922,15 +922,136 @@ src/
 - SQLite
 - Drizzle ORM or Kysely
 - Zod
+- ESLint
+- Prettier-compatible formatting via repository tooling
 - Vitest
 - Playwright
 
-## 19. Implementation Plan
+## 19. Repository Bootstrap and Delivery Architecture
+
+### 19.1 Initial repository scaffold
+
+The first implementation tasks must establish a production-shaped baseline rather than a throwaway prototype.
+
+Bootstrap the repo as:
+
+- `pnpm` workspace, even if v1 ships as one desktop app package, so app code, shared packages, and test utilities can evolve without a structural rewrite
+- Electron + React + TypeScript + Vite scaffold with separate `main`, `preload`, and `renderer` entry points
+- shared TypeScript project references or equivalent build separation so the Electron process boundaries remain explicit
+- path aliases only where they reflect architecture boundaries clearly; avoid alias sprawl
+- `.env.example` and runtime config loading for non-secret local configuration such as `CHECKING_TIMEOUT_MS`
+- deterministic app-data path resolution for dev, test, and packaged modes
+
+### 19.2 Baseline package scripts
+
+The scaffold should expose explicit scripts for:
+
+- local development
+- type-checking
+- linting
+- unit tests
+- integration tests
+- end-to-end tests
+- production build
+- packaged desktop build for macOS Intel
+
+Representative script surface:
+
+```text
+pnpm dev
+pnpm typecheck
+pnpm lint
+pnpm test:unit
+pnpm test:integration
+pnpm test:e2e
+pnpm test
+pnpm build
+pnpm package:mac
+```
+
+Exact naming may vary, but the repo must provide a stable equivalent for each concern.
+
+### 19.3 Quality gate architecture
+
+The repo should fail fast on quality regressions.
+
+Minimum enforced gates:
+
+- TypeScript type-check passes
+- ESLint passes
+- unit and integration test suites pass
+- Playwright end-to-end smoke coverage passes on CI for at least the core happy path
+
+Quality rules:
+
+- `pnpm test` should aggregate at least unit and integration coverage
+- e2e may remain a separate CI job, but it must be runnable locally through a single documented command
+- generated artifacts and temporary app-data for tests must write to isolated test-specific directories
+- tests must not depend on a globally installed Codex runtime unless the specific suite is marked as an opt-in environment test
+
+### 19.4 Test environment strategy
+
+Split test responsibility deliberately:
+
+- unit tests for domain logic, normalization, validators, and render view-model logic
+- integration tests for SQLite adapters, filesystem-backed services, IPC handlers, and render/export orchestration
+- end-to-end tests for Electron user journeys and screen-state transitions
+- optional environment tests for Codex CLI availability and live-site fetch compatibility, excluded from required CI unless explicitly enabled later
+
+Test harness requirements:
+
+- injectable app-data root
+- injectable database path
+- fake or fixture-backed Codex runtime adapter for deterministic non-environment tests
+- fixture-backed vacancy snapshots and source CV inputs
+- PDF export assertions that validate artifact existence and selected metadata, not byte-for-byte equality unless the renderer is fully stabilized
+
+### 19.5 CI architecture
+
+CI should be introduced as part of foundation work, not deferred until late hardening.
+
+Recommended required workflow shape:
+
+```text
+Pull Request CI
+├── Install dependencies with pnpm
+├── Lint
+├── Type-check
+├── Unit + integration tests
+├── Build verification
+└── Required Electron/Playwright smoke job for the core happy path
+```
+
+CI rules:
+
+- every pull request must run lint, type-check, tests, and build verification
+- required CI should use a pinned Node version compatible with the repo toolchain
+- CI should cache `pnpm` dependencies
+- CI should publish failure logs and Playwright artifacts when relevant
+- packaging/distribution automation is not required in v1 baseline, but build verification must prove the desktop app compiles successfully
+
+### 19.6 Packaging architecture
+
+The architecture should anticipate distributable macOS Intel builds early.
+
+Baseline packaging requirements:
+
+- signed notarization is not required for the first local-development milestone unless distribution work explicitly starts
+- the build system must still produce a runnable packaged app artifact for macOS Intel
+- preload hardening and asset path resolution must work in both dev and packaged modes
+
+## 20. Implementation Plan
+
+### Phase 0. Repo foundation and delivery platform
+
+- scaffold `pnpm` workspace and Electron + React + TypeScript app shell
+- configure linting, formatting, and type-checking
+- configure Vitest and Playwright harnesses
+- establish CI workflow for lint, type-check, tests, and build verification
+- establish packaged-build path for macOS Intel
 
 ### Phase 1. Foundation
 
-- scaffold Electron + React + TypeScript app
-- configure pnpm workspace
 - establish main/preload/renderer boundaries
 - create SQLite schema
 - implement local app-data layout
@@ -985,7 +1106,7 @@ src/
 - regeneration UX
 - authenticated browser session management
 
-## 20. Testing Strategy
+## 21. Testing Strategy
 
 ### Unit tests
 
@@ -1002,6 +1123,8 @@ src/
 - import source CV -> fetch vacancy -> generate package -> render -> export PDF
 - generate multiple packages for one source CV
 - reopen an existing package and export the exact same PDF again
+- IPC command/query coverage for package browsing, Codex preflight, and resumable pending commands
+- SQLite and filesystem adapter tests against isolated temporary app-data roots
 
 ### End-to-end tests
 
@@ -1018,8 +1141,29 @@ src/
 
 - compare rendered preview against `design/cv.html`-aligned snapshots
 - check A4 size and two-page export constraints
+- verify major `design/app.pen` screen states remain visually aligned during UI iteration
 
-## 21. Final Recommendation
+## 22. CI and Release Baseline
+
+### Required CI checks for v1 development
+
+- `pnpm lint`
+- `pnpm typecheck`
+- `pnpm test`
+- build verification command
+- Playwright Electron smoke coverage for the core happy path
+
+### Recommended optional CI checks
+
+- packaging verification for macOS Intel on protected branches
+
+### Release baseline
+
+- local developer builds must be reproducible from a clean clone
+- packaged builds must resolve preload, renderer assets, and app-data paths correctly
+- release automation may remain manual in v1 as long as the packaging process is documented and repeatable
+
+## 23. Final Recommendation
 
 Build v1 as:
 
@@ -1037,7 +1181,7 @@ Build v1 as:
 - in-app cover-letter PDF preview
 - in-app cover-letter PDF export
 
-## 22. References
+## 24. References
 
 - Local UI source: `design/app.pen`
 - CV visual source: `design/cv.pen`
