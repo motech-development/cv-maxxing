@@ -1,0 +1,1154 @@
+{
+  "version": "2.10",
+  "children": [
+    {
+      "type": "frame",
+      "id": "HFjeO",
+      "x": 0,
+      "y": 0,
+      "name": "CV / Scandi Minimal",
+      "width": 794,
+      "height": 1123,
+      "fill": "$template.bg",
+      "layout": "vertical",
+      "gap": 34,
+      "padding": [
+        52,
+        58
+      ],
+      "children": [
+        {
+          "type": "frame",
+          "id": "l6YUQ",
+          "name": "Header",
+          "width": "fill_container",
+          "gap": 24,
+          "justifyContent": "space_between",
+          "alignItems": "end",
+          "children": [
+            {
+              "type": "frame",
+              "id": "guqdg",
+              "name": "Identity",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 8,
+              "padding": [
+                0,
+                0,
+                2,
+                0
+              ],
+              "children": [
+                {
+                  "type": "text",
+                  "id": "kMJdO",
+                  "name": "nameText",
+                  "fill": "$template.text.primary",
+                  "content": "ALEXANDRA REED",
+                  "fontFamily": "Manrope",
+                  "fontSize": 44,
+                  "fontWeight": "600",
+                  "letterSpacing": 0.4
+                },
+                {
+                  "type": "text",
+                  "id": "2Yydt",
+                  "name": "roleText",
+                  "fill": "$template.text.muted",
+                  "content": "Senior Product Designer",
+                  "fontFamily": "Manrope",
+                  "fontSize": 20,
+                  "fontWeight": "500"
+                },
+                {
+                  "type": "text",
+                  "id": "muqc0",
+                  "name": "introText",
+                  "fill": "$template.text.muted",
+                  "textGrowth": "fixed-width",
+                  "width": 430,
+                  "content": "Design leader blending systems thinking with customer insight to ship calm, high-performing digital experiences.",
+                  "lineHeight": 1.45,
+                  "fontFamily": "Manrope",
+                  "fontSize": 13,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "VwYU3",
+              "name": "Contact",
+              "width": 250,
+              "layout": "vertical",
+              "gap": 6,
+              "alignItems": "end",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "6TQ4X",
+                  "name": "contact3",
+                  "fill": "$template.text.primary",
+                  "content": "London, United Kingdom",
+                  "fontFamily": "Manrope",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "Rf4c0",
+                  "name": "contact2",
+                  "fill": "$template.text.primary",
+                  "content": "+44 7700 900123",
+                  "fontFamily": "Manrope",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "A9n2W",
+                  "name": "contact1",
+                  "fill": "$template.text.primary",
+                  "content": "alexandra.reed@email.com",
+                  "fontFamily": "Manrope",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "Zhb5T",
+                  "name": "contact4",
+                  "fill": "$template.text.primary",
+                  "content": "alexandrareed.design",
+                  "fontFamily": "Manrope",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "rectangle",
+          "id": "OlJN7",
+          "name": "Divider",
+          "fill": "$template.divider",
+          "width": "fill_container",
+          "height": 1
+        },
+        {
+          "type": "frame",
+          "id": "NDXee",
+          "name": "Body",
+          "width": "fill_container",
+          "height": "fill_container",
+          "gap": 38,
+          "children": [
+            {
+              "type": "frame",
+              "id": "vVoU0",
+              "name": "Left Column",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 28,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "pLk3Q",
+                  "name": "Section / Profile",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 10,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "M4sEt",
+                      "name": "profileLabel",
+                      "fill": "$template.text.subtle",
+                      "content": "PROFILE",
+                      "fontFamily": "Manrope",
+                      "fontSize": 11,
+                      "fontWeight": "600",
+                      "letterSpacing": 1.6
+                    },
+                    {
+                      "type": "text",
+                      "id": "9Wn1N",
+                      "name": "profileText",
+                      "fill": "$template.text.primary",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "I build digital products that feel intuitive, useful and visually quiet. I collaborate closely with product and engineering to simplify complexity and deliver measurable outcomes.",
+                      "lineHeight": 1.65,
+                      "fontFamily": "Manrope",
+                      "fontSize": 13,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "HVGpz",
+                  "name": "Section / Experience",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 14,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "RNWmG",
+                      "name": "expLabel",
+                      "fill": "$template.text.subtle",
+                      "content": "EXPERIENCE",
+                      "fontFamily": "Manrope",
+                      "fontSize": 11,
+                      "fontWeight": "600",
+                      "letterSpacing": 1.6
+                    },
+                    {
+                      "type": "frame",
+                      "id": "q3OSk",
+                      "name": "Experience List",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 14,
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "ZLJoJ",
+                          "name": "Experience / Role 1",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 5,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "mOvSM",
+                              "name": "job1Title",
+                              "fill": "$template.text.primary",
+                              "content": "Lead Product Designer · Northfield",
+                              "fontFamily": "Manrope",
+                              "fontSize": 14,
+                              "fontWeight": "600"
+                            },
+                            {
+                              "type": "text",
+                              "id": "Z4EcP",
+                              "name": "job1Meta",
+                              "fill": "$template.text.subtle",
+                              "content": "London · 2022 — Present",
+                              "fontFamily": "Manrope",
+                              "fontSize": 12,
+                              "fontWeight": "normal"
+                            },
+                            {
+                              "type": "frame",
+                              "id": "2IzJ0",
+                              "name": "job1BulletRow",
+                              "width": "fill_container",
+                              "gap": 6,
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "HYRHY",
+                                  "name": "job1BulletMark",
+                                  "fill": "$template.text.muted",
+                                  "content": "•",
+                                  "lineHeight": 1.6,
+                                  "fontFamily": "Manrope",
+                                  "fontSize": 12,
+                                  "fontWeight": "normal"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "gaKQM",
+                                  "name": "job1BulletText",
+                                  "fill": "$template.text.muted",
+                                  "textGrowth": "fixed-width",
+                                  "width": "fill_container",
+                                  "content": "Led redesign of onboarding, increasing activation by 23% and reducing support volume by 31%.",
+                                  "lineHeight": 1.6,
+                                  "fontFamily": "Manrope",
+                                  "fontSize": 12,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "R9daP",
+                          "name": "Experience / Role 2",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 5,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "hYdLp",
+                              "name": "job2Title",
+                              "fill": "$template.text.primary",
+                              "content": "Product Designer · Lumen Health",
+                              "fontFamily": "Manrope",
+                              "fontSize": 14,
+                              "fontWeight": "600"
+                            },
+                            {
+                              "type": "text",
+                              "id": "CrsuP",
+                              "name": "job2Meta",
+                              "fill": "$template.text.subtle",
+                              "content": "Stockholm · 2019 — 2022",
+                              "fontFamily": "Manrope",
+                              "fontSize": 12,
+                              "fontWeight": "normal"
+                            },
+                            {
+                              "type": "frame",
+                              "id": "ih9Iw",
+                              "name": "job2BulletRow1",
+                              "width": "fill_container",
+                              "gap": 6,
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "3oxCT",
+                                  "name": "job2BulletMark1",
+                                  "fill": "$template.text.muted",
+                                  "content": "•",
+                                  "lineHeight": 1.6,
+                                  "fontFamily": "Manrope",
+                                  "fontSize": 12,
+                                  "fontWeight": "normal"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "VyKoV",
+                                  "name": "job2BulletText1",
+                                  "fill": "$template.text.muted",
+                                  "textGrowth": "fixed-width",
+                                  "width": "fill_container",
+                                  "content": "Built a modular design system adopted by 6 teams, cutting design-to-dev handoff time by 38%.",
+                                  "lineHeight": 1.6,
+                                  "fontFamily": "Manrope",
+                                  "fontSize": 12,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "P39lD",
+                              "name": "job2BulletRow2",
+                              "width": "fill_container",
+                              "gap": 6,
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "3UK9L",
+                                  "name": "job2BulletMark2",
+                                  "fill": "$template.text.muted",
+                                  "content": "•",
+                                  "lineHeight": 1.6,
+                                  "fontFamily": "Manrope",
+                                  "fontSize": 12,
+                                  "fontWeight": "normal"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "p72Zh",
+                                  "name": "job2BulletText2",
+                                  "fill": "$template.text.muted",
+                                  "textGrowth": "fixed-width",
+                                  "width": "fill_container",
+                                  "content": "Shipped data-heavy patient dashboards that improved weekly active usage across care coordinators by 19%.",
+                                  "lineHeight": 1.6,
+                                  "fontFamily": "Manrope",
+                                  "fontSize": 12,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "pU70t",
+                  "name": "Section / Selected Work",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 10,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "Zyow2",
+                      "name": "workLabel",
+                      "fill": "$template.text.subtle",
+                      "content": "SELECTED WORK",
+                      "fontFamily": "Manrope",
+                      "fontSize": 11,
+                      "fontWeight": "600",
+                      "letterSpacing": 1.6
+                    },
+                    {
+                      "type": "text",
+                      "id": "hA308",
+                      "name": "workText",
+                      "fill": "$template.text.primary",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Nord Retail Checkout: simplified a 7-step purchase flow into 3 steps, lifting conversion by 14%.",
+                      "lineHeight": 1.6,
+                      "fontFamily": "Manrope",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "text",
+                      "id": "RdV0D",
+                      "name": "workText2",
+                      "fill": "$template.text.primary",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Atlas Fleet App: redesigned mobile dispatch workflows, reducing task completion time by 27% in field tests.",
+                      "lineHeight": 1.6,
+                      "fontFamily": "Manrope",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "ERYPq",
+                  "name": "Section / Impact Highlights",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 10,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "jO1ay",
+                      "name": "impactLabel",
+                      "fill": "$template.text.subtle",
+                      "content": "IMPACT HIGHLIGHTS",
+                      "fontFamily": "Manrope",
+                      "fontSize": 11,
+                      "fontWeight": "600",
+                      "letterSpacing": 1.6
+                    },
+                    {
+                      "type": "text",
+                      "id": "V3Iow",
+                      "name": "impact1",
+                      "fill": "$template.text.primary",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Revenue impact: +$3.2M annualized from UX and conversion improvements across checkout and retention journeys.",
+                      "lineHeight": 1.6,
+                      "fontFamily": "Manrope",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "text",
+                      "id": "87C7w",
+                      "name": "impact2",
+                      "fill": "$template.text.primary",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Team impact: mentored 5 designers, introduced critique rituals and a reusable component library that improved quality consistency.",
+                      "lineHeight": 1.6,
+                      "fontFamily": "Manrope",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "RiSAK",
+              "name": "Right Column",
+              "width": 232,
+              "layout": "vertical",
+              "gap": 24,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "aLrKK",
+                  "name": "Section / Core Skills",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 10,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "fum8X",
+                      "name": "skillsLabel",
+                      "fill": "$template.text.subtle",
+                      "content": "CORE SKILLS",
+                      "fontFamily": "Manrope",
+                      "fontSize": 11,
+                      "fontWeight": "600",
+                      "letterSpacing": 1.6
+                    },
+                    {
+                      "type": "text",
+                      "id": "gNQRE",
+                      "name": "skillsBody",
+                      "fill": "$template.text.primary",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Product strategy\nUX research\nInteraction design\nDesign systems\nInformation architecture\nCross-functional leadership",
+                      "lineHeight": 1.65,
+                      "fontFamily": "Manrope",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "mk7as",
+                  "name": "Section / Tools",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 10,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "TyAVV",
+                      "name": "toolsLabel",
+                      "fill": "$template.text.subtle",
+                      "content": "TOOLS",
+                      "fontFamily": "Manrope",
+                      "fontSize": 11,
+                      "fontWeight": "600",
+                      "letterSpacing": 1.6
+                    },
+                    {
+                      "type": "text",
+                      "id": "SGvbe",
+                      "name": "toolsBody",
+                      "fill": "$template.text.primary",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Figma\nFigJam\nFramer\nNotion\nAmplitude\nMiro",
+                      "lineHeight": 1.65,
+                      "fontFamily": "Manrope",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "h1Si9",
+                  "name": "Section / Education",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 8,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "WDvx7",
+                      "name": "eduLabel",
+                      "fill": "$template.text.subtle",
+                      "content": "EDUCATION",
+                      "fontFamily": "Manrope",
+                      "fontSize": 11,
+                      "fontWeight": "600",
+                      "letterSpacing": 1.6
+                    },
+                    {
+                      "type": "text",
+                      "id": "0XzCp",
+                      "name": "eduTitle",
+                      "fill": "$template.text.primary",
+                      "content": "M.A. Interaction Design",
+                      "fontFamily": "Manrope",
+                      "fontSize": 13,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "text",
+                      "id": "VkRSz",
+                      "name": "eduMeta",
+                      "fill": "$template.text.muted",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Umea Institute of Design · 2017 — 2019",
+                      "lineHeight": 1.6,
+                      "fontFamily": "Manrope",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "BbMQ0",
+                  "name": "Section / Certifications",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 8,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "8SwuK",
+                      "name": "certLabel",
+                      "fill": "$template.text.subtle",
+                      "content": "CERTIFICATIONS",
+                      "fontFamily": "Manrope",
+                      "fontSize": 11,
+                      "fontWeight": "600",
+                      "letterSpacing": 1.6
+                    },
+                    {
+                      "type": "text",
+                      "id": "V0cPV",
+                      "name": "cert1",
+                      "fill": "$template.text.primary",
+                      "content": "NN/g UX Certification",
+                      "fontFamily": "Manrope",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "text",
+                      "id": "p6dx3",
+                      "name": "cert2",
+                      "fill": "$template.text.primary",
+                      "content": "Google Analytics 4",
+                      "fontFamily": "Manrope",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "TFnmR",
+                  "name": "Section / Languages",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 8,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "bdw9t",
+                      "name": "langLabel",
+                      "fill": "$template.text.subtle",
+                      "content": "LANGUAGES",
+                      "fontFamily": "Manrope",
+                      "fontSize": 11,
+                      "fontWeight": "600",
+                      "letterSpacing": 1.6
+                    },
+                    {
+                      "type": "text",
+                      "id": "Ffi0q",
+                      "name": "langBody",
+                      "fill": "$template.text.primary",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "English (Native)\nSwedish (Professional)\nGerman (Conversational)",
+                      "lineHeight": 1.65,
+                      "fontFamily": "Manrope",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "HjAt8",
+                  "name": "Section / Focus",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 8,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "7zRiz",
+                      "name": "focusLabel",
+                      "fill": "$template.text.subtle",
+                      "content": "FOCUS",
+                      "fontFamily": "Manrope",
+                      "fontSize": 11,
+                      "fontWeight": "600",
+                      "letterSpacing": 1.6
+                    },
+                    {
+                      "type": "text",
+                      "id": "bKzvx",
+                      "name": "focusBody",
+                      "fill": "$template.text.primary",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Human-centered AI features\nHealthcare and fintech products\nAccessible design at scale",
+                      "lineHeight": 1.65,
+                      "fontFamily": "Manrope",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "xBBcx",
+                  "name": "Section / References",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 8,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "JdGMv",
+                      "name": "refLabel",
+                      "fill": "$template.text.subtle",
+                      "content": "REFERENCES",
+                      "fontFamily": "Manrope",
+                      "fontSize": 11,
+                      "fontWeight": "600",
+                      "letterSpacing": 1.6
+                    },
+                    {
+                      "type": "text",
+                      "id": "LWFL3",
+                      "name": "refBody",
+                      "fill": "$template.text.primary",
+                      "content": "Available on request",
+                      "fontFamily": "Manrope",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "EhftZ",
+      "x": 914,
+      "y": 0,
+      "name": "CV / Scandi Minimal / Page 2",
+      "width": 794,
+      "height": 1123,
+      "fill": "$template.bg",
+      "layout": "vertical",
+      "gap": 24,
+      "padding": [
+        36,
+        58,
+        52,
+        58
+      ],
+      "children": [
+        {
+          "type": "frame",
+          "id": "tqMX1",
+          "name": "Header",
+          "width": "fill_container",
+          "gap": 8,
+          "children": [
+            {
+              "type": "frame",
+              "id": "cwe7y",
+              "name": "Identity",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 8,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "TXhbO",
+                  "name": "nameText",
+                  "fill": "$template.text.primary",
+                  "content": "ALEXANDRA REED",
+                  "fontFamily": "Manrope",
+                  "fontSize": 24,
+                  "fontWeight": "600",
+                  "letterSpacing": 0.2
+                },
+                {
+                  "type": "text",
+                  "id": "hVZy4",
+                  "name": "roleText",
+                  "fill": "$template.text.subtle",
+                  "content": "Senior Product Designer",
+                  "fontFamily": "Manrope",
+                  "fontSize": 13,
+                  "fontWeight": "500"
+                },
+                {
+                  "type": "text",
+                  "id": "nALW2",
+                  "name": "introText",
+                  "fill": "$template.text.subtle",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Curriculum Vitae - Continued",
+                  "lineHeight": 1.4,
+                  "fontFamily": "Manrope",
+                  "fontSize": 11,
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "rectangle",
+          "id": "TjcIw",
+          "name": "Divider",
+          "fill": "$template.divider",
+          "width": "fill_container",
+          "height": 1
+        },
+        {
+          "type": "frame",
+          "id": "vtsMo",
+          "name": "Body",
+          "width": "fill_container",
+          "height": "fill_container",
+          "gap": 24,
+          "children": [
+            {
+              "type": "frame",
+              "id": "kbxzK",
+              "name": "Left Column",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 20,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "BzUvq",
+                  "name": "Section / Experience",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 10,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "Cawfu",
+                      "name": "expLabel",
+                      "fill": "$template.text.subtle",
+                      "content": "EXPERIENCE (CONTINUED)",
+                      "fontFamily": "Manrope",
+                      "fontSize": 11,
+                      "fontWeight": "600",
+                      "letterSpacing": 1.6
+                    },
+                    {
+                      "type": "frame",
+                      "id": "u5XMK",
+                      "name": "Experience List",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 14,
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "QfNYO",
+                          "name": "Experience / Role 1",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 5,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "dEnIS",
+                              "name": "job1Title",
+                              "fill": "$template.text.primary",
+                              "content": "Lead Product Designer · Northfield",
+                              "fontFamily": "Manrope",
+                              "fontSize": 14,
+                              "fontWeight": "600"
+                            },
+                            {
+                              "type": "text",
+                              "id": "8XkKM",
+                              "name": "job1Meta",
+                              "fill": "$template.text.subtle",
+                              "content": "London · 2022 — Present",
+                              "fontFamily": "Manrope",
+                              "fontSize": 12,
+                              "fontWeight": "normal"
+                            },
+                            {
+                              "type": "frame",
+                              "id": "hOzRz",
+                              "name": "job1BulletRow",
+                              "width": "fill_container",
+                              "gap": 6,
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "VMogG",
+                                  "name": "job1BulletMark",
+                                  "fill": "$template.text.muted",
+                                  "content": "•",
+                                  "lineHeight": 1.6,
+                                  "fontFamily": "Manrope",
+                                  "fontSize": 12,
+                                  "fontWeight": "normal"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "nHbU2",
+                                  "name": "job1BulletText",
+                                  "fill": "$template.text.muted",
+                                  "textGrowth": "fixed-width",
+                                  "width": "fill_container",
+                                  "content": "Led redesign of onboarding, increasing activation by 23% and reducing support volume by 31%.",
+                                  "lineHeight": 1.6,
+                                  "fontFamily": "Manrope",
+                                  "fontSize": 12,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "4Tgcz",
+                          "name": "Experience / Role 2",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 5,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "jPZja",
+                              "name": "job2Title",
+                              "fill": "$template.text.primary",
+                              "content": "Product Designer · Lumen Health",
+                              "fontFamily": "Manrope",
+                              "fontSize": 14,
+                              "fontWeight": "600"
+                            },
+                            {
+                              "type": "text",
+                              "id": "sCxnV",
+                              "name": "job2Meta",
+                              "fill": "$template.text.subtle",
+                              "content": "Stockholm · 2019 — 2022",
+                              "fontFamily": "Manrope",
+                              "fontSize": 12,
+                              "fontWeight": "normal"
+                            },
+                            {
+                              "type": "frame",
+                              "id": "9VpdU",
+                              "name": "job2BulletRow1",
+                              "width": "fill_container",
+                              "gap": 6,
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "fyUjW",
+                                  "name": "job2BulletMark1",
+                                  "fill": "$template.text.muted",
+                                  "content": "•",
+                                  "lineHeight": 1.6,
+                                  "fontFamily": "Manrope",
+                                  "fontSize": 12,
+                                  "fontWeight": "normal"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "6Pqeq",
+                                  "name": "job2BulletText1",
+                                  "fill": "$template.text.muted",
+                                  "textGrowth": "fixed-width",
+                                  "width": "fill_container",
+                                  "content": "Built a modular design system adopted by 6 teams, cutting design-to-dev handoff time by 38%.",
+                                  "lineHeight": 1.6,
+                                  "fontFamily": "Manrope",
+                                  "fontSize": 12,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "4NL5M",
+                              "name": "job2BulletRow2",
+                              "width": "fill_container",
+                              "gap": 6,
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "k8P3a",
+                                  "name": "job2BulletMark2",
+                                  "fill": "$template.text.muted",
+                                  "content": "•",
+                                  "lineHeight": 1.6,
+                                  "fontFamily": "Manrope",
+                                  "fontSize": 12,
+                                  "fontWeight": "normal"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "lVoYc",
+                                  "name": "job2BulletText2",
+                                  "fill": "$template.text.muted",
+                                  "textGrowth": "fixed-width",
+                                  "width": "fill_container",
+                                  "content": "Shipped data-heavy patient dashboards that improved weekly active usage across care coordinators by 19%.",
+                                  "lineHeight": 1.6,
+                                  "fontFamily": "Manrope",
+                                  "fontSize": 12,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "qEHVY",
+                  "name": "selected2",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 10,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "rHuF4",
+                      "name": "workLabel",
+                      "fill": "$template.text.subtle",
+                      "content": "SELECTED WORK",
+                      "fontFamily": "Manrope",
+                      "fontSize": 11,
+                      "fontWeight": "600",
+                      "letterSpacing": 1.6
+                    },
+                    {
+                      "type": "text",
+                      "id": "EmnDu",
+                      "name": "workText",
+                      "fill": "$template.text.primary",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Nord Retail Checkout: simplified a 7-step purchase flow into 3 steps, lifting conversion by 14%.",
+                      "lineHeight": 1.6,
+                      "fontFamily": "Manrope",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "text",
+                      "id": "Tj6Mj",
+                      "name": "workText2",
+                      "fill": "$template.text.primary",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Atlas Fleet App: redesigned mobile dispatch workflows, reducing task completion time by 27% in field tests.",
+                      "lineHeight": 1.6,
+                      "fontFamily": "Manrope",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "JmbEy",
+                  "name": "impact2",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 10,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "doh0Q",
+                      "name": "impactLabel",
+                      "fill": "$template.text.subtle",
+                      "content": "IMPACT HIGHLIGHTS",
+                      "fontFamily": "Manrope",
+                      "fontSize": 11,
+                      "fontWeight": "600",
+                      "letterSpacing": 1.6
+                    },
+                    {
+                      "type": "text",
+                      "id": "b7L0n",
+                      "name": "impact1",
+                      "fill": "$template.text.primary",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Revenue impact: +$3.2M annualized from UX and conversion improvements across checkout and retention journeys.",
+                      "lineHeight": 1.6,
+                      "fontFamily": "Manrope",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "text",
+                      "id": "oEj2a",
+                      "name": "impact2",
+                      "fill": "$template.text.primary",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Team impact: mentored 5 designers, introduced critique rituals and a reusable component library that improved quality consistency.",
+                      "lineHeight": 1.6,
+                      "fontFamily": "Manrope",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "variables": {
+    "template.bg": {
+      "type": "color",
+      "value": "#FFFFFF"
+    },
+    "template.accent": {
+      "type": "color",
+      "value": "#93A29A"
+    },
+    "template.text.primary": {
+      "type": "color",
+      "value": "#1E2428"
+    },
+    "template.text.muted": {
+      "type": "color",
+      "value": "#5E6872"
+    },
+    "template.text.subtle": {
+      "type": "color",
+      "value": "#7A838B"
+    },
+    "template.divider": {
+      "type": "color",
+      "value": "#D9DEDA"
+    }
+  }
+}

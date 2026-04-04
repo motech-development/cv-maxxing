@@ -1,0 +1,531 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>CV / Scandi Minimal</title>
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600&display=swap");
+
+      :root {
+        --bg: #ffffff;
+        --text-primary: #1e2428;
+        --text-muted: #5e6872;
+        --text-subtle: #7a838b;
+        --divider: #d9deda;
+        --font-sans: "Manrope", "Avenir Next", "Segoe UI", sans-serif;
+      }
+
+      @page {
+        size: A4;
+        margin: 0;
+      }
+
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        background: var(--bg);
+        color: var(--text-primary);
+        font-family: var(--font-sans);
+        text-rendering: geometricPrecision;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      h1,
+      h2,
+      h3,
+      p {
+        margin: 0;
+      }
+
+      .cv-document {
+        display: block;
+      }
+
+      .cv-page {
+        width: 794px;
+        height: 1123px;
+        margin: 0 auto;
+        background: var(--bg);
+        display: flex;
+        flex-direction: column;
+        break-after: page;
+        page-break-after: always;
+      }
+
+      .cv-page:last-child {
+        break-after: auto;
+        page-break-after: auto;
+      }
+
+      .cv-page.page-1 {
+        gap: 34px;
+        padding: 52px 58px;
+      }
+
+      .cv-page.page-2 {
+        gap: 24px;
+        padding: 36px 58px 52px;
+      }
+
+      .header-main {
+        display: flex;
+        justify-content: space-between;
+        gap: 24px;
+        align-items: end;
+      }
+
+      .identity-main {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        padding-bottom: 2px;
+        flex: 1 1 auto;
+        min-width: 0;
+      }
+
+      .name-main {
+        color: var(--text-primary);
+        font-size: 44px;
+        line-height: normal;
+        letter-spacing: 0.4px;
+        font-weight: 600;
+      }
+
+      .role-main {
+        color: var(--text-muted);
+        font-size: 20px;
+        line-height: normal;
+        font-weight: 500;
+      }
+
+      .intro-main {
+        width: 430px;
+        color: var(--text-muted);
+        font-size: 13px;
+        line-height: 1.45;
+        font-weight: 400;
+      }
+
+      .contact-list {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        align-items: flex-end;
+        width: 250px;
+        flex: 0 0 250px;
+      }
+
+      .contact-list p {
+        color: var(--text-primary);
+        text-align: right;
+        font-size: 12px;
+        line-height: normal;
+        font-weight: 400;
+      }
+
+      .divider {
+        width: 100%;
+        height: 0;
+        border-top: 1px solid var(--divider);
+        background: transparent;
+      }
+
+      .body-main {
+        display: flex;
+        gap: 38px;
+        align-items: flex-start;
+        flex: 1 1 auto;
+        min-height: 0;
+      }
+
+      .left-col {
+        display: flex;
+        flex-direction: column;
+        gap: 28px;
+        flex: 1 1 auto;
+        min-width: 0;
+      }
+
+      .right-col {
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+        width: 232px;
+        min-width: 232px;
+      }
+
+      .section-label {
+        color: var(--text-subtle);
+        text-transform: uppercase;
+        font-size: 11px;
+        line-height: normal;
+        letter-spacing: 1.6px;
+        font-weight: 600;
+      }
+
+      .section-profile {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .profile-text {
+        color: var(--text-primary);
+        font-size: 13px;
+        line-height: 1.65;
+      }
+
+      .section-experience {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+
+      .experience-list {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+
+      .experience-item {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+      }
+
+      .exp-title {
+        color: var(--text-primary);
+        font-size: 14px;
+        line-height: normal;
+        font-weight: 600;
+      }
+
+      .exp-meta {
+        color: var(--text-subtle);
+        font-size: 12px;
+        line-height: 1.333333;
+        font-weight: 400;
+      }
+
+      .bullet-row {
+        display: flex;
+        gap: 6px;
+        align-items: flex-start;
+      }
+
+      .bullet-mark {
+        width: 8px;
+        flex: 0 0 8px;
+      }
+
+      .bullet-text {
+        flex: 1 1 auto;
+        min-width: 0;
+      }
+
+      .bullet-mark,
+      .bullet-text {
+        color: var(--text-muted);
+        font-size: 12px;
+        line-height: 1.6;
+        font-weight: 400;
+      }
+
+      .section-text-block {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .section-line {
+        color: var(--text-primary);
+        font-size: 12px;
+        line-height: 1.6;
+        font-weight: 400;
+      }
+
+      .sidebar-section-gap-10 {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .sidebar-section-gap-8 {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .sidebar-line {
+        color: var(--text-primary);
+        font-size: 12px;
+        line-height: 1.333333;
+        font-weight: 400;
+      }
+
+      .sidebar-multiline {
+        color: var(--text-primary);
+        font-size: 12px;
+        line-height: 1.666667;
+        font-weight: 400;
+        white-space: pre-line;
+      }
+
+      .edu-title {
+        color: var(--text-primary);
+        font-size: 13px;
+        line-height: normal;
+        font-weight: 600;
+      }
+
+      .edu-meta {
+        color: var(--text-muted);
+        font-size: 12px;
+        line-height: 1.6;
+        font-weight: 400;
+      }
+
+      .header-continued {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .name-continued {
+        color: var(--text-primary);
+        font-size: 24px;
+        line-height: normal;
+        letter-spacing: 0.2px;
+        font-weight: 600;
+      }
+
+      .role-continued {
+        color: var(--text-subtle);
+        font-size: 13px;
+        line-height: normal;
+        font-weight: 500;
+      }
+
+      .intro-continued {
+        color: var(--text-subtle);
+        font-size: 11px;
+        line-height: 1.4;
+        font-weight: 400;
+      }
+
+      .body-continued {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+        flex: 1 1 auto;
+        min-height: 0;
+      }
+
+      .section-experience-continued {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      @media print {
+        html,
+        body {
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+
+        .cv-page {
+          margin: 0;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="cv-document">
+      <section class="cv-page page-1">
+        <header class="header-main">
+          <section class="identity-main">
+            <h1 class="name-main">ALEXANDRA REED</h1>
+            <p class="role-main">Senior Product Designer</p>
+            <p class="intro-main">
+              Design leader blending systems thinking with customer insight to ship calm, high-performing digital experiences.
+            </p>
+          </section>
+
+          <section class="contact-list">
+            <p>London, United Kingdom</p>
+            <p>+44 7700 900123</p>
+            <p>alexandra.reed@email.com</p>
+            <p>alexandrareed.design</p>
+          </section>
+        </header>
+
+        <div class="divider"></div>
+
+        <section class="body-main">
+          <section class="left-col">
+            <section class="section-profile">
+              <h2 class="section-label">PROFILE</h2>
+              <p class="profile-text">
+                I build digital products that feel intuitive, useful and visually quiet. I collaborate closely with product and engineering to simplify complexity and deliver measurable outcomes.
+              </p>
+            </section>
+
+            <section class="section-experience">
+              <h2 class="section-label">EXPERIENCE</h2>
+
+              <div class="experience-list">
+                <article class="experience-item">
+                  <p class="exp-title">Lead Product Designer · Northfield</p>
+                  <p class="exp-meta">London · 2022 — Present</p>
+                  <div class="bullet-row">
+                    <span class="bullet-mark">•</span>
+                    <span class="bullet-text">Led redesign of onboarding, increasing activation by 23% and reducing support volume by 31%.</span>
+                  </div>
+                </article>
+
+                <article class="experience-item">
+                  <p class="exp-title">Product Designer · Lumen Health</p>
+                  <p class="exp-meta">Stockholm · 2019 — 2022</p>
+                  <div class="bullet-row">
+                    <span class="bullet-mark">•</span>
+                    <span class="bullet-text">Built a modular design system adopted by 6 teams, cutting design-to-dev handoff time by 38%.</span>
+                  </div>
+                  <div class="bullet-row">
+                    <span class="bullet-mark">•</span>
+                    <span class="bullet-text">Shipped data-heavy patient dashboards that improved weekly active usage across care coordinators by 19%.</span>
+                  </div>
+                </article>
+              </div>
+            </section>
+
+            <section class="section-text-block">
+              <h2 class="section-label">SELECTED WORK</h2>
+              <p class="section-line">Nord Retail Checkout: simplified a 7-step purchase flow into 3 steps, lifting conversion by 14%.</p>
+              <p class="section-line">Atlas Fleet App: redesigned mobile dispatch workflows, reducing task completion time by 27% in field tests.</p>
+            </section>
+
+            <section class="section-text-block">
+              <h2 class="section-label">IMPACT HIGHLIGHTS</h2>
+              <p class="section-line">Revenue impact: +$3.2M annualized from UX and conversion improvements across checkout and retention journeys.</p>
+              <p class="section-line">Team impact: mentored 5 designers, introduced critique rituals and a reusable component library that improved quality consistency.</p>
+            </section>
+          </section>
+
+          <aside class="right-col">
+            <section class="sidebar-section-gap-10">
+              <h2 class="section-label">CORE SKILLS</h2>
+              <p class="sidebar-multiline">Product strategy
+UX research
+Interaction design
+Design systems
+Information architecture
+Cross-functional leadership</p>
+            </section>
+
+            <section class="sidebar-section-gap-10">
+              <h2 class="section-label">TOOLS</h2>
+              <p class="sidebar-multiline">Figma
+FigJam
+Framer
+Notion
+Amplitude
+Miro</p>
+            </section>
+
+            <section class="sidebar-section-gap-8">
+              <h2 class="section-label">EDUCATION</h2>
+              <p class="edu-title">M.A. Interaction Design</p>
+              <p class="edu-meta">Umea Institute of Design · 2017 — 2019</p>
+            </section>
+
+            <section class="sidebar-section-gap-8">
+              <h2 class="section-label">CERTIFICATIONS</h2>
+              <p class="sidebar-line">NN/g UX Certification</p>
+              <p class="sidebar-line">Google Analytics 4</p>
+            </section>
+
+            <section class="sidebar-section-gap-8">
+              <h2 class="section-label">LANGUAGES</h2>
+              <p class="sidebar-multiline">English (Native)
+Swedish (Professional)
+German (Conversational)</p>
+            </section>
+
+            <section class="sidebar-section-gap-8">
+              <h2 class="section-label">FOCUS</h2>
+              <p class="sidebar-multiline">Human-centered AI features
+Healthcare and fintech products
+Accessible design at scale</p>
+            </section>
+
+            <section class="sidebar-section-gap-8">
+              <h2 class="section-label">REFERENCES</h2>
+              <p class="sidebar-line">Available on request</p>
+            </section>
+          </aside>
+        </section>
+      </section>
+
+      <section class="cv-page page-2">
+        <header class="header-continued">
+          <p class="name-continued">ALEXANDRA REED</p>
+          <p class="role-continued">Senior Product Designer</p>
+          <p class="intro-continued">Curriculum Vitae - Continued</p>
+        </header>
+
+        <div class="divider"></div>
+
+        <section class="body-continued">
+          <section class="section-experience-continued">
+            <h2 class="section-label">EXPERIENCE (CONTINUED)</h2>
+
+            <div class="experience-list">
+              <article class="experience-item">
+                <p class="exp-title">Lead Product Designer · Northfield</p>
+                <p class="exp-meta">London · 2022 — Present</p>
+                <div class="bullet-row">
+                  <span class="bullet-mark">•</span>
+                  <span class="bullet-text">Led redesign of onboarding, increasing activation by 23% and reducing support volume by 31%.</span>
+                </div>
+              </article>
+
+              <article class="experience-item">
+                <p class="exp-title">Product Designer · Lumen Health</p>
+                <p class="exp-meta">Stockholm · 2019 — 2022</p>
+                <div class="bullet-row">
+                  <span class="bullet-mark">•</span>
+                  <span class="bullet-text">Built a modular design system adopted by 6 teams, cutting design-to-dev handoff time by 38%.</span>
+                </div>
+                <div class="bullet-row">
+                  <span class="bullet-mark">•</span>
+                  <span class="bullet-text">Shipped data-heavy patient dashboards that improved weekly active usage across care coordinators by 19%.</span>
+                </div>
+              </article>
+            </div>
+          </section>
+
+          <section class="section-text-block">
+            <h2 class="section-label">SELECTED WORK</h2>
+            <p class="section-line">Nord Retail Checkout: simplified a 7-step purchase flow into 3 steps, lifting conversion by 14%.</p>
+            <p class="section-line">Atlas Fleet App: redesigned mobile dispatch workflows, reducing task completion time by 27% in field tests.</p>
+          </section>
+
+          <section class="section-text-block">
+            <h2 class="section-label">IMPACT HIGHLIGHTS</h2>
+            <p class="section-line">Revenue impact: +$3.2M annualized from UX and conversion improvements across checkout and retention journeys.</p>
+            <p class="section-line">Team impact: mentored 5 designers, introduced critique rituals and a reusable component library that improved quality consistency.</p>
+          </section>
+        </section>
+      </section>
+    </main>
+  </body>
+</html>
