@@ -225,6 +225,160 @@ Codex must be treated as a structured worker with:
 
 That is the difference between a toy wrapper and a real desktop product.
 
+### 7.6 Codex availability and onboarding
+
+Codex setup should be progressive in v1.
+
+Do not block first launch on Codex auth or CLI verification.
+
+The onboarding sequence should be:
+
+1. import first source CV
+2. land in the workspace
+3. let the user enter vacancy data
+4. run Codex preflight only when the user requests `Create version`
+
+This keeps the product onboarding focused on the user outcome instead of infrastructure setup.
+
+### 7.7 Codex preflight contract
+
+Before a generation run is enqueued, the main process should execute a synchronous-looking preflight step that checks:
+
+- Codex CLI/runtime is installed and launchable
+- saved auth state is available when required
+- the runtime can answer a lightweight health probe
+- the generation request can be resumed automatically after preflight succeeds
+
+Preflight result shape:
+
+```ts
+type CodexPreflightStatus =
+  | 'ready'
+  | 'checking'
+  | 'sign_in_required'
+  | 'unavailable'
+
+/**
+ * `status` is the authoritative preflight outcome.
+ * `canResumeGeneration` semantics by status:
+ * - `ready` => always `true`; generation may continue immediately.
+ * - `checking` => always `false`; generation remains blocked until a terminal preflight result is returned.
+ * - `sign_in_required` => always `true` in v1; this status is only returned after the app has persisted a resumable pending generation command that can continue after re-auth or session recovery.
+ * - `unavailable` => always `false`; generation is blocked until local Codex setup is repaired and preflight succeeds.
+ *
+ * Allowed `failureCode` values by status:
+ * - `ready` => no `failureCode`
+ * - `checking` => no `failureCode`
+ * - `sign_in_required` => `auth_missing` | `auth_expired`
+ * - `unavailable` => `cli_missing` | `launch_failed` | `healthcheck_failed`
+ */
+type CodexPreflightReady = {
+  status: 'ready'
+  canResumeGeneration: true
+  message: string
+}
+
+type CodexPreflightChecking = {
+  status: 'checking'
+  canResumeGeneration: false
+  message: string
+}
+
+type CodexPreflightSignInRequired = {
+  status: 'sign_in_required'
+  canResumeGeneration: true
+  failureCode: 'auth_missing' | 'auth_expired'
+  message: string
+}
+
+type CodexPreflightUnavailable = {
+  status: 'unavailable'
+  canResumeGeneration: false
+  failureCode: 'cli_missing' | 'launch_failed' | 'healthcheck_failed'
+  message: string
+}
+
+type CodexPreflightResult =
+  | CodexPreflightReady
+  | CodexPreflightChecking
+  | CodexPreflightSignInRequired
+  | CodexPreflightUnavailable
+```
+
+Behavior rules:
+
+- if status is `ready`, the generation command continues without extra UX
+- if status is `sign_in_required`, the queued generation remains pending until auth completes or the user cancels; in v1 this status is only valid for resumable pending commands, so `CodexPreflightSignInRequired.canResumeGeneration` must always be `true`
+- if status is `unavailable`, vacancy input remains intact and the user can retry after local setup is repaired
+- preflight should not discard the currently selected source CV, vacancy URL, or pasted description
+- the `checking` probe timeout must be a runtime-configurable value, not a compile-time constant
+- resolve the effective `checking` timeout in the main process by first reading the runtime environment variable `CHECKING_TIMEOUT_MS` and parsing it as milliseconds, then falling back to the persisted app config/API field `checkingTimeout`, then the default
+- default `checkingTimeout` / `CHECKING_TIMEOUT_MS` to `12000` ms so the probe has enough time for a local Codex launch and health check without leaving the user trapped on a long indefinite wait
+- the same resolved timeout value must drive the non-cancellable `Codex Setup / Checking` probe flow and the transition to `failureCode: 'healthcheck_failed'`
+
+### 7.8 Codex onboarding IPC surface
+
+Recommended preload-facing API:
+
+```ts
+interface CodexOnboardingApi {
+  getCodexPreflight(): Promise<CodexPreflightResult>
+  startCodexSignIn(): Promise<CodexPreflightResult>
+  retryCodexPreflight(): Promise<CodexPreflightResult>
+  openCodexSetupGuide(): Promise<void>
+}
+```
+
+Runtime config shape for the preflight probe:
+
+```ts
+interface CodexRuntimeConfig {
+  /**
+   * Effective timeout for the non-cancellable `checking` probe.
+   * Resolve at runtime from `CHECKING_TIMEOUT_MS` parsed as milliseconds,
+   * then persisted config/API, then the default 12000 ms window.
+   */
+  checkingTimeout: number
+}
+```
+
+Generation-facing API shape:
+
+```ts
+interface CreateTailoredPackageCommand {
+  sourceCvId: string
+  vacancySourceType: 'url' | 'pasted_text' | 'imported_file'
+  vacancySourceUrl?: string
+  vacancyPastedText?: string
+}
+
+type CreateTailoredPackageResponse =
+  | { kind: 'started'; tailoredPackageId: string; generationRunId: string }
+  | { kind: 'blocked'; preflight: CodexPreflightResult }
+```
+
+Critical rule:
+
+- the renderer does not infer Codex state from logs or process output
+- the main process owns Codex probing, auth flow orchestration, retry decisions, and resumability
+- the renderer only renders the state returned by typed IPC
+- `CreateTailoredPackageCommand` should prefix vacancy intake fields with `vacancy*` to distinguish them from the selected source CV; downstream persistence may still normalize these values into the `Vacancy` entity fields `sourceType` and `sourceUrl`
+
+### 7.9 Resume semantics
+
+If the user clicks `Create version` and the run is blocked on Codex setup:
+
+- persist the normalized vacancy draft first
+- persist the selected source CV id first
+- create a resumable pending command record
+- after successful sign in or retry, resume the exact pending generation command instead of forcing the user to re-enter data
+
+If the user cancels from the sign-in-required state:
+
+- keep the vacancy draft in the UI
+- do not create a failed package record
+- record only a cancelled preflight event if audit history is needed
+
 ## 8. Vacancy Ingestion Architecture
 
 ### 8.1 Intake modes
@@ -592,6 +746,7 @@ Map the renderer directly to `design/app.pen`.
 - import first source CV
 - explain supported formats
 - explain next steps
+- explain that Codex setup happens later, only when the user creates the first version
 
 #### Source CV Library
 
@@ -610,6 +765,50 @@ Map the renderer directly to `design/app.pen`.
 
 - show package state transitions from the main process job engine
 
+#### Codex Setup States
+
+These states now exist in `design/app.pen` and should be implemented as first-class renderer routes or screen modes:
+
+- `CV Maxxing / Codex Setup / Checking`
+- `CV Maxxing / Codex Setup / Sign In Required`
+- `CV Maxxing / Codex Setup / Unavailable`
+
+State intent:
+
+- `Checking`: lightweight preflight state shown immediately after the user asks to create a version and the app is probing the local Codex runtime; v1 should treat this as non-cancellable to avoid abandoning an in-flight probe halfway through, but it must use a runtime-configurable timeout window so the user is not trapped on an indefinite probe. The effective timeout should come from the runtime env var `CHECKING_TIMEOUT_MS`, then the persisted `checkingTimeout` setting, then the default `12000` ms without requiring a rebuild.
+- `Sign In Required`: blocking state shown when the runtime exists but a usable sign-in is missing or expired; this state must support both retry after failed sign-in and user cancel back to the workspace with the vacancy draft preserved
+- `Unavailable`: blocking state shown when the local Codex runtime cannot be launched or verified; this state must support repeated retry attempts and may remain in place if retry fails again
+
+Transition rules:
+
+- `First Launch` -> `Workspace / Empty` after first source CV import succeeds
+- `Workspace / Empty` -> `Codex Setup / Checking` after the first `Create version` click
+- `Codex Setup / Checking` -> `Workspace / Loading` when preflight returns `ready`
+- `Codex Setup / Checking` -> `Codex Setup / Sign In Required` when preflight returns `sign_in_required`
+- `Codex Setup / Checking` -> `Codex Setup / Unavailable` when preflight returns `unavailable`
+- `Codex Setup / Checking` -> `Codex Setup / Unavailable` when the configurable preflight timeout elapses; emit `failureCode: 'healthcheck_failed'` and show timeout-aware recovery messaging
+- `Codex Setup / Sign In Required` -> `Codex Setup / Checking` after successful sign-in
+- `Codex Setup / Sign In Required` -> `Workspace / Empty` when the user cancels; preserve the vacancy draft per section 7.9
+- `Codex Setup / Sign In Required` -> `Codex Setup / Sign In Required` when sign-in fails and the dialog remains open with an error message
+- `Codex Setup / Unavailable` -> `Codex Setup / Checking` after `Retry check` starts a new preflight attempt
+- `Codex Setup / Unavailable` -> `Codex Setup / Unavailable` when `Retry check` fails again and the app stays blocked on local setup
+- `Workspace / Loading` -> `Workspace / Active` when generation and rendering succeed
+
+Preflight and retry notes:
+
+- `Codex Setup / Checking` does not support user-initiated cancel in v1; the app should wait for a terminal preflight result and then route accordingly
+- `Codex Setup / Checking` should fail closed on timeout instead of spinning forever; default the timeout to the runtime-configurable `12000` ms value and map timeout expiry to `failureCode: 'healthcheck_failed'`
+- expose that timeout through both `CHECKING_TIMEOUT_MS` and the persisted config/API field `checkingTimeout` so developers or operators can tune the probe without recompiling; a CLI or UI setting can be added later if user-facing adjustment is desired
+- `Retry check` should always route through `Codex Setup / Checking` first, not jump directly to success or failure UI without a fresh probe
+- failed sign-in attempts should keep the user in `Codex Setup / Sign In Required` with a specific inline error, not bounce them to `Unavailable`
+
+Copy guidance:
+
+- first launch should frame Codex setup as a later step, not a prerequisite
+- sign-in copy should explain that this is a one-time local setup on the current Mac
+- unavailable copy should focus on local repair and safe retry, not on vague backend failure wording
+- when `Unavailable` is reached from `Checking` because `failureCode: 'healthcheck_failed'`, the user-facing message should say the local Codex health check timed out and should offer a visible `Retry check` action
+
 ### UI rule
 
 The renderer never performs generation or fetch logic directly.
@@ -627,6 +826,7 @@ The renderer only:
 - filesystem access
 - SQLite access
 - Codex process execution
+- Codex preflight and resumable onboarding state
 - browser-assisted vacancy fetch
 - HTML rendering for PDF export
 - secure settings storage
@@ -635,6 +835,7 @@ The renderer only:
 
 - typed API surface
 - input validation at boundary
+- typed Codex onboarding and retry commands
 
 ### Renderer owns
 
@@ -642,6 +843,7 @@ The renderer only:
 - screen composition
 - immutable package browsing
 - preview presentation
+- mapping typed preflight state to the dedicated setup screens in `design/app.pen`
 
 ## 16. Security and Privacy
 
@@ -754,6 +956,7 @@ src/
 ### Phase 4. Codex generation engine
 
 - implement Codex runtime adapter
+- implement Codex preflight and resumable setup flow
 - define task JSON schema
 - define output JSON schema
 - implement generation-run workspace
@@ -803,6 +1006,9 @@ src/
 ### End-to-end tests
 
 - first launch import flow
+- first `Create version` flow when Codex is already ready
+- first `Create version` flow when sign-in is required
+- retry from Codex unavailable state after local repair
 - create package from Greenhouse URL
 - create package from LinkedIn or Indeed with browser-assisted fetch
 - browse saved packages

@@ -30,6 +30,7 @@ These rules always apply. Follow project-local rules first when they are more sp
 - The product is Electron-first and local desktop-first; do not introduce a required web backend unless a later task proves it necessary.
 - V1 targets macOS Intel.
 - Use Codex as the primary AI worker for generation workflows.
+- Treat Codex setup as just-in-time onboarding triggered on the first `Create version` attempt, not as a first-launch prerequisite.
 - Support one fixed CV template only in v1.
 - Generated CVs and cover letters are immutable outputs in v1; regeneration creates a new version instead of editing in place.
 - Cover letters must be previewable in-app as generated PDFs and exportable as PDFs from inside the app in v1.
