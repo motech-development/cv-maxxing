@@ -161,22 +161,22 @@ Electron Desktop App
 
 ## 6. Primary Technical Decisions
 
-| Area | Decision |
-|---|---|
-| App shell | Electron + React + TypeScript |
-| Package manager | `pnpm` |
-| Persistence | SQLCipher-backed SQLite + encrypted local filesystem artifacts |
-| AI runtime | Provider-neutral local AI worker port; v1 ships Codex CLI adapter only |
-| Vacancy fetch | deterministic fetchers first, browser-assisted internal session second, pasted text fallback |
-| CV rendering | dynamic shared HTML renderer derived from `design/cv.html` |
-| PDF export | Chromium `printToPDF()` from hidden render surface |
-| PDF preview | preview the actual generated PDF artifact in-app |
-| Cover letters | generated alongside each adapted CV, style-matched, immutable, previewed/exported as PDF, copyable as plain text |
-| Backend | none required for v1 |
-| Docker | not required for v1 |
-| UI styling | Tailwind for app UI with CSS-variable tokens; no MUI |
-| Renderer data state | TanStack Query for IPC-backed async state; no Redux |
-| Database mapper | Drizzle ORM with SQLCipher-compatible SQLite driver |
+| Area                | Decision                                                                                                         |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| App shell           | Electron + React + TypeScript                                                                                    |
+| Package manager     | `pnpm`                                                                                                           |
+| Persistence         | SQLCipher-backed SQLite + encrypted local filesystem artifacts                                                   |
+| AI runtime          | Provider-neutral local AI worker port; v1 ships Codex CLI adapter only                                           |
+| Vacancy fetch       | deterministic fetchers first, browser-assisted internal session second, pasted text fallback                     |
+| CV rendering        | dynamic shared HTML renderer derived from `design/cv.html`                                                       |
+| PDF export          | Chromium `printToPDF()` from hidden render surface                                                               |
+| PDF preview         | preview the actual generated PDF artifact in-app                                                                 |
+| Cover letters       | generated alongside each adapted CV, style-matched, immutable, previewed/exported as PDF, copyable as plain text |
+| Backend             | none required for v1                                                                                             |
+| Docker              | not required for v1                                                                                              |
+| UI styling          | Tailwind for app UI with CSS-variable tokens; no MUI                                                             |
+| Renderer data state | TanStack Query for IPC-backed async state; no Redux                                                              |
+| Database mapper     | Drizzle ORM with SQLCipher-compatible SQLite driver                                                              |
 
 ## 7. AI Worker Runtime Architecture
 
@@ -314,11 +314,7 @@ Preflight result shape:
 ```ts
 type AiWorkerProvider = 'codex'
 
-type AiWorkerPreflightStatus =
-  | 'ready'
-  | 'checking'
-  | 'sign_in_required'
-  | 'unavailable'
+type AiWorkerPreflightStatus = 'ready' | 'checking' | 'sign_in_required' | 'unavailable'
 
 type AiWorkerFailureCode =
   | 'auth_missing'

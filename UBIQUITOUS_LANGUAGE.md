@@ -2,68 +2,68 @@
 
 ## CV and application lifecycle
 
-| Term | Definition | Aliases to avoid |
-| --- | --- | --- |
-| **Original CV** | The candidate's imported CV used as the truthful evidence base for adaptations. | Source CV, base CV, master CV |
-| **Active Original CV** | The single original CV currently selected for creating new tailored applications. | Current source, selected version |
-| **Original CV Snapshot** | An immutable stored copy of an original CV as it existed when a tailored application was generated. | Version, copy, backup |
-| **Adapted CV** | A generated CV tailored to one job vacancy while remaining grounded in the original CV. | Generated CV, tailored CV, version |
-| **Cover Letter** | A generated letter tailored to one job vacancy and style-matched to the original CV. | Letter, application letter |
-| **Tailored Application** | The immutable saved output set for one original CV snapshot and one job vacancy. | Package, version, application package |
-| **Adaptation Summary** | A compact explanation of emphasis, compression, omissions, and vacancy gaps for a tailored application. | Change log, confidence report, comparison |
-| **Exported PDF** | A user-visible PDF file written outside app storage from a specific tailored application. | Download, document export, editable export |
+| Term                     | Definition                                                                                              | Aliases to avoid                           |
+| ------------------------ | ------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
+| **Original CV**          | The candidate's imported CV used as the truthful evidence base for adaptations.                         | Source CV, base CV, master CV              |
+| **Active Original CV**   | The single original CV currently selected for creating new tailored applications.                       | Current source, selected version           |
+| **Original CV Snapshot** | An immutable stored copy of an original CV as it existed when a tailored application was generated.     | Version, copy, backup                      |
+| **Adapted CV**           | A generated CV tailored to one job vacancy while remaining grounded in the original CV.                 | Generated CV, tailored CV, version         |
+| **Cover Letter**         | A generated letter tailored to one job vacancy and style-matched to the original CV.                    | Letter, application letter                 |
+| **Tailored Application** | The immutable saved output set for one original CV snapshot and one job vacancy.                        | Package, version, application package      |
+| **Adaptation Summary**   | A compact explanation of emphasis, compression, omissions, and vacancy gaps for a tailored application. | Change log, confidence report, comparison  |
+| **Exported PDF**         | A user-visible PDF file written outside app storage from a specific tailored application.               | Download, document export, editable export |
 
 ## Vacancy intake
 
-| Term | Definition | Aliases to avoid |
-| --- | --- | --- |
-| **Job Vacancy** | A role opportunity whose content is used to tailor an original CV and cover letter. | Job description, listing, advert, posting |
-| **Vacancy Input** | The user-provided URL or pasted job text used to start vacancy ingestion. | Job input, intake payload |
-| **Vacancy Draft** | In-progress vacancy input preserved while setup, sign-in, fetch, or generation is blocked. | Unsaved vacancy, form data |
-| **Vacancy Snapshot** | The persisted vacancy evidence captured from a live URL or pasted job text. | Page cache, scrape, import |
-| **Normalized Vacancy** | The structured vacancy model extracted from a vacancy snapshot. | Parsed job, structured job description |
-| **Job Board** | The classified source type for a vacancy, such as LinkedIn, Indeed, Greenhouse, or generic. | Source, provider, site |
-| **Browser-Assisted Vacancy Ingestion** | Vacancy ingestion that uses the app-managed browser session when direct fetching is blocked or incomplete. | Browser scraping, saved page import |
-| **Pasted Job Text** | User-pasted vacancy content used when live URL extraction is unavailable or incomplete. | Manual job description, pasted description |
+| Term                                   | Definition                                                                                                 | Aliases to avoid                           |
+| -------------------------------------- | ---------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
+| **Job Vacancy**                        | A role opportunity whose content is used to tailor an original CV and cover letter.                        | Job description, listing, advert, posting  |
+| **Vacancy Input**                      | The user-provided URL or pasted job text used to start vacancy ingestion.                                  | Job input, intake payload                  |
+| **Vacancy Draft**                      | In-progress vacancy input preserved while setup, sign-in, fetch, or generation is blocked.                 | Unsaved vacancy, form data                 |
+| **Vacancy Snapshot**                   | The persisted vacancy evidence captured from a live URL or pasted job text.                                | Page cache, scrape, import                 |
+| **Normalized Vacancy**                 | The structured vacancy model extracted from a vacancy snapshot.                                            | Parsed job, structured job description     |
+| **Job Board**                          | The classified source type for a vacancy, such as LinkedIn, Indeed, Greenhouse, or generic.                | Source, provider, site                     |
+| **Browser-Assisted Vacancy Ingestion** | Vacancy ingestion that uses the app-managed browser session when direct fetching is blocked or incomplete. | Browser scraping, saved page import        |
+| **Pasted Job Text**                    | User-pasted vacancy content used when live URL extraction is unavailable or incomplete.                    | Manual job description, pasted description |
 
 ## AI worker and generation
 
-| Term | Definition | Aliases to avoid |
-| --- | --- | --- |
-| **AI Worker** | The local provider-neutral generation runtime required before CV import, vacancy drafting, or generation can proceed. | AI, LLM, Codex, backend |
-| **Codex CLI Adapter** | The v1 provider-specific adapter that connects the AI worker boundary to a bring-your-own Codex CLI installation. | Codex worker, OpenAI worker |
-| **AI Worker Setup** | The blocking startup flow that verifies the local AI worker before the workspace opens. | Onboarding, model setup |
-| **Preflight** | The readiness check that verifies the configured AI worker is installed, launchable, authenticated, and healthy. | Health check, startup check |
-| **Pending Generation Command** | A persisted generation request that can resume after AI worker sign-in or local setup repair. | Retry job, queued prompt |
-| **Generation Run** | A single attempt to produce adapted CV and cover-letter structured outputs for a tailored application. | Prompt run, worker job |
-| **Transient Worker Workspace** | A short-lived plaintext run directory containing bounded input and output artifacts for a generation run. | Temp folder, scratch space |
-| **Writing Style Profile** | The structured description of an original CV's tone, vocabulary, punctuation, and phrasing constraints. | Style fingerprint, tone profile |
-| **Factual Consistency** | The rule that generated content must remain supported by original CV evidence and vacancy grounding. | Truthfulness, accuracy |
+| Term                           | Definition                                                                                                            | Aliases to avoid                |
+| ------------------------------ | --------------------------------------------------------------------------------------------------------------------- | ------------------------------- |
+| **AI Worker**                  | The local provider-neutral generation runtime required before CV import, vacancy drafting, or generation can proceed. | AI, LLM, Codex, backend         |
+| **Codex CLI Adapter**          | The v1 provider-specific adapter that connects the AI worker boundary to a bring-your-own Codex CLI installation.     | Codex worker, OpenAI worker     |
+| **AI Worker Setup**            | The blocking startup flow that verifies the local AI worker before the workspace opens.                               | Onboarding, model setup         |
+| **Preflight**                  | The readiness check that verifies the configured AI worker is installed, launchable, authenticated, and healthy.      | Health check, startup check     |
+| **Pending Generation Command** | A persisted generation request that can resume after AI worker sign-in or local setup repair.                         | Retry job, queued prompt        |
+| **Generation Run**             | A single attempt to produce adapted CV and cover-letter structured outputs for a tailored application.                | Prompt run, worker job          |
+| **Transient Worker Workspace** | A short-lived plaintext run directory containing bounded input and output artifacts for a generation run.             | Temp folder, scratch space      |
+| **Writing Style Profile**      | The structured description of an original CV's tone, vocabulary, punctuation, and phrasing constraints.               | Style fingerprint, tone profile |
+| **Factual Consistency**        | The rule that generated content must remain supported by original CV evidence and vacancy grounding.                  | Truthfulness, accuracy          |
 
 ## Rendering and documents
 
-| Term | Definition | Aliases to avoid |
-| --- | --- | --- |
-| **Canonical CV Model** | The structured CV JSON used as the authoritative source for generation and rendering. | CV data, parsed CV |
-| **Cover-Letter Model** | The structured cover-letter content used to produce both PDF and plain text outputs. | Letter JSON, text draft |
-| **Render Model** | The structured document view model consumed by the HTML-to-PDF renderer. | Template data, view data |
-| **Dynamic CV Template Family** | The single v1 CV visual system that supports single-page and multi-page CVs. | Template library, theme, layout set |
-| **Continued Header** | The reduced header used on CV pages after page 1. | Repeated header, page 2 header |
-| **Generated PDF Artifact** | The immutable in-app PDF created by the renderer for preview and export. | HTML preview, rendered document |
-| **PDF Preview** | The in-app view of the actual generated PDF artifact. | HTML preview, mock preview |
-| **Cover-Letter Plain Text** | The copyable text derived from the same canonical cover-letter content as the PDF. | Editable cover letter, draft text |
+| Term                           | Definition                                                                            | Aliases to avoid                    |
+| ------------------------------ | ------------------------------------------------------------------------------------- | ----------------------------------- |
+| **Canonical CV Model**         | The structured CV JSON used as the authoritative source for generation and rendering. | CV data, parsed CV                  |
+| **Cover-Letter Model**         | The structured cover-letter content used to produce both PDF and plain text outputs.  | Letter JSON, text draft             |
+| **Render Model**               | The structured document view model consumed by the HTML-to-PDF renderer.              | Template data, view data            |
+| **Dynamic CV Template Family** | The single v1 CV visual system that supports single-page and multi-page CVs.          | Template library, theme, layout set |
+| **Continued Header**           | The reduced header used on CV pages after page 1.                                     | Repeated header, page 2 header      |
+| **Generated PDF Artifact**     | The immutable in-app PDF created by the renderer for preview and export.              | HTML preview, rendered document     |
+| **PDF Preview**                | The in-app view of the actual generated PDF artifact.                                 | HTML preview, mock preview          |
+| **Cover-Letter Plain Text**    | The copyable text derived from the same canonical cover-letter content as the PDF.    | Editable cover letter, draft text   |
 
 ## Local storage and privacy
 
-| Term | Definition | Aliases to avoid |
-| --- | --- | --- |
-| **App Storage** | CV Maxxing's local encrypted storage for metadata and sensitive artifacts. | Database, cache, filesystem |
-| **Encrypted Artifact** | A sensitive stored file encrypted at the storage adapter layer. | File, blob, attachment |
-| **Metadata Store** | The SQLCipher-backed SQLite store for app records and references. | Database, registry |
-| **Encryption Key** | The Keychain-backed key used to encrypt and decrypt local app data. | Secret, password, token |
-| **Job-Site Browser Data** | The app-managed browser profile data used for authenticated vacancy access. | Cookies, browser cache, session data |
-| **Reset Local App Data** | The destructive action that removes app storage, the encryption key, and job-site browser data. | Clear cache, delete account, wipe data |
-| **Hard Deletion** | Removal of a record and its app-managed artifacts from CV Maxxing local storage. | Secure erase, purge |
+| Term                      | Definition                                                                                      | Aliases to avoid                       |
+| ------------------------- | ----------------------------------------------------------------------------------------------- | -------------------------------------- |
+| **App Storage**           | CV Maxxing's local encrypted storage for metadata and sensitive artifacts.                      | Database, cache, filesystem            |
+| **Encrypted Artifact**    | A sensitive stored file encrypted at the storage adapter layer.                                 | File, blob, attachment                 |
+| **Metadata Store**        | The SQLCipher-backed SQLite store for app records and references.                               | Database, registry                     |
+| **Encryption Key**        | The Keychain-backed key used to encrypt and decrypt local app data.                             | Secret, password, token                |
+| **Job-Site Browser Data** | The app-managed browser profile data used for authenticated vacancy access.                     | Cookies, browser cache, session data   |
+| **Reset Local App Data**  | The destructive action that removes app storage, the encryption key, and job-site browser data. | Clear cache, delete account, wipe data |
+| **Hard Deletion**         | Removal of a record and its app-managed artifacts from CV Maxxing local storage.                | Secure erase, purge                    |
 
 ## Relationships
 
