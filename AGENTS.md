@@ -156,6 +156,9 @@ Absent these conditions, continue without asking for confirmation.
 - Prefer targeted tests over full-suite runs when they provide sufficient evidence quickly.
 - Always run relevant linting and type-checking after changes.
 - Run broader verification when shared code, public APIs, or cross-cutting behavior changes.
+- Before concluding any issue or feature slice, explicitly verify the implemented result against the task's acceptance criteria and against any applicable decisions in `ARCHITECTURE.md`. Treat mismatches as failed quality gates.
+- Before concluding any issue or feature slice, run CodeRabbit review on the current diff when the CLI is available and authenticated. Fix reported issues and rerun until CodeRabbit returns no findings, or report the concrete blocker if the review cannot complete.
+- Treat CodeRabbit review as a slow quality gate. Once a review run has started successfully, wait for it to complete instead of restarting it prematurely.
 - If a quality gate fails, diagnose and fix the cause autonomously.
 
 ---
@@ -189,6 +192,8 @@ After implementation:
 3. Validate the primary affected workflow end-to-end.
 4. Check for regressions in at least one related workflow not directly modified.
 5. Confirm all identified consumers remain consistent.
+6. Check the finished work against the stated acceptance criteria and the relevant sections of `ARCHITECTURE.md`, and resolve any gaps before reporting completion.
+7. Run CodeRabbit against the final diff, address findings, and repeat until the review is clear or a tooling/authentication blocker is explicitly documented.
 
 If anything fails, fix it before concluding.
 
@@ -357,6 +362,8 @@ Work is done only when all are true:
 - Required tests exist and pass.
 - Coverage remains at or above required threshold, or the gap is explicitly identified.
 - Affected workflows are verified.
+- The result has been explicitly checked against the task acceptance criteria and relevant `ARCHITECTURE.md` decisions.
+- CodeRabbit has been run against the final diff and either returned no findings or a concrete blocker has been documented.
 - Related consumers are updated.
 - Changed files have been re-read.
 - Project learnings discovered during the task are recorded in `AGENTS.md`.
