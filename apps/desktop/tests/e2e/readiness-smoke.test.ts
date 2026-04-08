@@ -1,5 +1,12 @@
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import path from 'node:path'
+
+import { strToU8, zipSync } from 'fflate'
 import { expect, test } from '@playwright/test'
 import { _electron as electron } from 'playwright'
+
+const temporaryDirectories: string[] = []
 
 async function launchDesktopApp(environment: NodeJS.ProcessEnv = {}) {
   const combinedEnvironment = Object.fromEntries(
@@ -15,6 +22,17 @@ async function launchDesktopApp(environment: NodeJS.ProcessEnv = {}) {
     env: combinedEnvironment,
   })
 }
+
+test.afterEach(async () => {
+  await Promise.all(
+    temporaryDirectories.splice(0).map(async (directoryPath) => {
+      await rm(directoryPath, {
+        force: true,
+        recursive: true,
+      })
+    }),
+  )
+})
 
 test('restores the saved workspace route after the AI worker is already ready', async () => {
   const electronApp = await launchDesktopApp({
@@ -34,6 +52,121 @@ test('restores the saved workspace route after the AI worker is already ready', 
   await electronApp.close()
 })
 
+test('imports the first PDF original CV after the readiness gate passes', async () => {
+  const testPaths = await createOriginalCvTestPaths()
+
+  await writeFile(
+    testPaths.pdfPath,
+    createPdfDocumentBuffer([
+      'Ada Lovelace',
+      'Principal Product Designer',
+      'Summary',
+      'Design leader focused on complex workflow products for technical users.',
+      'Experience',
+      'Principal Product Designer | Analytical Engines Ltd',
+      'Led product design for AI-assisted desktop tooling.',
+      'Skills',
+      'Product strategy, UX research, prototyping',
+    ]),
+  )
+
+  const electronApp = await launchDesktopApp({
+    CV_MAXXING_AI_WORKER_PREFLIGHT_STATUS: 'ready',
+    CV_MAXXING_LOCAL_APP_DATA_ROOT: testPaths.appDataRoot,
+    CV_MAXXING_STARTUP_DESTINATION: 'first_launch',
+  })
+
+  const page = await electronApp.firstWindow()
+
+  await expect(page.getByRole('heading', { name: 'Import your original CV' })).toBeVisible()
+  await page.getByLabel('Original CV file').setInputFiles(testPaths.pdfPath)
+  await page.getByRole('button', { name: 'Import original CV' }).click()
+  await expect(page.getByRole('heading', { name: 'Original CV active' })).toBeVisible()
+  await expect(page.getByText('ada-lovelace.pdf')).toBeVisible()
+  await expect(page.getByText('1 snapshots stored')).toBeVisible()
+
+  await electronApp.close()
+
+  const databaseBytes = await readFile(path.join(testPaths.appDataRoot, 'app.db'))
+
+  expect(databaseBytes.includes(Buffer.from('Ada Lovelace', 'utf8'))).toBe(false)
+})
+
+test('replaces the active original CV with a DOCX snapshot inside the workspace route', async () => {
+  const testPaths = await createOriginalCvTestPaths()
+
+  await writeFile(
+    testPaths.pdfPath,
+    createPdfDocumentBuffer([
+      'Ada Lovelace',
+      'Principal Product Designer',
+      'Summary',
+      'Design leader focused on complex workflow products for technical users.',
+      'Experience',
+      'Principal Product Designer | Analytical Engines Ltd',
+      'Led product design for AI-assisted desktop tooling.',
+      'Skills',
+      'Product strategy, UX research, prototyping',
+    ]),
+  )
+  await writeFile(
+    testPaths.docxPath,
+    createDocxDocumentBuffer([
+      'Ada Lovelace',
+      'Staff Product Designer',
+      'Summary',
+      'Product designer adapting CVs for desktop AI tooling.',
+      'Experience',
+      'Staff Product Designer | Analytical Engines Ltd',
+      'Refined import and adaptation workflows for complex authoring tools.',
+      'Skills',
+      'Design systems, desktop UX, content strategy',
+    ]),
+  )
+
+  const electronApp = await launchDesktopApp({
+    CV_MAXXING_AI_WORKER_PREFLIGHT_STATUS: 'ready',
+    CV_MAXXING_LOCAL_APP_DATA_ROOT: testPaths.appDataRoot,
+    CV_MAXXING_STARTUP_DESTINATION: 'first_launch',
+  })
+
+  const page = await electronApp.firstWindow()
+
+  await page.getByLabel('Original CV file').setInputFiles(testPaths.pdfPath)
+  await page.getByRole('button', { name: 'Import original CV' }).click()
+  await expect(page.getByRole('heading', { name: 'Original CV active' })).toBeVisible()
+  await page.getByLabel('Original CV file').setInputFiles(testPaths.docxPath)
+  await page.getByRole('button', { name: 'Replace original CV' }).click()
+  await expect(page.getByText('ada-lovelace-revised.docx')).toBeVisible()
+  await expect(page.getByText('2 snapshots stored')).toBeVisible()
+
+  await electronApp.close()
+})
+
+test('rejects unreadable original CV imports without leaving the first-launch flow', async () => {
+  const testPaths = await createOriginalCvTestPaths()
+
+  await writeFile(testPaths.pdfPath, createPdfDocumentBuffer([]))
+
+  const electronApp = await launchDesktopApp({
+    CV_MAXXING_AI_WORKER_PREFLIGHT_STATUS: 'ready',
+    CV_MAXXING_LOCAL_APP_DATA_ROOT: testPaths.appDataRoot,
+    CV_MAXXING_STARTUP_DESTINATION: 'first_launch',
+  })
+
+  const page = await electronApp.firstWindow()
+
+  await expect(page.getByRole('heading', { name: 'Import your original CV' })).toBeVisible()
+  await page.getByLabel('Original CV file').setInputFiles(testPaths.pdfPath)
+  await page.getByRole('button', { name: 'Import original CV' }).click()
+  await expect(
+    page.getByText('This original CV could not be read reliably. Use a text-based PDF or DOCX.'),
+  ).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Import your original CV' })).toBeVisible()
+
+  await electronApp.close()
+})
+
 test('retries from an unavailable startup state after local repair', async () => {
   const electronApp = await launchDesktopApp({
     CV_MAXXING_AI_WORKER_PREFLIGHT_STATUS: 'runtime_missing',
@@ -45,10 +178,9 @@ test('retries from an unavailable startup state after local repair', async () =>
 
   await expect(page.getByRole('button', { name: 'Retry check' })).toBeVisible()
   await page.getByRole('button', { name: 'Retry check' }).click()
-  await expect(page.getByText('Unlocked')).toBeVisible()
-  await expect(page.getByText('Workspace empty')).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Import your original CV' })).toBeVisible()
   await expect(
-    page.getByText('The local AI worker is ready. Returning you to your workspace.'),
+    page.getByText('Import a PDF or DOCX original CV to unlock the rest of the workspace.'),
   ).toBeVisible()
 
   await electronApp.close()
@@ -77,6 +209,118 @@ test('repairs missing auth and resumes the pending tailored application route', 
 
   await electronApp.close()
 })
+
+async function createOriginalCvTestPaths(): Promise<{
+  appDataRoot: string
+  docxPath: string
+  pdfPath: string
+}> {
+  const rootDirectoryPath = await mkdtemp(path.join(tmpdir(), 'cv-maxxing-e2e-original-cv-'))
+
+  temporaryDirectories.push(rootDirectoryPath)
+
+  return {
+    appDataRoot: path.join(rootDirectoryPath, 'app-data'),
+    docxPath: path.join(rootDirectoryPath, 'ada-lovelace-revised.docx'),
+    pdfPath: path.join(rootDirectoryPath, 'ada-lovelace.pdf'),
+  }
+}
+
+function createDocxDocumentBuffer(lines: string[]): Buffer {
+  const documentXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:body>
+    ${lines
+      .map((line) => {
+        return `<w:p><w:r><w:t>${escapeXmlText(line)}</w:t></w:r></w:p>`
+      })
+      .join('')}
+  </w:body>
+</w:document>`
+
+  return Buffer.from(
+    zipSync({
+      '[Content_Types].xml': strToU8(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml" />
+  <Default Extension="xml" ContentType="application/xml" />
+  <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml" />
+</Types>`),
+      '_rels/.rels': strToU8(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml" />
+</Relationships>`),
+      'word/document.xml': strToU8(documentXml),
+    }),
+  )
+}
+
+function createPdfDocumentBuffer(lines: string[]): Buffer {
+  const contentStream = [
+    'BT',
+    '/F1 12 Tf',
+    '50 760 Td',
+    ...lines.flatMap((line, index) => {
+      const command = `(${escapePdfText(line)}) Tj`
+
+      if (index === 0) {
+        return [command]
+      }
+
+      return ['0 -18 Td', command]
+    }),
+    'ET',
+  ].join('\n')
+  const objects = [
+    '1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n',
+    '2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n',
+    '3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>\nendobj\n',
+    `4 0 obj\n<< /Length ${String(Buffer.byteLength(contentStream, 'utf8'))} >>\nstream\n${contentStream}\nendstream\nendobj\n`,
+    '5 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n',
+  ]
+  let pdf = '%PDF-1.4\n'
+  const offsets = [0]
+
+  for (const object of objects) {
+    offsets.push(Buffer.byteLength(pdf, 'utf8'))
+    pdf += object
+  }
+
+  const xrefOffset = Buffer.byteLength(pdf, 'utf8')
+
+  pdf += `xref
+0 ${String(objects.length + 1)}
+0000000000 65535 f 
+${offsets
+  .slice(1)
+  .map((offset) => {
+    return `${String(offset).padStart(10, '0')} 00000 n `
+  })
+  .join('\n')}
+trailer
+<< /Size ${String(objects.length + 1)} /Root 1 0 R >>
+startxref
+${String(xrefOffset)}
+%%EOF`
+
+  return Buffer.from(pdf, 'utf8')
+}
+
+function escapePdfText(value: string): string {
+  return value
+    .replaceAll('\\', String.raw`\\`)
+    .replaceAll('(', String.raw`\(`)
+    .replaceAll(')', String.raw`\)`)
+}
+
+function escapeXmlText(value: string): string {
+  return value
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&apos;')
+}
 
 test('fails closed on a bounded health-check timeout and offers a retry path', async () => {
   const electronApp = await launchDesktopApp({

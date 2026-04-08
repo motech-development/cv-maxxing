@@ -1,6 +1,6 @@
 import { beforeEach, expect, test, vi } from 'vitest'
 
-import { AI_WORKER_IPC_CHANNELS } from '../../shared/ipc.js'
+import { AI_WORKER_IPC_CHANNELS, ORIGINAL_CV_IPC_CHANNELS } from '../../shared/ipc.js'
 import { createDesktopAppBootstrap, createElectronRuntimeDependencies } from '../main.js'
 
 type AppEvent = 'activate' | 'window-all-closed'
@@ -50,10 +50,15 @@ beforeEach(() => {
 test('bootstrap registers the full AI worker onboarding IPC surface and opens the packaged shell on startup', async () => {
   const { app, eventHandlers } = createAppDouble()
   const { browserWindow, constructor, loadFile, loadURL } = createBrowserWindowDouble()
-  const registeredHandlers = new Map<string, () => Promise<unknown>>()
-  const handle = vi.fn((channel: string, handler: () => Promise<unknown>) => {
-    registeredHandlers.set(channel, handler)
-  })
+  const registeredHandlers = new Map<
+    string,
+    (_event?: unknown, payload?: unknown) => Promise<unknown>
+  >()
+  const handle = vi.fn(
+    (channel: string, handler: (_event: unknown, payload?: unknown) => Promise<unknown>) => {
+      registeredHandlers.set(channel, handler)
+    },
+  )
   const aiWorker = {
     getAiWorkerPreflight: vi.fn().mockResolvedValue({
       canResumeGeneration: false,
@@ -77,6 +82,44 @@ test('bootstrap registers the full AI worker onboarding IPC surface and opens th
       status: 'ready',
     }),
   }
+  const originalCv = {
+    getWorkspaceState: vi.fn().mockResolvedValue({
+      activeOriginalCv: {
+        fileType: 'pdf',
+        headline: 'Principal Product Designer',
+        id: 'original-cv-123',
+        importedAt: '2026-04-08T14:30:00.000Z',
+        originalFilename: 'ada-lovelace.pdf',
+        pageCount: 1,
+        snapshotCount: 1,
+        summary: 'Design leader focused on complex workflow products.',
+        writingStyle: {
+          averageSentenceLength: 7,
+          clicheDetections: [],
+          firstPersonUsage: 'absent',
+          formality: 'direct',
+        },
+      },
+      snapshotCount: 1,
+    }),
+    importOriginalCv: vi.fn().mockResolvedValue({
+      fileType: 'docx',
+      headline: 'Staff Product Designer',
+      id: 'original-cv-456',
+      importedAt: '2026-04-08T15:10:00.000Z',
+      originalFilename: 'ada-lovelace-revised.docx',
+      pageCount: 1,
+      snapshotCount: 2,
+      summary: 'Product designer adapting CVs for desktop AI tooling.',
+      writingStyle: {
+        averageSentenceLength: 8,
+        clicheDetections: [],
+        firstPersonUsage: 'absent',
+        formality: 'direct',
+      },
+    }),
+  }
+  const onOriginalCvImported = vi.fn().mockImplementation(() => Promise.resolve())
 
   const bootstrap = createDesktopAppBootstrap({
     aiWorker,
@@ -85,6 +128,8 @@ test('bootstrap registers the full AI worker onboarding IPC surface and opens th
     ipcMain: {
       handle,
     },
+    onOriginalCvImported,
+    originalCv,
     platform: 'linux',
     preloadPath: '/tmp/preload.js',
     rendererDevelopmentUrl: undefined,
@@ -102,6 +147,14 @@ test('bootstrap registers the full AI worker onboarding IPC surface and opens th
   expect(handle).toHaveBeenCalledWith(AI_WORKER_IPC_CHANNELS.retryPreflight, expect.any(Function))
   expect(handle).toHaveBeenCalledWith(AI_WORKER_IPC_CHANNELS.startSignIn, expect.any(Function))
   expect(handle).toHaveBeenCalledWith(AI_WORKER_IPC_CHANNELS.openSetupGuide, expect.any(Function))
+  expect(handle).toHaveBeenCalledWith(
+    ORIGINAL_CV_IPC_CHANNELS.getWorkspaceState,
+    expect.any(Function),
+  )
+  expect(handle).toHaveBeenCalledWith(
+    ORIGINAL_CV_IPC_CHANNELS.importOriginalCv,
+    expect.any(Function),
+  )
 
   await expect(registeredHandlers.get(AI_WORKER_IPC_CHANNELS.getPreflight)?.()).resolves.toEqual({
     canResumeGeneration: false,
@@ -128,6 +181,56 @@ test('bootstrap registers the full AI worker onboarding IPC surface and opens th
   await expect(registeredHandlers.get(AI_WORKER_IPC_CHANNELS.openSetupGuide)?.()).resolves.toBe(
     undefined,
   )
+  await expect(
+    registeredHandlers.get(ORIGINAL_CV_IPC_CHANNELS.getWorkspaceState)?.(),
+  ).resolves.toEqual({
+    activeOriginalCv: {
+      fileType: 'pdf',
+      headline: 'Principal Product Designer',
+      id: 'original-cv-123',
+      importedAt: '2026-04-08T14:30:00.000Z',
+      originalFilename: 'ada-lovelace.pdf',
+      pageCount: 1,
+      snapshotCount: 1,
+      summary: 'Design leader focused on complex workflow products.',
+      writingStyle: {
+        averageSentenceLength: 7,
+        clicheDetections: [],
+        firstPersonUsage: 'absent',
+        formality: 'direct',
+      },
+    },
+    snapshotCount: 1,
+  })
+  await expect(
+    registeredHandlers.get(ORIGINAL_CV_IPC_CHANNELS.importOriginalCv)?.(undefined, {
+      content: new Uint8Array([68, 79, 67, 88]),
+      filename: 'ada-lovelace-revised.docx',
+    }),
+  ).resolves.toEqual({
+    kind: 'imported',
+    originalCv: {
+      fileType: 'docx',
+      headline: 'Staff Product Designer',
+      id: 'original-cv-456',
+      importedAt: '2026-04-08T15:10:00.000Z',
+      originalFilename: 'ada-lovelace-revised.docx',
+      pageCount: 1,
+      snapshotCount: 2,
+      summary: 'Product designer adapting CVs for desktop AI tooling.',
+      writingStyle: {
+        averageSentenceLength: 8,
+        clicheDetections: [],
+        firstPersonUsage: 'absent',
+        formality: 'direct',
+      },
+    },
+  })
+  expect(originalCv.importOriginalCv).toHaveBeenCalledWith({
+    content: Buffer.from([68, 79, 67, 88]),
+    filename: 'ada-lovelace-revised.docx',
+  })
+  expect(onOriginalCvImported).toHaveBeenCalledTimes(1)
   expect(constructor).toHaveBeenCalledWith({
     backgroundColor: '#08141f',
     height: 900,
@@ -178,6 +281,14 @@ test('bootstrap recreates the window on activate and quits on window-all-closed 
     browserWindow: browserWindow.browserWindow,
     ipcMain: {
       handle: vi.fn(),
+    },
+    onOriginalCvImported: vi.fn().mockImplementation(() => Promise.resolve()),
+    originalCv: {
+      getWorkspaceState: vi.fn().mockResolvedValue({
+        activeOriginalCv: null,
+        snapshotCount: 0,
+      }),
+      importOriginalCv: vi.fn(),
     },
     platform: 'linux',
     preloadPath: '/tmp/preload.js',
@@ -249,6 +360,14 @@ test('bootstrap logs and swallows activate window recreation failures', async ()
     ipcMain: {
       handle: vi.fn(),
     },
+    onOriginalCvImported: vi.fn().mockImplementation(() => Promise.resolve()),
+    originalCv: {
+      getWorkspaceState: vi.fn().mockResolvedValue({
+        activeOriginalCv: null,
+        snapshotCount: 0,
+      }),
+      importOriginalCv: vi.fn(),
+    },
     platform: 'linux',
     preloadPath: '/tmp/preload.js',
     rendererDevelopmentUrl: undefined,
@@ -299,6 +418,14 @@ test('bootstrap keeps the app open when every window closes on macOS', async () 
     browserWindow: browserWindow.browserWindow,
     ipcMain: {
       handle: vi.fn(),
+    },
+    onOriginalCvImported: vi.fn().mockImplementation(() => Promise.resolve()),
+    originalCv: {
+      getWorkspaceState: vi.fn().mockResolvedValue({
+        activeOriginalCv: null,
+        snapshotCount: 0,
+      }),
+      importOriginalCv: vi.fn(),
     },
     platform: 'darwin',
     preloadPath: '/tmp/preload.js',
@@ -372,6 +499,14 @@ test('runtime dependencies adapt Electron primitives for the bootstrap contract'
     browserWindowConstructor: BrowserWindowDouble,
     ipcMain: {
       handle: vi.fn(),
+    },
+    onOriginalCvImported: vi.fn().mockImplementation(() => Promise.resolve()),
+    originalCv: {
+      getWorkspaceState: vi.fn().mockResolvedValue({
+        activeOriginalCv: null,
+        snapshotCount: 0,
+      }),
+      importOriginalCv: vi.fn(),
     },
     platform: 'linux',
     preloadPath: '/tmp/preload.js',

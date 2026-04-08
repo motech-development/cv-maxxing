@@ -2,7 +2,8 @@ import { app, BrowserWindow, ipcMain, safeStorage, shell } from 'electron'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import { AI_WORKER_IPC_CHANNELS } from '../shared/ipc.js'
+import { AI_WORKER_IPC_CHANNELS, ORIGINAL_CV_IPC_CHANNELS } from '../shared/ipc.js'
+import type { OriginalCvImportInput, OriginalCvImportResult } from '../shared/original-cv.js'
 import type { StartupDestination } from '../shared/startup-destination.js'
 import { createAiWorkerReadinessStore } from './ai-worker-readiness-store.js'
 import {
@@ -11,6 +12,12 @@ import {
   type PendingGenerationCommand,
 } from './ai-worker-preflight-service.js'
 import { createLocalAppDataPaths, openLocalAppData } from './local-app-data-service.js'
+import { extractTextFromDocx, extractTextFromPdf } from './original-cv-document-extractor.js'
+import {
+  OriginalCvImportError,
+  createOriginalCvService,
+  type OriginalCvService,
+} from './original-cv-service.js'
 import { createSafeStorageKeychain } from './safe-storage-keychain.js'
 
 const CODEX_SETUP_GUIDE_URL = 'https://developers.openai.com/codex/app/'
@@ -50,7 +57,10 @@ interface BrowserWindowModule {
 }
 
 interface IpcMainLike {
-  handle: (channel: string, handler: () => Promise<unknown>) => void
+  handle: (
+    channel: string,
+    handler: (_event: unknown, payload?: unknown) => Promise<unknown>,
+  ) => void
 }
 
 interface DesktopAppBootstrapDependencies {
@@ -58,6 +68,8 @@ interface DesktopAppBootstrapDependencies {
   app: AppLike
   browserWindow: BrowserWindowModule
   ipcMain: IpcMainLike
+  onOriginalCvImported: () => Promise<void>
+  originalCv: OriginalCvService
   platform: NodeJS.Platform
   preloadPath: string
   rendererDevelopmentUrl?: string
@@ -83,6 +95,8 @@ interface RuntimeDependencyOptions {
   app: ElectronAppLike
   browserWindowConstructor: ElectronBrowserWindowConstructor
   ipcMain: IpcMainLike
+  onOriginalCvImported: () => Promise<void>
+  originalCv: OriginalCvService
   platform: NodeJS.Platform
   preloadPath: string
   rendererDevelopmentUrl?: string
@@ -92,6 +106,7 @@ interface RuntimeDependencyOptions {
 interface RuntimeEnvironment {
   CHECKING_TIMEOUT_MS?: string
   CV_MAXXING_AI_WORKER_PREFLIGHT_STATUS?: string
+  CV_MAXXING_LOCAL_APP_DATA_ROOT?: string
   CV_MAXXING_AI_WORKER_RETRY_STATUS?: string
   CV_MAXXING_AI_WORKER_SIGN_IN_STATUS?: string
   CV_MAXXING_PENDING_GENERATION_COMMAND?: string
@@ -103,26 +118,60 @@ export function createDesktopAppBootstrap({
   app,
   browserWindow,
   ipcMain,
+  onOriginalCvImported,
+  originalCv,
   platform,
   preloadPath,
   rendererDevelopmentUrl,
   rendererIndexPath,
 }: DesktopAppBootstrapDependencies): { start: () => Promise<void> } {
   function registerIpcHandlers(): void {
-    ipcMain.handle(AI_WORKER_IPC_CHANNELS.getPreflight, () => {
-      return aiWorker.getAiWorkerPreflight()
+    ipcMain.handle(AI_WORKER_IPC_CHANNELS.getPreflight, async () => {
+      return await aiWorker.getAiWorkerPreflight()
     })
-    ipcMain.handle(AI_WORKER_IPC_CHANNELS.getStartupDestination, () => {
-      return aiWorker.getStartupDestination()
+    ipcMain.handle(AI_WORKER_IPC_CHANNELS.getStartupDestination, async () => {
+      return await aiWorker.getStartupDestination()
     })
-    ipcMain.handle(AI_WORKER_IPC_CHANNELS.retryPreflight, () => {
-      return aiWorker.retryAiWorkerPreflight()
+    ipcMain.handle(AI_WORKER_IPC_CHANNELS.retryPreflight, async () => {
+      return await aiWorker.retryAiWorkerPreflight()
     })
-    ipcMain.handle(AI_WORKER_IPC_CHANNELS.startSignIn, () => {
-      return aiWorker.startAiWorkerSignIn()
+    ipcMain.handle(AI_WORKER_IPC_CHANNELS.startSignIn, async () => {
+      return await aiWorker.startAiWorkerSignIn()
     })
-    ipcMain.handle(AI_WORKER_IPC_CHANNELS.openSetupGuide, () => {
-      return aiWorker.openAiWorkerSetupGuide()
+    ipcMain.handle(AI_WORKER_IPC_CHANNELS.openSetupGuide, async () => {
+      await aiWorker.openAiWorkerSetupGuide()
+    })
+    ipcMain.handle(ORIGINAL_CV_IPC_CHANNELS.getWorkspaceState, async () => {
+      return await originalCv.getWorkspaceState()
+    })
+    ipcMain.handle(ORIGINAL_CV_IPC_CHANNELS.importOriginalCv, async (_event, payload) => {
+      const input = parseOriginalCvImportInput(payload)
+
+      try {
+        const importedOriginalCv = await originalCv.importOriginalCv({
+          content: Buffer.from(input.content),
+          filename: input.filename,
+        })
+
+        await onOriginalCvImported()
+
+        return {
+          kind: 'imported',
+          originalCv: importedOriginalCv,
+        } satisfies OriginalCvImportResult
+      } catch (error) {
+        if (error instanceof OriginalCvImportError) {
+          return {
+            error: {
+              code: error.code,
+              message: error.message,
+            },
+            kind: 'rejected',
+          } satisfies OriginalCvImportResult
+        }
+
+        throw error
+      }
     })
   }
 
@@ -180,6 +229,8 @@ export function createElectronRuntimeDependencies({
   app,
   browserWindowConstructor,
   ipcMain,
+  onOriginalCvImported,
+  originalCv,
   platform,
   preloadPath,
   rendererDevelopmentUrl,
@@ -215,6 +266,8 @@ export function createElectronRuntimeDependencies({
       },
     },
     ipcMain,
+    onOriginalCvImported,
+    originalCv,
     platform,
     preloadPath,
     rendererDevelopmentUrl,
@@ -222,9 +275,16 @@ export function createElectronRuntimeDependencies({
   }
 }
 
-async function createRuntimeAiWorkerPreflightService(): Promise<AiWorkerPreflightService> {
+async function createRuntimeServices(): Promise<{
+  aiWorker: AiWorkerPreflightService
+  onOriginalCvImported: () => Promise<void>
+  originalCv: OriginalCvService
+}> {
   const environment = process.env as RuntimeEnvironment
-  const paths = createLocalAppDataPaths(path.join(app.getPath('userData'), 'local-app-data'))
+  const paths = createLocalAppDataPaths(
+    environment.CV_MAXXING_LOCAL_APP_DATA_ROOT ??
+      path.join(app.getPath('userData'), 'local-app-data'),
+  )
   const localAppData = await openLocalAppData({
     keychain: createSafeStorageKeychain({
       keychainRecordPath: paths.keychainRecordPath,
@@ -236,37 +296,47 @@ async function createRuntimeAiWorkerPreflightService(): Promise<AiWorkerPrefligh
     localAppData,
   })
 
-  return createAiWorkerPreflightService({
-    environment,
-    getPendingGenerationCommand: async () => {
-      const overrideCommand = parsePendingGenerationCommand(
-        environment.CV_MAXXING_PENDING_GENERATION_COMMAND,
-      )
+  return {
+    aiWorker: createAiWorkerPreflightService({
+      environment,
+      getPendingGenerationCommand: async () => {
+        const overrideCommand = parsePendingGenerationCommand(
+          environment.CV_MAXXING_PENDING_GENERATION_COMMAND,
+        )
 
-      if (overrideCommand !== null) {
-        return overrideCommand
-      }
+        if (overrideCommand !== null) {
+          return overrideCommand
+        }
 
-      return await readinessStore.getPendingGenerationCommand()
-    },
-    getPersistedCheckingTimeout: async () => {
-      return await readinessStore.getCheckingTimeout()
-    },
-    getPersistedStartupDestination: async () => {
-      const overrideDestination = parseStartupDestination(
-        environment.CV_MAXXING_STARTUP_DESTINATION,
-      )
+        return await readinessStore.getPendingGenerationCommand()
+      },
+      getPersistedCheckingTimeout: async () => {
+        return await readinessStore.getCheckingTimeout()
+      },
+      getPersistedStartupDestination: async () => {
+        const overrideDestination = parseStartupDestination(
+          environment.CV_MAXXING_STARTUP_DESTINATION,
+        )
 
-      if (overrideDestination !== null) {
-        return overrideDestination
-      }
+        if (overrideDestination !== null) {
+          return overrideDestination
+        }
 
-      return await readinessStore.getStartupDestination()
+        return await readinessStore.getStartupDestination()
+      },
+      openAiWorkerSetupGuide: async () => {
+        await shell.openExternal(CODEX_SETUP_GUIDE_URL)
+      },
+    }),
+    onOriginalCvImported: async () => {
+      await readinessStore.setStartupDestination('workspace_empty')
     },
-    openAiWorkerSetupGuide: async () => {
-      await shell.openExternal(CODEX_SETUP_GUIDE_URL)
-    },
-  })
+    originalCv: createOriginalCvService({
+      extractTextFromDocx,
+      extractTextFromPdf,
+      localAppData,
+    }),
+  }
 }
 
 function parsePendingGenerationCommand(
@@ -316,14 +386,16 @@ function parseStartupDestination(value: string | undefined): StartupDestination 
 }
 
 async function startDesktopAppRuntime(): Promise<void> {
-  const aiWorker = await createRuntimeAiWorkerPreflightService()
+  const runtimeServices = await createRuntimeServices()
 
   await createDesktopAppBootstrap(
     createElectronRuntimeDependencies({
-      aiWorker,
+      aiWorker: runtimeServices.aiWorker,
       app,
       browserWindowConstructor: BrowserWindow,
       ipcMain,
+      onOriginalCvImported: runtimeServices.onOriginalCvImported,
+      originalCv: runtimeServices.originalCv,
       platform: process.platform,
       preloadPath,
       rendererDevelopmentUrl,
@@ -336,4 +408,23 @@ if (process.env.VITEST !== 'true') {
   void startDesktopAppRuntime().catch((error: unknown) => {
     throw error
   })
+}
+
+function parseOriginalCvImportInput(payload: unknown): OriginalCvImportInput {
+  if (!isOriginalCvImportPayload(payload)) {
+    throw new TypeError('Invalid original CV import payload.')
+  }
+
+  return payload
+}
+
+function isOriginalCvImportPayload(payload: unknown): payload is OriginalCvImportInput {
+  return (
+    payload !== null &&
+    typeof payload === 'object' &&
+    'content' in payload &&
+    payload.content instanceof Uint8Array &&
+    'filename' in payload &&
+    typeof payload.filename === 'string'
+  )
 }

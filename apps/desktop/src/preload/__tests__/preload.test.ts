@@ -1,12 +1,12 @@
 import { expect, test, vi } from 'vitest'
 
-import { AI_WORKER_IPC_CHANNELS, type AiWorkerIpcChannel } from '../../shared/ipc.js'
+import { AI_WORKER_IPC_CHANNELS, type DesktopIpcChannel } from '../../shared/ipc.js'
 import { exposeDesktopApi } from '../preload.js'
 import type { IpcRendererLike } from '../preload.js'
 
 test('preload exposes the desktop API in the renderer global', async () => {
   const exposeInMainWorld = vi.fn()
-  const invokeMock = vi.fn((channel: AiWorkerIpcChannel) => {
+  const invokeMock = vi.fn((channel: DesktopIpcChannel) => {
     if (channel === AI_WORKER_IPC_CHANNELS.getStartupDestination) {
       return Promise.resolve('workspace_empty')
     }

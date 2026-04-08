@@ -30,6 +30,7 @@ These rules always apply. Follow project-local rules first when they are more sp
 - Use Conventional Commits for commit messages. Husky runs commitlint on `commit-msg` to enforce this.
 - Use ESLint and Prettier as the repository linting and formatting baseline. Husky runs `lint-staged` on `pre-commit`.
 - Use Vitest for unit tests. Keep tests colocated in `__tests__` folders next to the source they cover.
+- Use `CV_MAXXING_LOCAL_APP_DATA_ROOT` in desktop smoke/Electron tests when deterministic local encrypted storage paths are required; point it at a disposable temp directory instead of the user profile.
 - When building new functionality or making material refactors, consult `ARCHITECTURE.md` and align implementation with its current decisions unless a newer explicit decision supersedes it.
 - Treat `design/app.pen` as the authoritative reference for desktop app UI states and layout.
 - When editing `.pen` files through the Pencil editor, treat the editor state as authoritative until the user saves; disk reads and git diffs will not reflect unsaved Pencil changes.

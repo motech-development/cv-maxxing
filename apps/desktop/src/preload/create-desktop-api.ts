@@ -1,11 +1,18 @@
-import type { AiWorkerIpcChannel } from '../shared/ipc.js'
-import { AI_WORKER_IPC_CHANNELS } from '../shared/ipc.js'
+import type { DesktopIpcChannel } from '../shared/ipc.js'
+import { AI_WORKER_IPC_CHANNELS, ORIGINAL_CV_IPC_CHANNELS } from '../shared/ipc.js'
 import type { AiWorkerPreflightResult } from '../shared/ai-worker-preflight.js'
+import type {
+  OriginalCvImportInput,
+  OriginalCvImportResult,
+  OriginalCvWorkspaceState,
+} from '../shared/original-cv.js'
 import type { StartupDestination } from '../shared/startup-destination.js'
 import type { CvMaxxingWindowApi } from '../shared/window-api.js'
 
+type DesktopApiInvoke = <TResult>(channel: DesktopIpcChannel, payload?: unknown) => Promise<TResult>
+
 export interface DesktopApiInvoker {
-  invoke: <TResult>(channel: AiWorkerIpcChannel) => Promise<TResult>
+  invoke: DesktopApiInvoke
 }
 
 export function createDesktopApi({ invoke }: DesktopApiInvoker): CvMaxxingWindowApi {
@@ -25,6 +32,14 @@ export function createDesktopApi({ invoke }: DesktopApiInvoker): CvMaxxingWindow
       },
       startAiWorkerSignIn: async (): Promise<AiWorkerPreflightResult> => {
         return await invoke(AI_WORKER_IPC_CHANNELS.startSignIn)
+      },
+    },
+    originalCv: {
+      getOriginalCvWorkspaceState: async (): Promise<OriginalCvWorkspaceState> => {
+        return await invoke(ORIGINAL_CV_IPC_CHANNELS.getWorkspaceState)
+      },
+      importOriginalCv: async (input: OriginalCvImportInput): Promise<OriginalCvImportResult> => {
+        return await invoke(ORIGINAL_CV_IPC_CHANNELS.importOriginalCv, input)
       },
     },
   }
