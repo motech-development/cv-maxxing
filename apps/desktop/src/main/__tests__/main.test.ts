@@ -1,6 +1,10 @@
 import { beforeEach, expect, test, vi } from 'vitest'
 
-import { AI_WORKER_IPC_CHANNELS, ORIGINAL_CV_IPC_CHANNELS } from '../../shared/ipc.js'
+import {
+  AI_WORKER_IPC_CHANNELS,
+  ORIGINAL_CV_IPC_CHANNELS,
+  VACANCY_IPC_CHANNELS,
+} from '../../shared/ipc.js'
 import { createDesktopAppBootstrap, createElectronRuntimeDependencies } from '../main.js'
 
 type AppEvent = 'activate' | 'window-all-closed'
@@ -40,6 +44,21 @@ function createBrowserWindowDouble() {
     getAllWindows,
     loadFile,
     loadURL,
+  }
+}
+
+function createVacancyDouble() {
+  return {
+    getWorkspaceState: vi.fn().mockResolvedValue({
+      draft: {
+        text: '',
+        url: '',
+      },
+      vacancy: null,
+    }),
+    ingestPastedVacancy: vi.fn(),
+    ingestVacancyUrl: vi.fn(),
+    openBrowserSession: vi.fn().mockImplementation(() => Promise.resolve()),
   }
 }
 
@@ -119,6 +138,87 @@ test('bootstrap registers the full AI worker onboarding IPC surface and opens th
       },
     }),
   }
+  const vacancy = {
+    getWorkspaceState: vi.fn().mockResolvedValue({
+      draft: {
+        text: '',
+        url: '',
+      },
+      vacancy: null,
+    }),
+    ingestPastedVacancy: vi.fn().mockResolvedValue({
+      kind: 'ingested',
+      vacancy: {
+        blockingReason: null,
+        canGenerate: true,
+        employer: 'Example Labs',
+        fetchedAt: '2026-04-08T21:00:00.000Z',
+        id: 'vacancy-001',
+        inputType: 'pasted_text',
+        location: 'London, United Kingdom',
+        originalUrl: 'https://jobs.example.com/senior-product-designer',
+        requirements: ['Strong written communication.'],
+        resolvedUrl: 'https://jobs.example.com/senior-product-designer',
+        responsibilities: ['Lead product design for AI-assisted desktop workflows.'],
+        source: 'generic',
+        status: 'ready',
+        textPreview: 'Lead product design for AI-assisted desktop workflows.',
+        title: 'Senior Product Designer',
+      },
+      workspaceState: {
+        draft: {
+          text: 'Senior Product Designer',
+          url: 'https://jobs.example.com/senior-product-designer',
+        },
+        vacancy: {
+          blockingReason: null,
+          canGenerate: true,
+          employer: 'Example Labs',
+          fetchedAt: '2026-04-08T21:00:00.000Z',
+          id: 'vacancy-001',
+          inputType: 'pasted_text',
+          location: 'London, United Kingdom',
+          originalUrl: 'https://jobs.example.com/senior-product-designer',
+          requirements: ['Strong written communication.'],
+          resolvedUrl: 'https://jobs.example.com/senior-product-designer',
+          responsibilities: ['Lead product design for AI-assisted desktop workflows.'],
+          source: 'generic',
+          status: 'ready',
+          textPreview: 'Lead product design for AI-assisted desktop workflows.',
+          title: 'Senior Product Designer',
+        },
+      },
+    }),
+    ingestVacancyUrl: vi.fn().mockResolvedValue({
+      kind: 'incomplete',
+      vacancy: {
+        blockingReason:
+          'Open the internal browser session for authenticated pages, or paste the full job text instead.',
+        canGenerate: false,
+        employer: null,
+        fetchedAt: '2026-04-08T21:15:00.000Z',
+        id: 'vacancy-pending-browser',
+        inputType: 'url',
+        location: null,
+        originalUrl: 'https://www.linkedin.com/jobs/view/123456',
+        requirements: [],
+        resolvedUrl: null,
+        responsibilities: [],
+        source: 'linkedin',
+        status: 'incomplete',
+        textPreview: '',
+        title: null,
+      },
+      workspaceState: {
+        draft: {
+          text: '',
+          url: 'https://www.linkedin.com/jobs/view/123456',
+        },
+        vacancy: null,
+      },
+    }),
+    openBrowserSession: vi.fn().mockImplementation(() => Promise.resolve()),
+  }
   const onOriginalCvImported = vi.fn().mockImplementation(() => Promise.resolve())
 
   const bootstrap = createDesktopAppBootstrap({
@@ -130,6 +230,7 @@ test('bootstrap registers the full AI worker onboarding IPC surface and opens th
     },
     onOriginalCvImported,
     originalCv,
+    vacancy,
     platform: 'linux',
     preloadPath: '/tmp/preload.js',
     rendererDevelopmentUrl: undefined,
@@ -155,6 +256,10 @@ test('bootstrap registers the full AI worker onboarding IPC surface and opens th
     ORIGINAL_CV_IPC_CHANNELS.importOriginalCv,
     expect.any(Function),
   )
+  expect(handle).toHaveBeenCalledWith(VACANCY_IPC_CHANNELS.getWorkspaceState, expect.any(Function))
+  expect(handle).toHaveBeenCalledWith(VACANCY_IPC_CHANNELS.ingestUrl, expect.any(Function))
+  expect(handle).toHaveBeenCalledWith(VACANCY_IPC_CHANNELS.ingestPasted, expect.any(Function))
+  expect(handle).toHaveBeenCalledWith(VACANCY_IPC_CHANNELS.openBrowserSession, expect.any(Function))
 
   await expect(registeredHandlers.get(AI_WORKER_IPC_CHANNELS.getPreflight)?.()).resolves.toEqual({
     canResumeGeneration: false,
@@ -231,6 +336,110 @@ test('bootstrap registers the full AI worker onboarding IPC surface and opens th
     filename: 'ada-lovelace-revised.docx',
   })
   expect(onOriginalCvImported).toHaveBeenCalledTimes(1)
+  await expect(registeredHandlers.get(VACANCY_IPC_CHANNELS.getWorkspaceState)?.()).resolves.toEqual(
+    {
+      draft: {
+        text: '',
+        url: '',
+      },
+      vacancy: null,
+    },
+  )
+  await expect(
+    registeredHandlers.get(VACANCY_IPC_CHANNELS.ingestUrl)?.(undefined, {
+      url: 'https://www.linkedin.com/jobs/view/123456',
+    }),
+  ).resolves.toEqual({
+    kind: 'incomplete',
+    vacancy: {
+      blockingReason:
+        'Open the internal browser session for authenticated pages, or paste the full job text instead.',
+      canGenerate: false,
+      employer: null,
+      fetchedAt: '2026-04-08T21:15:00.000Z',
+      id: 'vacancy-pending-browser',
+      inputType: 'url',
+      location: null,
+      originalUrl: 'https://www.linkedin.com/jobs/view/123456',
+      requirements: [],
+      resolvedUrl: null,
+      responsibilities: [],
+      source: 'linkedin',
+      status: 'incomplete',
+      textPreview: '',
+      title: null,
+    },
+    workspaceState: {
+      draft: {
+        text: '',
+        url: 'https://www.linkedin.com/jobs/view/123456',
+      },
+      vacancy: null,
+    },
+  })
+  await expect(
+    registeredHandlers.get(VACANCY_IPC_CHANNELS.ingestPasted)?.(undefined, {
+      text: 'Senior Product Designer',
+      url: 'https://jobs.example.com/senior-product-designer',
+    }),
+  ).resolves.toEqual({
+    kind: 'ingested',
+    vacancy: {
+      blockingReason: null,
+      canGenerate: true,
+      employer: 'Example Labs',
+      fetchedAt: '2026-04-08T21:00:00.000Z',
+      id: 'vacancy-001',
+      inputType: 'pasted_text',
+      location: 'London, United Kingdom',
+      originalUrl: 'https://jobs.example.com/senior-product-designer',
+      requirements: ['Strong written communication.'],
+      resolvedUrl: 'https://jobs.example.com/senior-product-designer',
+      responsibilities: ['Lead product design for AI-assisted desktop workflows.'],
+      source: 'generic',
+      status: 'ready',
+      textPreview: 'Lead product design for AI-assisted desktop workflows.',
+      title: 'Senior Product Designer',
+    },
+    workspaceState: {
+      draft: {
+        text: 'Senior Product Designer',
+        url: 'https://jobs.example.com/senior-product-designer',
+      },
+      vacancy: {
+        blockingReason: null,
+        canGenerate: true,
+        employer: 'Example Labs',
+        fetchedAt: '2026-04-08T21:00:00.000Z',
+        id: 'vacancy-001',
+        inputType: 'pasted_text',
+        location: 'London, United Kingdom',
+        originalUrl: 'https://jobs.example.com/senior-product-designer',
+        requirements: ['Strong written communication.'],
+        resolvedUrl: 'https://jobs.example.com/senior-product-designer',
+        responsibilities: ['Lead product design for AI-assisted desktop workflows.'],
+        source: 'generic',
+        status: 'ready',
+        textPreview: 'Lead product design for AI-assisted desktop workflows.',
+        title: 'Senior Product Designer',
+      },
+    },
+  })
+  await expect(
+    registeredHandlers.get(VACANCY_IPC_CHANNELS.openBrowserSession)?.(undefined, {
+      url: 'https://www.linkedin.com/jobs/view/123456',
+    }),
+  ).resolves.toBeUndefined()
+  expect(vacancy.ingestVacancyUrl).toHaveBeenCalledWith({
+    url: 'https://www.linkedin.com/jobs/view/123456',
+  })
+  expect(vacancy.ingestPastedVacancy).toHaveBeenCalledWith({
+    text: 'Senior Product Designer',
+    url: 'https://jobs.example.com/senior-product-designer',
+  })
+  expect(vacancy.openBrowserSession).toHaveBeenCalledWith({
+    url: 'https://www.linkedin.com/jobs/view/123456',
+  })
   expect(constructor).toHaveBeenCalledWith({
     backgroundColor: '#08141f',
     height: 900,
@@ -253,6 +462,7 @@ test('bootstrap registers the full AI worker onboarding IPC surface and opens th
 test('bootstrap recreates the window on activate and quits on window-all-closed outside macOS', async () => {
   const { app, eventHandlers } = createAppDouble()
   const browserWindow = createBrowserWindowDouble()
+  const vacancy = createVacancyDouble()
 
   const bootstrap = createDesktopAppBootstrap({
     aiWorker: {
@@ -290,6 +500,7 @@ test('bootstrap recreates the window on activate and quits on window-all-closed 
       }),
       importOriginalCv: vi.fn(),
     },
+    vacancy,
     platform: 'linux',
     preloadPath: '/tmp/preload.js',
     rendererDevelopmentUrl: 'http://127.0.0.1:5173',
@@ -314,6 +525,7 @@ test('bootstrap recreates the window on activate and quits on window-all-closed 
 test('bootstrap logs and swallows activate window recreation failures', async () => {
   const { app, eventHandlers } = createAppDouble()
   const browserWindow = createBrowserWindowDouble()
+  const vacancy = createVacancyDouble()
   const error = new Error('failed to open window')
   const consoleError = vi.spyOn(console, 'error').mockImplementation(() => null)
 
@@ -368,6 +580,7 @@ test('bootstrap logs and swallows activate window recreation failures', async ()
       }),
       importOriginalCv: vi.fn(),
     },
+    vacancy,
     platform: 'linux',
     preloadPath: '/tmp/preload.js',
     rendererDevelopmentUrl: undefined,
@@ -390,6 +603,7 @@ test('bootstrap logs and swallows activate window recreation failures', async ()
 test('bootstrap keeps the app open when every window closes on macOS', async () => {
   const { app, eventHandlers } = createAppDouble()
   const browserWindow = createBrowserWindowDouble()
+  const vacancy = createVacancyDouble()
 
   const bootstrap = createDesktopAppBootstrap({
     aiWorker: {
@@ -427,6 +641,7 @@ test('bootstrap keeps the app open when every window closes on macOS', async () 
       }),
       importOriginalCv: vi.fn(),
     },
+    vacancy,
     platform: 'darwin',
     preloadPath: '/tmp/preload.js',
     rendererDevelopmentUrl: undefined,
@@ -488,6 +703,7 @@ test('runtime dependencies adapt Electron primitives for the bootstrap contract'
       status: 'ready',
     }),
   }
+  const vacancy = createVacancyDouble()
 
   const runtimeDependencies = createElectronRuntimeDependencies({
     aiWorker,
@@ -508,6 +724,7 @@ test('runtime dependencies adapt Electron primitives for the bootstrap contract'
       }),
       importOriginalCv: vi.fn(),
     },
+    vacancy,
     platform: 'linux',
     preloadPath: '/tmp/preload.js',
     rendererDevelopmentUrl: 'http://127.0.0.1:5173',

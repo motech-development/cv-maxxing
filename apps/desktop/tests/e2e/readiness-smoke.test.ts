@@ -1,3 +1,4 @@
+import { createServer } from 'node:http'
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
@@ -210,6 +211,169 @@ test('repairs missing auth and resumes the pending tailored application route', 
   await electronApp.close()
 })
 
+test('fetches a deterministic vacancy URL and renders a ready preview inside the workspace', async () => {
+  const testPaths = await createOriginalCvTestPaths()
+  const jobServer = await createJobServer({
+    html: [
+      '<html>',
+      '<head><title>Senior Product Designer at Example Labs - Greenhouse</title></head>',
+      '<body>',
+      '<main>',
+      '<h1>Senior Product Designer</h1>',
+      '<p>Example Labs</p>',
+      '<p>London, United Kingdom</p>',
+      '<section><h2>Responsibilities</h2><ul><li>Lead product design for desktop workflows.</li><li>Partner with engineering and research.</li></ul></section>',
+      '<section><h2>Requirements</h2><ul><li>Experience shipping workflow software.</li><li>Excellent written communication.</li></ul></section>',
+      '</main>',
+      '</body>',
+      '</html>',
+    ].join(''),
+    path: '/example/jobs/123',
+  })
+
+  await writeFile(
+    testPaths.pdfPath,
+    createPdfDocumentBuffer([
+      'Ada Lovelace',
+      'Principal Product Designer',
+      'Summary',
+      'Design leader focused on complex workflow products for technical users.',
+      'Experience',
+      'Principal Product Designer | Analytical Engines Ltd',
+      'Led product design for AI-assisted desktop tooling.',
+      'Skills',
+      'Product strategy, UX research, prototyping',
+    ]),
+  )
+
+  const electronApp = await launchDesktopApp({
+    CV_MAXXING_AI_WORKER_PREFLIGHT_STATUS: 'ready',
+    CV_MAXXING_LOCAL_APP_DATA_ROOT: testPaths.appDataRoot,
+    CV_MAXXING_STARTUP_DESTINATION: 'first_launch',
+  })
+
+  const page = await electronApp.firstWindow()
+
+  await page.getByLabel('Original CV file').setInputFiles(testPaths.pdfPath)
+  await page.getByRole('button', { name: 'Import original CV' }).click()
+  await expect(page.getByRole('heading', { name: 'Original CV active' })).toBeVisible()
+  await page.getByLabel('Job vacancy URL').fill(jobServer.url)
+  await page.getByRole('button', { name: 'Fetch vacancy' }).click()
+  await expect(page.getByText('Generic')).toBeVisible()
+  await expect(page.getByText('Senior Product Designer')).toBeVisible()
+  await expect(page.getByText('Example Labs')).toBeVisible()
+  await expect(page.getByText('Ready for adaptation')).toBeVisible()
+
+  await electronApp.close()
+  await jobServer.close()
+
+  const databaseBytes = await readFile(path.join(testPaths.appDataRoot, 'app.db'))
+
+  expect(
+    databaseBytes.includes(Buffer.from('Experience shipping workflow software.', 'utf8')),
+  ).toBe(false)
+})
+
+test('shows the browser-assisted fallback for LinkedIn vacancy URLs without discarding the draft', async () => {
+  const testPaths = await createOriginalCvTestPaths()
+
+  await writeFile(
+    testPaths.pdfPath,
+    createPdfDocumentBuffer([
+      'Ada Lovelace',
+      'Principal Product Designer',
+      'Summary',
+      'Design leader focused on complex workflow products for technical users.',
+      'Experience',
+      'Principal Product Designer | Analytical Engines Ltd',
+      'Led product design for AI-assisted desktop tooling.',
+      'Skills',
+      'Product strategy, UX research, prototyping',
+    ]),
+  )
+
+  const electronApp = await launchDesktopApp({
+    CV_MAXXING_AI_WORKER_PREFLIGHT_STATUS: 'ready',
+    CV_MAXXING_LOCAL_APP_DATA_ROOT: testPaths.appDataRoot,
+    CV_MAXXING_STARTUP_DESTINATION: 'first_launch',
+  })
+
+  const page = await electronApp.firstWindow()
+
+  await page.getByLabel('Original CV file').setInputFiles(testPaths.pdfPath)
+  await page.getByRole('button', { name: 'Import original CV' }).click()
+  await expect(page.getByRole('heading', { name: 'Original CV active' })).toBeVisible()
+  await page.getByLabel('Job vacancy URL').fill('https://www.linkedin.com/jobs/view/123456')
+  await page.getByRole('button', { name: 'Fetch vacancy' }).click()
+  await expect(page.getByText('Needs browser sign-in')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Open internal browser session' })).toBeVisible()
+  await expect(
+    page.getByText(
+      'Open the internal browser session for authenticated pages, or paste the full job text instead.',
+    ),
+  ).toBeVisible()
+  await expect(page.getByLabel('Job vacancy URL')).toHaveValue(
+    'https://www.linkedin.com/jobs/view/123456',
+  )
+
+  await electronApp.close()
+})
+
+test('reviews pasted vacancy text inside the workspace when the user uses the fallback path', async () => {
+  const testPaths = await createOriginalCvTestPaths()
+
+  await writeFile(
+    testPaths.pdfPath,
+    createPdfDocumentBuffer([
+      'Ada Lovelace',
+      'Principal Product Designer',
+      'Summary',
+      'Design leader focused on complex workflow products for technical users.',
+      'Experience',
+      'Principal Product Designer | Analytical Engines Ltd',
+      'Led product design for AI-assisted desktop tooling.',
+      'Skills',
+      'Product strategy, UX research, prototyping',
+    ]),
+  )
+
+  const electronApp = await launchDesktopApp({
+    CV_MAXXING_AI_WORKER_PREFLIGHT_STATUS: 'ready',
+    CV_MAXXING_LOCAL_APP_DATA_ROOT: testPaths.appDataRoot,
+    CV_MAXXING_STARTUP_DESTINATION: 'first_launch',
+  })
+
+  const page = await electronApp.firstWindow()
+
+  await page.getByLabel('Original CV file').setInputFiles(testPaths.pdfPath)
+  await page.getByRole('button', { name: 'Import original CV' }).click()
+  await expect(page.getByRole('heading', { name: 'Original CV active' })).toBeVisible()
+  await page
+    .getByLabel('Reference vacancy URL')
+    .fill('https://jobs.example.com/senior-product-designer')
+  await page
+    .getByLabel('Pasted vacancy text')
+    .fill(
+      [
+        'Senior Product Designer',
+        'Example Labs',
+        'London, United Kingdom',
+        'Responsibilities',
+        'Lead product design for AI-assisted desktop workflows.',
+        'Requirements',
+        'Strong written communication.',
+      ].join('\n'),
+    )
+  await page.getByRole('button', { name: 'Use pasted vacancy text' }).click()
+  await expect(page.getByText('Generic')).toBeVisible()
+  await expect(
+    page.getByText('Lead product design for AI-assisted desktop workflows.').first(),
+  ).toBeVisible()
+  await expect(page.getByText('Ready for adaptation')).toBeVisible()
+
+  await electronApp.close()
+})
+
 async function createOriginalCvTestPaths(): Promise<{
   appDataRoot: string
   docxPath: string
@@ -320,6 +484,54 @@ function escapeXmlText(value: string): string {
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&apos;')
+}
+
+async function createJobServer({ html, path: routePath }: { html: string; path: string }): Promise<{
+  close: () => Promise<void>
+  url: string
+}> {
+  const server = createServer((request, response) => {
+    if (request.url !== routePath) {
+      response.writeHead(404)
+      response.end('not found')
+
+      return
+    }
+
+    response.writeHead(200, {
+      'content-type': 'text/html; charset=utf-8',
+    })
+    response.end(html)
+  })
+
+  await new Promise<void>((resolve) => {
+    server.listen(0, '127.0.0.1', () => {
+      resolve()
+    })
+  })
+
+  const address = server.address()
+
+  if (address === null || typeof address === 'string') {
+    throw new TypeError('Failed to determine the local vacancy server address.')
+  }
+
+  return {
+    close: async () => {
+      await new Promise<void>((resolve, reject) => {
+        server.close((error) => {
+          if (error) {
+            reject(error)
+
+            return
+          }
+
+          resolve()
+        })
+      })
+    },
+    url: `http://127.0.0.1:${String(address.port)}${routePath}`,
+  }
 }
 
 test('fails closed on a bounded health-check timeout and offers a retry path', async () => {

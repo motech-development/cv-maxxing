@@ -2,9 +2,14 @@ import { app, BrowserWindow, ipcMain, safeStorage, shell } from 'electron'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import { AI_WORKER_IPC_CHANNELS, ORIGINAL_CV_IPC_CHANNELS } from '../shared/ipc.js'
+import {
+  AI_WORKER_IPC_CHANNELS,
+  ORIGINAL_CV_IPC_CHANNELS,
+  VACANCY_IPC_CHANNELS,
+} from '../shared/ipc.js'
 import type { OriginalCvImportInput, OriginalCvImportResult } from '../shared/original-cv.js'
 import type { StartupDestination } from '../shared/startup-destination.js'
+import type { PastedVacancyInput, VacancyUrlInput } from '../shared/vacancy.js'
 import { createAiWorkerReadinessStore } from './ai-worker-readiness-store.js'
 import {
   createAiWorkerPreflightService,
@@ -19,6 +24,7 @@ import {
   type OriginalCvService,
 } from './original-cv-service.js'
 import { createSafeStorageKeychain } from './safe-storage-keychain.js'
+import { createVacancyService, type VacancyService } from './vacancy-service.js'
 
 const CODEX_SETUP_GUIDE_URL = 'https://developers.openai.com/codex/app/'
 const currentDirectory = fileURLToPath(new URL('.', import.meta.url))
@@ -74,6 +80,7 @@ interface DesktopAppBootstrapDependencies {
   preloadPath: string
   rendererDevelopmentUrl?: string
   rendererIndexPath: string
+  vacancy: VacancyService
 }
 
 type ElectronAppOn = ((event: 'activate', listener: (...args: unknown[]) => void) => unknown) &
@@ -101,6 +108,7 @@ interface RuntimeDependencyOptions {
   preloadPath: string
   rendererDevelopmentUrl?: string
   rendererIndexPath: string
+  vacancy: VacancyService
 }
 
 interface RuntimeEnvironment {
@@ -124,6 +132,7 @@ export function createDesktopAppBootstrap({
   preloadPath,
   rendererDevelopmentUrl,
   rendererIndexPath,
+  vacancy,
 }: DesktopAppBootstrapDependencies): { start: () => Promise<void> } {
   function registerIpcHandlers(): void {
     ipcMain.handle(AI_WORKER_IPC_CHANNELS.getPreflight, async () => {
@@ -172,6 +181,18 @@ export function createDesktopAppBootstrap({
 
         throw error
       }
+    })
+    ipcMain.handle(VACANCY_IPC_CHANNELS.getWorkspaceState, async () => {
+      return await vacancy.getWorkspaceState()
+    })
+    ipcMain.handle(VACANCY_IPC_CHANNELS.ingestUrl, async (_event, payload) => {
+      return await vacancy.ingestVacancyUrl(parseVacancyUrlInput(payload))
+    })
+    ipcMain.handle(VACANCY_IPC_CHANNELS.ingestPasted, async (_event, payload) => {
+      return await vacancy.ingestPastedVacancy(parsePastedVacancyInput(payload))
+    })
+    ipcMain.handle(VACANCY_IPC_CHANNELS.openBrowserSession, async (_event, payload) => {
+      await vacancy.openBrowserSession(parseVacancyUrlInput(payload))
     })
   }
 
@@ -235,6 +256,7 @@ export function createElectronRuntimeDependencies({
   preloadPath,
   rendererDevelopmentUrl,
   rendererIndexPath,
+  vacancy,
 }: RuntimeDependencyOptions): DesktopAppBootstrapDependencies {
   return {
     aiWorker,
@@ -272,6 +294,7 @@ export function createElectronRuntimeDependencies({
     preloadPath,
     rendererDevelopmentUrl,
     rendererIndexPath,
+    vacancy,
   }
 }
 
@@ -279,6 +302,7 @@ async function createRuntimeServices(): Promise<{
   aiWorker: AiWorkerPreflightService
   onOriginalCvImported: () => Promise<void>
   originalCv: OriginalCvService
+  vacancy: VacancyService
 }> {
   const environment = process.env as RuntimeEnvironment
   const paths = createLocalAppDataPaths(
@@ -335,6 +359,12 @@ async function createRuntimeServices(): Promise<{
       extractTextFromDocx,
       extractTextFromPdf,
       localAppData,
+    }),
+    vacancy: createVacancyService({
+      localAppData,
+      openVacancyBrowserSession: async (url) => {
+        await openVacancyBrowserSession(url)
+      },
     }),
   }
 }
@@ -400,6 +430,7 @@ async function startDesktopAppRuntime(): Promise<void> {
       preloadPath,
       rendererDevelopmentUrl,
       rendererIndexPath,
+      vacancy: runtimeServices.vacancy,
     }),
   ).start()
 }
@@ -427,4 +458,58 @@ function isOriginalCvImportPayload(payload: unknown): payload is OriginalCvImpor
     'filename' in payload &&
     typeof payload.filename === 'string'
   )
+}
+
+function parseVacancyUrlInput(payload: unknown): VacancyUrlInput {
+  if (!isVacancyUrlInput(payload)) {
+    throw new TypeError('Invalid vacancy URL payload.')
+  }
+
+  return payload
+}
+
+function isVacancyUrlInput(payload: unknown): payload is VacancyUrlInput {
+  return (
+    payload !== null &&
+    typeof payload === 'object' &&
+    'url' in payload &&
+    typeof payload.url === 'string'
+  )
+}
+
+function parsePastedVacancyInput(payload: unknown): PastedVacancyInput {
+  if (!isPastedVacancyInput(payload)) {
+    throw new TypeError('Invalid pasted vacancy payload.')
+  }
+
+  return payload
+}
+
+function isPastedVacancyInput(payload: unknown): payload is PastedVacancyInput {
+  return (
+    payload !== null &&
+    typeof payload === 'object' &&
+    'text' in payload &&
+    typeof payload.text === 'string' &&
+    (!('url' in payload) || payload.url === undefined || typeof payload.url === 'string')
+  )
+}
+
+async function openVacancyBrowserSession(url: string): Promise<void> {
+  const vacancyBrowserWindow = new BrowserWindow({
+    autoHideMenuBar: true,
+    backgroundColor: '#08141f',
+    height: 900,
+    show: true,
+    title: 'Vacancy Browser Session',
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+      partition: 'persist:cv-maxxing-vacancy-browser',
+      sandbox: false,
+    },
+    width: 1280,
+  })
+
+  await vacancyBrowserWindow.loadURL(url)
 }

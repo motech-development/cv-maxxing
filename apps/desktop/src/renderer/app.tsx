@@ -3,6 +3,7 @@ import { useEffect, useState, type ChangeEvent } from 'react'
 import { createReadinessRouteViewModel } from '../readiness/readiness-route.js'
 import type { ReadinessRouteViewModel } from '../readiness/readiness-route.js'
 import type { OriginalCvWorkspaceState } from '../shared/original-cv.js'
+import type { VacancySummary, VacancyWorkspaceState } from '../shared/vacancy.js'
 
 const initialReadinessViewModel: ReadinessRouteViewModel = {
   body: 'Checking the local AI worker before opening your workspace.',
@@ -20,8 +21,18 @@ const initialOriginalCvWorkspaceState: OriginalCvWorkspaceState = {
   snapshotCount: 0,
 }
 
+const initialVacancyWorkspaceState: VacancyWorkspaceState = {
+  draft: {
+    text: '',
+    url: '',
+  },
+  vacancy: null,
+}
+
 const readinessErrorMessage = 'Unable to complete the AI worker startup check.'
 const readinessErrorAction = 'Restart the app or verify the local AI worker setup.'
+const vacancyErrorMessage =
+  'Unable to review this vacancy right now. Retry the same input or switch to pasted job text.'
 
 function StatusBadge({ status }: { status: ReadinessRouteViewModel['status'] }) {
   const statusCopy = {
@@ -58,26 +69,72 @@ function getStartupRouteLabel(viewModel: ReadinessRouteViewModel): string {
   return 'AI worker readiness gate'
 }
 
+function getVacancySourceLabel(source: VacancySummary['source']): string {
+  const sourceCopy = {
+    generic: 'Generic',
+    greenhouse: 'Greenhouse',
+    indeed: 'Indeed',
+    linkedin: 'LinkedIn',
+  } as const
+
+  return sourceCopy[source]
+}
+
+function getVacancyStatusLabel(vacancy: VacancySummary): string {
+  if (vacancy.canGenerate) {
+    return 'Ready for adaptation'
+  }
+
+  if (vacancy.source === 'linkedin' || vacancy.source === 'indeed') {
+    return 'Needs browser sign-in'
+  }
+
+  return 'Blocked preview'
+}
+
 type AppRoute = 'original_cv_workspace' | 'readiness'
 
 export function App() {
   const [currentRoute, setCurrentRoute] = useState<AppRoute>('readiness')
   const [importError, setImportError] = useState<string | null>(null)
   const [isImportingOriginalCv, setIsImportingOriginalCv] = useState(false)
+  const [isOpeningVacancyBrowserSession, setIsOpeningVacancyBrowserSession] = useState(false)
   const [isSecondaryActionPending, setIsSecondaryActionPending] = useState(false)
+  const [isSubmittingPastedVacancy, setIsSubmittingPastedVacancy] = useState(false)
   const [isSubmittingPrimaryAction, setIsSubmittingPrimaryAction] = useState(false)
+  const [isSubmittingVacancyUrl, setIsSubmittingVacancyUrl] = useState(false)
   const [originalCvFile, setOriginalCvFile] = useState<File | null>(null)
   const [originalCvWorkspaceState, setOriginalCvWorkspaceState] = useState(
     initialOriginalCvWorkspaceState,
   )
+  const [pastedVacancyText, setPastedVacancyText] = useState('')
   const [readinessError, setReadinessError] = useState<string | null>(null)
+  const [vacancyError, setVacancyError] = useState<string | null>(null)
+  const [vacancyPreview, setVacancyPreview] = useState<VacancySummary | null>(null)
+  const [vacancyReferenceUrl, setVacancyReferenceUrl] = useState('')
+  const [vacancyUrl, setVacancyUrl] = useState('')
+  const [vacancyWorkspaceState, setVacancyWorkspaceState] = useState(initialVacancyWorkspaceState)
   const [viewModel, setViewModel] = useState(initialReadinessViewModel)
 
-  const loadOriginalCvWorkspace = async (): Promise<void> => {
-    const nextWorkspaceState =
-      await globalThis.window.cvMaxxing.originalCv.getOriginalCvWorkspaceState()
+  const applyVacancyWorkspaceState = (
+    workspaceState: VacancyWorkspaceState,
+    previewOverride?: VacancySummary | null,
+  ): void => {
+    setVacancyWorkspaceState(workspaceState)
+    setVacancyPreview(previewOverride ?? workspaceState.vacancy)
+    setVacancyReferenceUrl(workspaceState.draft.url)
+    setVacancyUrl(workspaceState.draft.url)
+    setPastedVacancyText(workspaceState.draft.text)
+  }
 
-    setOriginalCvWorkspaceState(nextWorkspaceState)
+  const loadWorkspace = async (): Promise<void> => {
+    const [nextOriginalCvWorkspaceState, nextVacancyWorkspaceState] = await Promise.all([
+      globalThis.window.cvMaxxing.originalCv.getOriginalCvWorkspaceState(),
+      globalThis.window.cvMaxxing.vacancy.getVacancyWorkspaceState(),
+    ])
+
+    setOriginalCvWorkspaceState(nextOriginalCvWorkspaceState)
+    applyVacancyWorkspaceState(nextVacancyWorkspaceState)
     setCurrentRoute('original_cv_workspace')
   }
 
@@ -97,7 +154,7 @@ export function App() {
       (nextViewModel.startupDestination === 'first_launch' ||
         nextViewModel.startupDestination === 'workspace_empty')
     ) {
-      await loadOriginalCvWorkspace()
+      await loadWorkspace()
 
       return
     }
@@ -120,10 +177,13 @@ export function App() {
         (nextViewModel.startupDestination === 'first_launch' ||
           nextViewModel.startupDestination === 'workspace_empty')
       ) {
-        const nextWorkspaceState =
-          await globalThis.window.cvMaxxing.originalCv.getOriginalCvWorkspaceState()
+        const [nextOriginalCvWorkspaceState, nextVacancyWorkspaceState] = await Promise.all([
+          globalThis.window.cvMaxxing.originalCv.getOriginalCvWorkspaceState(),
+          globalThis.window.cvMaxxing.vacancy.getVacancyWorkspaceState(),
+        ])
 
-        setOriginalCvWorkspaceState(nextWorkspaceState)
+        setOriginalCvWorkspaceState(nextOriginalCvWorkspaceState)
+        applyVacancyWorkspaceState(nextVacancyWorkspaceState)
         setCurrentRoute('original_cv_workspace')
 
         return
@@ -194,11 +254,15 @@ export function App() {
         return
       }
 
+      const nextVacancyWorkspaceState =
+        await globalThis.window.cvMaxxing.vacancy.getVacancyWorkspaceState()
+
       setOriginalCvFile(null)
       setOriginalCvWorkspaceState({
         activeOriginalCv: importResult.originalCv,
         snapshotCount: importResult.originalCv.snapshotCount,
       })
+      applyVacancyWorkspaceState(nextVacancyWorkspaceState)
       setViewModel((previousViewModel) => {
         return {
           ...previousViewModel,
@@ -207,6 +271,73 @@ export function App() {
       })
     } finally {
       setIsImportingOriginalCv(false)
+    }
+  }
+
+  const handleVacancyUrlIngest = async (): Promise<void> => {
+    if (vacancyUrl.trim() === '' || isSubmittingVacancyUrl) {
+      return
+    }
+
+    setIsSubmittingVacancyUrl(true)
+    setVacancyError(null)
+
+    try {
+      const ingestionResult = await globalThis.window.cvMaxxing.vacancy.ingestVacancyUrl({
+        url: vacancyUrl,
+      })
+
+      applyVacancyWorkspaceState(ingestionResult.workspaceState, ingestionResult.vacancy)
+    } catch {
+      setVacancyError(vacancyErrorMessage)
+    } finally {
+      setIsSubmittingVacancyUrl(false)
+    }
+  }
+
+  const handlePastedVacancyIngest = async (): Promise<void> => {
+    if (pastedVacancyText.trim() === '' || isSubmittingPastedVacancy) {
+      return
+    }
+
+    setIsSubmittingPastedVacancy(true)
+    setVacancyError(null)
+
+    try {
+      const ingestionResult = await globalThis.window.cvMaxxing.vacancy.ingestPastedVacancy({
+        text: pastedVacancyText,
+        url: vacancyReferenceUrl.trim() === '' ? undefined : vacancyReferenceUrl,
+      })
+
+      applyVacancyWorkspaceState(ingestionResult.workspaceState, ingestionResult.vacancy)
+    } catch {
+      setVacancyError(vacancyErrorMessage)
+    } finally {
+      setIsSubmittingPastedVacancy(false)
+    }
+  }
+
+  const handleOpenVacancyBrowserSession = async (): Promise<void> => {
+    const nextVacancyUrl =
+      vacancyUrl === ''
+        ? (vacancyPreview?.originalUrl ?? vacancyWorkspaceState.draft.url)
+        : vacancyUrl
+
+    if (nextVacancyUrl === '' || isOpeningVacancyBrowserSession) {
+      return
+    }
+
+    setIsOpeningVacancyBrowserSession(true)
+    setVacancyError(null)
+
+    try {
+      await globalThis.window.cvMaxxing.vacancy.openVacancyBrowserSession({
+        url: nextVacancyUrl,
+      })
+    } catch {
+      setVacancyError(vacancyErrorMessage)
+    } finally {
+      setIsOpeningVacancyBrowserSession(false)
     }
   }
 
@@ -227,6 +358,18 @@ export function App() {
     handleOriginalCvImport().catch(() => null)
   }
 
+  const handleVacancyUrlClick = (): void => {
+    handleVacancyUrlIngest().catch(() => null)
+  }
+
+  const handlePastedVacancyClick = (): void => {
+    handlePastedVacancyIngest().catch(() => null)
+  }
+
+  const handleOpenVacancyBrowserSessionClick = (): void => {
+    handleOpenVacancyBrowserSession().catch(() => null)
+  }
+
   if (currentRoute === 'original_cv_workspace') {
     const activeOriginalCv = originalCvWorkspaceState.activeOriginalCv
     const isReplacingOriginalCv = activeOriginalCv !== null
@@ -240,9 +383,80 @@ export function App() {
       importActionLabel = 'Importing original CV...'
     }
 
+    if (activeOriginalCv === null) {
+      return (
+        <main className="flex min-h-screen items-center justify-center px-6 py-10">
+          <section className="grid w-full max-w-6xl gap-8 rounded-[8px] border border-[var(--color-panel-border)] bg-[var(--color-panel-background)]/90 p-8 shadow-[0_24px_80px_rgb(0_0_0_/_0.28)] backdrop-blur xl:grid-cols-[minmax(0,1.4fr)_minmax(20rem,0.9fr)]">
+            <div className="space-y-8">
+              <div className="flex items-center gap-3">
+                <div className="h-3 w-3 rounded-full bg-[var(--color-panel-accent)]" />
+                <p className="m-0 text-sm uppercase tracking-[0.16em] text-[var(--color-app-muted)]">
+                  CV Maxxing
+                </p>
+              </div>
+
+              <div className="space-y-5">
+                <StatusBadge status="ready" />
+                <h1 className="m-0 max-w-2xl text-5xl leading-tight text-[var(--color-app-foreground)]">
+                  Import your original CV
+                </h1>
+                <p className="m-0 max-w-2xl text-lg leading-8 text-[var(--color-app-muted)]">
+                  Import a PDF or DOCX original CV to unlock the rest of the workspace.
+                </p>
+                <p className="m-0 max-w-2xl text-sm leading-7 text-[var(--color-panel-warning)]">
+                  The app stores the source file, extracted text, normalized CV JSON, and
+                  writing-style profile through encrypted local storage.
+                </p>
+              </div>
+            </div>
+
+            <aside className="flex flex-col justify-between rounded-[8px] border border-[var(--color-panel-border)] bg-black/10 p-6">
+              <div className="space-y-6">
+                <p className="m-0 text-sm uppercase tracking-[0.12em] text-[var(--color-app-muted)]">
+                  First launch
+                </p>
+                <div className="space-y-3">
+                  <label className="block text-sm leading-7 text-[var(--color-app-foreground)]">
+                    <span className="mb-2 block">Original CV file</span>
+                    <input
+                      accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                      aria-label="Original CV file"
+                      className="block w-full rounded-[8px] border border-[var(--color-panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--color-app-foreground)] file:mr-4 file:rounded-[8px] file:border-0 file:bg-[var(--color-panel-accent)] file:px-4 file:py-2 file:text-sm file:font-medium file:text-slate-950"
+                      onChange={handleOriginalCvSelection}
+                      type="file"
+                    />
+                  </label>
+                  {importError ? (
+                    <p className="m-0 text-sm leading-7 text-[var(--color-panel-warning)]">
+                      {importError}
+                    </p>
+                  ) : null}
+                </div>
+              </div>
+
+              <div className="mt-8 space-y-4">
+                <button
+                  className="w-full rounded-[8px] border border-[var(--color-panel-accent)] bg-[var(--color-panel-accent)] px-4 py-3 text-sm font-medium text-slate-950 disabled:cursor-not-allowed disabled:border-[var(--color-panel-border)] disabled:bg-transparent disabled:text-[var(--color-app-muted)]"
+                  disabled={originalCvFile === null || isImportingOriginalCv}
+                  onClick={handleOriginalCvImportClick}
+                  type="button"
+                >
+                  {importActionLabel}
+                </button>
+                <p className="m-0 text-sm leading-7 text-[var(--color-panel-warning)]">
+                  PDF and DOCX are supported. Scanned, image-only, empty, or weakly extracted files
+                  are rejected.
+                </p>
+              </div>
+            </aside>
+          </section>
+        </main>
+      )
+    }
+
     return (
       <main className="flex min-h-screen items-center justify-center px-6 py-10">
-        <section className="grid w-full max-w-6xl gap-8 rounded-[8px] border border-[var(--color-panel-border)] bg-[var(--color-panel-background)]/90 p-8 shadow-[0_24px_80px_rgb(0_0_0_/_0.28)] backdrop-blur xl:grid-cols-[minmax(0,1.4fr)_minmax(20rem,0.9fr)]">
+        <section className="grid w-full max-w-7xl gap-8 rounded-[8px] border border-[var(--color-panel-border)] bg-[var(--color-panel-background)]/90 p-8 shadow-[0_24px_80px_rgb(0_0_0_/_0.28)] backdrop-blur xl:grid-cols-[minmax(0,1.25fr)_minmax(24rem,0.95fr)]">
           <div className="space-y-8">
             <div className="flex items-center gap-3">
               <div className="h-3 w-3 rounded-full bg-[var(--color-panel-accent)]" />
@@ -254,12 +468,11 @@ export function App() {
             <div className="space-y-5">
               <StatusBadge status="ready" />
               <h1 className="m-0 max-w-2xl text-5xl leading-tight text-[var(--color-app-foreground)]">
-                {isReplacingOriginalCv ? 'Original CV active' : 'Import your original CV'}
+                Original CV active
               </h1>
               <p className="m-0 max-w-2xl text-lg leading-8 text-[var(--color-app-muted)]">
-                {isReplacingOriginalCv
-                  ? 'One original CV stays active in the workspace. Replacing it creates a new encrypted snapshot.'
-                  : 'Import a PDF or DOCX original CV to unlock the rest of the workspace.'}
+                One original CV stays active in the workspace. Replacing it creates a new encrypted
+                snapshot.
               </p>
               <p className="m-0 max-w-2xl text-sm leading-7 text-[var(--color-panel-warning)]">
                 The app stores the source file, extracted text, normalized CV JSON, and
@@ -267,61 +480,237 @@ export function App() {
               </p>
             </div>
 
-            {activeOriginalCv ? (
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="rounded-[8px] border border-[var(--color-panel-border)] bg-black/10 p-5">
-                  <p className="m-0 text-xs uppercase tracking-[0.12em] text-[var(--color-app-muted)]">
-                    Active original CV
-                  </p>
-                  <p className="mt-3 text-xl text-[var(--color-app-foreground)]">
-                    {activeOriginalCv.originalFilename}
-                  </p>
-                  <p className="mt-2 text-sm leading-7 text-[var(--color-app-muted)]">
-                    {activeOriginalCv.headline}
-                  </p>
-                </div>
-
-                <div className="rounded-[8px] border border-[var(--color-panel-border)] bg-black/10 p-5">
-                  <p className="m-0 text-xs uppercase tracking-[0.12em] text-[var(--color-app-muted)]">
-                    Snapshot history
-                  </p>
-                  <p className="mt-3 text-xl text-[var(--color-app-foreground)]">
-                    {originalCvWorkspaceState.snapshotCount} snapshots stored
-                  </p>
-                  <p className="mt-2 text-sm leading-7 text-[var(--color-app-muted)]">
-                    Existing tailored applications keep the snapshot reference they were generated
-                    from.
-                  </p>
-                </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="rounded-[8px] border border-[var(--color-panel-border)] bg-black/10 p-5">
+                <p className="m-0 text-xs uppercase tracking-[0.12em] text-[var(--color-app-muted)]">
+                  Active original CV
+                </p>
+                <p className="mt-3 text-xl text-[var(--color-app-foreground)]">
+                  {activeOriginalCv.originalFilename}
+                </p>
+                <p className="mt-2 text-sm leading-7 text-[var(--color-app-muted)]">
+                  {activeOriginalCv.headline}
+                </p>
               </div>
-            ) : null}
-          </div>
 
-          <aside className="flex flex-col justify-between rounded-[8px] border border-[var(--color-panel-border)] bg-black/10 p-6">
-            <div className="space-y-6">
-              <p className="m-0 text-sm uppercase tracking-[0.12em] text-[var(--color-app-muted)]">
-                {isReplacingOriginalCv ? 'Replace original CV' : 'First launch'}
-              </p>
-              <div className="space-y-3">
-                <label className="block text-sm leading-7 text-[var(--color-app-foreground)]">
-                  <span className="mb-2 block">Original CV file</span>
-                  <input
-                    accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                    aria-label="Original CV file"
-                    className="block w-full rounded-[8px] border border-[var(--color-panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--color-app-foreground)] file:mr-4 file:rounded-[8px] file:border-0 file:bg-[var(--color-panel-accent)] file:px-4 file:py-2 file:text-sm file:font-medium file:text-slate-950"
-                    onChange={handleOriginalCvSelection}
-                    type="file"
-                  />
-                </label>
-                {importError ? (
-                  <p className="m-0 text-sm leading-7 text-[var(--color-panel-warning)]">
-                    {importError}
-                  </p>
-                ) : null}
+              <div className="rounded-[8px] border border-[var(--color-panel-border)] bg-black/10 p-5">
+                <p className="m-0 text-xs uppercase tracking-[0.12em] text-[var(--color-app-muted)]">
+                  Snapshot history
+                </p>
+                <p className="mt-3 text-xl text-[var(--color-app-foreground)]">
+                  {originalCvWorkspaceState.snapshotCount} snapshots stored
+                </p>
+                <p className="mt-2 text-sm leading-7 text-[var(--color-app-muted)]">
+                  Existing tailored applications keep the snapshot reference they were generated
+                  from.
+                </p>
               </div>
             </div>
 
-            <div className="mt-8 space-y-4">
+            <div className="grid gap-6 lg:grid-cols-2">
+              <section className="space-y-4 rounded-[8px] border border-[var(--color-panel-border)] bg-black/10 p-5">
+                <p className="m-0 text-sm uppercase tracking-[0.12em] text-[var(--color-app-muted)]">
+                  Vacancy URL
+                </p>
+                <label className="block text-sm leading-7 text-[var(--color-app-foreground)]">
+                  <span className="mb-2 block">Job vacancy URL</span>
+                  <input
+                    aria-label="Job vacancy URL"
+                    className="block w-full rounded-[8px] border border-[var(--color-panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--color-app-foreground)]"
+                    onChange={(event) => {
+                      setVacancyUrl(event.target.value)
+                    }}
+                    type="url"
+                    value={vacancyUrl}
+                  />
+                </label>
+                <button
+                  className="w-full rounded-[8px] border border-[var(--color-panel-accent)] bg-[var(--color-panel-accent)] px-4 py-3 text-sm font-medium text-slate-950 disabled:cursor-not-allowed disabled:border-[var(--color-panel-border)] disabled:bg-transparent disabled:text-[var(--color-app-muted)]"
+                  disabled={vacancyUrl.trim() === '' || isSubmittingVacancyUrl}
+                  onClick={handleVacancyUrlClick}
+                  type="button"
+                >
+                  {isSubmittingVacancyUrl ? 'Fetching vacancy...' : 'Fetch vacancy'}
+                </button>
+              </section>
+
+              <section className="space-y-4 rounded-[8px] border border-[var(--color-panel-border)] bg-black/10 p-5">
+                <p className="m-0 text-sm uppercase tracking-[0.12em] text-[var(--color-app-muted)]">
+                  Pasted job text
+                </p>
+                <label className="block text-sm leading-7 text-[var(--color-app-foreground)]">
+                  <span className="mb-2 block">Reference vacancy URL</span>
+                  <input
+                    aria-label="Reference vacancy URL"
+                    className="block w-full rounded-[8px] border border-[var(--color-panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--color-app-foreground)]"
+                    onChange={(event) => {
+                      setVacancyReferenceUrl(event.target.value)
+                    }}
+                    type="url"
+                    value={vacancyReferenceUrl}
+                  />
+                </label>
+                <label className="block text-sm leading-7 text-[var(--color-app-foreground)]">
+                  <span className="mb-2 block">Pasted vacancy text</span>
+                  <textarea
+                    aria-label="Pasted vacancy text"
+                    className="block min-h-44 w-full rounded-[8px] border border-[var(--color-panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--color-app-foreground)]"
+                    onChange={(event) => {
+                      setPastedVacancyText(event.target.value)
+                    }}
+                    value={pastedVacancyText}
+                  />
+                </label>
+                <button
+                  className="w-full rounded-[8px] border border-[var(--color-panel-accent)] bg-[var(--color-panel-accent)] px-4 py-3 text-sm font-medium text-slate-950 disabled:cursor-not-allowed disabled:border-[var(--color-panel-border)] disabled:bg-transparent disabled:text-[var(--color-app-muted)]"
+                  disabled={pastedVacancyText.trim() === '' || isSubmittingPastedVacancy}
+                  onClick={handlePastedVacancyClick}
+                  type="button"
+                >
+                  {isSubmittingPastedVacancy
+                    ? 'Reviewing pasted vacancy...'
+                    : 'Use pasted vacancy text'}
+                </button>
+              </section>
+            </div>
+
+            {vacancyError ? (
+              <p className="m-0 text-sm leading-7 text-[var(--color-panel-warning)]">
+                {vacancyError}
+              </p>
+            ) : null}
+          </div>
+
+          <aside className="space-y-6 rounded-[8px] border border-[var(--color-panel-border)] bg-black/10 p-6">
+            <div className="space-y-4">
+              <p className="m-0 text-sm uppercase tracking-[0.12em] text-[var(--color-app-muted)]">
+                Vacancy preview
+              </p>
+
+              {vacancyPreview ? (
+                <div className="space-y-4">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <span className="rounded-full border border-[var(--color-panel-border)] px-3 py-1 text-xs uppercase tracking-[0.12em] text-[var(--color-app-foreground)]">
+                      {getVacancySourceLabel(vacancyPreview.source)}
+                    </span>
+                    <span className="text-sm text-[var(--color-panel-warning)]">
+                      {getVacancyStatusLabel(vacancyPreview)}
+                    </span>
+                  </div>
+
+                  <div className="space-y-2">
+                    <h2 className="m-0 text-2xl text-[var(--color-app-foreground)]">
+                      {vacancyPreview.title ?? 'Vacancy preview'}
+                    </h2>
+                    {vacancyPreview.employer ? (
+                      <p className="m-0 text-base text-[var(--color-app-foreground)]">
+                        {vacancyPreview.employer}
+                      </p>
+                    ) : null}
+                    {vacancyPreview.location ? (
+                      <p className="m-0 text-sm text-[var(--color-app-muted)]">
+                        {vacancyPreview.location}
+                      </p>
+                    ) : null}
+                  </div>
+
+                  {vacancyPreview.blockingReason ? (
+                    <p className="m-0 text-sm leading-7 text-[var(--color-panel-warning)]">
+                      {vacancyPreview.blockingReason}
+                    </p>
+                  ) : null}
+
+                  {vacancyPreview.responsibilities.length > 0 ? (
+                    <div className="space-y-2">
+                      <p className="m-0 text-xs uppercase tracking-[0.12em] text-[var(--color-app-muted)]">
+                        Responsibilities
+                      </p>
+                      {vacancyPreview.responsibilities.slice(0, 2).map((responsibility, index) => {
+                        return (
+                          <p
+                            className="m-0 text-sm leading-7 text-[var(--color-app-foreground)]"
+                            key={`${String(index)}-${responsibility}`}
+                          >
+                            {responsibility}
+                          </p>
+                        )
+                      })}
+                    </div>
+                  ) : null}
+
+                  {vacancyPreview.requirements.length > 0 ? (
+                    <div className="space-y-2">
+                      <p className="m-0 text-xs uppercase tracking-[0.12em] text-[var(--color-app-muted)]">
+                        Requirements
+                      </p>
+                      {vacancyPreview.requirements.slice(0, 2).map((requirement, index) => {
+                        return (
+                          <p
+                            className="m-0 text-sm leading-7 text-[var(--color-app-foreground)]"
+                            key={`${String(index)}-${requirement}`}
+                          >
+                            {requirement}
+                          </p>
+                        )
+                      })}
+                    </div>
+                  ) : null}
+
+                  {vacancyPreview.textPreview ? (
+                    <p className="m-0 text-sm leading-7 text-[var(--color-app-muted)]">
+                      {vacancyPreview.textPreview}
+                    </p>
+                  ) : null}
+                </div>
+              ) : (
+                <p className="m-0 text-sm leading-7 text-[var(--color-app-muted)]">
+                  Enter a vacancy URL or paste the job text to review a compact preview here.
+                </p>
+              )}
+            </div>
+
+            {vacancyPreview !== null &&
+            !vacancyPreview.canGenerate &&
+            (vacancyPreview.source === 'linkedin' || vacancyPreview.source === 'indeed') ? (
+              <button
+                className="w-full rounded-[8px] border border-[var(--color-panel-border)] bg-transparent px-4 py-3 text-sm font-medium text-[var(--color-app-foreground)] disabled:cursor-not-allowed disabled:text-[var(--color-app-muted)]"
+                disabled={isOpeningVacancyBrowserSession}
+                onClick={handleOpenVacancyBrowserSessionClick}
+                type="button"
+              >
+                {isOpeningVacancyBrowserSession
+                  ? 'Opening internal browser session...'
+                  : 'Open internal browser session'}
+              </button>
+            ) : null}
+
+            <button
+              className="w-full rounded-[8px] border border-[var(--color-panel-border)] bg-transparent px-4 py-3 text-sm font-medium text-[var(--color-app-foreground)] disabled:cursor-not-allowed disabled:text-[var(--color-app-muted)]"
+              disabled={vacancyPreview?.canGenerate !== true}
+              type="button"
+            >
+              Adapt CV
+            </button>
+
+            <div className="space-y-4 rounded-[8px] border border-[var(--color-panel-border)] bg-black/20 p-4">
+              <p className="m-0 text-sm uppercase tracking-[0.12em] text-[var(--color-app-muted)]">
+                Replace original CV
+              </p>
+              <label className="block text-sm leading-7 text-[var(--color-app-foreground)]">
+                <span className="mb-2 block">Original CV file</span>
+                <input
+                  accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                  aria-label="Original CV file"
+                  className="block w-full rounded-[8px] border border-[var(--color-panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--color-app-foreground)] file:mr-4 file:rounded-[8px] file:border-0 file:bg-[var(--color-panel-accent)] file:px-4 file:py-2 file:text-sm file:font-medium file:text-slate-950"
+                  onChange={handleOriginalCvSelection}
+                  type="file"
+                />
+              </label>
+              {importError ? (
+                <p className="m-0 text-sm leading-7 text-[var(--color-panel-warning)]">
+                  {importError}
+                </p>
+              ) : null}
               <button
                 className="w-full rounded-[8px] border border-[var(--color-panel-accent)] bg-[var(--color-panel-accent)] px-4 py-3 text-sm font-medium text-slate-950 disabled:cursor-not-allowed disabled:border-[var(--color-panel-border)] disabled:bg-transparent disabled:text-[var(--color-app-muted)]"
                 disabled={originalCvFile === null || isImportingOriginalCv}

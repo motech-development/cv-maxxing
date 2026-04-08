@@ -1,5 +1,9 @@
 import type { DesktopIpcChannel } from '../shared/ipc.js'
-import { AI_WORKER_IPC_CHANNELS, ORIGINAL_CV_IPC_CHANNELS } from '../shared/ipc.js'
+import {
+  AI_WORKER_IPC_CHANNELS,
+  ORIGINAL_CV_IPC_CHANNELS,
+  VACANCY_IPC_CHANNELS,
+} from '../shared/ipc.js'
 import type { AiWorkerPreflightResult } from '../shared/ai-worker-preflight.js'
 import type {
   OriginalCvImportInput,
@@ -7,6 +11,12 @@ import type {
   OriginalCvWorkspaceState,
 } from '../shared/original-cv.js'
 import type { StartupDestination } from '../shared/startup-destination.js'
+import type {
+  PastedVacancyInput,
+  VacancyIngestResult,
+  VacancyUrlInput,
+  VacancyWorkspaceState,
+} from '../shared/vacancy.js'
 import type { CvMaxxingWindowApi } from '../shared/window-api.js'
 
 type DesktopApiInvoke = <TResult>(channel: DesktopIpcChannel, payload?: unknown) => Promise<TResult>
@@ -40,6 +50,20 @@ export function createDesktopApi({ invoke }: DesktopApiInvoker): CvMaxxingWindow
       },
       importOriginalCv: async (input: OriginalCvImportInput): Promise<OriginalCvImportResult> => {
         return await invoke(ORIGINAL_CV_IPC_CHANNELS.importOriginalCv, input)
+      },
+    },
+    vacancy: {
+      getVacancyWorkspaceState: async (): Promise<VacancyWorkspaceState> => {
+        return await invoke(VACANCY_IPC_CHANNELS.getWorkspaceState)
+      },
+      ingestPastedVacancy: async (input: PastedVacancyInput): Promise<VacancyIngestResult> => {
+        return await invoke(VACANCY_IPC_CHANNELS.ingestPasted, input)
+      },
+      ingestVacancyUrl: async (input: VacancyUrlInput): Promise<VacancyIngestResult> => {
+        return await invoke(VACANCY_IPC_CHANNELS.ingestUrl, input)
+      },
+      openVacancyBrowserSession: async (input: VacancyUrlInput): Promise<void> => {
+        await invoke<undefined>(VACANCY_IPC_CHANNELS.openBrowserSession, input)
       },
     },
   }

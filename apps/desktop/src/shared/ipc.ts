@@ -11,10 +11,19 @@ export const ORIGINAL_CV_IPC_CHANNELS = {
   importOriginalCv: 'original-cv:import',
 } as const
 
+export const VACANCY_IPC_CHANNELS = {
+  getWorkspaceState: 'vacancy:get-workspace-state',
+  ingestPasted: 'vacancy:ingest-pasted',
+  ingestUrl: 'vacancy:ingest-url',
+  openBrowserSession: 'vacancy:open-browser-session',
+} as const
+
 export type AiWorkerIpcChannel =
   (typeof AI_WORKER_IPC_CHANNELS)[keyof typeof AI_WORKER_IPC_CHANNELS]
 
 export type OriginalCvIpcChannel =
   (typeof ORIGINAL_CV_IPC_CHANNELS)[keyof typeof ORIGINAL_CV_IPC_CHANNELS]
 
-export type DesktopIpcChannel = AiWorkerIpcChannel | OriginalCvIpcChannel
+export type VacancyIpcChannel = (typeof VACANCY_IPC_CHANNELS)[keyof typeof VACANCY_IPC_CHANNELS]
+
+export type DesktopIpcChannel = AiWorkerIpcChannel | OriginalCvIpcChannel | VacancyIpcChannel

@@ -66,10 +66,111 @@ function createOriginalCvApi(
   }
 }
 
+function createVacancyApi(overrides?: Partial<(typeof globalThis.window.cvMaxxing)['vacancy']>) {
+  return {
+    getVacancyWorkspaceState: vi.fn().mockResolvedValue({
+      draft: {
+        text: '',
+        url: '',
+      },
+      vacancy: null,
+    }),
+    ingestPastedVacancy: vi.fn().mockResolvedValue({
+      kind: 'ingested',
+      vacancy: {
+        blockingReason: null,
+        canGenerate: true,
+        employer: 'Example Labs',
+        fetchedAt: '2026-04-08T21:00:00.000Z',
+        id: 'vacancy-001',
+        inputType: 'pasted_text',
+        location: 'London, United Kingdom',
+        originalUrl: 'https://jobs.example.com/senior-product-designer',
+        requirements: ['Strong written communication.'],
+        resolvedUrl: 'https://jobs.example.com/senior-product-designer',
+        responsibilities: ['Lead product design for AI-assisted desktop workflows.'],
+        source: 'generic',
+        status: 'ready',
+        textPreview: 'Lead product design for AI-assisted desktop workflows.',
+        title: 'Senior Product Designer',
+      },
+      workspaceState: {
+        draft: {
+          text: 'Senior Product Designer',
+          url: 'https://jobs.example.com/senior-product-designer',
+        },
+        vacancy: {
+          blockingReason: null,
+          canGenerate: true,
+          employer: 'Example Labs',
+          fetchedAt: '2026-04-08T21:00:00.000Z',
+          id: 'vacancy-001',
+          inputType: 'pasted_text',
+          location: 'London, United Kingdom',
+          originalUrl: 'https://jobs.example.com/senior-product-designer',
+          requirements: ['Strong written communication.'],
+          resolvedUrl: 'https://jobs.example.com/senior-product-designer',
+          responsibilities: ['Lead product design for AI-assisted desktop workflows.'],
+          source: 'generic',
+          status: 'ready',
+          textPreview: 'Lead product design for AI-assisted desktop workflows.',
+          title: 'Senior Product Designer',
+        },
+      },
+    }),
+    ingestVacancyUrl: vi.fn().mockResolvedValue({
+      kind: 'ingested',
+      vacancy: {
+        blockingReason: null,
+        canGenerate: true,
+        employer: 'Example Labs',
+        fetchedAt: '2026-04-08T21:10:00.000Z',
+        id: 'vacancy-002',
+        inputType: 'url',
+        location: 'London, United Kingdom',
+        originalUrl: 'https://boards.greenhouse.io/example/jobs/123',
+        requirements: ['Experience shipping workflow software.'],
+        resolvedUrl: 'https://boards.greenhouse.io/example/jobs/123',
+        responsibilities: ['Lead product design for desktop workflows.'],
+        source: 'greenhouse',
+        status: 'ready',
+        textPreview: 'Lead product design for desktop workflows.',
+        title: 'Senior Product Designer',
+      },
+      workspaceState: {
+        draft: {
+          text: '',
+          url: 'https://boards.greenhouse.io/example/jobs/123',
+        },
+        vacancy: {
+          blockingReason: null,
+          canGenerate: true,
+          employer: 'Example Labs',
+          fetchedAt: '2026-04-08T21:10:00.000Z',
+          id: 'vacancy-002',
+          inputType: 'url',
+          location: 'London, United Kingdom',
+          originalUrl: 'https://boards.greenhouse.io/example/jobs/123',
+          requirements: ['Experience shipping workflow software.'],
+          resolvedUrl: 'https://boards.greenhouse.io/example/jobs/123',
+          responsibilities: ['Lead product design for desktop workflows.'],
+          source: 'greenhouse',
+          status: 'ready',
+          textPreview: 'Lead product design for desktop workflows.',
+          title: 'Senior Product Designer',
+        },
+      },
+    }),
+    openVacancyBrowserSession: vi.fn().mockImplementation(() => Promise.resolve()),
+    ...overrides,
+  }
+}
+
 test('renders the AI worker readiness gate before unlocking the workspace', async () => {
   globalThis.window.cvMaxxing = {
     aiWorker: createAiWorkerApi(),
     originalCv: createOriginalCvApi(),
+    vacancy: createVacancyApi(),
   }
 
   render(<App />)
@@ -95,6 +196,7 @@ test('restores the saved startup destination after readiness succeeds', async ()
       getStartupDestination: vi.fn().mockResolvedValue('workspace_active'),
     }),
     originalCv: createOriginalCvApi(),
+    vacancy: createVacancyApi(),
   }
 
   render(<App />)
@@ -143,6 +245,7 @@ test('retries unavailable startup checks and transitions through the restored de
         snapshotCount: 1,
       }),
     }),
+    vacancy: createVacancyApi(),
   }
 
   render(<App />)
@@ -176,6 +279,7 @@ test('starts provider sign-in repair and resumes the pending tailored applicatio
       getStartupDestination: vi.fn().mockResolvedValue('workspace_loading'),
     }),
     originalCv: createOriginalCvApi(),
+    vacancy: createVacancyApi(),
   }
 
   render(<App />)
@@ -202,6 +306,7 @@ test('renders a blocked startup error when the readiness query fails', async () 
       getAiWorkerPreflight: vi.fn().mockRejectedValue(new Error('worker crashed')),
     }),
     originalCv: createOriginalCvApi(),
+    vacancy: createVacancyApi(),
   }
 
   render(<App />)
@@ -229,6 +334,7 @@ test('imports the first original CV after readiness passes and transitions into 
       getStartupDestination: vi.fn().mockResolvedValue('first_launch'),
     }),
     originalCv: createOriginalCvApi(),
+    vacancy: createVacancyApi(),
   }
 
   render(<App />)
@@ -304,6 +410,7 @@ test('shows the active original CV and supports replacement inside the workspace
         },
       }),
     }),
+    vacancy: createVacancyApi(),
   }
 
   render(<App />)
@@ -328,4 +435,225 @@ test('shows the active original CV and supports replacement inside the workspace
   })
 
   expect(screen.getByText('2 snapshots stored')).toBeDefined()
+})
+
+test('fetches a vacancy URL inside the workspace and renders a compact ready preview', async () => {
+  globalThis.window.cvMaxxing = {
+    aiWorker: createAiWorkerApi({
+      getAiWorkerPreflight: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+      getStartupDestination: vi.fn().mockResolvedValue('workspace_empty'),
+    }),
+    originalCv: createOriginalCvApi({
+      getOriginalCvWorkspaceState: vi.fn().mockResolvedValue({
+        activeOriginalCv: {
+          fileType: 'pdf',
+          headline: 'Principal Product Designer',
+          id: 'original-cv-123',
+          importedAt: '2026-04-08T14:30:00.000Z',
+          originalFilename: 'ada-lovelace.pdf',
+          pageCount: 1,
+          snapshotCount: 1,
+          summary: 'Design leader focused on complex workflow products.',
+          writingStyle: {
+            averageSentenceLength: 7,
+            clicheDetections: [],
+            firstPersonUsage: 'absent',
+            formality: 'direct',
+          },
+        },
+        snapshotCount: 1,
+      }),
+    }),
+    vacancy: createVacancyApi(),
+  }
+
+  render(<App />)
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Original CV active' })).toBeDefined()
+  })
+
+  fireEvent.change(screen.getByLabelText('Job vacancy URL'), {
+    target: {
+      value: 'https://boards.greenhouse.io/example/jobs/123',
+    },
+  })
+  fireEvent.click(screen.getByRole('button', { name: 'Fetch vacancy' }))
+
+  await waitFor(() => {
+    expect(screen.getByText('Senior Product Designer')).toBeDefined()
+  })
+
+  expect(globalThis.window.cvMaxxing.vacancy.ingestVacancyUrl).toHaveBeenCalledWith({
+    url: 'https://boards.greenhouse.io/example/jobs/123',
+  })
+  expect(screen.getByText('Greenhouse')).toBeDefined()
+  expect(screen.getByText('Example Labs')).toBeDefined()
+  expect(screen.getByText('Ready for adaptation')).toBeDefined()
+})
+
+test('shows the browser-assisted fallback for blocked LinkedIn vacancy URLs', async () => {
+  globalThis.window.cvMaxxing = {
+    aiWorker: createAiWorkerApi({
+      getAiWorkerPreflight: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+      getStartupDestination: vi.fn().mockResolvedValue('workspace_empty'),
+    }),
+    originalCv: createOriginalCvApi({
+      getOriginalCvWorkspaceState: vi.fn().mockResolvedValue({
+        activeOriginalCv: {
+          fileType: 'pdf',
+          headline: 'Principal Product Designer',
+          id: 'original-cv-123',
+          importedAt: '2026-04-08T14:30:00.000Z',
+          originalFilename: 'ada-lovelace.pdf',
+          pageCount: 1,
+          snapshotCount: 1,
+          summary: 'Design leader focused on complex workflow products.',
+          writingStyle: {
+            averageSentenceLength: 7,
+            clicheDetections: [],
+            firstPersonUsage: 'absent',
+            formality: 'direct',
+          },
+        },
+        snapshotCount: 1,
+      }),
+    }),
+    vacancy: createVacancyApi({
+      ingestVacancyUrl: vi.fn().mockResolvedValue({
+        kind: 'incomplete',
+        vacancy: {
+          blockingReason:
+            'Open the internal browser session for authenticated pages, or paste the full job text instead.',
+          canGenerate: false,
+          employer: null,
+          fetchedAt: '2026-04-08T21:15:00.000Z',
+          id: 'vacancy-pending-browser',
+          inputType: 'url',
+          location: null,
+          originalUrl: 'https://www.linkedin.com/jobs/view/123456',
+          requirements: [],
+          resolvedUrl: null,
+          responsibilities: [],
+          source: 'linkedin',
+          status: 'incomplete',
+          textPreview: '',
+          title: null,
+        },
+        workspaceState: {
+          draft: {
+            text: '',
+            url: 'https://www.linkedin.com/jobs/view/123456',
+          },
+          vacancy: null,
+        },
+      }),
+    }),
+  }
+
+  render(<App />)
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Original CV active' })).toBeDefined()
+  })
+
+  fireEvent.change(screen.getByLabelText('Job vacancy URL'), {
+    target: {
+      value: 'https://www.linkedin.com/jobs/view/123456',
+    },
+  })
+  fireEvent.click(screen.getByRole('button', { name: 'Fetch vacancy' }))
+
+  await waitFor(() => {
+    expect(screen.getByText('Needs browser sign-in')).toBeDefined()
+  })
+
+  fireEvent.click(screen.getByRole('button', { name: 'Open internal browser session' }))
+
+  await waitFor(() => {
+    expect(globalThis.window.cvMaxxing.vacancy.openVacancyBrowserSession).toHaveBeenCalledWith({
+      url: 'https://www.linkedin.com/jobs/view/123456',
+    })
+  })
+  expect(
+    screen.getByText(
+      'Open the internal browser session for authenticated pages, or paste the full job text instead.',
+    ),
+  ).toBeDefined()
+})
+
+test('submits pasted vacancy text and updates the review preview in the workspace', async () => {
+  globalThis.window.cvMaxxing = {
+    aiWorker: createAiWorkerApi({
+      getAiWorkerPreflight: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+      getStartupDestination: vi.fn().mockResolvedValue('workspace_empty'),
+    }),
+    originalCv: createOriginalCvApi({
+      getOriginalCvWorkspaceState: vi.fn().mockResolvedValue({
+        activeOriginalCv: {
+          fileType: 'pdf',
+          headline: 'Principal Product Designer',
+          id: 'original-cv-123',
+          importedAt: '2026-04-08T14:30:00.000Z',
+          originalFilename: 'ada-lovelace.pdf',
+          pageCount: 1,
+          snapshotCount: 1,
+          summary: 'Design leader focused on complex workflow products.',
+          writingStyle: {
+            averageSentenceLength: 7,
+            clicheDetections: [],
+            firstPersonUsage: 'absent',
+            formality: 'direct',
+          },
+        },
+        snapshotCount: 1,
+      }),
+    }),
+    vacancy: createVacancyApi(),
+  }
+
+  render(<App />)
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Original CV active' })).toBeDefined()
+  })
+
+  fireEvent.change(screen.getByLabelText('Reference vacancy URL'), {
+    target: {
+      value: 'https://jobs.example.com/senior-product-designer',
+    },
+  })
+  fireEvent.change(screen.getByLabelText('Pasted vacancy text'), {
+    target: {
+      value:
+        'Senior Product Designer\nExample Labs\nLondon, United Kingdom\nResponsibilities\nLead product design for AI-assisted desktop workflows.\nRequirements\nStrong written communication.',
+    },
+  })
+  fireEvent.click(screen.getByRole('button', { name: 'Use pasted vacancy text' }))
+
+  await waitFor(() => {
+    expect(
+      screen.getAllByText('Lead product design for AI-assisted desktop workflows.').length,
+    ).toBeGreaterThan(0)
+  })
+
+  expect(globalThis.window.cvMaxxing.vacancy.ingestPastedVacancy).toHaveBeenCalledWith({
+    text: 'Senior Product Designer\nExample Labs\nLondon, United Kingdom\nResponsibilities\nLead product design for AI-assisted desktop workflows.\nRequirements\nStrong written communication.',
+    url: 'https://jobs.example.com/senior-product-designer',
+  })
 })

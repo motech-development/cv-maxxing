@@ -5,6 +5,12 @@ import type {
   OriginalCvWorkspaceState,
 } from './original-cv.js'
 import type { StartupDestination } from './startup-destination.js'
+import type {
+  PastedVacancyInput,
+  VacancyIngestResult,
+  VacancyUrlInput,
+  VacancyWorkspaceState,
+} from './vacancy.js'
 
 export interface CvMaxxingWindowApi {
   aiWorker: {
@@ -17,5 +23,11 @@ export interface CvMaxxingWindowApi {
   originalCv: {
     getOriginalCvWorkspaceState: () => Promise<OriginalCvWorkspaceState>
     importOriginalCv: (input: OriginalCvImportInput) => Promise<OriginalCvImportResult>
+  }
+  vacancy: {
+    getVacancyWorkspaceState: () => Promise<VacancyWorkspaceState>
+    ingestPastedVacancy: (input: PastedVacancyInput) => Promise<VacancyIngestResult>
+    ingestVacancyUrl: (input: VacancyUrlInput) => Promise<VacancyIngestResult>
+    openVacancyBrowserSession: (input: VacancyUrlInput) => Promise<void>
   }
 }
