@@ -34,8 +34,8 @@ export default tseslint.config(
   {
     ignores: [
       '.husky/_/**',
-      'coverage/**',
-      'dist/**',
+      '**/coverage/**',
+      '**/dist/**',
       'node_modules/**',
       'out/**',
       'release/**',
@@ -62,6 +62,10 @@ export default tseslint.config(
   {
     files: [
       '*.config.{js,mjs}',
+      'apps/*/*.config.ts',
+      'apps/*/tests/e2e/**/*.ts',
+      'apps/*/src/main/**/*.ts',
+      'apps/*/src/preload/**/*.ts',
       'eslint.config.mjs',
       'scripts/**/*.{js,mjs,ts,mts}',
       'tools/**/*.{js,mjs,ts,mts}',
@@ -72,6 +76,15 @@ export default tseslint.config(
       },
     },
     name: 'cv-maxxing/node-config-files',
+  },
+  {
+    files: ['apps/*/src/renderer/**/*.{ts,tsx}'],
+    languageOptions: {
+      globals: {
+        ...globals.browser,
+      },
+    },
+    name: 'cv-maxxing/browser-renderer-files',
   },
   eslint.configs.recommended,
   importXFlatConfigs.recommended,
@@ -205,6 +218,13 @@ export default tseslint.config(
       'react-hooks/exhaustive-deps': 'error',
       'react-hooks/incompatible-library': 'error',
       'react-hooks/unsupported-syntax': 'error',
+    },
+  },
+  {
+    files: ['apps/*/src/main/main.ts'],
+    name: 'cv-maxxing/electron-main-entry',
+    rules: {
+      'unicorn/prefer-top-level-await': 'off',
     },
   },
   prettier,

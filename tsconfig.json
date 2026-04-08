@@ -1,4 +1,8 @@
 {
-  "include": [],
-  "references": []
+  "files": [],
+  "references": [
+    {
+      "path": "./apps/desktop"
+    }
+  ]
 }
