@@ -1,22 +1,38 @@
 @import 'tailwindcss';
 
 :root {
-  --color-app-background: #08141f;
-  --color-app-foreground: #f6f8fb;
-  --color-app-muted: #9eb3c7;
-  --color-panel-background: #102130;
-  --color-panel-border: #1f3649;
-  --color-panel-accent: #4fb6a9;
-  --color-panel-accent-soft: rgb(79 182 169 / 0.16);
-  --color-panel-warning: #ffd27d;
-  font-family: 'Iowan Old Style', 'Palatino Linotype', 'Book Antiqua', Palatino, Georgia, serif;
+  --color-border: #d9deda;
+  --color-chip-background: #26343c;
+  --color-copy-muted: #5e6872;
+  --color-copy-strong: #1e2428;
+  --color-copy-subtle: #aab4b0;
+  --color-ink-800: #26343c;
+  --color-ink-900: #1e2428;
+  --color-rail-active: #2d3b43;
+  --color-rail-idle: #182126;
+  --color-shell-canvas: #f4f6f3;
+  --color-shell-frame: #10181d;
+  --color-shell-rail: #182126;
+  --color-shell-sidebar: #f7f8f6;
+  --color-shell-topbar: #1b252b;
+  --color-status-danger: #7a1f1f;
+  --color-status-muted: #93a29a;
+  --color-status-ready: #28c840;
+  --color-status-warning: #ffbd2e;
+  --color-surface-0: #ffffff;
+  --color-surface-1: #f7f8f6;
+  --color-surface-2: #eef2ef;
+  --color-surface-3: #eaf0ec;
+  --color-surface-danger: #fff0f0;
+  --color-surface-success: #eaf0ec;
+  --color-surface-warning: #fff8e6;
+  --radius-card: 8px;
+  font-family: 'Manrope', 'Avenir Next', 'Segoe UI', sans-serif;
 }
 
 body {
-  background:
-    radial-gradient(circle at top, rgb(79 182 169 / 0.18), transparent 32%),
-    linear-gradient(180deg, #0b1824 0%, var(--color-app-background) 45%, #061018 100%);
-  color: var(--color-app-foreground);
+  background: var(--color-shell-frame);
+  color: var(--color-copy-strong);
   margin: 0;
   min-height: 100vh;
 }

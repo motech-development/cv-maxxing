@@ -59,6 +59,9 @@ importers:
 
   apps/desktop:
     dependencies:
+      '@fontsource/manrope':
+        specifier: ^5.2.8
+        version: 5.2.8
       '@journeyapps/sqlcipher':
         specifier: ^5.3.1
         version: 5.3.1
@@ -68,6 +71,9 @@ importers:
       fflate:
         specifier: ^0.8.2
         version: 0.8.2
+      lucide-react:
+        specifier: ^1.7.0
+        version: 1.7.0(react@19.2.4)
       pdfjs-dist:
         specifier: ^5.6.205
         version: 5.6.205
@@ -401,6 +407,9 @@ packages:
     peerDependenciesMeta:
       '@noble/hashes':
         optional: true
+
+  '@fontsource/manrope@5.2.8':
+    resolution: {integrity: sha512-gJHJmcuUk7qWcNCfcAri/DJQtXtBYqi9yKratr4jXhSo0I3xUtNNKI+igQIcw5c+m95g0vounk8ZnX/kb8o0TA==}
 
   '@humanfs/core@0.19.1':
     resolution: {integrity: sha512-5DyQ4+1JEUzejeK1JGICcideyfUbGixgS9jNgex5nqkW+cY7WZhxBigmieN5Qnw9ZosSNVC9KQKyb+GUaGyKUA==}
@@ -2268,6 +2277,11 @@ packages:
   lru-cache@5.1.1:
     resolution: {integrity: sha512-KpNARQA3Iwv+jTA0utUVVbrh+Jlrr1Fv0e56GGzAFOXN7dk/FviaDW8LHmK52DlcH4WP2n6gI8vN1aesBFgo9w==}
 
+  lucide-react@1.7.0:
+    resolution: {integrity: sha512-yI7BeItCLZJTXikmK4KNUGCKoGzSvbKlfCvw44bU4fXAL6v3gYS4uHD1jzsLkfwODYwI6Drw5Tu9Z5ulDe0TSg==}
+    peerDependencies:
+      react: ^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0
+
   lz-string@1.5.0:
     resolution: {integrity: sha512-h5bgJWpxJNswbU7qCrV0tIKQCaS3blPDrqKWx+QxzuzL1zGUzij9XCWLrSLsJPu5t+eWA/ycetzYAO5IOMcWAQ==}
     hasBin: true
@@ -3471,6 +3485,8 @@ snapshots:
       levn: 0.4.1
 
   '@exodus/bytes@1.15.0': {}
+
+  '@fontsource/manrope@5.2.8': {}
 
   '@humanfs/core@0.19.1': {}
 
@@ -5289,6 +5305,10 @@ snapshots:
   lru-cache@5.1.1:
     dependencies:
       yallist: 3.1.1
+
+  lucide-react@1.7.0(react@19.2.4):
+    dependencies:
+      react: 19.2.4
 
   lz-string@1.5.0: {}
 

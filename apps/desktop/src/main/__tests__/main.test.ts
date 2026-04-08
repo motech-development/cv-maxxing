@@ -654,6 +654,67 @@ test('bootstrap keeps the app open when every window closes on macOS', async () 
   expect(app.quit).not.toHaveBeenCalled()
 })
 
+test('bootstrap hides the native macOS title bar chrome when opening the main window', async () => {
+  const { app } = createAppDouble()
+  const { browserWindow, constructor } = createBrowserWindowDouble()
+  const vacancy = createVacancyDouble()
+
+  const bootstrap = createDesktopAppBootstrap({
+    aiWorker: {
+      getAiWorkerPreflight: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+      getStartupDestination: vi.fn().mockResolvedValue('first_launch'),
+      openAiWorkerSetupGuide: vi.fn().mockImplementation(() => Promise.resolve()),
+      retryAiWorkerPreflight: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+      startAiWorkerSignIn: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+    },
+    app,
+    browserWindow,
+    ipcMain: {
+      handle: vi.fn(),
+    },
+    onOriginalCvImported: vi.fn().mockImplementation(() => Promise.resolve()),
+    originalCv: {
+      getWorkspaceState: vi.fn().mockResolvedValue({
+        activeOriginalCv: null,
+        snapshotCount: 0,
+      }),
+      importOriginalCv: vi.fn(),
+    },
+    vacancy,
+    platform: 'darwin',
+    preloadPath: '/tmp/preload.js',
+    rendererDevelopmentUrl: undefined,
+    rendererIndexPath: '/tmp/index.html',
+  })
+
+  await bootstrap.start()
+
+  expect(constructor).toHaveBeenCalledWith(
+    expect.objectContaining({
+      trafficLightPosition: {
+        x: 12,
+        y: 20,
+      },
+      titleBarStyle: 'hiddenInset',
+    }),
+  )
+})
+
 test('runtime dependencies adapt Electron primitives for the bootstrap contract', async () => {
   const eventHandlers = new Map<AppEvent, (...args: unknown[]) => void>()
   const quit = vi.fn()

@@ -1,9 +1,23 @@
-import { useEffect, useState, type ChangeEvent } from 'react'
+import {
+  useEffect,
+  useEffectEvent,
+  useState,
+  type ChangeEvent,
+  type DragEvent,
+  type ReactElement,
+} from 'react'
 
 import { createReadinessRouteViewModel } from '../readiness/readiness-route.js'
 import type { ReadinessRouteViewModel } from '../readiness/readiness-route.js'
 import type { OriginalCvWorkspaceState } from '../shared/original-cv.js'
-import type { VacancySummary, VacancyWorkspaceState } from '../shared/vacancy.js'
+import { AiWorkerCheckingScreen } from './screens/ai-worker-checking-screen.js'
+import { AiWorkerSignInRequiredScreen } from './screens/ai-worker-sign-in-required-screen.js'
+import { AiWorkerUnavailableScreen } from './screens/ai-worker-unavailable-screen.js'
+import { FirstLaunchScreen } from './screens/first-launch-screen.js'
+import { WorkspaceActiveScreen } from './screens/workspace-active-screen.js'
+import { WorkspaceEmptyScreen } from './screens/workspace-empty-screen.js'
+import { WorkspaceLoadingScreen } from './screens/workspace-loading-screen.js'
+import { resolveRendererScreen, type RendererScreenKind } from './routing/renderer-screen.js'
 
 const initialReadinessViewModel: ReadinessRouteViewModel = {
   body: 'Checking the local AI worker before opening your workspace.',
@@ -21,121 +35,38 @@ const initialOriginalCvWorkspaceState: OriginalCvWorkspaceState = {
   snapshotCount: 0,
 }
 
-const initialVacancyWorkspaceState: VacancyWorkspaceState = {
-  draft: {
-    text: '',
-    url: '',
-  },
-  vacancy: null,
-}
-
 const readinessErrorMessage = 'Unable to complete the AI worker startup check.'
 const readinessErrorAction = 'Restart the app or verify the local AI worker setup.'
-const vacancyErrorMessage =
-  'Unable to review this vacancy right now. Retry the same input or switch to pasted job text.'
+const originalCvFileTypeErrorMessage = 'Choose a PDF or DOCX file.'
 
-function StatusBadge({ status }: { status: ReadinessRouteViewModel['status'] }) {
-  const statusCopy = {
-    checking: 'Checking',
-    ready: 'Ready',
-    sign_in_required: 'Sign in required',
-    unavailable: 'Unavailable',
-  } as const
+function isSupportedOriginalCvFile(file: File): boolean {
+  const normalizedName = file.name.toLowerCase()
 
   return (
-    <span className="rounded-full border border-[var(--color-panel-border)] bg-[var(--color-panel-accent-soft)] px-3 py-1 text-xs uppercase tracking-[0.12em] text-[var(--color-panel-accent)]">
-      {statusCopy[status]}
-    </span>
+    normalizedName.endsWith('.pdf') ||
+    normalizedName.endsWith('.docx') ||
+    file.type === 'application/pdf' ||
+    file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
   )
 }
 
-function getStartupRouteLabel(viewModel: ReadinessRouteViewModel): string {
-  if (viewModel.startupDestination === 'workspace_active') {
-    return 'Workspace active'
-  }
-
-  if (viewModel.startupDestination === 'workspace_empty') {
-    return 'Workspace empty'
-  }
-
-  if (viewModel.startupDestination === 'workspace_loading') {
-    return 'Workspace loading'
-  }
-
-  if (viewModel.startupDestination === 'first_launch') {
-    return 'First launch'
-  }
-
-  return 'AI worker readiness gate'
-}
-
-function getVacancySourceLabel(source: VacancySummary['source']): string {
-  const sourceCopy = {
-    generic: 'Generic',
-    greenhouse: 'Greenhouse',
-    indeed: 'Indeed',
-    linkedin: 'LinkedIn',
-  } as const
-
-  return sourceCopy[source]
-}
-
-function getVacancyStatusLabel(vacancy: VacancySummary): string {
-  if (vacancy.canGenerate) {
-    return 'Ready for adaptation'
-  }
-
-  if (vacancy.source === 'linkedin' || vacancy.source === 'indeed') {
-    return 'Needs browser sign-in'
-  }
-
-  return 'Blocked preview'
-}
-
-type AppRoute = 'original_cv_workspace' | 'readiness'
-
 export function App() {
-  const [currentRoute, setCurrentRoute] = useState<AppRoute>('readiness')
   const [importError, setImportError] = useState<string | null>(null)
   const [isImportingOriginalCv, setIsImportingOriginalCv] = useState(false)
-  const [isOpeningVacancyBrowserSession, setIsOpeningVacancyBrowserSession] = useState(false)
   const [isSecondaryActionPending, setIsSecondaryActionPending] = useState(false)
-  const [isSubmittingPastedVacancy, setIsSubmittingPastedVacancy] = useState(false)
   const [isSubmittingPrimaryAction, setIsSubmittingPrimaryAction] = useState(false)
-  const [isSubmittingVacancyUrl, setIsSubmittingVacancyUrl] = useState(false)
   const [originalCvFile, setOriginalCvFile] = useState<File | null>(null)
   const [originalCvWorkspaceState, setOriginalCvWorkspaceState] = useState(
     initialOriginalCvWorkspaceState,
   )
-  const [pastedVacancyText, setPastedVacancyText] = useState('')
   const [readinessError, setReadinessError] = useState<string | null>(null)
-  const [vacancyError, setVacancyError] = useState<string | null>(null)
-  const [vacancyPreview, setVacancyPreview] = useState<VacancySummary | null>(null)
-  const [vacancyReferenceUrl, setVacancyReferenceUrl] = useState('')
-  const [vacancyUrl, setVacancyUrl] = useState('')
-  const [vacancyWorkspaceState, setVacancyWorkspaceState] = useState(initialVacancyWorkspaceState)
   const [viewModel, setViewModel] = useState(initialReadinessViewModel)
 
-  const applyVacancyWorkspaceState = (
-    workspaceState: VacancyWorkspaceState,
-    previewOverride?: VacancySummary | null,
-  ): void => {
-    setVacancyWorkspaceState(workspaceState)
-    setVacancyPreview(previewOverride ?? workspaceState.vacancy)
-    setVacancyReferenceUrl(workspaceState.draft.url)
-    setVacancyUrl(workspaceState.draft.url)
-    setPastedVacancyText(workspaceState.draft.text)
-  }
-
-  const loadWorkspace = async (): Promise<void> => {
-    const [nextOriginalCvWorkspaceState, nextVacancyWorkspaceState] = await Promise.all([
-      globalThis.window.cvMaxxing.originalCv.getOriginalCvWorkspaceState(),
-      globalThis.window.cvMaxxing.vacancy.getVacancyWorkspaceState(),
-    ])
+  const loadWorkspaceState = async (): Promise<void> => {
+    const nextOriginalCvWorkspaceState =
+      await globalThis.window.cvMaxxing.originalCv.getOriginalCvWorkspaceState()
 
     setOriginalCvWorkspaceState(nextOriginalCvWorkspaceState)
-    applyVacancyWorkspaceState(nextVacancyWorkspaceState)
-    setCurrentRoute('original_cv_workspace')
   }
 
   const loadReadinessState = async (
@@ -149,49 +80,16 @@ export function App() {
     setReadinessError(null)
     setViewModel(nextViewModel)
 
-    if (
-      nextViewModel.canEnterWorkspace &&
-      (nextViewModel.startupDestination === 'first_launch' ||
-        nextViewModel.startupDestination === 'workspace_empty')
-    ) {
-      await loadWorkspace()
-
-      return
+    if (nextViewModel.canEnterWorkspace) {
+      await loadWorkspaceState()
     }
-
-    setCurrentRoute('readiness')
   }
 
+  const loadInitialState = useEffectEvent(async (): Promise<void> => {
+    await loadReadinessState(globalThis.window.cvMaxxing.aiWorker.getAiWorkerPreflight)
+  })
+
   useEffect(() => {
-    const loadInitialState = async (): Promise<void> => {
-      const nextViewModel = await createReadinessRouteViewModel({
-        getAiWorkerPreflight: globalThis.window.cvMaxxing.aiWorker.getAiWorkerPreflight,
-        getStartupDestination: globalThis.window.cvMaxxing.aiWorker.getStartupDestination,
-      })
-
-      setReadinessError(null)
-      setViewModel(nextViewModel)
-
-      if (
-        nextViewModel.canEnterWorkspace &&
-        (nextViewModel.startupDestination === 'first_launch' ||
-          nextViewModel.startupDestination === 'workspace_empty')
-      ) {
-        const [nextOriginalCvWorkspaceState, nextVacancyWorkspaceState] = await Promise.all([
-          globalThis.window.cvMaxxing.originalCv.getOriginalCvWorkspaceState(),
-          globalThis.window.cvMaxxing.vacancy.getVacancyWorkspaceState(),
-        ])
-
-        setOriginalCvWorkspaceState(nextOriginalCvWorkspaceState)
-        applyVacancyWorkspaceState(nextVacancyWorkspaceState)
-        setCurrentRoute('original_cv_workspace')
-
-        return
-      }
-
-      setCurrentRoute('readiness')
-    }
-
     loadInitialState().catch(() => {
       setReadinessError(`${readinessErrorMessage} ${readinessErrorAction}`)
     })
@@ -219,7 +117,7 @@ export function App() {
   }
 
   const handleSecondaryAction = async (): Promise<void> => {
-    if (viewModel.secondaryActionLabel === undefined || isSecondaryActionPending) {
+    if (isSecondaryActionPending) {
       return
     }
 
@@ -254,15 +152,11 @@ export function App() {
         return
       }
 
-      const nextVacancyWorkspaceState =
-        await globalThis.window.cvMaxxing.vacancy.getVacancyWorkspaceState()
-
       setOriginalCvFile(null)
       setOriginalCvWorkspaceState({
         activeOriginalCv: importResult.originalCv,
         snapshotCount: importResult.originalCv.snapshotCount,
       })
-      applyVacancyWorkspaceState(nextVacancyWorkspaceState)
       setViewModel((previousViewModel) => {
         return {
           ...previousViewModel,
@@ -274,561 +168,109 @@ export function App() {
     }
   }
 
-  const handleVacancyUrlIngest = async (): Promise<void> => {
-    if (vacancyUrl.trim() === '' || isSubmittingVacancyUrl) {
+  const handleOriginalCvFile = (nextFile: File | null): void => {
+    if (nextFile === null) {
+      setImportError(null)
+      setOriginalCvFile(null)
+
       return
     }
 
-    setIsSubmittingVacancyUrl(true)
-    setVacancyError(null)
+    if (!isSupportedOriginalCvFile(nextFile)) {
+      setImportError(originalCvFileTypeErrorMessage)
+      setOriginalCvFile(null)
 
-    try {
-      const ingestionResult = await globalThis.window.cvMaxxing.vacancy.ingestVacancyUrl({
-        url: vacancyUrl,
-      })
-
-      applyVacancyWorkspaceState(ingestionResult.workspaceState, ingestionResult.vacancy)
-    } catch {
-      setVacancyError(vacancyErrorMessage)
-    } finally {
-      setIsSubmittingVacancyUrl(false)
-    }
-  }
-
-  const handlePastedVacancyIngest = async (): Promise<void> => {
-    if (pastedVacancyText.trim() === '' || isSubmittingPastedVacancy) {
       return
     }
 
-    setIsSubmittingPastedVacancy(true)
-    setVacancyError(null)
-
-    try {
-      const ingestionResult = await globalThis.window.cvMaxxing.vacancy.ingestPastedVacancy({
-        text: pastedVacancyText,
-        url: vacancyReferenceUrl.trim() === '' ? undefined : vacancyReferenceUrl,
-      })
-
-      applyVacancyWorkspaceState(ingestionResult.workspaceState, ingestionResult.vacancy)
-    } catch {
-      setVacancyError(vacancyErrorMessage)
-    } finally {
-      setIsSubmittingPastedVacancy(false)
-    }
-  }
-
-  const handleOpenVacancyBrowserSession = async (): Promise<void> => {
-    const nextVacancyUrl =
-      vacancyUrl === ''
-        ? (vacancyPreview?.originalUrl ?? vacancyWorkspaceState.draft.url)
-        : vacancyUrl
-
-    if (nextVacancyUrl === '' || isOpeningVacancyBrowserSession) {
-      return
-    }
-
-    setIsOpeningVacancyBrowserSession(true)
-    setVacancyError(null)
-
-    try {
-      await globalThis.window.cvMaxxing.vacancy.openVacancyBrowserSession({
-        url: nextVacancyUrl,
-      })
-    } catch {
-      setVacancyError(vacancyErrorMessage)
-    } finally {
-      setIsOpeningVacancyBrowserSession(false)
-    }
+    setImportError(null)
+    setOriginalCvFile(nextFile)
   }
 
   const handleOriginalCvSelection = (event: ChangeEvent<HTMLInputElement>): void => {
-    setImportError(null)
-    setOriginalCvFile(event.target.files?.[0] ?? null)
+    handleOriginalCvFile(event.target.files?.[0] ?? null)
   }
 
-  const handlePrimaryActionClick = (): void => {
-    handlePrimaryAction().catch(() => null)
+  const handleOriginalCvDrop = (event: DragEvent<HTMLElement>): void => {
+    event.preventDefault()
+    handleOriginalCvFile(event.dataTransfer.files[0] ?? null)
   }
 
-  const handleSecondaryActionClick = (): void => {
-    handleSecondaryAction().catch(() => null)
-  }
+  const screenKind = resolveRendererScreen({
+    originalCvWorkspaceState,
+    readinessViewModel: viewModel,
+  })
 
-  const handleOriginalCvImportClick = (): void => {
-    handleOriginalCvImport().catch(() => null)
-  }
-
-  const handleVacancyUrlClick = (): void => {
-    handleVacancyUrlIngest().catch(() => null)
-  }
-
-  const handlePastedVacancyClick = (): void => {
-    handlePastedVacancyIngest().catch(() => null)
-  }
-
-  const handleOpenVacancyBrowserSessionClick = (): void => {
-    handleOpenVacancyBrowserSession().catch(() => null)
-  }
-
-  if (currentRoute === 'original_cv_workspace') {
-    const activeOriginalCv = originalCvWorkspaceState.activeOriginalCv
-    const isReplacingOriginalCv = activeOriginalCv !== null
-    let importActionLabel = 'Import original CV'
-
-    if (isReplacingOriginalCv) {
-      importActionLabel = 'Replace original CV'
-    }
-
-    if (isImportingOriginalCv) {
-      importActionLabel = 'Importing original CV...'
-    }
-
-    if (activeOriginalCv === null) {
+  const screenRegistry: Record<RendererScreenKind, () => ReactElement> = {
+    ai_worker_checking: () => {
       return (
-        <main className="flex min-h-screen items-center justify-center px-6 py-10">
-          <section className="grid w-full max-w-6xl gap-8 rounded-[8px] border border-[var(--color-panel-border)] bg-[var(--color-panel-background)]/90 p-8 shadow-[0_24px_80px_rgb(0_0_0_/_0.28)] backdrop-blur xl:grid-cols-[minmax(0,1.4fr)_minmax(20rem,0.9fr)]">
-            <div className="space-y-8">
-              <div className="flex items-center gap-3">
-                <div className="h-3 w-3 rounded-full bg-[var(--color-panel-accent)]" />
-                <p className="m-0 text-sm uppercase tracking-[0.16em] text-[var(--color-app-muted)]">
-                  CV Maxxing
-                </p>
-              </div>
-
-              <div className="space-y-5">
-                <StatusBadge status="ready" />
-                <h1 className="m-0 max-w-2xl text-5xl leading-tight text-[var(--color-app-foreground)]">
-                  Import your original CV
-                </h1>
-                <p className="m-0 max-w-2xl text-lg leading-8 text-[var(--color-app-muted)]">
-                  Import a PDF or DOCX original CV to unlock the rest of the workspace.
-                </p>
-                <p className="m-0 max-w-2xl text-sm leading-7 text-[var(--color-panel-warning)]">
-                  The app stores the source file, extracted text, normalized CV JSON, and
-                  writing-style profile through encrypted local storage.
-                </p>
-              </div>
-            </div>
-
-            <aside className="flex flex-col justify-between rounded-[8px] border border-[var(--color-panel-border)] bg-black/10 p-6">
-              <div className="space-y-6">
-                <p className="m-0 text-sm uppercase tracking-[0.12em] text-[var(--color-app-muted)]">
-                  First launch
-                </p>
-                <div className="space-y-3">
-                  <label className="block text-sm leading-7 text-[var(--color-app-foreground)]">
-                    <span className="mb-2 block">Original CV file</span>
-                    <input
-                      accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                      aria-label="Original CV file"
-                      className="block w-full rounded-[8px] border border-[var(--color-panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--color-app-foreground)] file:mr-4 file:rounded-[8px] file:border-0 file:bg-[var(--color-panel-accent)] file:px-4 file:py-2 file:text-sm file:font-medium file:text-slate-950"
-                      onChange={handleOriginalCvSelection}
-                      type="file"
-                    />
-                  </label>
-                  {importError ? (
-                    <p className="m-0 text-sm leading-7 text-[var(--color-panel-warning)]">
-                      {importError}
-                    </p>
-                  ) : null}
-                </div>
-              </div>
-
-              <div className="mt-8 space-y-4">
-                <button
-                  className="w-full rounded-[8px] border border-[var(--color-panel-accent)] bg-[var(--color-panel-accent)] px-4 py-3 text-sm font-medium text-slate-950 disabled:cursor-not-allowed disabled:border-[var(--color-panel-border)] disabled:bg-transparent disabled:text-[var(--color-app-muted)]"
-                  disabled={originalCvFile === null || isImportingOriginalCv}
-                  onClick={handleOriginalCvImportClick}
-                  type="button"
-                >
-                  {importActionLabel}
-                </button>
-                <p className="m-0 text-sm leading-7 text-[var(--color-panel-warning)]">
-                  PDF and DOCX are supported. Scanned, image-only, empty, or weakly extracted files
-                  are rejected.
-                </p>
-              </div>
-            </aside>
-          </section>
-        </main>
+        <AiWorkerCheckingScreen
+          onOpenSetupGuide={() => {
+            handleSecondaryAction().catch(() => null)
+          }}
+          readinessError={readinessError}
+          viewModel={viewModel}
+        />
       )
-    }
-
-    return (
-      <main className="flex min-h-screen items-center justify-center px-6 py-10">
-        <section className="grid w-full max-w-7xl gap-8 rounded-[8px] border border-[var(--color-panel-border)] bg-[var(--color-panel-background)]/90 p-8 shadow-[0_24px_80px_rgb(0_0_0_/_0.28)] backdrop-blur xl:grid-cols-[minmax(0,1.25fr)_minmax(24rem,0.95fr)]">
-          <div className="space-y-8">
-            <div className="flex items-center gap-3">
-              <div className="h-3 w-3 rounded-full bg-[var(--color-panel-accent)]" />
-              <p className="m-0 text-sm uppercase tracking-[0.16em] text-[var(--color-app-muted)]">
-                CV Maxxing
-              </p>
-            </div>
-
-            <div className="space-y-5">
-              <StatusBadge status="ready" />
-              <h1 className="m-0 max-w-2xl text-5xl leading-tight text-[var(--color-app-foreground)]">
-                Original CV active
-              </h1>
-              <p className="m-0 max-w-2xl text-lg leading-8 text-[var(--color-app-muted)]">
-                One original CV stays active in the workspace. Replacing it creates a new encrypted
-                snapshot.
-              </p>
-              <p className="m-0 max-w-2xl text-sm leading-7 text-[var(--color-panel-warning)]">
-                The app stores the source file, extracted text, normalized CV JSON, and
-                writing-style profile through encrypted local storage.
-              </p>
-            </div>
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="rounded-[8px] border border-[var(--color-panel-border)] bg-black/10 p-5">
-                <p className="m-0 text-xs uppercase tracking-[0.12em] text-[var(--color-app-muted)]">
-                  Active original CV
-                </p>
-                <p className="mt-3 text-xl text-[var(--color-app-foreground)]">
-                  {activeOriginalCv.originalFilename}
-                </p>
-                <p className="mt-2 text-sm leading-7 text-[var(--color-app-muted)]">
-                  {activeOriginalCv.headline}
-                </p>
-              </div>
-
-              <div className="rounded-[8px] border border-[var(--color-panel-border)] bg-black/10 p-5">
-                <p className="m-0 text-xs uppercase tracking-[0.12em] text-[var(--color-app-muted)]">
-                  Snapshot history
-                </p>
-                <p className="mt-3 text-xl text-[var(--color-app-foreground)]">
-                  {originalCvWorkspaceState.snapshotCount} snapshots stored
-                </p>
-                <p className="mt-2 text-sm leading-7 text-[var(--color-app-muted)]">
-                  Existing tailored applications keep the snapshot reference they were generated
-                  from.
-                </p>
-              </div>
-            </div>
-
-            <div className="grid gap-6 lg:grid-cols-2">
-              <section className="space-y-4 rounded-[8px] border border-[var(--color-panel-border)] bg-black/10 p-5">
-                <p className="m-0 text-sm uppercase tracking-[0.12em] text-[var(--color-app-muted)]">
-                  Vacancy URL
-                </p>
-                <label className="block text-sm leading-7 text-[var(--color-app-foreground)]">
-                  <span className="mb-2 block">Job vacancy URL</span>
-                  <input
-                    aria-label="Job vacancy URL"
-                    className="block w-full rounded-[8px] border border-[var(--color-panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--color-app-foreground)]"
-                    onChange={(event) => {
-                      setVacancyUrl(event.target.value)
-                    }}
-                    type="url"
-                    value={vacancyUrl}
-                  />
-                </label>
-                <button
-                  className="w-full rounded-[8px] border border-[var(--color-panel-accent)] bg-[var(--color-panel-accent)] px-4 py-3 text-sm font-medium text-slate-950 disabled:cursor-not-allowed disabled:border-[var(--color-panel-border)] disabled:bg-transparent disabled:text-[var(--color-app-muted)]"
-                  disabled={vacancyUrl.trim() === '' || isSubmittingVacancyUrl}
-                  onClick={handleVacancyUrlClick}
-                  type="button"
-                >
-                  {isSubmittingVacancyUrl ? 'Fetching vacancy...' : 'Fetch vacancy'}
-                </button>
-              </section>
-
-              <section className="space-y-4 rounded-[8px] border border-[var(--color-panel-border)] bg-black/10 p-5">
-                <p className="m-0 text-sm uppercase tracking-[0.12em] text-[var(--color-app-muted)]">
-                  Pasted job text
-                </p>
-                <label className="block text-sm leading-7 text-[var(--color-app-foreground)]">
-                  <span className="mb-2 block">Reference vacancy URL</span>
-                  <input
-                    aria-label="Reference vacancy URL"
-                    className="block w-full rounded-[8px] border border-[var(--color-panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--color-app-foreground)]"
-                    onChange={(event) => {
-                      setVacancyReferenceUrl(event.target.value)
-                    }}
-                    type="url"
-                    value={vacancyReferenceUrl}
-                  />
-                </label>
-                <label className="block text-sm leading-7 text-[var(--color-app-foreground)]">
-                  <span className="mb-2 block">Pasted vacancy text</span>
-                  <textarea
-                    aria-label="Pasted vacancy text"
-                    className="block min-h-44 w-full rounded-[8px] border border-[var(--color-panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--color-app-foreground)]"
-                    onChange={(event) => {
-                      setPastedVacancyText(event.target.value)
-                    }}
-                    value={pastedVacancyText}
-                  />
-                </label>
-                <button
-                  className="w-full rounded-[8px] border border-[var(--color-panel-accent)] bg-[var(--color-panel-accent)] px-4 py-3 text-sm font-medium text-slate-950 disabled:cursor-not-allowed disabled:border-[var(--color-panel-border)] disabled:bg-transparent disabled:text-[var(--color-app-muted)]"
-                  disabled={pastedVacancyText.trim() === '' || isSubmittingPastedVacancy}
-                  onClick={handlePastedVacancyClick}
-                  type="button"
-                >
-                  {isSubmittingPastedVacancy
-                    ? 'Reviewing pasted vacancy...'
-                    : 'Use pasted vacancy text'}
-                </button>
-              </section>
-            </div>
-
-            {vacancyError ? (
-              <p className="m-0 text-sm leading-7 text-[var(--color-panel-warning)]">
-                {vacancyError}
-              </p>
-            ) : null}
-          </div>
-
-          <aside className="space-y-6 rounded-[8px] border border-[var(--color-panel-border)] bg-black/10 p-6">
-            <div className="space-y-4">
-              <p className="m-0 text-sm uppercase tracking-[0.12em] text-[var(--color-app-muted)]">
-                Vacancy preview
-              </p>
-
-              {vacancyPreview ? (
-                <div className="space-y-4">
-                  <div className="flex flex-wrap items-center gap-3">
-                    <span className="rounded-full border border-[var(--color-panel-border)] px-3 py-1 text-xs uppercase tracking-[0.12em] text-[var(--color-app-foreground)]">
-                      {getVacancySourceLabel(vacancyPreview.source)}
-                    </span>
-                    <span className="text-sm text-[var(--color-panel-warning)]">
-                      {getVacancyStatusLabel(vacancyPreview)}
-                    </span>
-                  </div>
-
-                  <div className="space-y-2">
-                    <h2 className="m-0 text-2xl text-[var(--color-app-foreground)]">
-                      {vacancyPreview.title ?? 'Vacancy preview'}
-                    </h2>
-                    {vacancyPreview.employer ? (
-                      <p className="m-0 text-base text-[var(--color-app-foreground)]">
-                        {vacancyPreview.employer}
-                      </p>
-                    ) : null}
-                    {vacancyPreview.location ? (
-                      <p className="m-0 text-sm text-[var(--color-app-muted)]">
-                        {vacancyPreview.location}
-                      </p>
-                    ) : null}
-                  </div>
-
-                  {vacancyPreview.blockingReason ? (
-                    <p className="m-0 text-sm leading-7 text-[var(--color-panel-warning)]">
-                      {vacancyPreview.blockingReason}
-                    </p>
-                  ) : null}
-
-                  {vacancyPreview.responsibilities.length > 0 ? (
-                    <div className="space-y-2">
-                      <p className="m-0 text-xs uppercase tracking-[0.12em] text-[var(--color-app-muted)]">
-                        Responsibilities
-                      </p>
-                      {vacancyPreview.responsibilities.slice(0, 2).map((responsibility, index) => {
-                        return (
-                          <p
-                            className="m-0 text-sm leading-7 text-[var(--color-app-foreground)]"
-                            key={`${String(index)}-${responsibility}`}
-                          >
-                            {responsibility}
-                          </p>
-                        )
-                      })}
-                    </div>
-                  ) : null}
-
-                  {vacancyPreview.requirements.length > 0 ? (
-                    <div className="space-y-2">
-                      <p className="m-0 text-xs uppercase tracking-[0.12em] text-[var(--color-app-muted)]">
-                        Requirements
-                      </p>
-                      {vacancyPreview.requirements.slice(0, 2).map((requirement, index) => {
-                        return (
-                          <p
-                            className="m-0 text-sm leading-7 text-[var(--color-app-foreground)]"
-                            key={`${String(index)}-${requirement}`}
-                          >
-                            {requirement}
-                          </p>
-                        )
-                      })}
-                    </div>
-                  ) : null}
-
-                  {vacancyPreview.textPreview ? (
-                    <p className="m-0 text-sm leading-7 text-[var(--color-app-muted)]">
-                      {vacancyPreview.textPreview}
-                    </p>
-                  ) : null}
-                </div>
-              ) : (
-                <p className="m-0 text-sm leading-7 text-[var(--color-app-muted)]">
-                  Enter a vacancy URL or paste the job text to review a compact preview here.
-                </p>
-              )}
-            </div>
-
-            {vacancyPreview !== null &&
-            !vacancyPreview.canGenerate &&
-            (vacancyPreview.source === 'linkedin' || vacancyPreview.source === 'indeed') ? (
-              <button
-                className="w-full rounded-[8px] border border-[var(--color-panel-border)] bg-transparent px-4 py-3 text-sm font-medium text-[var(--color-app-foreground)] disabled:cursor-not-allowed disabled:text-[var(--color-app-muted)]"
-                disabled={isOpeningVacancyBrowserSession}
-                onClick={handleOpenVacancyBrowserSessionClick}
-                type="button"
-              >
-                {isOpeningVacancyBrowserSession
-                  ? 'Opening internal browser session...'
-                  : 'Open internal browser session'}
-              </button>
-            ) : null}
-
-            <button
-              className="w-full rounded-[8px] border border-[var(--color-panel-border)] bg-transparent px-4 py-3 text-sm font-medium text-[var(--color-app-foreground)] disabled:cursor-not-allowed disabled:text-[var(--color-app-muted)]"
-              disabled={vacancyPreview?.canGenerate !== true}
-              type="button"
-            >
-              Adapt CV
-            </button>
-
-            <div className="space-y-4 rounded-[8px] border border-[var(--color-panel-border)] bg-black/20 p-4">
-              <p className="m-0 text-sm uppercase tracking-[0.12em] text-[var(--color-app-muted)]">
-                Replace original CV
-              </p>
-              <label className="block text-sm leading-7 text-[var(--color-app-foreground)]">
-                <span className="mb-2 block">Original CV file</span>
-                <input
-                  accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                  aria-label="Original CV file"
-                  className="block w-full rounded-[8px] border border-[var(--color-panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--color-app-foreground)] file:mr-4 file:rounded-[8px] file:border-0 file:bg-[var(--color-panel-accent)] file:px-4 file:py-2 file:text-sm file:font-medium file:text-slate-950"
-                  onChange={handleOriginalCvSelection}
-                  type="file"
-                />
-              </label>
-              {importError ? (
-                <p className="m-0 text-sm leading-7 text-[var(--color-panel-warning)]">
-                  {importError}
-                </p>
-              ) : null}
-              <button
-                className="w-full rounded-[8px] border border-[var(--color-panel-accent)] bg-[var(--color-panel-accent)] px-4 py-3 text-sm font-medium text-slate-950 disabled:cursor-not-allowed disabled:border-[var(--color-panel-border)] disabled:bg-transparent disabled:text-[var(--color-app-muted)]"
-                disabled={originalCvFile === null || isImportingOriginalCv}
-                onClick={handleOriginalCvImportClick}
-                type="button"
-              >
-                {importActionLabel}
-              </button>
-              <p className="m-0 text-sm leading-7 text-[var(--color-panel-warning)]">
-                PDF and DOCX are supported. Scanned, image-only, empty, or weakly extracted files
-                are rejected.
-              </p>
-            </div>
-          </aside>
-        </section>
-      </main>
-    )
+    },
+    ai_worker_sign_in_required: () => {
+      return (
+        <AiWorkerSignInRequiredScreen
+          isPrimaryActionPending={isSubmittingPrimaryAction}
+          isSecondaryActionPending={isSecondaryActionPending}
+          onPrimaryAction={() => {
+            handlePrimaryAction().catch(() => null)
+          }}
+          onSecondaryAction={() => {
+            handleSecondaryAction().catch(() => null)
+          }}
+          readinessError={readinessError}
+          viewModel={viewModel}
+        />
+      )
+    },
+    ai_worker_unavailable: () => {
+      return (
+        <AiWorkerUnavailableScreen
+          isPrimaryActionPending={isSubmittingPrimaryAction}
+          isSecondaryActionPending={isSecondaryActionPending}
+          onPrimaryAction={() => {
+            handlePrimaryAction().catch(() => null)
+          }}
+          onSecondaryAction={() => {
+            handleSecondaryAction().catch(() => null)
+          }}
+          readinessError={readinessError}
+          viewModel={viewModel}
+        />
+      )
+    },
+    first_launch: () => {
+      return (
+        <FirstLaunchScreen
+          importError={importError}
+          isImportingOriginalCv={isImportingOriginalCv}
+          onFileDrop={handleOriginalCvDrop}
+          onFileSelection={handleOriginalCvSelection}
+          onImportOriginalCv={() => {
+            handleOriginalCvImport().catch(() => null)
+          }}
+          originalCvFile={originalCvFile}
+        />
+      )
+    },
+    workspace_active: () => {
+      return <WorkspaceActiveScreen />
+    },
+    workspace_empty: () => {
+      return <WorkspaceEmptyScreen activeOriginalCv={originalCvWorkspaceState.activeOriginalCv} />
+    },
+    workspace_loading: () => {
+      return <WorkspaceLoadingScreen />
+    },
   }
 
-  return (
-    <main className="flex min-h-screen items-center justify-center px-6 py-10">
-      <section className="grid w-full max-w-6xl gap-8 rounded-[8px] border border-[var(--color-panel-border)] bg-[var(--color-panel-background)]/90 p-8 shadow-[0_24px_80px_rgb(0_0_0_/_0.28)] backdrop-blur xl:grid-cols-[minmax(0,1.4fr)_minmax(20rem,0.9fr)]">
-        <div className="space-y-8">
-          <div className="flex items-center gap-3">
-            <div className="h-3 w-3 rounded-full bg-[var(--color-panel-accent)]" />
-            <p className="m-0 text-sm uppercase tracking-[0.16em] text-[var(--color-app-muted)]">
-              CV Maxxing
-            </p>
-          </div>
+  const renderScreen = screenRegistry[screenKind]
 
-          <div className="space-y-5">
-            <StatusBadge status={viewModel.status} />
-            <h1 className="m-0 max-w-2xl text-5xl leading-tight text-[var(--color-app-foreground)]">
-              {viewModel.heading}
-            </h1>
-            <p className="m-0 max-w-2xl text-lg leading-8 text-[var(--color-app-muted)]">
-              {viewModel.body}
-            </p>
-            {viewModel.diagnostic ? (
-              <p className="m-0 max-w-2xl text-sm leading-7 text-[var(--color-panel-warning)]">
-                {viewModel.diagnostic}
-              </p>
-            ) : null}
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="rounded-[8px] border border-[var(--color-panel-border)] bg-black/10 p-5">
-              <p className="m-0 text-xs uppercase tracking-[0.12em] text-[var(--color-app-muted)]">
-                Workspace access
-              </p>
-              <p className="mt-3 text-xl text-[var(--color-app-foreground)]">
-                {viewModel.canEnterWorkspace ? 'Unlocked' : 'Blocked'}
-              </p>
-            </div>
-
-            <div className="rounded-[8px] border border-[var(--color-panel-border)] bg-black/10 p-5">
-              <p className="m-0 text-xs uppercase tracking-[0.12em] text-[var(--color-app-muted)]">
-                Startup route
-              </p>
-              <p className="mt-3 text-xl text-[var(--color-app-foreground)]">
-                {getStartupRouteLabel(viewModel)}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <aside className="flex flex-col justify-between rounded-[8px] border border-[var(--color-panel-border)] bg-black/10 p-6">
-          <div className="space-y-6">
-            <p className="m-0 text-sm uppercase tracking-[0.12em] text-[var(--color-app-muted)]">
-              {viewModel.startupDestination === 'workspace_loading'
-                ? 'Resume flow'
-                : 'First launch'}
-            </p>
-            <div className="space-y-3">
-              <p className="m-0 text-base leading-7 text-[var(--color-app-foreground)]">
-                The desktop shell stops here until the local AI worker is healthy.
-              </p>
-              <p className="m-0 text-sm leading-7 text-[var(--color-app-muted)]">
-                Original CV import, job vacancy drafts, and tailored application generation stay
-                locked behind this route.
-              </p>
-              {readinessError ? (
-                <p className="m-0 text-sm leading-7 text-[var(--color-panel-warning)]">
-                  {readinessError}
-                </p>
-              ) : null}
-            </div>
-          </div>
-
-          <div className="mt-8 space-y-4">
-            <button
-              className="w-full rounded-[8px] border border-[var(--color-panel-accent)] bg-[var(--color-panel-accent)] px-4 py-3 text-sm font-medium text-slate-950 disabled:cursor-not-allowed disabled:border-[var(--color-panel-border)] disabled:bg-transparent disabled:text-[var(--color-app-muted)]"
-              disabled={viewModel.primaryActionLabel === undefined || isSubmittingPrimaryAction}
-              onClick={handlePrimaryActionClick}
-              type="button"
-            >
-              {viewModel.primaryActionLabel ??
-                (isSubmittingPrimaryAction ? 'Working...' : 'Waiting for startup check')}
-            </button>
-            {viewModel.secondaryActionLabel ? (
-              <button
-                className="w-full rounded-[8px] border border-[var(--color-panel-border)] bg-transparent px-4 py-3 text-sm font-medium text-[var(--color-app-foreground)] disabled:cursor-not-allowed disabled:text-[var(--color-app-muted)]"
-                disabled={isSecondaryActionPending}
-                onClick={handleSecondaryActionClick}
-                type="button"
-              >
-                {isSecondaryActionPending
-                  ? 'Opening setup guide...'
-                  : viewModel.secondaryActionLabel}
-              </button>
-            ) : null}
-            <p className="m-0 text-sm leading-7 text-[var(--color-panel-warning)]">
-              No telemetry, analytics, remote config, update checks, or font CDN calls are enabled
-              in this shell.
-            </p>
-          </div>
-        </aside>
-      </section>
-    </main>
-  )
+  return renderScreen()
 }

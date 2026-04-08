@@ -45,9 +45,15 @@ interface BrowserWindowLike {
 
 interface DesktopBrowserWindowOptions {
   backgroundColor: string
+  frame?: boolean
   height: number
   show: boolean
   title: string
+  trafficLightPosition?: {
+    x: number
+    y: number
+  }
+  titleBarStyle?: 'customButtonsOnHover' | 'default' | 'hidden' | 'hiddenInset'
   webPreferences: {
     contextIsolation: boolean
     nodeIntegration: boolean
@@ -199,6 +205,15 @@ export function createDesktopAppBootstrap({
   async function createMainWindow(): Promise<void> {
     const mainWindow = browserWindow.create({
       backgroundColor: '#08141f',
+      ...(platform === 'darwin'
+        ? {
+            trafficLightPosition: {
+              x: 12,
+              y: 20,
+            },
+            titleBarStyle: 'hiddenInset' as const,
+          }
+        : {}),
       height: 900,
       show: true,
       title: 'CV Maxxing',
