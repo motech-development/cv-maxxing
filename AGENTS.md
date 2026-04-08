@@ -25,15 +25,23 @@ These rules always apply. Follow project-local rules first when they are more sp
 
 - Use `pnpm` as the package manager. The repository already declares `pnpm@10.28.0` in `package.json`.
 - When building new functionality or making material refactors, consult `ARCHITECTURE.md` and align implementation with its current decisions unless a newer explicit decision supersedes it.
-- Treat `design/app.pen` as the source of truth for desktop app UI states and layout.
-- Treat `design/cv.pen` as the source of truth for CV/PDF visual layout, with `design/cv.html` as the implementation reference for HTML-based rendering and PDF export.
+- Treat `design/app.pen` as the authoritative reference for desktop app UI states and layout.
+- Treat `design/cv.pen` as the authoritative reference for CV/PDF visual layout, with `design/cv.html` as the implementation reference for HTML-based rendering and PDF export.
 - The product is Electron-first and local desktop-first; do not introduce a required web backend unless a later task proves it necessary.
 - V1 targets macOS Intel.
-- Use Codex as the primary AI worker for generation workflows.
-- Treat Codex setup as just-in-time onboarding triggered on the first `Create version` attempt, not as a first-launch prerequisite.
-- Support one fixed CV template only in v1.
-- Generated CVs and cover letters are immutable outputs in v1; regeneration creates a new version instead of editing in place.
-- Cover letters must be previewable in-app as generated PDFs and exportable as PDFs from inside the app in v1.
+- Use a provider-neutral local AI worker architecture for generation workflows; v1 ships a bring-your-own Codex CLI adapter only.
+- Treat local AI worker setup as a required startup readiness gate before the user can enter the workspace, import the first CV, or create vacancy drafts.
+- Use provider-neutral product language such as `AI worker` except in provider-specific Codex setup details.
+- Support one dynamic CV template family in v1; the renderer must handle single-page and multi-page CVs with continued headers after page 1.
+- User-facing product language should describe adapting CVs for job vacancies; use terms like `original CV`, `adapted CV`, `job vacancy`, and `tailored application` instead of abstract terms like `source CV`, `version`, or `package`.
+- Generated CVs and cover letters are immutable outputs in v1; do not add a regeneration action or tailored-application comparison workflow.
+- Cover letters must be previewable in-app as generated PDFs, exportable as PDFs, and copyable as plain text from inside the app in v1.
+- Exports are PDF-only; do not add DOCX or other editable export formats.
+- Encrypt sensitive local app data at rest using a Keychain-backed key, SQLCipher-backed metadata storage, and encrypted artifact storage.
+- V1 has one active original CV in the UI. Replacing it creates a new original CV snapshot; existing tailored applications keep references to the snapshot used at generation time.
+- Use browser-assisted vacancy ingestion for authenticated LinkedIn/Indeed pages, with pasted job text as the fallback. Do not add saved page/file vacancy import in v1.
+- Do not add telemetry, analytics, crash reporting, remote config, runtime font CDN calls, v1 automatic update checks, or bulk app-data backup/export.
+- Do not use MUI or Redux. Prefer Tailwind with CSS-variable tokens, Radix primitives where useful, and TanStack Query for IPC-backed async renderer state.
 
 ---
 
