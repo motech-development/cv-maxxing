@@ -47,24 +47,41 @@ beforeEach(() => {
   vi.restoreAllMocks()
 })
 
-test('bootstrap registers the readiness IPC contract and opens the packaged shell on startup', async () => {
+test('bootstrap registers the full AI worker onboarding IPC surface and opens the packaged shell on startup', async () => {
   const { app, eventHandlers } = createAppDouble()
   const { browserWindow, constructor, loadFile, loadURL } = createBrowserWindowDouble()
-  let registeredHandler: (() => Promise<unknown>) | undefined
-  const handle = vi.fn((_, handler: () => Promise<unknown>) => {
-    registeredHandler = handler
+  const registeredHandlers = new Map<string, () => Promise<unknown>>()
+  const handle = vi.fn((channel: string, handler: () => Promise<unknown>) => {
+    registeredHandlers.set(channel, handler)
   })
-  const getAiWorkerPreflight = vi.fn().mockResolvedValue({
-    canResumeGeneration: false,
-    message: 'Checking the local AI worker before opening your workspace.',
-    provider: 'codex',
-    status: 'checking',
-  })
+  const aiWorker = {
+    getAiWorkerPreflight: vi.fn().mockResolvedValue({
+      canResumeGeneration: false,
+      message: 'Checking the local AI worker before opening your workspace.',
+      provider: 'codex',
+      status: 'checking',
+    }),
+    getStartupDestination: vi.fn().mockResolvedValue('workspace_active'),
+    openAiWorkerSetupGuide: vi.fn().mockImplementation(() => Promise.resolve()),
+    retryAiWorkerPreflight: vi.fn().mockResolvedValue({
+      canResumeGeneration: false,
+      failureCode: 'runtime_missing',
+      message: 'The local AI worker is unavailable. Check setup, then retry.',
+      provider: 'codex',
+      status: 'unavailable',
+    }),
+    startAiWorkerSignIn: vi.fn().mockResolvedValue({
+      canResumeGeneration: true,
+      message: 'The local AI worker is ready.',
+      provider: 'codex',
+      status: 'ready',
+    }),
+  }
 
   const bootstrap = createDesktopAppBootstrap({
+    aiWorker,
     app,
     browserWindow,
-    getAiWorkerPreflight,
     ipcMain: {
       handle,
     },
@@ -78,18 +95,39 @@ test('bootstrap registers the readiness IPC contract and opens the packaged shel
 
   expect(app.whenReady).toHaveBeenCalledTimes(1)
   expect(handle).toHaveBeenCalledWith(AI_WORKER_IPC_CHANNELS.getPreflight, expect.any(Function))
-  expect(registeredHandler).toBeDefined()
+  expect(handle).toHaveBeenCalledWith(
+    AI_WORKER_IPC_CHANNELS.getStartupDestination,
+    expect.any(Function),
+  )
+  expect(handle).toHaveBeenCalledWith(AI_WORKER_IPC_CHANNELS.retryPreflight, expect.any(Function))
+  expect(handle).toHaveBeenCalledWith(AI_WORKER_IPC_CHANNELS.startSignIn, expect.any(Function))
+  expect(handle).toHaveBeenCalledWith(AI_WORKER_IPC_CHANNELS.openSetupGuide, expect.any(Function))
 
-  if (registeredHandler === undefined) {
-    throw new Error('Expected bootstrap to register the readiness IPC handler.')
-  }
-
-  await expect(registeredHandler()).resolves.toEqual({
+  await expect(registeredHandlers.get(AI_WORKER_IPC_CHANNELS.getPreflight)?.()).resolves.toEqual({
     canResumeGeneration: false,
     message: 'Checking the local AI worker before opening your workspace.',
     provider: 'codex',
     status: 'checking',
   })
+  await expect(
+    registeredHandlers.get(AI_WORKER_IPC_CHANNELS.getStartupDestination)?.(),
+  ).resolves.toBe('workspace_active')
+  await expect(registeredHandlers.get(AI_WORKER_IPC_CHANNELS.retryPreflight)?.()).resolves.toEqual({
+    canResumeGeneration: false,
+    failureCode: 'runtime_missing',
+    message: 'The local AI worker is unavailable. Check setup, then retry.',
+    provider: 'codex',
+    status: 'unavailable',
+  })
+  await expect(registeredHandlers.get(AI_WORKER_IPC_CHANNELS.startSignIn)?.()).resolves.toEqual({
+    canResumeGeneration: true,
+    message: 'The local AI worker is ready.',
+    provider: 'codex',
+    status: 'ready',
+  })
+  await expect(registeredHandlers.get(AI_WORKER_IPC_CHANNELS.openSetupGuide)?.()).resolves.toBe(
+    undefined,
+  )
   expect(constructor).toHaveBeenCalledWith({
     backgroundColor: '#08141f',
     height: 900,
@@ -99,6 +137,7 @@ test('bootstrap registers the readiness IPC contract and opens the packaged shel
       contextIsolation: true,
       nodeIntegration: false,
       preload: '/tmp/preload.js',
+      sandbox: false,
     },
     width: 1440,
   })
@@ -113,14 +152,30 @@ test('bootstrap recreates the window on activate and quits on window-all-closed 
   const browserWindow = createBrowserWindowDouble()
 
   const bootstrap = createDesktopAppBootstrap({
+    aiWorker: {
+      getAiWorkerPreflight: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+      getStartupDestination: vi.fn().mockResolvedValue('workspace_empty'),
+      openAiWorkerSetupGuide: vi.fn().mockImplementation(() => Promise.resolve()),
+      retryAiWorkerPreflight: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+      startAiWorkerSignIn: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+    },
     app,
     browserWindow: browserWindow.browserWindow,
-    getAiWorkerPreflight: vi.fn().mockResolvedValue({
-      canResumeGeneration: true,
-      message: 'The local AI worker is ready.',
-      provider: 'codex',
-      status: 'ready',
-    }),
     ipcMain: {
       handle: vi.fn(),
     },
@@ -167,14 +222,30 @@ test('bootstrap logs and swallows activate window recreation failures', async ()
     })
 
   const bootstrap = createDesktopAppBootstrap({
+    aiWorker: {
+      getAiWorkerPreflight: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+      getStartupDestination: vi.fn().mockResolvedValue('workspace_active'),
+      openAiWorkerSetupGuide: vi.fn().mockImplementation(() => Promise.resolve()),
+      retryAiWorkerPreflight: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+      startAiWorkerSignIn: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+    },
     app,
     browserWindow: browserWindow.browserWindow,
-    getAiWorkerPreflight: vi.fn().mockResolvedValue({
-      canResumeGeneration: true,
-      message: 'The local AI worker is ready.',
-      provider: 'codex',
-      status: 'ready',
-    }),
     ipcMain: {
       handle: vi.fn(),
     },
@@ -202,14 +273,30 @@ test('bootstrap keeps the app open when every window closes on macOS', async () 
   const browserWindow = createBrowserWindowDouble()
 
   const bootstrap = createDesktopAppBootstrap({
+    aiWorker: {
+      getAiWorkerPreflight: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+      getStartupDestination: vi.fn().mockResolvedValue('workspace_active'),
+      openAiWorkerSetupGuide: vi.fn().mockImplementation(() => Promise.resolve()),
+      retryAiWorkerPreflight: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+      startAiWorkerSignIn: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+    },
     app,
     browserWindow: browserWindow.browserWindow,
-    getAiWorkerPreflight: vi.fn().mockResolvedValue({
-      canResumeGeneration: true,
-      message: 'The local AI worker is ready.',
-      provider: 'codex',
-      status: 'ready',
-    }),
     ipcMain: {
       handle: vi.fn(),
     },
@@ -252,21 +339,37 @@ test('runtime dependencies adapt Electron primitives for the bootstrap contract'
       getAllWindows,
     },
   )
-  const getAiWorkerPreflight = vi.fn().mockResolvedValue({
-    canResumeGeneration: true,
-    message: 'The local AI worker is ready.',
-    provider: 'codex',
-    status: 'ready',
-  })
+  const aiWorker = {
+    getAiWorkerPreflight: vi.fn().mockResolvedValue({
+      canResumeGeneration: true,
+      message: 'The local AI worker is ready.',
+      provider: 'codex',
+      status: 'ready',
+    }),
+    getStartupDestination: vi.fn().mockResolvedValue('workspace_active'),
+    openAiWorkerSetupGuide: vi.fn().mockImplementation(() => Promise.resolve()),
+    retryAiWorkerPreflight: vi.fn().mockResolvedValue({
+      canResumeGeneration: true,
+      message: 'The local AI worker is ready.',
+      provider: 'codex',
+      status: 'ready',
+    }),
+    startAiWorkerSignIn: vi.fn().mockResolvedValue({
+      canResumeGeneration: true,
+      message: 'The local AI worker is ready.',
+      provider: 'codex',
+      status: 'ready',
+    }),
+  }
 
   const runtimeDependencies = createElectronRuntimeDependencies({
+    aiWorker,
     app: {
       on,
       quit,
       whenReady,
     },
     browserWindowConstructor: BrowserWindowDouble,
-    getAiWorkerPreflight,
     ipcMain: {
       handle: vi.fn(),
     },
@@ -297,6 +400,7 @@ test('runtime dependencies adapt Electron primitives for the bootstrap contract'
       contextIsolation: true,
       nodeIntegration: false,
       preload: '/tmp/preload.js',
+      sandbox: false,
     },
     width: 1440,
   })
@@ -310,10 +414,13 @@ test('runtime dependencies adapt Electron primitives for the bootstrap contract'
   expect(constructor).toHaveBeenCalledTimes(1)
   expect(getAllWindows).not.toHaveBeenCalled()
   expect(runtimeDependencies.browserWindow.getAllWindows()).toEqual([{ loadFile, loadURL }])
-  await expect(runtimeDependencies.getAiWorkerPreflight()).resolves.toEqual({
+  await expect(runtimeDependencies.aiWorker.getAiWorkerPreflight()).resolves.toEqual({
     canResumeGeneration: true,
     message: 'The local AI worker is ready.',
     provider: 'codex',
     status: 'ready',
   })
+  await expect(runtimeDependencies.aiWorker.getStartupDestination()).resolves.toBe(
+    'workspace_active',
+  )
 })

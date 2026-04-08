@@ -6,8 +6,11 @@ import type { ReadinessRouteViewModel } from '../readiness/readiness-route.js'
 const initialReadinessViewModel: ReadinessRouteViewModel = {
   body: 'Checking the local AI worker before opening your workspace.',
   canEnterWorkspace: false,
+  diagnostic: 'Looking for the configured local worker, authentication state, and health probe.',
   heading: 'AI worker setup',
-  retryLabel: undefined,
+  primaryActionLabel: undefined,
+  secondaryActionLabel: undefined,
+  startupDestination: undefined,
   status: 'checking',
 }
 
@@ -18,6 +21,7 @@ function StatusBadge({ status }: { status: ReadinessRouteViewModel['status'] }) 
   const statusCopy = {
     checking: 'Checking',
     ready: 'Ready',
+    sign_in_required: 'Sign in required',
     unavailable: 'Unavailable',
   } as const
 
@@ -28,24 +32,94 @@ function StatusBadge({ status }: { status: ReadinessRouteViewModel['status'] }) 
   )
 }
 
+function getStartupRouteLabel(viewModel: ReadinessRouteViewModel): string {
+  if (viewModel.startupDestination === 'workspace_active') {
+    return 'Workspace active'
+  }
+
+  if (viewModel.startupDestination === 'workspace_empty') {
+    return 'Workspace empty'
+  }
+
+  if (viewModel.startupDestination === 'workspace_loading') {
+    return 'Workspace loading'
+  }
+
+  if (viewModel.startupDestination === 'first_launch') {
+    return 'First launch'
+  }
+
+  return 'AI worker readiness gate'
+}
+
 export function App() {
-  const [viewModel, setViewModel] = useState(initialReadinessViewModel)
+  const [isSecondaryActionPending, setIsSecondaryActionPending] = useState(false)
+  const [isSubmittingPrimaryAction, setIsSubmittingPrimaryAction] = useState(false)
   const [readinessError, setReadinessError] = useState<string | null>(null)
+  const [viewModel, setViewModel] = useState(initialReadinessViewModel)
+
+  const loadReadinessState = async (
+    getAiWorkerPreflight: typeof globalThis.window.cvMaxxing.aiWorker.getAiWorkerPreflight,
+  ): Promise<void> => {
+    const nextViewModel = await createReadinessRouteViewModel({
+      getAiWorkerPreflight,
+      getStartupDestination: globalThis.window.cvMaxxing.aiWorker.getStartupDestination,
+    })
+
+    setReadinessError(null)
+    setViewModel(nextViewModel)
+  }
 
   useEffect(() => {
-    const loadReadinessState = async (): Promise<void> => {
-      const nextViewModel = await createReadinessRouteViewModel({
-        getAiWorkerPreflight: globalThis.window.cvMaxxing.aiWorker.getAiWorkerPreflight,
-      })
-
-      setReadinessError(null)
-      setViewModel(nextViewModel)
-    }
-
-    loadReadinessState().catch(() => {
+    loadReadinessState(globalThis.window.cvMaxxing.aiWorker.getAiWorkerPreflight).catch(() => {
       setReadinessError(`${readinessErrorMessage} ${readinessErrorAction}`)
     })
   }, [])
+
+  const handlePrimaryAction = async (): Promise<void> => {
+    if (viewModel.primaryActionLabel === undefined || isSubmittingPrimaryAction) {
+      return
+    }
+
+    const getAiWorkerPreflight =
+      viewModel.status === 'sign_in_required'
+        ? globalThis.window.cvMaxxing.aiWorker.startAiWorkerSignIn
+        : globalThis.window.cvMaxxing.aiWorker.retryAiWorkerPreflight
+
+    setIsSubmittingPrimaryAction(true)
+
+    try {
+      await loadReadinessState(getAiWorkerPreflight)
+    } catch {
+      setReadinessError(`${readinessErrorMessage} ${readinessErrorAction}`)
+    } finally {
+      setIsSubmittingPrimaryAction(false)
+    }
+  }
+
+  const handleSecondaryAction = async (): Promise<void> => {
+    if (viewModel.secondaryActionLabel === undefined || isSecondaryActionPending) {
+      return
+    }
+
+    setIsSecondaryActionPending(true)
+
+    try {
+      await globalThis.window.cvMaxxing.aiWorker.openAiWorkerSetupGuide()
+    } catch {
+      setReadinessError(`${readinessErrorMessage} ${readinessErrorAction}`)
+    } finally {
+      setIsSecondaryActionPending(false)
+    }
+  }
+
+  const handlePrimaryActionClick = (): void => {
+    handlePrimaryAction().catch(() => null)
+  }
+
+  const handleSecondaryActionClick = (): void => {
+    handleSecondaryAction().catch(() => null)
+  }
 
   return (
     <main className="flex min-h-screen items-center justify-center px-6 py-10">
@@ -66,6 +140,11 @@ export function App() {
             <p className="m-0 max-w-2xl text-lg leading-8 text-[var(--color-app-muted)]">
               {viewModel.body}
             </p>
+            {viewModel.diagnostic ? (
+              <p className="m-0 max-w-2xl text-sm leading-7 text-[var(--color-panel-warning)]">
+                {viewModel.diagnostic}
+              </p>
+            ) : null}
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
@@ -83,7 +162,7 @@ export function App() {
                 Startup route
               </p>
               <p className="mt-3 text-xl text-[var(--color-app-foreground)]">
-                AI worker readiness gate
+                {getStartupRouteLabel(viewModel)}
               </p>
             </div>
           </div>
@@ -92,7 +171,9 @@ export function App() {
         <aside className="flex flex-col justify-between rounded-[8px] border border-[var(--color-panel-border)] bg-black/10 p-6">
           <div className="space-y-6">
             <p className="m-0 text-sm uppercase tracking-[0.12em] text-[var(--color-app-muted)]">
-              First launch
+              {viewModel.startupDestination === 'workspace_loading'
+                ? 'Resume flow'
+                : 'First launch'}
             </p>
             <div className="space-y-3">
               <p className="m-0 text-base leading-7 text-[var(--color-app-foreground)]">
@@ -113,11 +194,25 @@ export function App() {
           <div className="mt-8 space-y-4">
             <button
               className="w-full rounded-[8px] border border-[var(--color-panel-accent)] bg-[var(--color-panel-accent)] px-4 py-3 text-sm font-medium text-slate-950 disabled:cursor-not-allowed disabled:border-[var(--color-panel-border)] disabled:bg-transparent disabled:text-[var(--color-app-muted)]"
-              disabled={viewModel.retryLabel === undefined}
+              disabled={viewModel.primaryActionLabel === undefined || isSubmittingPrimaryAction}
+              onClick={handlePrimaryActionClick}
               type="button"
             >
-              {viewModel.retryLabel ?? 'Waiting for startup check'}
+              {viewModel.primaryActionLabel ??
+                (isSubmittingPrimaryAction ? 'Working...' : 'Waiting for startup check')}
             </button>
+            {viewModel.secondaryActionLabel ? (
+              <button
+                className="w-full rounded-[8px] border border-[var(--color-panel-border)] bg-transparent px-4 py-3 text-sm font-medium text-[var(--color-app-foreground)] disabled:cursor-not-allowed disabled:text-[var(--color-app-muted)]"
+                disabled={isSecondaryActionPending}
+                onClick={handleSecondaryActionClick}
+                type="button"
+              >
+                {isSecondaryActionPending
+                  ? 'Opening setup guide...'
+                  : viewModel.secondaryActionLabel}
+              </button>
+            ) : null}
             <p className="m-0 text-sm leading-7 text-[var(--color-panel-warning)]">
               No telemetry, analytics, remote config, update checks, or font CDN calls are enabled
               in this shell.

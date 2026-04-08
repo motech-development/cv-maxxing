@@ -1,7 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron'
 
 import { createDesktopApi } from './create-desktop-api.js'
-import type { AiWorkerPreflightResult } from '../shared/ai-worker-preflight.js'
+import type { AiWorkerIpcChannel } from '../shared/ipc.js'
 import type { CvMaxxingWindowApi } from '../shared/window-api.js'
 
 export interface ContextBridgeLike {
@@ -9,7 +9,7 @@ export interface ContextBridgeLike {
 }
 
 export interface IpcRendererLike {
-  invoke: (channel: string) => Promise<AiWorkerPreflightResult>
+  invoke: <TResult>(channel: AiWorkerIpcChannel) => Promise<TResult>
 }
 
 export interface PreloadDependencies {
