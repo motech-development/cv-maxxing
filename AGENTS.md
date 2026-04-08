@@ -24,6 +24,8 @@ These rules always apply. Follow project-local rules first when they are more sp
 ### Project-Specific Conventions
 
 - Use `pnpm` as the package manager. The repository already declares `pnpm@10.28.0` in `package.json`.
+- Use Node 24 as the project runtime version. The repository pins this in `.nvmrc`.
+- Use Conventional Commits for commit messages. Husky runs commitlint on `commit-msg` to enforce this.
 - When building new functionality or making material refactors, consult `ARCHITECTURE.md` and align implementation with its current decisions unless a newer explicit decision supersedes it.
 - Treat `design/app.pen` as the authoritative reference for desktop app UI states and layout.
 - When editing `.pen` files through the Pencil editor, treat the editor state as authoritative until the user saves; disk reads and git diffs will not reflect unsaved Pencil changes.
