@@ -19,12 +19,13 @@ export interface ReadinessRouteViewModel {
   status: AiWorkerPreflightResult['status']
 }
 
-export async function createReadinessRouteViewModel({
-  getAiWorkerPreflight,
-  getStartupDestination,
-}: AiWorkerPreflightProvider & StartupDestinationProvider): Promise<ReadinessRouteViewModel> {
-  const preflight = await getAiWorkerPreflight()
-
+export function mapReadinessRouteViewModel({
+  preflight,
+  startupDestination,
+}: {
+  preflight: AiWorkerPreflightResult
+  startupDestination?: StartupDestination
+}): ReadinessRouteViewModel {
   if (preflight.status === 'checking') {
     return {
       body: 'Checking the local AI worker before opening your workspace.',
@@ -65,18 +66,32 @@ export async function createReadinessRouteViewModel({
     }
   }
 
-  const startupDestination = await getStartupDestination()
+  const resolvedStartupDestination = startupDestination ?? 'first_launch'
 
   return {
-    body: buildReadyBody(startupDestination),
+    body: buildReadyBody(resolvedStartupDestination),
     canEnterWorkspace: true,
-    diagnostic: `Startup route restored: ${startupDestination}.`,
-    heading: buildReadyHeading(startupDestination),
+    diagnostic: `Startup route restored: ${resolvedStartupDestination}.`,
+    heading: buildReadyHeading(resolvedStartupDestination),
     primaryActionLabel: undefined,
     secondaryActionLabel: undefined,
-    startupDestination,
+    startupDestination: resolvedStartupDestination,
     status: preflight.status,
   }
+}
+
+export async function createReadinessRouteViewModel({
+  getAiWorkerPreflight,
+  getStartupDestination,
+}: AiWorkerPreflightProvider & StartupDestinationProvider): Promise<ReadinessRouteViewModel> {
+  const preflight = await getAiWorkerPreflight()
+  const startupDestination =
+    preflight.status === 'ready' ? await getStartupDestination() : undefined
+
+  return mapReadinessRouteViewModel({
+    preflight,
+    startupDestination,
+  })
 }
 
 function buildDiagnostic(

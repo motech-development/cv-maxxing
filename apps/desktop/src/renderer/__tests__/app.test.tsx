@@ -1085,7 +1085,96 @@ test('reviews a ready vacancy URL and only starts tailoring after Adapt CV is cl
 
   expect(screen.getByRole('button', { name: 'Open tailored application' })).toBeDefined()
   expect(screen.getByRole('button', { name: 'Abandon draft' })).toBeDefined()
-  expect(resumePendingGeneration).toHaveBeenCalledTimes(1)
+
+  await waitFor(() => {
+    expect(resumePendingGeneration).toHaveBeenCalledTimes(1)
+  })
+})
+
+test('routes to AI worker repair when starting adaptation returns a sign-in requirement', async () => {
+  const startPendingGeneration = vi.fn().mockResolvedValue({
+    canResumeGeneration: true,
+    failureCode: 'auth_missing',
+    message:
+      'The local AI worker needs a valid sign-in before CV Maxxing can resume your tailored application.',
+    provider: 'codex',
+    status: 'sign_in_required',
+  })
+
+  renderApp({
+    aiWorker: createAiWorkerApi({
+      getAiWorkerPreflight: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+      getStartupDestination: vi.fn().mockResolvedValue('workspace_empty'),
+    }),
+    originalCv: createOriginalCvApi({
+      getOriginalCvWorkspaceState: vi.fn().mockResolvedValue({
+        activeOriginalCv: {
+          fileType: 'pdf',
+          headline: 'Principal Product Designer',
+          id: 'original-cv-123',
+          importedAt: '2026-04-08T14:30:00.000Z',
+          originalFilename: 'ada-lovelace.pdf',
+          pageCount: 1,
+          snapshotCount: 1,
+          summary: 'Design leader focused on complex workflow products.',
+          writingStyle: {
+            averageSentenceLength: 7,
+            clicheDetections: [],
+            firstPersonUsage: 'absent',
+            formality: 'direct',
+          },
+        },
+        snapshotCount: 1,
+      }),
+    }),
+    tailoredApplication: createTailoredApplicationApi({
+      startPendingGeneration,
+    }),
+    vacancy: createVacancyApi({
+      getVacancyWorkspaceState: vi.fn().mockResolvedValue({
+        draft: {
+          text: '',
+          url: 'https://boards.greenhouse.io/example/jobs/123',
+        },
+        vacancy: {
+          blockingReason: null,
+          canGenerate: true,
+          employer: 'Example Labs',
+          fetchedAt: '2026-04-08T21:10:00.000Z',
+          id: 'vacancy-002',
+          inputType: 'url',
+          location: 'London, United Kingdom',
+          originalUrl: 'https://boards.greenhouse.io/example/jobs/123',
+          requirements: ['Experience shipping workflow software.'],
+          resolvedUrl: 'https://boards.greenhouse.io/example/jobs/123',
+          responsibilities: ['Lead product design for desktop workflows.'],
+          source: 'greenhouse',
+          status: 'ready',
+          textPreview: 'Lead product design for desktop workflows.',
+          title: 'Senior Product Designer',
+        },
+      }),
+    }),
+  })
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Create a tailored application' })).toBeDefined()
+  })
+
+  fireEvent.click(screen.getByRole('button', { name: 'Adapt CV' }))
+
+  await waitFor(() => {
+    expect(startPendingGeneration).toHaveBeenCalledTimes(1)
+  })
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Connect the local AI worker' })).toBeDefined()
+  })
 })
 
 test('preserves pasted vacancy context in a blocking preview and keeps Adapt CV disabled', async () => {
@@ -1481,24 +1570,7 @@ test('restores the vacancy preview from the internal browser session and re-enab
             text: '',
             url: 'https://www.linkedin.com/jobs/view/123456',
           },
-          vacancy: {
-            blockingReason:
-              'Open the internal browser session for authenticated pages, or paste the full job text instead.',
-            canGenerate: false,
-            employer: null,
-            fetchedAt: '2026-04-08T21:15:00.000Z',
-            id: 'vacancy-pending-browser',
-            inputType: 'url',
-            location: null,
-            originalUrl: 'https://www.linkedin.com/jobs/view/123456',
-            requirements: [],
-            resolvedUrl: null,
-            responsibilities: [],
-            source: 'linkedin',
-            status: 'incomplete',
-            textPreview: '',
-            title: null,
-          },
+          vacancy: null,
         })
         .mockResolvedValueOnce({
           draft: {
@@ -1605,22 +1677,14 @@ test('resumes the pending flow into the design-aligned loading screen after sign
 
   renderApp({
     aiWorker: createAiWorkerApi({
-      getAiWorkerPreflight: vi
-        .fn()
-        .mockResolvedValueOnce({
-          canResumeGeneration: false,
-          failureCode: 'auth_missing',
-          message:
-            'The local AI worker needs a valid sign-in before CV Maxxing can resume your tailored application.',
-          provider: 'codex',
-          status: 'sign_in_required',
-        })
-        .mockResolvedValue({
-          canResumeGeneration: true,
-          message: 'The local AI worker is ready.',
-          provider: 'codex',
-          status: 'ready',
-        }),
+      getAiWorkerPreflight: vi.fn().mockResolvedValue({
+        canResumeGeneration: false,
+        failureCode: 'auth_missing',
+        message:
+          'The local AI worker needs a valid sign-in before CV Maxxing can resume your tailored application.',
+        provider: 'codex',
+        status: 'sign_in_required',
+      }),
       getStartupDestination: vi.fn().mockResolvedValue('workspace_loading'),
       startAiWorkerSignIn: vi.fn().mockResolvedValue({
         canResumeGeneration: true,
@@ -2361,6 +2425,70 @@ test('opens settings from the rail, shows version and privacy guardrails, and re
 
   await waitFor(() => {
     expect(retryAiWorkerPreflight).toHaveBeenCalledTimes(1)
+  })
+})
+
+test('leaves settings and returns to the repair screen when the AI worker retry fails', async () => {
+  const retryAiWorkerPreflight = vi.fn().mockResolvedValue({
+    canResumeGeneration: false,
+    failureCode: 'runtime_missing',
+    message: 'The local AI worker is unavailable. Check setup, then retry.',
+    provider: 'codex',
+    status: 'unavailable',
+  })
+
+  renderApp({
+    aiWorker: createAiWorkerApi({
+      getAiWorkerPreflight: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+      getStartupDestination: vi.fn().mockResolvedValue('workspace_empty'),
+      retryAiWorkerPreflight,
+    }),
+    originalCv: createOriginalCvApi({
+      getOriginalCvWorkspaceState: vi.fn().mockResolvedValue({
+        activeOriginalCv: {
+          fileType: 'pdf',
+          headline: 'Principal Product Designer',
+          id: 'original-cv-123',
+          importedAt: '2026-04-08T14:30:00.000Z',
+          originalFilename: 'ada-lovelace.pdf',
+          pageCount: 1,
+          snapshotCount: 1,
+          summary: 'Design leader focused on complex workflow products.',
+          writingStyle: {
+            averageSentenceLength: 7,
+            clicheDetections: [],
+            firstPersonUsage: 'absent',
+            formality: 'direct',
+          },
+        },
+        snapshotCount: 1,
+      }),
+    }),
+  })
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Create a tailored application' })).toBeDefined()
+  })
+
+  fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'AI worker' })).toBeDefined()
+  })
+
+  fireEvent.click(screen.getByRole('button', { name: 'Retry status check' }))
+
+  await waitFor(() => {
+    expect(retryAiWorkerPreflight).toHaveBeenCalledTimes(1)
+  })
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Repair the local AI worker' })).toBeDefined()
   })
 })
 

@@ -8,12 +8,18 @@ import {
   type DragEvent,
   type ReactElement,
 } from 'react'
+import { flushSync } from 'react-dom'
 
-import type { ReadinessRouteViewModel } from '../readiness/readiness-route.js'
+import {
+  mapReadinessRouteViewModel,
+  type ReadinessRouteViewModel,
+} from '../readiness/readiness-route.js'
+import type { AiWorkerPreflightResult } from '../shared/ai-worker-preflight.js'
 import type { OriginalCvImportResult, OriginalCvWorkspaceState } from '../shared/original-cv.js'
 import type { PendingGenerationCommand } from '../shared/pending-generation.js'
+import type { StartupDestination } from '../shared/startup-destination.js'
 import type { TailoredApplicationWorkspaceState } from '../shared/tailored-application.js'
-import type { VacancyDraft } from '../shared/vacancy.js'
+import type { VacancyDraft, VacancyIngestResult, VacancySummary } from '../shared/vacancy.js'
 import { AiWorkerCheckingScreen } from './screens/ai-worker-checking-screen.js'
 import { AiWorkerSignInRequiredScreen } from './screens/ai-worker-sign-in-required-screen.js'
 import { AiWorkerUnavailableScreen } from './screens/ai-worker-unavailable-screen.js'
@@ -81,6 +87,7 @@ function isSupportedOriginalCvFile(file: File): boolean {
 }
 
 type OriginalCvImportDestination = 'workspace_active' | 'workspace_empty'
+type RendererStartupDestinationOverride = OriginalCvImportDestination | 'workspace_loading'
 type PreviewDocumentKind = 'adapted_cv' | 'cover_letter'
 type WorkspaceSection = 'settings' | 'workspace'
 
@@ -103,8 +110,9 @@ export function App() {
   const [settingsMessage, setSettingsMessage] = useState<string | null>(null)
   const [settingsSection, setSettingsSection] = useState<SettingsSection>('ai_worker')
   const [startupDestinationOverride, setStartupDestinationOverride] =
-    useState<OriginalCvImportDestination | null>(null)
+    useState<RendererStartupDestinationOverride | null>(null)
   const [vacancyDraft, setVacancyDraft] = useState(initialVacancyDraft)
+  const [vacancyPreviewOverride, setVacancyPreviewOverride] = useState<VacancySummary | null>(null)
   const [vacancyReviewError, setVacancyReviewError] = useState<string | null>(null)
   const isResumingPendingGeneration = useRef(false)
   const lastResumedCommandId = useRef<string | null>(null)
@@ -193,21 +201,60 @@ export function App() {
     ])
   }
 
-  const aiWorkerStatusMutation = useMutation({
-    mutationFn: async (action: 'retry' | 'sign_in'): Promise<void> => {
-      if (action === 'sign_in') {
-        await globalThis.window.cvMaxxing.aiWorker.startAiWorkerSignIn()
+  const seedReadinessQuery = async ({
+    preflightResult,
+    startupDestination,
+  }: {
+    preflightResult: AiWorkerPreflightResult
+    startupDestination?: StartupDestination
+  }): Promise<void> => {
+    await queryClient.cancelQueries({
+      queryKey: rendererQueryKeys.readiness,
+    })
 
+    const resolvedStartupDestination =
+      preflightResult.status === 'ready'
+        ? (startupDestination ??
+          (await globalThis.window.cvMaxxing.aiWorker.getStartupDestination()))
+        : undefined
+
+    queryClient.setQueryData(
+      rendererQueryKeys.readiness,
+      mapReadinessRouteViewModel({
+        preflight: preflightResult,
+        startupDestination: resolvedStartupDestination,
+      }),
+    )
+  }
+
+  const applyVacancyIngestResult = async (result: VacancyIngestResult): Promise<void> => {
+    queryClient.setQueryData(rendererQueryKeys.vacancyWorkspace, result.workspaceState)
+    setVacancyPreviewOverride(result.workspaceState.vacancy === null ? result.vacancy : null)
+    await queryClient.invalidateQueries({
+      queryKey: rendererQueryKeys.vacancyWorkspace,
+    })
+  }
+
+  const aiWorkerStatusMutation = useMutation({
+    mutationFn: async (action: 'retry' | 'sign_in'): Promise<AiWorkerPreflightResult> => {
+      if (action === 'sign_in') {
+        return await globalThis.window.cvMaxxing.aiWorker.startAiWorkerSignIn()
+      }
+
+      return await globalThis.window.cvMaxxing.aiWorker.retryAiWorkerPreflight()
+    },
+    onSuccess: async (preflightResult): Promise<void> => {
+      setReadinessError(null)
+      setStartupDestinationOverride(null)
+      await seedReadinessQuery({
+        preflightResult,
+      })
+
+      if (preflightResult.status !== 'ready') {
         return
       }
 
-      await globalThis.window.cvMaxxing.aiWorker.retryAiWorkerPreflight()
-    },
-    onSuccess: async (): Promise<void> => {
-      setReadinessError(null)
-      setStartupDestinationOverride(null)
       await Promise.all([
-        invalidateReadinessQuery(),
         queryClient.invalidateQueries({
           queryKey: rendererQueryKeys.settings,
         }),
@@ -238,6 +285,7 @@ export function App() {
       setSettingsMessage(null)
       setStartupDestinationOverride(null)
       setVacancyDraft(initialVacancyDraft)
+      setVacancyPreviewOverride(null)
       setVacancyReviewError(null)
       queryClient.setQueryData(rendererQueryKeys.readiness, initialReadinessViewModel)
       queryClient.setQueryData(
@@ -290,6 +338,7 @@ export function App() {
       setReadinessError(null)
       setStartupDestinationOverride(nextStartupDestination)
       setVacancyReviewError(null)
+      setVacancyPreviewOverride(null)
       await globalThis.window.cvMaxxing.vacancy.clearVacancyWorkspaceState()
       queryClient.setQueryData(rendererQueryKeys.vacancyWorkspace, initialVacancyWorkspaceState)
       await Promise.all([
@@ -304,46 +353,40 @@ export function App() {
     },
   })
   const reviewVacancyUrlMutation = useMutation({
-    mutationFn: async (): Promise<void> => {
-      await globalThis.window.cvMaxxing.vacancy.ingestVacancyUrl({
+    mutationFn: async (): Promise<VacancyIngestResult> => {
+      return await globalThis.window.cvMaxxing.vacancy.ingestVacancyUrl({
         url: vacancyDraft.url.trim(),
       })
     },
-    onSuccess: async (): Promise<void> => {
+    onSuccess: async (result): Promise<void> => {
       setReadinessError(null)
       setVacancyReviewError(null)
-      await queryClient.invalidateQueries({
-        queryKey: rendererQueryKeys.vacancyWorkspace,
-      })
+      await applyVacancyIngestResult(result)
     },
   })
   const reviewPastedVacancyMutation = useMutation({
-    mutationFn: async (): Promise<void> => {
-      await globalThis.window.cvMaxxing.vacancy.ingestPastedVacancy({
+    mutationFn: async (): Promise<VacancyIngestResult> => {
+      return await globalThis.window.cvMaxxing.vacancy.ingestPastedVacancy({
         text: vacancyDraft.text.trim(),
         url: vacancyDraft.url.trim() === '' ? undefined : vacancyDraft.url.trim(),
       })
     },
-    onSuccess: async (): Promise<void> => {
+    onSuccess: async (result): Promise<void> => {
       setReadinessError(null)
       setVacancyReviewError(null)
-      await queryClient.invalidateQueries({
-        queryKey: rendererQueryKeys.vacancyWorkspace,
-      })
+      await applyVacancyIngestResult(result)
     },
   })
   const openVacancyBrowserSessionMutation = useMutation({
-    mutationFn: async (url: string): Promise<void> => {
-      await globalThis.window.cvMaxxing.vacancy.openVacancyBrowserSession({
+    mutationFn: async (url: string): Promise<VacancyIngestResult> => {
+      return await globalThis.window.cvMaxxing.vacancy.openVacancyBrowserSession({
         url,
       })
     },
-    onSuccess: async (): Promise<void> => {
+    onSuccess: async (result): Promise<void> => {
       setReadinessError(null)
       setVacancyReviewError(null)
-      await queryClient.invalidateQueries({
-        queryKey: rendererQueryKeys.vacancyWorkspace,
-      })
+      await applyVacancyIngestResult(result)
     },
   })
   const clearVacancyWorkspaceMutation = useMutation({
@@ -353,6 +396,8 @@ export function App() {
     onSuccess: async (): Promise<void> => {
       setReadinessError(null)
       setVacancyReviewError(null)
+      setVacancyPreviewOverride(null)
+      queryClient.setQueryData(rendererQueryKeys.vacancyWorkspace, initialVacancyWorkspaceState)
       await queryClient.invalidateQueries({
         queryKey: rendererQueryKeys.vacancyWorkspace,
       })
@@ -361,25 +406,32 @@ export function App() {
   const startPendingGenerationMutation = useMutation({
     mutationFn: async (
       nextVacancyDraft: PendingGenerationCommand['vacancyDraft'],
-    ): Promise<void> => {
+    ): Promise<AiWorkerPreflightResult> => {
       const activeOriginalCv = originalCvWorkspaceState.activeOriginalCv
 
       if (activeOriginalCv === null) {
         throw new Error('An active original CV is required before adaptation can begin.')
       }
 
-      await globalThis.window.cvMaxxing.tailoredApplication.startPendingGeneration({
+      return await globalThis.window.cvMaxxing.tailoredApplication.startPendingGeneration({
         originalCvId: activeOriginalCv.id,
         originalCvLabel: activeOriginalCv.originalFilename,
         vacancyDraft: nextVacancyDraft,
       })
     },
-    onSuccess: async (): Promise<void> => {
-      setReadinessError(null)
-      setSelectedTailoredApplicationId(null)
-      setStartupDestinationOverride(null)
+    onSuccess: async (preflightResult): Promise<void> => {
+      flushSync(() => {
+        setReadinessError(null)
+        setSelectedTailoredApplicationId(null)
+        setStartupDestinationOverride('workspace_loading')
+        setVacancyPreviewOverride(null)
+      })
+
+      await seedReadinessQuery({
+        preflightResult,
+        startupDestination: preflightResult.status === 'ready' ? 'workspace_loading' : undefined,
+      })
       await Promise.all([
-        invalidateReadinessQuery(),
         queryClient.invalidateQueries({
           queryKey: rendererQueryKeys.pendingGeneration,
         }),
@@ -390,16 +442,29 @@ export function App() {
     },
   })
   const completePendingGenerationMutation = useMutation({
-    mutationFn: async (commandId: string): Promise<void> => {
+    mutationFn: async ({
+      commandId,
+    }: {
+      commandId: string
+      tailoredApplicationId: string | null
+    }): Promise<void> => {
       await globalThis.window.cvMaxxing.tailoredApplication.completePendingGeneration(commandId)
       await globalThis.window.cvMaxxing.vacancy.clearVacancyWorkspaceState()
     },
-    onSuccess: async (): Promise<void> => {
+    onSuccess: async (_data, { tailoredApplicationId }): Promise<void> => {
       setIsConfirmingDeleteTailoredApplication(false)
       setPreviewDocumentKind('adapted_cv')
       setReadinessError(null)
-      setSelectedTailoredApplicationId(null)
-      setStartupDestinationOverride(null)
+      setSelectedTailoredApplicationId(tailoredApplicationId)
+      setStartupDestinationOverride('workspace_active')
+      setVacancyPreviewOverride(null)
+
+      if (tailoredApplicationId !== null) {
+        await queryClient.prefetchQuery(
+          getTailoredApplicationPreviewQueryOptions(tailoredApplicationId),
+        )
+      }
+
       await Promise.all([invalidateReadinessQuery(), invalidateWorkspaceQueries()])
     },
   })
@@ -454,6 +519,7 @@ export function App() {
     onSuccess: async (): Promise<void> => {
       setReadinessError(null)
       setStartupDestinationOverride(null)
+      setVacancyPreviewOverride(null)
       await Promise.all([
         invalidateReadinessQuery(),
         queryClient.invalidateQueries({
@@ -478,16 +544,24 @@ export function App() {
   const isSubmittingPrimaryAction = aiWorkerStatusMutation.isPending
   const isSubmittingVacancyReview =
     reviewPastedVacancyMutation.isPending || reviewVacancyUrlMutation.isPending
-  const previewedVacancyDraft =
-    vacancyWorkspaceState.vacancy === null ? null : vacancyWorkspaceState.draft
+  const reviewedVacancyPreview = vacancyWorkspaceState.vacancy ?? vacancyPreviewOverride
+  const previewedVacancyDraft = reviewedVacancyPreview === null ? null : vacancyWorkspaceState.draft
   const vacancyPreview = isVacancyDraftReviewed(vacancyDraft, previewedVacancyDraft)
-    ? vacancyWorkspaceState.vacancy
+    ? reviewedVacancyPreview
     : null
   const queriedVacancyDraft = vacancyWorkspaceState.draft
 
   useEffect(() => {
     setVacancyDraft(queriedVacancyDraft)
   }, [queriedVacancyDraft])
+
+  useEffect(() => {
+    if (vacancyWorkspaceState.vacancy === null) {
+      return
+    }
+
+    setVacancyPreviewOverride(null)
+  }, [vacancyWorkspaceState.vacancy])
 
   useEffect(() => {
     if (!viewModel.canEnterWorkspace) {
@@ -677,7 +751,10 @@ export function App() {
     }
 
     try {
-      await completePendingGenerationMutation.mutateAsync(pendingGenerationCommand.commandId)
+      await completePendingGenerationMutation.mutateAsync({
+        commandId: pendingGenerationCommand.commandId,
+        tailoredApplicationId: null,
+      })
     } catch {
       setReadinessError(`${readinessErrorMessage} ${readinessErrorAction}`)
     }
@@ -769,8 +846,12 @@ export function App() {
     }
 
     try {
-      await globalThis.window.cvMaxxing.tailoredApplication.resumePendingGeneration()
-      await completePendingGenerationMutation.mutateAsync(pendingGenerationCommand.commandId)
+      const result = await globalThis.window.cvMaxxing.tailoredApplication.resumePendingGeneration()
+
+      await completePendingGenerationMutation.mutateAsync({
+        commandId: pendingGenerationCommand.commandId,
+        tailoredApplicationId: result.tailoredApplicationId,
+      })
     } catch (error) {
       try {
         await invalidateReadinessQuery()
@@ -778,9 +859,12 @@ export function App() {
         // Preserve the original generation failure message even if the reload also fails.
       }
 
-      setReadinessError(
-        resolveErrorMessage(error, `${readinessErrorMessage} ${readinessErrorAction}`),
-      )
+      flushSync(() => {
+        setStartupDestinationOverride(null)
+        setReadinessError(
+          resolveErrorMessage(error, `${readinessErrorMessage} ${readinessErrorAction}`),
+        )
+      })
     }
   })
 
@@ -798,14 +882,26 @@ export function App() {
 
     isResumingPendingGeneration.current = true
     lastResumedCommandId.current = pendingGenerationCommand.commandId
+    let didStartResume = false
+    const resumeAnimationFrameId = globalThis.window.requestAnimationFrame(() => {
+      didStartResume = true
+      resumePendingGeneration()
+        .catch(() => {
+          lastResumedCommandId.current = null
+        })
+        .finally(() => {
+          isResumingPendingGeneration.current = false
+        })
+    })
 
-    resumePendingGeneration()
-      .catch(() => {
+    return () => {
+      globalThis.window.cancelAnimationFrame(resumeAnimationFrameId)
+
+      if (!didStartResume) {
         lastResumedCommandId.current = null
-      })
-      .finally(() => {
         isResumingPendingGeneration.current = false
-      })
+      }
+    }
   }, [pendingGenerationCommand, screenKind])
 
   const screenRegistry: Record<RendererScreenKind, () => ReactElement> = {
@@ -990,6 +1086,7 @@ export function App() {
             }
 
             setVacancyDraft(nextDraft)
+            setVacancyPreviewOverride(null)
             setReadinessError(null)
             setVacancyReviewError(null)
           }}
@@ -1000,6 +1097,7 @@ export function App() {
             }
 
             setVacancyDraft(nextDraft)
+            setVacancyPreviewOverride(null)
             setReadinessError(null)
             setVacancyReviewError(null)
           }}
@@ -1085,7 +1183,7 @@ function applyStartupDestinationOverride({
   startupDestinationOverride,
 }: {
   readinessViewModel: ReadinessRouteViewModel
-  startupDestinationOverride: OriginalCvImportDestination | null
+  startupDestinationOverride: RendererStartupDestinationOverride | null
 }): ReadinessRouteViewModel {
   if (!readinessViewModel.canEnterWorkspace || startupDestinationOverride === null) {
     return readinessViewModel
@@ -1142,6 +1240,10 @@ function resolveTailoredApplicationId({
   )
 
   if (preferredTailoredApplicationStillExists) {
+    return preferredTailoredApplicationId
+  }
+
+  if (preferredTailoredApplicationId !== null && workspaceState.activeApplicationId === null) {
     return preferredTailoredApplicationId
   }
 
