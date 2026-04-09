@@ -9,7 +9,7 @@ on:
 jobs:
   desktop:
     name: Desktop Verification
-    runs-on: macos-13
+    runs-on: macos-15-intel
     timeout-minutes: 45
 
     steps:
