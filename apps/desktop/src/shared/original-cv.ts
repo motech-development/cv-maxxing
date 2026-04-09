@@ -1,5 +1,8 @@
 export type OriginalCvFileType = 'docx' | 'pdf'
-export type OriginalCvImportErrorCode = 'unsupported_file_type' | 'weak_extraction'
+export type OriginalCvImportErrorCode =
+  | 'unsupported_file_type'
+  | 'unsupported_language'
+  | 'weak_extraction'
 export type WritingStyleFirstPersonUsage = 'absent' | 'mixed' | 'present'
 export type WritingStyleFormality = 'conversational' | 'direct' | 'formal'
 

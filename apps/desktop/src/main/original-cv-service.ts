@@ -7,6 +7,10 @@ import type {
   OriginalCvSummary,
   OriginalCvWorkspaceState,
 } from '../shared/original-cv.js'
+import {
+  ORIGINAL_CV_LANGUAGE_BLOCK_MESSAGE,
+  assessEnglishLanguageSupport,
+} from '../shared/language-support.js'
 import type { JsonValue, LocalAppDataStore } from './local-app-data-service.js'
 
 const ORIGINAL_CV_SCOPE = 'original-cvs'
@@ -120,6 +124,14 @@ export function createOriginalCvService({
       const fileType = getOriginalCvFileType(filename)
       const extractedDocument =
         fileType === 'pdf' ? await extractTextFromPdf(content) : await extractTextFromDocx(content)
+
+      if (assessEnglishLanguageSupport(extractedDocument.text).status === 'blocked') {
+        throw new OriginalCvImportError({
+          code: 'unsupported_language',
+          message: ORIGINAL_CV_LANGUAGE_BLOCK_MESSAGE,
+        })
+      }
+
       const normalizedCv = normalizeOriginalCv(extractedDocument.text)
       validateExtractedOriginalCv({
         extractedText: extractedDocument.text,

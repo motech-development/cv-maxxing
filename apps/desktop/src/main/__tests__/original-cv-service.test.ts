@@ -408,6 +408,59 @@ test('rejects weakly extracted original CV content and leaves encrypted storage 
   await localAppData.close()
 })
 
+test('rejects a non-English original CV before it becomes the active snapshot', async () => {
+  const paths = await createTestPaths()
+  const localAppData = await openLocalAppData({
+    keychain: createKeychainBoundary(),
+    paths,
+  })
+  const originalCvService = createOriginalCvService({
+    extractTextFromDocx: vi.fn(),
+    extractTextFromPdf: vi.fn(() => {
+      return Promise.resolve({
+        pageCount: 1,
+        text: [
+          'Ada Lovelace',
+          'Diseñadora principal de producto',
+          '',
+          'Resumen',
+          'Diseña productos para usuarios técnicos con experiencia en flujos de trabajo complejos.',
+          '',
+          'Experiencia',
+          'Diseñadora principal de producto | Analytical Engines Ltd',
+          'Dirigió la creación de herramientas de escritorio para equipos técnicos.',
+          '',
+          'Habilidades',
+          'Estrategia de producto, investigación UX, prototipado, comunicación',
+        ].join('\n'),
+      })
+    }),
+    generateId: vi.fn(() => 'original-cv-001'),
+    getCurrentTimestamp: vi.fn(() => '2026-04-08T14:30:00.000Z'),
+    localAppData,
+  })
+
+  await expect(
+    originalCvService.importOriginalCv({
+      content: Buffer.from('%PDF-1.7 spanish', 'utf8'),
+      filename: 'ada-lovelace-es.pdf',
+    }),
+  ).rejects.toEqual(
+    new OriginalCvImportError({
+      code: 'unsupported_language',
+      message:
+        'CV Maxxing v1 supports British English only. Use an English original CV to continue.',
+    }),
+  )
+  await expect(originalCvService.getWorkspaceState()).resolves.toEqual({
+    activeOriginalCv: null,
+    snapshotCount: 0,
+  })
+  await expect(localAppData.metadata.list('original-cvs')).resolves.toEqual([])
+
+  await localAppData.close()
+})
+
 test('rejects unsupported original CV file types before extraction starts', async () => {
   const paths = await createTestPaths()
   const localAppData = await openLocalAppData({

@@ -593,6 +593,122 @@ test('preserves the underlying generation failure as the thrown error cause', as
   })
 })
 
+test('blocks generation before queueing when the selected original CV is non-English', async () => {
+  const harness = await createHarness()
+
+  await seedOriginalCvAndVacancy(harness)
+  await harness.localAppData.artifacts.write({
+    content: Buffer.from(
+      [
+        'Ada Lovelace',
+        'Diseñadora principal de producto',
+        '',
+        'Resumen',
+        'Diseña productos para usuarios técnicos con experiencia en flujos de trabajo complejos.',
+        '',
+        'Experiencia',
+        'Diseñadora principal de producto | Analytical Engines Ltd',
+        'Dirigió la creación de herramientas de escritorio para equipos técnicos.',
+      ].join('\n'),
+      'utf8',
+    ),
+    id: 'original-cv-123',
+    name: 'extracted.txt',
+    scope: 'original-cvs',
+  })
+  const service = createTailoredApplicationSessionService({
+    aiWorker: {
+      retryAiWorkerPreflight: vi.fn(),
+    },
+    localAppData: harness.localAppData,
+    readinessStore: harness.readinessStore,
+    runWorkspaceRootPath: path.join(harness.paths.rootDirectoryPath, 'runs'),
+  })
+
+  await expect(
+    service.startPendingGeneration({
+      originalCvId: 'original-cv-123',
+      originalCvLabel: 'ada-lovelace.pdf',
+      vacancyDraft: {
+        text: 'Senior platform engineer',
+        url: 'https://jobs.example.com/roles/123',
+      },
+    }),
+  ).rejects.toThrow(
+    'CV Maxxing v1 supports British English only. Use an English original CV to continue.',
+  )
+  await expect(service.getPendingGenerationCommand()).resolves.toBeNull()
+})
+
+test('blocks generation before queueing when the reviewed vacancy is non-English', async () => {
+  const harness = await createHarness()
+
+  await seedOriginalCvAndVacancy(harness)
+  await harness.localAppData.metadata.put({
+    id: 'vacancy-123',
+    scope: 'vacancies',
+    value: {
+      blockingReason: null,
+      canGenerate: true,
+      employer: 'Example Labs',
+      fetchedAt: '2026-04-08T21:00:00.000Z',
+      inputType: 'pasted_text',
+      location: 'Madrid, España',
+      originalUrl: 'https://jobs.example.com/roles/123',
+      requirements: ['Experiencia enviando software de flujo de trabajo.'],
+      resolvedUrl: 'https://jobs.example.com/roles/123',
+      responsibilities: ['Diseñar productos para usuarios técnicos con equipos de ingeniería.'],
+      source: 'generic',
+      status: 'ready',
+      textPreview: 'Diseñar productos para usuarios técnicos con equipos de ingeniería.',
+      title: 'Ingeniero de plataforma',
+    },
+  })
+  await harness.localAppData.artifacts.write({
+    content: Buffer.from(
+      [
+        'Ingeniero de plataforma',
+        'Example Labs',
+        'Madrid, España',
+        '',
+        'Responsabilidades',
+        '- Diseñar productos para usuarios técnicos con equipos de ingeniería.',
+        '- Colaborar con investigación y operaciones.',
+        '',
+        'Requisitos',
+        '- Experiencia enviando software de flujo de trabajo.',
+        '- Comunicación escrita sólida.',
+      ].join('\n'),
+      'utf8',
+    ),
+    id: 'vacancy-123',
+    name: 'extracted.txt',
+    scope: 'vacancies',
+  })
+  const service = createTailoredApplicationSessionService({
+    aiWorker: {
+      retryAiWorkerPreflight: vi.fn(),
+    },
+    localAppData: harness.localAppData,
+    readinessStore: harness.readinessStore,
+    runWorkspaceRootPath: path.join(harness.paths.rootDirectoryPath, 'runs'),
+  })
+
+  await expect(
+    service.startPendingGeneration({
+      originalCvId: 'original-cv-123',
+      originalCvLabel: 'ada-lovelace.pdf',
+      vacancyDraft: {
+        text: 'Senior platform engineer',
+        url: 'https://jobs.example.com/roles/123',
+      },
+    }),
+  ).rejects.toThrow(
+    'CV Maxxing v1 supports British English only. Review an English job vacancy before adapting this CV.',
+  )
+  await expect(service.getPendingGenerationCommand()).resolves.toBeNull()
+})
+
 test('cancels an active generation, removes transient workspaces, and preserves the vacancy workspace', async () => {
   const harness = await createHarness()
 

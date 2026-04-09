@@ -100,6 +100,45 @@ test('rejects unreadable original CV imports without leaving the first-launch fl
   await electronApp.close()
 })
 
+test('rejects non-English original CV imports without leaving the first-launch flow', async () => {
+  const testPaths = await createOriginalCvTestPaths()
+
+  await writeFile(
+    testPaths.docxPath,
+    createDocxDocumentBuffer([
+      'Ada Lovelace',
+      'Diseñadora principal de producto',
+      'Resumen',
+      'Diseña productos para usuarios técnicos con experiencia en flujos de trabajo complejos.',
+      'Experiencia',
+      'Diseñadora principal de producto | Analytical Engines Ltd',
+      'Dirigió la creación de herramientas de escritorio para equipos técnicos.',
+      'Habilidades',
+      'Estrategia de producto, investigación UX, prototipado, comunicación',
+    ]),
+  )
+
+  const electronApp = await launchDesktopApp({
+    CV_MAXXING_AI_WORKER_PREFLIGHT_STATUS: 'ready',
+    CV_MAXXING_LOCAL_APP_DATA_ROOT: testPaths.appDataRoot,
+    CV_MAXXING_STARTUP_DESTINATION: 'first_launch',
+  })
+
+  const page = await electronApp.firstWindow()
+
+  await expect(page.getByRole('heading', { name: 'Import your original CV' })).toBeVisible()
+  await page.getByLabel('Original CV file').setInputFiles(testPaths.docxPath)
+  await page.getByRole('button', { name: 'Import original CV' }).click()
+  await expect(
+    page.getByText(
+      'CV Maxxing v1 supports British English only. Use an English original CV to continue.',
+    ),
+  ).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Import your original CV' })).toBeVisible()
+
+  await electronApp.close()
+})
+
 test('replaces the active original CV from the workspace with a DOCX snapshot', async () => {
   const testPaths = await createOriginalCvTestPaths()
 
@@ -316,6 +355,66 @@ test('returns cleanly to the vacancy intake with blocking guidance when the inte
   await expect(page.getByLabel('Vacancy URL')).toHaveValue(
     'https://www.linkedin.com/jobs/view/123456',
   )
+
+  await electronApp.close()
+})
+
+test('blocks a non-English pasted vacancy, preserves the draft, and keeps Adapt CV disabled', async () => {
+  const testPaths = await createOriginalCvTestPaths()
+
+  await writeFile(
+    testPaths.pdfPath,
+    createPdfDocumentBuffer([
+      'Ada Lovelace',
+      'Principal Product Designer',
+      'Summary',
+      'Design leader focused on complex workflow products for technical users.',
+      'Experience',
+      'Principal Product Designer | Analytical Engines Ltd',
+      'Led product design for AI-assisted desktop tooling.',
+      'Skills',
+      'Product strategy, UX research, prototyping',
+    ]),
+  )
+
+  const electronApp = await launchDesktopApp({
+    CV_MAXXING_AI_WORKER_PREFLIGHT_STATUS: 'ready',
+    CV_MAXXING_LOCAL_APP_DATA_ROOT: testPaths.appDataRoot,
+    CV_MAXXING_STARTUP_DESTINATION: 'first_launch',
+  })
+
+  const page = await electronApp.firstWindow()
+  const nonEnglishVacancyText = [
+    'Ingeniero de plataforma',
+    'Example Labs',
+    'Madrid, España',
+    '',
+    'Responsabilidades',
+    '- Diseñar productos para usuarios técnicos con equipos de ingeniería.',
+    '- Colaborar con investigación y operaciones.',
+    '',
+    'Requisitos',
+    '- Experiencia enviando software de flujo de trabajo.',
+    '- Comunicación escrita sólida.',
+  ].join('\n')
+
+  await expect(page.getByRole('heading', { name: 'Import your original CV' })).toBeVisible()
+  await page.getByLabel('Original CV file').setInputFiles(testPaths.pdfPath)
+  await page.getByRole('button', { name: 'Import original CV' }).click()
+  await expect(page.getByRole('heading', { name: 'Create a tailored application' })).toBeVisible()
+  await page.getByLabel('Vacancy URL').fill('https://jobs.example.com/platform-engineer-es')
+  await page.getByLabel('Job vacancy text').fill(nonEnglishVacancyText)
+  await page.getByRole('button', { name: 'Review pasted vacancy' }).click()
+  await expect(
+    page.getByText(
+      'CV Maxxing v1 supports British English only. Review an English job vacancy before adapting this CV.',
+    ),
+  ).toBeVisible()
+  await expect(page.getByLabel('Vacancy URL')).toHaveValue(
+    'https://jobs.example.com/platform-engineer-es',
+  )
+  await expect(page.getByLabel('Job vacancy text')).toHaveValue(nonEnglishVacancyText)
+  await expect(page.getByRole('button', { name: 'Adapt CV' })).toBeDisabled()
 
   await electronApp.close()
 })

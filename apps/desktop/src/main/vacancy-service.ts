@@ -7,6 +7,10 @@ import type {
   VacancySummary,
   VacancyWorkspaceState,
 } from '../shared/vacancy.js'
+import {
+  VACANCY_LANGUAGE_BLOCK_MESSAGE,
+  assessEnglishLanguageSupport,
+} from '../shared/language-support.js'
 import type { JsonValue, LocalAppDataStore } from './local-app-data-service.js'
 import type { VacancyBrowserPageSnapshot } from './vacancy-browser-session-service.js'
 
@@ -133,10 +137,17 @@ export function createVacancyService({
       const vacancyId = generateId()
       const fetchedAt = getCurrentTimestamp()
       const normalizedVacancy = normalizeVacancyText(trimmedText)
-      const canGenerate = isVacancyReady(normalizedVacancy)
-      const blockingReason = canGenerate
-        ? null
-        : 'Add the full job responsibilities or requirements before adapting this CV.'
+      const isLanguageBlocked = assessEnglishLanguageSupport(trimmedText).status === 'blocked'
+      const canGenerate = !isLanguageBlocked && isVacancyReady(normalizedVacancy)
+      let blockingReason: string | null = null
+
+      if (isLanguageBlocked) {
+        blockingReason = VACANCY_LANGUAGE_BLOCK_MESSAGE
+      } else if (!canGenerate) {
+        blockingReason =
+          'Add the full job responsibilities or requirements before adapting this CV.'
+      }
+
       const vacancy = toVacancySummary({
         id: vacancyId,
         metadata: {
@@ -242,7 +253,10 @@ export function createVacancyService({
           const extractedText = extractTextFromHtml(snapshot.html)
           const normalizedVacancy = normalizeVacancyText(extractedText)
 
-          return isVacancyReady(normalizedVacancy)
+          return (
+            assessEnglishLanguageSupport(extractedText).status === 'blocked' ||
+            isVacancyReady(normalizedVacancy)
+          )
         },
         url: normalizedUrl,
       })
@@ -309,11 +323,19 @@ async function persistFetchedVacancyPage({
   const normalizedVacancy = normalizeVacancyText(extractedText)
   const vacancyId = generateId()
   const fetchedAt = getCurrentTimestamp()
-  const canGenerate = isVacancyReady(normalizedVacancy)
-  const blockingReason = canGenerate ? null : detectIncompleteVacancyReason(extractedText)
+  const isLanguageBlocked = assessEnglishLanguageSupport(extractedText).status === 'blocked'
+  const canGenerate = !isLanguageBlocked && isVacancyReady(normalizedVacancy)
+  let blockingReason: string | null = null
+
+  if (isLanguageBlocked) {
+    blockingReason = VACANCY_LANGUAGE_BLOCK_MESSAGE
+  } else if (!canGenerate) {
+    blockingReason = detectIncompleteVacancyReason(extractedText)
+  }
+
   let incompletePreview: ReturnType<typeof createIncompleteExtractedPreview> | null = null
 
-  if (blockingReason !== null) {
+  if (!isLanguageBlocked && blockingReason !== null) {
     incompletePreview = createIncompleteExtractedPreview({
       blockingReason,
       extractedText,

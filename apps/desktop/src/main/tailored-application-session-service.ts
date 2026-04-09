@@ -20,6 +20,11 @@ import type {
   TailoredApplicationWorkspaceState,
 } from '../shared/tailored-application.js'
 import type { VacancyDraft, VacancySummary } from '../shared/vacancy.js'
+import {
+  ORIGINAL_CV_LANGUAGE_BLOCK_MESSAGE,
+  VACANCY_LANGUAGE_BLOCK_MESSAGE,
+  assessEnglishLanguageSupport,
+} from '../shared/language-support.js'
 import type { AiWorkerPreflightService } from './ai-worker-preflight-service.js'
 import type { AiWorkerReadinessStore } from './ai-worker-readiness-store.js'
 import { buildAdaptedCvExportFilename, resolveUniqueExportFilePath } from './adapted-cv-document.js'
@@ -368,6 +373,10 @@ export function createTailoredApplicationSessionService({
       throw new Error('The selected original CV is incomplete or unavailable.')
     }
 
+    if (assessEnglishLanguageSupport(originalCvTextBuffer.toString('utf8')).status === 'blocked') {
+      throw new Error(ORIGINAL_CV_LANGUAGE_BLOCK_MESSAGE)
+    }
+
     return {
       normalizedJson: normalizedJsonBuffer.toString('utf8'),
       originalCvId: command.originalCvId,
@@ -411,6 +420,10 @@ export function createTailoredApplicationSessionService({
 
     if (!vacancyMetadata.canGenerate || vacancyMetadata.status !== 'ready') {
       throw new Error('Review a complete job vacancy before adapting this CV.')
+    }
+
+    if (assessEnglishLanguageSupport(vacancyTextBuffer.toString('utf8')).status === 'blocked') {
+      throw new Error(VACANCY_LANGUAGE_BLOCK_MESSAGE)
     }
 
     return {
@@ -1157,6 +1170,22 @@ export function createTailoredApplicationSessionService({
         throw new Error('A tailored application is already being generated.')
       }
 
+      const originalCvTextBuffer = await localAppData.artifacts.read({
+        id: originalCvId,
+        name: 'extracted.txt',
+        scope: ORIGINAL_CV_SCOPE,
+      })
+
+      if (originalCvTextBuffer === null) {
+        throw new Error('The selected original CV is incomplete or unavailable.')
+      }
+
+      if (
+        assessEnglishLanguageSupport(originalCvTextBuffer.toString('utf8')).status === 'blocked'
+      ) {
+        throw new Error(ORIGINAL_CV_LANGUAGE_BLOCK_MESSAGE)
+      }
+
       const vacancyWorkspace = await localAppData.metadata.get<VacancyWorkspaceMetadataValue>({
         id: VACANCY_WORKSPACE_ENTRY_ID,
         scope: VACANCY_WORKSPACE_SCOPE,
@@ -1176,8 +1205,22 @@ export function createTailoredApplicationSessionService({
         scope: VACANCY_SCOPE,
       })
 
+      const vacancyTextBuffer = await localAppData.artifacts.read({
+        id: vacancyWorkspace.vacancyId,
+        name: 'extracted.txt',
+        scope: VACANCY_SCOPE,
+      })
+
       if (vacancyMetadata?.canGenerate !== true || vacancyMetadata.status !== 'ready') {
         throw new Error('Review a complete job vacancy before adapting this CV.')
+      }
+
+      if (vacancyTextBuffer === null) {
+        throw new Error('The selected vacancy preview is incomplete or unavailable.')
+      }
+
+      if (assessEnglishLanguageSupport(vacancyTextBuffer.toString('utf8')).status === 'blocked') {
+        throw new Error(VACANCY_LANGUAGE_BLOCK_MESSAGE)
       }
 
       await readinessStore.savePendingGenerationCommand({

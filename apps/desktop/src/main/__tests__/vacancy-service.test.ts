@@ -464,3 +464,170 @@ test('clears the persisted vacancy workspace draft without deleting the stored v
 
   await localAppData.close()
 })
+
+test('blocks a non-English pasted vacancy while preserving the entered draft', async () => {
+  const paths = await createTestPaths()
+  const localAppData = await openLocalAppData({
+    keychain: createKeychainBoundary(),
+    paths,
+  })
+  const vacancyService = createVacancyService({
+    generateId: vi.fn(() => 'vacancy-008'),
+    getCurrentTimestamp: vi.fn(() => '2026-04-08T21:40:00.000Z'),
+    localAppData,
+    openVacancyBrowserSession: vi.fn(() => Promise.resolve(null)),
+  })
+
+  const text = [
+    'Ingeniero de plataforma',
+    'Example Labs',
+    'Madrid, España',
+    '',
+    'Responsabilidades',
+    '- Diseñar productos para usuarios técnicos con equipos de ingeniería.',
+    '- Colaborar con investigación y operaciones.',
+    '',
+    'Requisitos',
+    '- Experiencia enviando software de flujo de trabajo.',
+    '- Comunicación escrita sólida.',
+  ].join('\n')
+
+  const result = await vacancyService.ingestPastedVacancy({
+    text,
+    url: 'https://jobs.example.com/platform-engineer-es',
+  })
+
+  expect(result.kind).toBe('incomplete')
+  expect(result.vacancy.canGenerate).toBe(false)
+  expect(result.vacancy.blockingReason).toBe(
+    'CV Maxxing v1 supports British English only. Review an English job vacancy before adapting this CV.',
+  )
+  const workspaceState = await vacancyService.getWorkspaceState()
+
+  expect(workspaceState.draft).toEqual({
+    text,
+    url: 'https://jobs.example.com/platform-engineer-es',
+  })
+  expect(workspaceState.vacancy).toMatchObject({
+    blockingReason:
+      'CV Maxxing v1 supports British English only. Review an English job vacancy before adapting this CV.',
+    canGenerate: false,
+    id: 'vacancy-008',
+    originalUrl: 'https://jobs.example.com/platform-engineer-es',
+    status: 'incomplete',
+  })
+
+  await localAppData.close()
+})
+
+test('blocks a non-English fetched vacancy page while preserving the entered URL', async () => {
+  const paths = await createTestPaths()
+  const localAppData = await openLocalAppData({
+    keychain: createKeychainBoundary(),
+    paths,
+  })
+  const vacancyService = createVacancyService({
+    fetchVacancyPage: vi.fn(() => {
+      return Promise.resolve({
+        html: [
+          '<html>',
+          '<head><title>Ingeniero de plataforma en Example Labs</title></head>',
+          '<body>',
+          '<main>',
+          '<h1>Ingeniero de plataforma</h1>',
+          '<p>Example Labs</p>',
+          '<p>Madrid, España</p>',
+          '<section><h2>Responsabilidades</h2><ul><li>Diseñar productos para usuarios técnicos.</li><li>Colaborar con ingeniería e investigación.</li></ul></section>',
+          '<section><h2>Requisitos</h2><ul><li>Experiencia enviando software de flujo de trabajo.</li><li>Comunicación escrita sólida.</li></ul></section>',
+          '</main>',
+          '</body>',
+          '</html>',
+        ].join(''),
+        pageTitle: 'Ingeniero de plataforma en Example Labs',
+        resolvedUrl: 'https://careers.example.com/platform-engineer-es',
+      })
+    }),
+    generateId: vi.fn(() => 'vacancy-009'),
+    getCurrentTimestamp: vi.fn(() => '2026-04-08T21:45:00.000Z'),
+    localAppData,
+    openVacancyBrowserSession: vi.fn(() => Promise.resolve(null)),
+  })
+
+  const result = await vacancyService.ingestVacancyUrl({
+    url: 'https://careers.example.com/platform-engineer-es',
+  })
+
+  expect(result.kind).toBe('incomplete')
+  expect(result.vacancy.canGenerate).toBe(false)
+  expect(result.vacancy.blockingReason).toBe(
+    'CV Maxxing v1 supports British English only. Review an English job vacancy before adapting this CV.',
+  )
+  const workspaceState = await vacancyService.getWorkspaceState()
+
+  expect(workspaceState.draft).toEqual({
+    text: '',
+    url: 'https://careers.example.com/platform-engineer-es',
+  })
+  expect(workspaceState.vacancy).toMatchObject({
+    blockingReason:
+      'CV Maxxing v1 supports British English only. Review an English job vacancy before adapting this CV.',
+    canGenerate: false,
+    id: 'vacancy-009',
+    resolvedUrl: 'https://careers.example.com/platform-engineer-es',
+    status: 'incomplete',
+  })
+
+  await localAppData.close()
+})
+
+test('blocks a non-English browser-captured vacancy while preserving the entered URL', async () => {
+  const paths = await createTestPaths()
+  const localAppData = await openLocalAppData({
+    keychain: createKeychainBoundary(),
+    paths,
+  })
+  const vacancyService = createVacancyService({
+    generateId: vi.fn(() => 'vacancy-010'),
+    getCurrentTimestamp: vi.fn(() => '2026-04-08T21:50:00.000Z'),
+    localAppData,
+    openVacancyBrowserSession: vi.fn(() => {
+      return Promise.resolve({
+        html: [
+          '<html>',
+          '<body>',
+          '<main>',
+          '<h1>Ingeniero de plataforma</h1>',
+          '<p>Example Labs</p>',
+          '<p>Madrid, España</p>',
+          '<section><h2>Responsabilidades</h2><ul><li>Diseñar productos para usuarios técnicos.</li><li>Colaborar con ingeniería e investigación.</li></ul></section>',
+          '<section><h2>Requisitos</h2><ul><li>Experiencia enviando software de flujo de trabajo.</li><li>Comunicación escrita sólida.</li></ul></section>',
+          '</main>',
+          '</body>',
+          '</html>',
+        ].join(''),
+        pageTitle: 'Ingeniero de plataforma | LinkedIn',
+        resolvedUrl: 'https://www.linkedin.com/jobs/view/654321',
+      })
+    }),
+  })
+
+  await vacancyService.ingestVacancyUrl({
+    url: 'https://www.linkedin.com/jobs/view/654321',
+  })
+
+  const result = await vacancyService.openBrowserSession({
+    url: 'https://www.linkedin.com/jobs/view/654321',
+  })
+
+  expect(result.kind).toBe('incomplete')
+  expect(result.vacancy.canGenerate).toBe(false)
+  expect(result.vacancy.blockingReason).toBe(
+    'CV Maxxing v1 supports British English only. Review an English job vacancy before adapting this CV.',
+  )
+  expect(result.workspaceState.draft).toEqual({
+    text: '',
+    url: 'https://www.linkedin.com/jobs/view/654321',
+  })
+
+  await localAppData.close()
+})
