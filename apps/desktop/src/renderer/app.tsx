@@ -10,6 +10,7 @@ import {
 import { createReadinessRouteViewModel } from '../readiness/readiness-route.js'
 import type { ReadinessRouteViewModel } from '../readiness/readiness-route.js'
 import type { OriginalCvWorkspaceState } from '../shared/original-cv.js'
+import type { PendingGenerationCommand } from '../shared/pending-generation.js'
 import { AiWorkerCheckingScreen } from './screens/ai-worker-checking-screen.js'
 import { AiWorkerSignInRequiredScreen } from './screens/ai-worker-sign-in-required-screen.js'
 import { AiWorkerUnavailableScreen } from './screens/ai-worker-unavailable-screen.js'
@@ -51,15 +52,21 @@ function isSupportedOriginalCvFile(file: File): boolean {
 }
 
 export function App() {
+  const [activeApplicationTitle, setActiveApplicationTitle] = useState<string | null>(null)
   const [importError, setImportError] = useState<string | null>(null)
   const [isImportingOriginalCv, setIsImportingOriginalCv] = useState(false)
+  const [isPendingGenerationActionPending, setIsPendingGenerationActionPending] = useState(false)
   const [isSecondaryActionPending, setIsSecondaryActionPending] = useState(false)
   const [isSubmittingPrimaryAction, setIsSubmittingPrimaryAction] = useState(false)
   const [originalCvFile, setOriginalCvFile] = useState<File | null>(null)
   const [originalCvWorkspaceState, setOriginalCvWorkspaceState] = useState(
     initialOriginalCvWorkspaceState,
   )
+  const [pendingGenerationCommand, setPendingGenerationCommand] =
+    useState<PendingGenerationCommand | null>(null)
   const [readinessError, setReadinessError] = useState<string | null>(null)
+  const [textDraft, setTextDraft] = useState('')
+  const [urlDraft, setUrlDraft] = useState('')
   const [viewModel, setViewModel] = useState(initialReadinessViewModel)
 
   const loadWorkspaceState = async (): Promise<void> => {
@@ -67,6 +74,13 @@ export function App() {
       await globalThis.window.cvMaxxing.originalCv.getOriginalCvWorkspaceState()
 
     setOriginalCvWorkspaceState(nextOriginalCvWorkspaceState)
+  }
+
+  const loadPendingGenerationCommand = async (): Promise<void> => {
+    const nextPendingGenerationCommand =
+      await globalThis.window.cvMaxxing.tailoredApplication.getPendingGenerationCommand()
+
+    setPendingGenerationCommand(nextPendingGenerationCommand)
   }
 
   const loadReadinessState = async (
@@ -82,6 +96,18 @@ export function App() {
 
     if (nextViewModel.canEnterWorkspace) {
       await loadWorkspaceState()
+
+      if (nextViewModel.startupDestination !== 'workspace_active') {
+        setActiveApplicationTitle(null)
+      }
+
+      if (nextViewModel.startupDestination === 'workspace_loading') {
+        await loadPendingGenerationCommand()
+
+        return
+      }
+
+      setPendingGenerationCommand(null)
     }
   }
 
@@ -153,6 +179,8 @@ export function App() {
       }
 
       setOriginalCvFile(null)
+      setTextDraft('')
+      setUrlDraft('')
       setOriginalCvWorkspaceState({
         activeOriginalCv: importResult.originalCv,
         snapshotCount: importResult.originalCv.snapshotCount,
@@ -194,6 +222,73 @@ export function App() {
   const handleOriginalCvDrop = (event: DragEvent<HTMLElement>): void => {
     event.preventDefault()
     handleOriginalCvFile(event.dataTransfer.files[0] ?? null)
+  }
+
+  const handleStartPendingGeneration = async (
+    vacancyDraft: PendingGenerationCommand['vacancyDraft'],
+  ): Promise<void> => {
+    const activeOriginalCv = originalCvWorkspaceState.activeOriginalCv
+
+    if (activeOriginalCv === null || isPendingGenerationActionPending) {
+      return
+    }
+
+    setActiveApplicationTitle(null)
+    setIsPendingGenerationActionPending(true)
+
+    try {
+      await loadReadinessState(async () => {
+        return await globalThis.window.cvMaxxing.tailoredApplication.startPendingGeneration({
+          originalCvId: activeOriginalCv.id,
+          originalCvLabel: activeOriginalCv.originalFilename,
+          vacancyDraft,
+        })
+      })
+    } catch {
+      setReadinessError(`${readinessErrorMessage} ${readinessErrorAction}`)
+    } finally {
+      setIsPendingGenerationActionPending(false)
+    }
+  }
+
+  const handleOpenTailoredApplication = async (): Promise<void> => {
+    if (pendingGenerationCommand === null || isPendingGenerationActionPending) {
+      return
+    }
+
+    setIsPendingGenerationActionPending(true)
+
+    try {
+      await globalThis.window.cvMaxxing.tailoredApplication.completePendingGeneration(
+        pendingGenerationCommand.commandId,
+      )
+      setActiveApplicationTitle(createPendingGenerationTitle(pendingGenerationCommand))
+      await loadReadinessState(globalThis.window.cvMaxxing.aiWorker.getAiWorkerPreflight)
+    } catch {
+      setReadinessError(`${readinessErrorMessage} ${readinessErrorAction}`)
+    } finally {
+      setIsPendingGenerationActionPending(false)
+    }
+  }
+
+  const handleAbandonDraft = async (): Promise<void> => {
+    if (isPendingGenerationActionPending) {
+      return
+    }
+
+    setIsPendingGenerationActionPending(true)
+
+    try {
+      await globalThis.window.cvMaxxing.tailoredApplication.abandonPendingGeneration()
+      setActiveApplicationTitle(null)
+      setTextDraft('')
+      setUrlDraft('')
+      await loadReadinessState(globalThis.window.cvMaxxing.aiWorker.getAiWorkerPreflight)
+    } catch {
+      setReadinessError(`${readinessErrorMessage} ${readinessErrorAction}`)
+    } finally {
+      setIsPendingGenerationActionPending(false)
+    }
   }
 
   const screenKind = resolveRendererScreen({
@@ -260,17 +355,88 @@ export function App() {
       )
     },
     workspace_active: () => {
-      return <WorkspaceActiveScreen />
+      return <WorkspaceActiveScreen applicationTitle={activeApplicationTitle} />
     },
     workspace_empty: () => {
-      return <WorkspaceEmptyScreen activeOriginalCv={originalCvWorkspaceState.activeOriginalCv} />
+      return (
+        <WorkspaceEmptyScreen
+          activeOriginalCv={originalCvWorkspaceState.activeOriginalCv}
+          isStartingGeneration={isPendingGenerationActionPending}
+          onResetDrafts={() => {
+            setTextDraft('')
+            setUrlDraft('')
+          }}
+          onStartFromText={() => {
+            handleStartPendingGeneration({
+              text: textDraft.trim(),
+              url: '',
+            }).catch(() => null)
+          }}
+          onStartFromUrl={() => {
+            handleStartPendingGeneration({
+              text: '',
+              url: urlDraft.trim(),
+            }).catch(() => null)
+          }}
+          onTextDraftChange={(event) => {
+            setTextDraft(event.target.value)
+          }}
+          onUrlDraftChange={(event) => {
+            setUrlDraft(event.target.value)
+          }}
+          textDraft={textDraft}
+          urlDraft={urlDraft}
+        />
+      )
     },
     workspace_loading: () => {
-      return <WorkspaceLoadingScreen />
+      return (
+        <WorkspaceLoadingScreen
+          isPendingAction={isPendingGenerationActionPending}
+          onAbandonDraft={() => {
+            handleAbandonDraft().catch(() => null)
+          }}
+          onOpenTailoredApplication={() => {
+            handleOpenTailoredApplication().catch(() => null)
+          }}
+          pendingGenerationCommand={pendingGenerationCommand}
+        />
+      )
     },
   }
 
   const renderScreen = screenRegistry[screenKind]
 
   return renderScreen()
+}
+
+function createPendingGenerationTitle(pendingGenerationCommand: PendingGenerationCommand): string {
+  const vacancyTitle = pendingGenerationCommand.vacancyDraft.text
+    .split('\n')
+    .map((line) => {
+      return line.trim()
+    })
+    .find((line) => {
+      return line !== ''
+    })
+
+  if (vacancyTitle !== undefined) {
+    return vacancyTitle
+  }
+
+  return tryFormatHostname(pendingGenerationCommand.vacancyDraft.url) ?? 'Tailored application'
+}
+
+function tryFormatHostname(url: string): string | null {
+  try {
+    const hostname = new URL(url).hostname.replace(/^www\./u, '')
+
+    if (hostname === '') {
+      return null
+    }
+
+    return hostname
+  } catch {
+    return null
+  }
 }

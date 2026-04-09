@@ -5,16 +5,21 @@ import { fileURLToPath } from 'node:url'
 import {
   AI_WORKER_IPC_CHANNELS,
   ORIGINAL_CV_IPC_CHANNELS,
+  TAILORED_APPLICATION_IPC_CHANNELS,
   VACANCY_IPC_CHANNELS,
 } from '../shared/ipc.js'
 import type { OriginalCvImportInput, OriginalCvImportResult } from '../shared/original-cv.js'
+import type {
+  CompletePendingGenerationInput,
+  PendingGenerationCommand,
+  StartPendingGenerationInput,
+} from '../shared/pending-generation.js'
 import type { StartupDestination } from '../shared/startup-destination.js'
 import type { PastedVacancyInput, VacancyUrlInput } from '../shared/vacancy.js'
 import { createAiWorkerReadinessStore } from './ai-worker-readiness-store.js'
 import {
   createAiWorkerPreflightService,
   type AiWorkerPreflightService,
-  type PendingGenerationCommand,
 } from './ai-worker-preflight-service.js'
 import { createLocalAppDataPaths, openLocalAppData } from './local-app-data-service.js'
 import { extractTextFromDocx, extractTextFromPdf } from './original-cv-document-extractor.js'
@@ -24,6 +29,10 @@ import {
   type OriginalCvService,
 } from './original-cv-service.js'
 import { createSafeStorageKeychain } from './safe-storage-keychain.js'
+import {
+  createTailoredApplicationSessionService,
+  type TailoredApplicationSessionService,
+} from './tailored-application-session-service.js'
 import { createVacancyService, type VacancyService } from './vacancy-service.js'
 
 const CODEX_SETUP_GUIDE_URL = 'https://developers.openai.com/codex/app/'
@@ -86,6 +95,7 @@ interface DesktopAppBootstrapDependencies {
   preloadPath: string
   rendererDevelopmentUrl?: string
   rendererIndexPath: string
+  tailoredApplication: TailoredApplicationSessionService
   vacancy: VacancyService
 }
 
@@ -114,6 +124,7 @@ interface RuntimeDependencyOptions {
   preloadPath: string
   rendererDevelopmentUrl?: string
   rendererIndexPath: string
+  tailoredApplication: TailoredApplicationSessionService
   vacancy: VacancyService
 }
 
@@ -138,6 +149,7 @@ export function createDesktopAppBootstrap({
   preloadPath,
   rendererDevelopmentUrl,
   rendererIndexPath,
+  tailoredApplication,
   vacancy,
 }: DesktopAppBootstrapDependencies): { start: () => Promise<void> } {
   function registerIpcHandlers(): void {
@@ -199,6 +211,28 @@ export function createDesktopAppBootstrap({
     })
     ipcMain.handle(VACANCY_IPC_CHANNELS.openBrowserSession, async (_event, payload) => {
       await vacancy.openBrowserSession(parseVacancyUrlInput(payload))
+    })
+    ipcMain.handle(TAILORED_APPLICATION_IPC_CHANNELS.getPendingGeneration, async () => {
+      return await tailoredApplication.getPendingGenerationCommand()
+    })
+    ipcMain.handle(
+      TAILORED_APPLICATION_IPC_CHANNELS.startPendingGeneration,
+      async (_event, payload) => {
+        return await tailoredApplication.startPendingGeneration(
+          parseStartPendingGenerationInput(payload),
+        )
+      },
+    )
+    ipcMain.handle(
+      TAILORED_APPLICATION_IPC_CHANNELS.completePendingGeneration,
+      async (_event, payload) => {
+        await tailoredApplication.completePendingGeneration(
+          parseCompletePendingGenerationInput(payload).commandId,
+        )
+      },
+    )
+    ipcMain.handle(TAILORED_APPLICATION_IPC_CHANNELS.abandonPendingGeneration, async () => {
+      await tailoredApplication.abandonPendingGeneration()
     })
   }
 
@@ -271,6 +305,7 @@ export function createElectronRuntimeDependencies({
   preloadPath,
   rendererDevelopmentUrl,
   rendererIndexPath,
+  tailoredApplication,
   vacancy,
 }: RuntimeDependencyOptions): DesktopAppBootstrapDependencies {
   return {
@@ -309,6 +344,7 @@ export function createElectronRuntimeDependencies({
     preloadPath,
     rendererDevelopmentUrl,
     rendererIndexPath,
+    tailoredApplication,
     vacancy,
   }
 }
@@ -317,6 +353,7 @@ async function createRuntimeServices(): Promise<{
   aiWorker: AiWorkerPreflightService
   onOriginalCvImported: () => Promise<void>
   originalCv: OriginalCvService
+  tailoredApplication: TailoredApplicationSessionService
   vacancy: VacancyService
 }> {
   const environment = process.env as RuntimeEnvironment
@@ -334,39 +371,40 @@ async function createRuntimeServices(): Promise<{
   const readinessStore = createAiWorkerReadinessStore({
     localAppData,
   })
+  const aiWorker = createAiWorkerPreflightService({
+    environment,
+    getPendingGenerationCommand: async () => {
+      const overrideCommand = parsePendingGenerationCommand(
+        environment.CV_MAXXING_PENDING_GENERATION_COMMAND,
+      )
+
+      if (overrideCommand !== null) {
+        return overrideCommand
+      }
+
+      return await readinessStore.getPendingGenerationCommand()
+    },
+    getPersistedCheckingTimeout: async () => {
+      return await readinessStore.getCheckingTimeout()
+    },
+    getPersistedStartupDestination: async () => {
+      const overrideDestination = parseStartupDestination(
+        environment.CV_MAXXING_STARTUP_DESTINATION,
+      )
+
+      if (overrideDestination !== null) {
+        return overrideDestination
+      }
+
+      return await readinessStore.getStartupDestination()
+    },
+    openAiWorkerSetupGuide: async () => {
+      await shell.openExternal(CODEX_SETUP_GUIDE_URL)
+    },
+  })
 
   return {
-    aiWorker: createAiWorkerPreflightService({
-      environment,
-      getPendingGenerationCommand: async () => {
-        const overrideCommand = parsePendingGenerationCommand(
-          environment.CV_MAXXING_PENDING_GENERATION_COMMAND,
-        )
-
-        if (overrideCommand !== null) {
-          return overrideCommand
-        }
-
-        return await readinessStore.getPendingGenerationCommand()
-      },
-      getPersistedCheckingTimeout: async () => {
-        return await readinessStore.getCheckingTimeout()
-      },
-      getPersistedStartupDestination: async () => {
-        const overrideDestination = parseStartupDestination(
-          environment.CV_MAXXING_STARTUP_DESTINATION,
-        )
-
-        if (overrideDestination !== null) {
-          return overrideDestination
-        }
-
-        return await readinessStore.getStartupDestination()
-      },
-      openAiWorkerSetupGuide: async () => {
-        await shell.openExternal(CODEX_SETUP_GUIDE_URL)
-      },
-    }),
+    aiWorker,
     onOriginalCvImported: async () => {
       await readinessStore.setStartupDestination('workspace_empty')
     },
@@ -374,6 +412,10 @@ async function createRuntimeServices(): Promise<{
       extractTextFromDocx,
       extractTextFromPdf,
       localAppData,
+    }),
+    tailoredApplication: createTailoredApplicationSessionService({
+      aiWorker,
+      readinessStore,
     }),
     vacancy: createVacancyService({
       localAppData,
@@ -412,8 +454,15 @@ function isPendingGenerationCommand(value: unknown): value is PendingGenerationC
     typeof value.commandId === 'string' &&
     'originalCvId' in value &&
     typeof value.originalCvId === 'string' &&
-    'vacancyText' in value &&
-    typeof value.vacancyText === 'string'
+    'originalCvLabel' in value &&
+    typeof value.originalCvLabel === 'string' &&
+    'vacancyDraft' in value &&
+    value.vacancyDraft !== null &&
+    typeof value.vacancyDraft === 'object' &&
+    'text' in value.vacancyDraft &&
+    typeof value.vacancyDraft.text === 'string' &&
+    'url' in value.vacancyDraft &&
+    typeof value.vacancyDraft.url === 'string'
   )
 }
 
@@ -445,6 +494,7 @@ async function startDesktopAppRuntime(): Promise<void> {
       preloadPath,
       rendererDevelopmentUrl,
       rendererIndexPath,
+      tailoredApplication: runtimeServices.tailoredApplication,
       vacancy: runtimeServices.vacancy,
     }),
   ).start()
@@ -507,6 +557,51 @@ function isPastedVacancyInput(payload: unknown): payload is PastedVacancyInput {
     'text' in payload &&
     typeof payload.text === 'string' &&
     (!('url' in payload) || payload.url === undefined || typeof payload.url === 'string')
+  )
+}
+
+function parseStartPendingGenerationInput(payload: unknown): StartPendingGenerationInput {
+  if (!isStartPendingGenerationInput(payload)) {
+    throw new TypeError('Invalid pending generation payload.')
+  }
+
+  return payload
+}
+
+function isStartPendingGenerationInput(payload: unknown): payload is StartPendingGenerationInput {
+  return (
+    payload !== null &&
+    typeof payload === 'object' &&
+    'originalCvId' in payload &&
+    typeof payload.originalCvId === 'string' &&
+    'originalCvLabel' in payload &&
+    typeof payload.originalCvLabel === 'string' &&
+    'vacancyDraft' in payload &&
+    payload.vacancyDraft !== null &&
+    typeof payload.vacancyDraft === 'object' &&
+    'text' in payload.vacancyDraft &&
+    typeof payload.vacancyDraft.text === 'string' &&
+    'url' in payload.vacancyDraft &&
+    typeof payload.vacancyDraft.url === 'string'
+  )
+}
+
+function parseCompletePendingGenerationInput(payload: unknown): CompletePendingGenerationInput {
+  if (!isCompletePendingGenerationInput(payload)) {
+    throw new TypeError('Invalid complete pending generation payload.')
+  }
+
+  return payload
+}
+
+function isCompletePendingGenerationInput(
+  payload: unknown,
+): payload is CompletePendingGenerationInput {
+  return (
+    payload !== null &&
+    typeof payload === 'object' &&
+    'commandId' in payload &&
+    typeof payload.commandId === 'string'
   )
 }
 

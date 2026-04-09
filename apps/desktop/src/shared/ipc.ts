@@ -11,6 +11,13 @@ export const ORIGINAL_CV_IPC_CHANNELS = {
   importOriginalCv: 'original-cv:import',
 } as const
 
+export const TAILORED_APPLICATION_IPC_CHANNELS = {
+  abandonPendingGeneration: 'tailored-application:abandon-pending-generation',
+  completePendingGeneration: 'tailored-application:complete-pending-generation',
+  getPendingGeneration: 'tailored-application:get-pending-generation',
+  startPendingGeneration: 'tailored-application:start-pending-generation',
+} as const
+
 export const VACANCY_IPC_CHANNELS = {
   getWorkspaceState: 'vacancy:get-workspace-state',
   ingestPasted: 'vacancy:ingest-pasted',
@@ -24,6 +31,13 @@ export type AiWorkerIpcChannel =
 export type OriginalCvIpcChannel =
   (typeof ORIGINAL_CV_IPC_CHANNELS)[keyof typeof ORIGINAL_CV_IPC_CHANNELS]
 
+export type TailoredApplicationIpcChannel =
+  (typeof TAILORED_APPLICATION_IPC_CHANNELS)[keyof typeof TAILORED_APPLICATION_IPC_CHANNELS]
+
 export type VacancyIpcChannel = (typeof VACANCY_IPC_CHANNELS)[keyof typeof VACANCY_IPC_CHANNELS]
 
-export type DesktopIpcChannel = AiWorkerIpcChannel | OriginalCvIpcChannel | VacancyIpcChannel
+export type DesktopIpcChannel =
+  | AiWorkerIpcChannel
+  | OriginalCvIpcChannel
+  | TailoredApplicationIpcChannel
+  | VacancyIpcChannel

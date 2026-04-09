@@ -43,7 +43,11 @@ test('returns sign-in-required guidance and keeps resumability when a pending ge
     getPendingGenerationCommand: vi.fn().mockResolvedValue({
       commandId: 'command-123',
       originalCvId: 'original-cv-123',
-      vacancyText: 'Senior product designer',
+      originalCvLabel: 'ada-lovelace.pdf',
+      vacancyDraft: {
+        text: 'Senior product designer',
+        url: 'https://jobs.example.com/roles/123',
+      },
     }),
     getPersistedCheckingTimeout: vi.fn().mockResolvedValue(null),
     getPersistedStartupDestination: vi.fn().mockResolvedValue('workspace_empty'),
@@ -104,7 +108,11 @@ test('restores workspace loading ahead of saved startup state when a pending gen
     getPendingGenerationCommand: vi.fn().mockResolvedValue({
       commandId: 'command-123',
       originalCvId: 'original-cv-123',
-      vacancyText: 'Senior engineer',
+      originalCvLabel: 'ada-lovelace.pdf',
+      vacancyDraft: {
+        text: 'Senior engineer',
+        url: 'https://jobs.example.com/roles/123',
+      },
     }),
     getPersistedCheckingTimeout: vi.fn().mockResolvedValue(null),
     getPersistedStartupDestination: vi.fn().mockResolvedValue('workspace_active'),

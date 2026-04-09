@@ -166,14 +166,33 @@ function createVacancyApi(overrides?: Partial<(typeof globalThis.window.cvMaxxin
   }
 }
 
+function createTailoredApplicationApi(
+  overrides?: Partial<(typeof globalThis.window.cvMaxxing)['tailoredApplication']>,
+) {
+  return {
+    abandonPendingGeneration: vi.fn().mockImplementation(() => Promise.resolve()),
+    completePendingGeneration: vi.fn().mockImplementation(() => Promise.resolve()),
+    getPendingGenerationCommand: vi.fn().mockResolvedValue(null),
+    startPendingGeneration: vi.fn().mockResolvedValue({
+      canResumeGeneration: true,
+      message: 'The local AI worker is ready.',
+      provider: 'codex',
+      status: 'ready',
+    }),
+    ...overrides,
+  }
+}
+
 function renderApp({
   aiWorker = createAiWorkerApi(),
   originalCv = createOriginalCvApi(),
+  tailoredApplication = createTailoredApplicationApi(),
   vacancy = createVacancyApi(),
 }: Partial<typeof globalThis.window.cvMaxxing> = {}) {
   globalThis.window.cvMaxxing = {
     aiWorker,
     originalCv,
+    tailoredApplication,
     vacancy,
   }
 
@@ -213,6 +232,33 @@ test('renders the dedicated sign-in-required setup screen', async () => {
   expect(screen.getByText('Sign in required')).toBeDefined()
   expect(screen.getByRole('button', { name: 'Continue sign-in' })).toBeDefined()
   expect(screen.getByRole('button', { name: 'Open setup guide' })).toBeDefined()
+})
+
+test('opens the setup guide from the repair flow', async () => {
+  const openAiWorkerSetupGuide = vi.fn().mockImplementation(() => Promise.resolve())
+
+  renderApp({
+    aiWorker: createAiWorkerApi({
+      getAiWorkerPreflight: vi.fn().mockResolvedValue({
+        canResumeGeneration: false,
+        failureCode: 'runtime_missing',
+        message: 'The local AI worker is unavailable. Check setup, then retry.',
+        provider: 'codex',
+        status: 'unavailable',
+      }),
+      openAiWorkerSetupGuide,
+    }),
+  })
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Repair the local AI worker' })).toBeDefined()
+  })
+
+  fireEvent.click(screen.getByRole('button', { name: 'Open setup guide' }))
+
+  await waitFor(() => {
+    expect(openAiWorkerSetupGuide).toHaveBeenCalledTimes(1)
+  })
 })
 
 test('renders the dedicated unavailable setup screen', async () => {
@@ -310,9 +356,13 @@ test('imports the first original CV and transitions into the design-aligned work
 
   expect(screen.getByText('Job vacancies')).toBeDefined()
   expect(screen.getByText('No tailored applications yet')).toBeDefined()
+  expect(screen.getByRole('button', { name: 'New vacancy' })).toBeDefined()
+  expect(screen.getByLabelText('Vacancy URL')).toBeDefined()
+  expect(screen.getByLabelText('Job vacancy text')).toBeDefined()
+  expect(screen.getByRole('button', { name: 'Start tailoring from URL' })).toBeDefined()
+  expect(screen.getByRole('button', { name: 'Start tailoring from text' })).toBeDefined()
   expect(screen.queryByText('Replace original CV')).toBeNull()
   expect(screen.queryByText('Vacancy preview')).toBeNull()
-  expect(screen.queryByRole('button', { name: 'Adapt CV' })).toBeNull()
 })
 
 test('renders the design-aligned workspace-empty screen when an original CV already exists', async () => {
@@ -355,7 +405,324 @@ test('renders the design-aligned workspace-empty screen when an original CV alre
 
   expect(screen.getByText('Active original CV')).toBeDefined()
   expect(screen.getByText('ada-lovelace.pdf')).toBeDefined()
+  expect(screen.getByLabelText('Vacancy URL')).toBeDefined()
+  expect(screen.getByLabelText('Job vacancy text')).toBeDefined()
   expect(screen.queryByText('Original CV active')).toBeNull()
   expect(screen.queryByText('Vacancy preview')).toBeNull()
   expect(screen.queryByText('Replace original CV')).toBeNull()
+})
+
+test('starts tailoring from a vacancy URL and transitions into the design-aligned loading screen', async () => {
+  const getStartupDestination = vi
+    .fn()
+    .mockResolvedValueOnce('workspace_empty')
+    .mockResolvedValueOnce('workspace_loading')
+  const startPendingGeneration = vi.fn().mockResolvedValue({
+    canResumeGeneration: true,
+    message: 'The local AI worker is ready.',
+    provider: 'codex',
+    status: 'ready',
+  })
+
+  renderApp({
+    aiWorker: createAiWorkerApi({
+      getAiWorkerPreflight: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+      getStartupDestination,
+    }),
+    originalCv: createOriginalCvApi({
+      getOriginalCvWorkspaceState: vi.fn().mockResolvedValue({
+        activeOriginalCv: {
+          fileType: 'pdf',
+          headline: 'Principal Product Designer',
+          id: 'original-cv-123',
+          importedAt: '2026-04-08T14:30:00.000Z',
+          originalFilename: 'ada-lovelace.pdf',
+          pageCount: 1,
+          snapshotCount: 1,
+          summary: 'Design leader focused on complex workflow products.',
+          writingStyle: {
+            averageSentenceLength: 7,
+            clicheDetections: [],
+            firstPersonUsage: 'absent',
+            formality: 'direct',
+          },
+        },
+        snapshotCount: 1,
+      }),
+    }),
+    tailoredApplication: createTailoredApplicationApi({
+      getPendingGenerationCommand: vi.fn().mockResolvedValue({
+        commandId: 'command-123',
+        originalCvId: 'original-cv-123',
+        originalCvLabel: 'ada-lovelace.pdf',
+        vacancyDraft: {
+          text: '',
+          url: 'https://jobs.example.com/roles/123',
+        },
+      }),
+      startPendingGeneration,
+    }),
+  })
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Create a tailored application' })).toBeDefined()
+  })
+
+  fireEvent.change(screen.getByLabelText('Vacancy URL'), {
+    target: {
+      value: 'https://jobs.example.com/roles/123',
+    },
+  })
+  fireEvent.click(screen.getByRole('button', { name: 'Start tailoring from URL' }))
+
+  await waitFor(() => {
+    expect(startPendingGeneration).toHaveBeenCalledWith({
+      originalCvId: 'original-cv-123',
+      originalCvLabel: 'ada-lovelace.pdf',
+      vacancyDraft: {
+        text: '',
+        url: 'https://jobs.example.com/roles/123',
+      },
+    })
+  })
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Generating tailored application' })).toBeDefined()
+  })
+
+  expect(screen.getByRole('button', { name: 'Open tailored application' })).toBeDefined()
+  expect(screen.getByRole('button', { name: 'Abandon draft' })).toBeDefined()
+})
+
+test('resumes the pending flow into the design-aligned loading screen after sign-in repair', async () => {
+  renderApp({
+    aiWorker: createAiWorkerApi({
+      getAiWorkerPreflight: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        failureCode: 'auth_missing',
+        message:
+          'The local AI worker needs a valid sign-in before CV Maxxing can resume your tailored application.',
+        provider: 'codex',
+        status: 'sign_in_required',
+      }),
+      getStartupDestination: vi.fn().mockResolvedValue('workspace_loading'),
+      startAiWorkerSignIn: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+    }),
+    originalCv: createOriginalCvApi({
+      getOriginalCvWorkspaceState: vi.fn().mockResolvedValue({
+        activeOriginalCv: {
+          fileType: 'pdf',
+          headline: 'Principal Product Designer',
+          id: 'original-cv-123',
+          importedAt: '2026-04-08T14:30:00.000Z',
+          originalFilename: 'ada-lovelace.pdf',
+          pageCount: 1,
+          snapshotCount: 1,
+          summary: 'Design leader focused on complex workflow products.',
+          writingStyle: {
+            averageSentenceLength: 7,
+            clicheDetections: [],
+            firstPersonUsage: 'absent',
+            formality: 'direct',
+          },
+        },
+        snapshotCount: 1,
+      }),
+    }),
+    tailoredApplication: createTailoredApplicationApi({
+      getPendingGenerationCommand: vi.fn().mockResolvedValue({
+        commandId: 'command-123',
+        originalCvId: 'original-cv-123',
+        originalCvLabel: 'ada-lovelace.pdf',
+        vacancyDraft: {
+          text: 'Senior platform engineer',
+          url: 'https://jobs.example.com/roles/123',
+        },
+      }),
+    }),
+  })
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Connect the local AI worker' })).toBeDefined()
+  })
+
+  fireEvent.click(screen.getByRole('button', { name: 'Continue sign-in' }))
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Generating tailored application' })).toBeDefined()
+  })
+
+  expect(screen.getByText('Tailoring in progress')).toBeDefined()
+  expect(screen.getByText('Local AI worker is adapting the CV')).toBeDefined()
+  expect(screen.getByText('Senior platform engineer')).toBeDefined()
+  expect(screen.getByRole('button', { name: 'Open tailored application' })).toBeDefined()
+  expect(screen.getByRole('button', { name: 'Abandon draft' })).toBeDefined()
+})
+
+test('renders the design-aligned loading screen when startup restores workspace loading', async () => {
+  renderApp({
+    aiWorker: createAiWorkerApi({
+      getAiWorkerPreflight: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+      getStartupDestination: vi.fn().mockResolvedValue('workspace_loading'),
+    }),
+    tailoredApplication: createTailoredApplicationApi({
+      getPendingGenerationCommand: vi.fn().mockResolvedValue({
+        commandId: 'command-123',
+        originalCvId: 'original-cv-123',
+        originalCvLabel: 'ada-lovelace.pdf',
+        vacancyDraft: {
+          text: 'Senior platform engineer',
+          url: 'https://jobs.example.com/roles/123',
+        },
+      }),
+    }),
+  })
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Generating tailored application' })).toBeDefined()
+  })
+
+  expect(
+    screen.getByText(
+      'Your vacancy draft stays available here until the tailored application is completed or abandoned.',
+    ),
+  ).toBeDefined()
+  expect(screen.getByText('Local AI worker is adapting the CV')).toBeDefined()
+  expect(
+    screen.getByText(
+      'Truthfulness checks, British English, and style preservation are applied before the PDF previews are created. If setup repair interrupts the run, this screen restores the saved vacancy draft.',
+    ),
+  ).toBeDefined()
+  expect(screen.getByRole('button', { name: 'Open tailored application' })).toBeDefined()
+  expect(screen.getByRole('button', { name: 'Abandon draft' })).toBeDefined()
+})
+
+test('opens the tailored application from the loading screen and restores workspace active', async () => {
+  const getStartupDestination = vi
+    .fn()
+    .mockResolvedValueOnce('workspace_loading')
+    .mockResolvedValueOnce('workspace_active')
+  const completePendingGeneration = vi.fn().mockImplementation(() => Promise.resolve())
+
+  renderApp({
+    aiWorker: createAiWorkerApi({
+      getAiWorkerPreflight: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+      getStartupDestination,
+    }),
+    tailoredApplication: createTailoredApplicationApi({
+      completePendingGeneration,
+      getPendingGenerationCommand: vi.fn().mockResolvedValue({
+        commandId: 'command-123',
+        originalCvId: 'original-cv-123',
+        originalCvLabel: 'ada-lovelace.pdf',
+        vacancyDraft: {
+          text: 'Senior platform engineer',
+          url: 'https://jobs.example.com/roles/123',
+        },
+      }),
+    }),
+  })
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Generating tailored application' })).toBeDefined()
+  })
+
+  fireEvent.click(screen.getByRole('button', { name: 'Open tailored application' }))
+
+  await waitFor(() => {
+    expect(completePendingGeneration).toHaveBeenCalledWith('command-123')
+  })
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Senior platform engineer' })).toBeDefined()
+  })
+
+  expect(screen.getByRole('button', { name: 'Export PDF' })).toBeDefined()
+})
+
+test('abandons the pending draft from the loading screen and returns to workspace empty', async () => {
+  const getStartupDestination = vi
+    .fn()
+    .mockResolvedValueOnce('workspace_loading')
+    .mockResolvedValueOnce('workspace_empty')
+  const abandonPendingGeneration = vi.fn().mockImplementation(() => Promise.resolve())
+
+  renderApp({
+    aiWorker: createAiWorkerApi({
+      getAiWorkerPreflight: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+      getStartupDestination,
+    }),
+    originalCv: createOriginalCvApi({
+      getOriginalCvWorkspaceState: vi.fn().mockResolvedValue({
+        activeOriginalCv: {
+          fileType: 'pdf',
+          headline: 'Principal Product Designer',
+          id: 'original-cv-123',
+          importedAt: '2026-04-08T14:30:00.000Z',
+          originalFilename: 'ada-lovelace.pdf',
+          pageCount: 1,
+          snapshotCount: 1,
+          summary: 'Design leader focused on complex workflow products.',
+          writingStyle: {
+            averageSentenceLength: 7,
+            clicheDetections: [],
+            firstPersonUsage: 'absent',
+            formality: 'direct',
+          },
+        },
+        snapshotCount: 1,
+      }),
+    }),
+    tailoredApplication: createTailoredApplicationApi({
+      abandonPendingGeneration,
+      getPendingGenerationCommand: vi.fn().mockResolvedValue({
+        commandId: 'command-123',
+        originalCvId: 'original-cv-123',
+        originalCvLabel: 'ada-lovelace.pdf',
+        vacancyDraft: {
+          text: 'Senior platform engineer',
+          url: 'https://jobs.example.com/roles/123',
+        },
+      }),
+    }),
+  })
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Generating tailored application' })).toBeDefined()
+  })
+
+  fireEvent.click(screen.getByRole('button', { name: 'Abandon draft' }))
+
+  await waitFor(() => {
+    expect(abandonPendingGeneration).toHaveBeenCalledTimes(1)
+  })
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Create a tailored application' })).toBeDefined()
+  })
 })

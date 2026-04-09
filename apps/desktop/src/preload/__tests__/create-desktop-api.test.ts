@@ -3,6 +3,7 @@ import { expect, test, vi } from 'vitest'
 import {
   AI_WORKER_IPC_CHANNELS,
   ORIGINAL_CV_IPC_CHANNELS,
+  TAILORED_APPLICATION_IPC_CHANNELS,
   VACANCY_IPC_CHANNELS,
 } from '../../shared/ipc.js'
 import { createDesktopApi } from '../create-desktop-api.js'
@@ -361,4 +362,88 @@ test('preload exposes the AI worker onboarding queries and commands over typed I
   expect(invoke).toHaveBeenNthCalledWith(11, VACANCY_IPC_CHANNELS.openBrowserSession, {
     url: 'https://www.linkedin.com/jobs/view/123456',
   })
+})
+
+test('preload exposes tailored-application repair and resume commands over typed IPC', async () => {
+  const invoke = vi
+    .fn()
+    .mockResolvedValueOnce({
+      commandId: 'command-123',
+      originalCvId: 'original-cv-123',
+      originalCvLabel: 'ada-lovelace.pdf',
+      vacancyDraft: {
+        text: 'Senior platform engineer',
+        url: 'https://jobs.example.com/roles/123',
+      },
+    })
+    .mockResolvedValueOnce({
+      canResumeGeneration: true,
+      failureCode: 'auth_expired',
+      message:
+        'The local AI worker sign-in has expired. Sign in again before CV Maxxing can resume your tailored application.',
+      provider: 'codex',
+      status: 'sign_in_required',
+    })
+    .mockImplementationOnce(() => Promise.resolve())
+    .mockImplementationOnce(() => Promise.resolve())
+
+  const desktopApi = createDesktopApi({
+    invoke,
+  })
+
+  await expect(desktopApi.tailoredApplication.getPendingGenerationCommand()).resolves.toEqual({
+    commandId: 'command-123',
+    originalCvId: 'original-cv-123',
+    originalCvLabel: 'ada-lovelace.pdf',
+    vacancyDraft: {
+      text: 'Senior platform engineer',
+      url: 'https://jobs.example.com/roles/123',
+    },
+  })
+  await expect(
+    desktopApi.tailoredApplication.startPendingGeneration({
+      originalCvId: 'original-cv-123',
+      originalCvLabel: 'ada-lovelace.pdf',
+      vacancyDraft: {
+        text: 'Senior platform engineer',
+        url: 'https://jobs.example.com/roles/123',
+      },
+    }),
+  ).resolves.toEqual({
+    canResumeGeneration: true,
+    failureCode: 'auth_expired',
+    message:
+      'The local AI worker sign-in has expired. Sign in again before CV Maxxing can resume your tailored application.',
+    provider: 'codex',
+    status: 'sign_in_required',
+  })
+  await expect(
+    desktopApi.tailoredApplication.completePendingGeneration('command-123'),
+  ).resolves.toBeUndefined()
+  await expect(desktopApi.tailoredApplication.abandonPendingGeneration()).resolves.toBeUndefined()
+
+  expect(invoke).toHaveBeenNthCalledWith(1, TAILORED_APPLICATION_IPC_CHANNELS.getPendingGeneration)
+  expect(invoke).toHaveBeenNthCalledWith(
+    2,
+    TAILORED_APPLICATION_IPC_CHANNELS.startPendingGeneration,
+    {
+      originalCvId: 'original-cv-123',
+      originalCvLabel: 'ada-lovelace.pdf',
+      vacancyDraft: {
+        text: 'Senior platform engineer',
+        url: 'https://jobs.example.com/roles/123',
+      },
+    },
+  )
+  expect(invoke).toHaveBeenNthCalledWith(
+    3,
+    TAILORED_APPLICATION_IPC_CHANNELS.completePendingGeneration,
+    {
+      commandId: 'command-123',
+    },
+  )
+  expect(invoke).toHaveBeenNthCalledWith(
+    4,
+    TAILORED_APPLICATION_IPC_CHANNELS.abandonPendingGeneration,
+  )
 })

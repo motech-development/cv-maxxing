@@ -3,6 +3,7 @@ import { beforeEach, expect, test, vi } from 'vitest'
 import {
   AI_WORKER_IPC_CHANNELS,
   ORIGINAL_CV_IPC_CHANNELS,
+  TAILORED_APPLICATION_IPC_CHANNELS,
   VACANCY_IPC_CHANNELS,
 } from '../../shared/ipc.js'
 import { createDesktopAppBootstrap, createElectronRuntimeDependencies } from '../main.js'
@@ -59,6 +60,30 @@ function createVacancyDouble() {
     ingestPastedVacancy: vi.fn(),
     ingestVacancyUrl: vi.fn(),
     openBrowserSession: vi.fn().mockImplementation(() => Promise.resolve()),
+  }
+}
+
+function createTailoredApplicationDouble() {
+  return {
+    abandonPendingGeneration: vi.fn().mockImplementation(() => Promise.resolve()),
+    completePendingGeneration: vi.fn().mockImplementation(() => Promise.resolve()),
+    getPendingGenerationCommand: vi.fn().mockResolvedValue({
+      commandId: 'command-123',
+      originalCvId: 'original-cv-123',
+      originalCvLabel: 'ada-lovelace.pdf',
+      vacancyDraft: {
+        text: 'Senior platform engineer',
+        url: 'https://jobs.example.com/roles/123',
+      },
+    }),
+    startPendingGeneration: vi.fn().mockResolvedValue({
+      canResumeGeneration: true,
+      failureCode: 'auth_missing',
+      message:
+        'The local AI worker needs a valid sign-in before CV Maxxing can resume your tailored application.',
+      provider: 'codex',
+      status: 'sign_in_required',
+    }),
   }
 }
 
@@ -219,6 +244,7 @@ test('bootstrap registers the full AI worker onboarding IPC surface and opens th
     }),
     openBrowserSession: vi.fn().mockImplementation(() => Promise.resolve()),
   }
+  const tailoredApplication = createTailoredApplicationDouble()
   const onOriginalCvImported = vi.fn().mockImplementation(() => Promise.resolve())
 
   const bootstrap = createDesktopAppBootstrap({
@@ -230,6 +256,7 @@ test('bootstrap registers the full AI worker onboarding IPC surface and opens th
     },
     onOriginalCvImported,
     originalCv,
+    tailoredApplication,
     vacancy,
     platform: 'linux',
     preloadPath: '/tmp/preload.js',
@@ -260,6 +287,22 @@ test('bootstrap registers the full AI worker onboarding IPC surface and opens th
   expect(handle).toHaveBeenCalledWith(VACANCY_IPC_CHANNELS.ingestUrl, expect.any(Function))
   expect(handle).toHaveBeenCalledWith(VACANCY_IPC_CHANNELS.ingestPasted, expect.any(Function))
   expect(handle).toHaveBeenCalledWith(VACANCY_IPC_CHANNELS.openBrowserSession, expect.any(Function))
+  expect(handle).toHaveBeenCalledWith(
+    TAILORED_APPLICATION_IPC_CHANNELS.getPendingGeneration,
+    expect.any(Function),
+  )
+  expect(handle).toHaveBeenCalledWith(
+    TAILORED_APPLICATION_IPC_CHANNELS.startPendingGeneration,
+    expect.any(Function),
+  )
+  expect(handle).toHaveBeenCalledWith(
+    TAILORED_APPLICATION_IPC_CHANNELS.completePendingGeneration,
+    expect.any(Function),
+  )
+  expect(handle).toHaveBeenCalledWith(
+    TAILORED_APPLICATION_IPC_CHANNELS.abandonPendingGeneration,
+    expect.any(Function),
+  )
 
   await expect(registeredHandlers.get(AI_WORKER_IPC_CHANNELS.getPreflight)?.()).resolves.toEqual({
     canResumeGeneration: false,
@@ -440,6 +483,55 @@ test('bootstrap registers the full AI worker onboarding IPC surface and opens th
   expect(vacancy.openBrowserSession).toHaveBeenCalledWith({
     url: 'https://www.linkedin.com/jobs/view/123456',
   })
+  await expect(
+    registeredHandlers.get(TAILORED_APPLICATION_IPC_CHANNELS.getPendingGeneration)?.(),
+  ).resolves.toEqual({
+    commandId: 'command-123',
+    originalCvId: 'original-cv-123',
+    originalCvLabel: 'ada-lovelace.pdf',
+    vacancyDraft: {
+      text: 'Senior platform engineer',
+      url: 'https://jobs.example.com/roles/123',
+    },
+  })
+  await expect(
+    registeredHandlers.get(TAILORED_APPLICATION_IPC_CHANNELS.startPendingGeneration)?.(undefined, {
+      originalCvId: 'original-cv-123',
+      originalCvLabel: 'ada-lovelace.pdf',
+      vacancyDraft: {
+        text: 'Senior platform engineer',
+        url: 'https://jobs.example.com/roles/123',
+      },
+    }),
+  ).resolves.toEqual({
+    canResumeGeneration: true,
+    failureCode: 'auth_missing',
+    message:
+      'The local AI worker needs a valid sign-in before CV Maxxing can resume your tailored application.',
+    provider: 'codex',
+    status: 'sign_in_required',
+  })
+  await expect(
+    registeredHandlers.get(TAILORED_APPLICATION_IPC_CHANNELS.completePendingGeneration)?.(
+      undefined,
+      {
+        commandId: 'command-123',
+      },
+    ),
+  ).resolves.toBeUndefined()
+  await expect(
+    registeredHandlers.get(TAILORED_APPLICATION_IPC_CHANNELS.abandonPendingGeneration)?.(),
+  ).resolves.toBeUndefined()
+  expect(tailoredApplication.startPendingGeneration).toHaveBeenCalledWith({
+    originalCvId: 'original-cv-123',
+    originalCvLabel: 'ada-lovelace.pdf',
+    vacancyDraft: {
+      text: 'Senior platform engineer',
+      url: 'https://jobs.example.com/roles/123',
+    },
+  })
+  expect(tailoredApplication.completePendingGeneration).toHaveBeenCalledWith('command-123')
+  expect(tailoredApplication.abandonPendingGeneration).toHaveBeenCalledTimes(1)
   expect(constructor).toHaveBeenCalledWith({
     backgroundColor: '#08141f',
     height: 900,
@@ -462,6 +554,7 @@ test('bootstrap registers the full AI worker onboarding IPC surface and opens th
 test('bootstrap recreates the window on activate and quits on window-all-closed outside macOS', async () => {
   const { app, eventHandlers } = createAppDouble()
   const browserWindow = createBrowserWindowDouble()
+  const tailoredApplication = createTailoredApplicationDouble()
   const vacancy = createVacancyDouble()
 
   const bootstrap = createDesktopAppBootstrap({
@@ -500,6 +593,7 @@ test('bootstrap recreates the window on activate and quits on window-all-closed 
       }),
       importOriginalCv: vi.fn(),
     },
+    tailoredApplication,
     vacancy,
     platform: 'linux',
     preloadPath: '/tmp/preload.js',
@@ -525,6 +619,7 @@ test('bootstrap recreates the window on activate and quits on window-all-closed 
 test('bootstrap logs and swallows activate window recreation failures', async () => {
   const { app, eventHandlers } = createAppDouble()
   const browserWindow = createBrowserWindowDouble()
+  const tailoredApplication = createTailoredApplicationDouble()
   const vacancy = createVacancyDouble()
   const error = new Error('failed to open window')
   const consoleError = vi.spyOn(console, 'error').mockImplementation(() => null)
@@ -580,6 +675,7 @@ test('bootstrap logs and swallows activate window recreation failures', async ()
       }),
       importOriginalCv: vi.fn(),
     },
+    tailoredApplication,
     vacancy,
     platform: 'linux',
     preloadPath: '/tmp/preload.js',
@@ -603,6 +699,7 @@ test('bootstrap logs and swallows activate window recreation failures', async ()
 test('bootstrap keeps the app open when every window closes on macOS', async () => {
   const { app, eventHandlers } = createAppDouble()
   const browserWindow = createBrowserWindowDouble()
+  const tailoredApplication = createTailoredApplicationDouble()
   const vacancy = createVacancyDouble()
 
   const bootstrap = createDesktopAppBootstrap({
@@ -641,6 +738,7 @@ test('bootstrap keeps the app open when every window closes on macOS', async () 
       }),
       importOriginalCv: vi.fn(),
     },
+    tailoredApplication,
     vacancy,
     platform: 'darwin',
     preloadPath: '/tmp/preload.js',
@@ -657,6 +755,7 @@ test('bootstrap keeps the app open when every window closes on macOS', async () 
 test('bootstrap hides the native macOS title bar chrome when opening the main window', async () => {
   const { app } = createAppDouble()
   const { browserWindow, constructor } = createBrowserWindowDouble()
+  const tailoredApplication = createTailoredApplicationDouble()
   const vacancy = createVacancyDouble()
 
   const bootstrap = createDesktopAppBootstrap({
@@ -695,6 +794,7 @@ test('bootstrap hides the native macOS title bar chrome when opening the main wi
       }),
       importOriginalCv: vi.fn(),
     },
+    tailoredApplication,
     vacancy,
     platform: 'darwin',
     preloadPath: '/tmp/preload.js',
@@ -764,6 +864,7 @@ test('runtime dependencies adapt Electron primitives for the bootstrap contract'
       status: 'ready',
     }),
   }
+  const tailoredApplication = createTailoredApplicationDouble()
   const vacancy = createVacancyDouble()
 
   const runtimeDependencies = createElectronRuntimeDependencies({
@@ -785,6 +886,7 @@ test('runtime dependencies adapt Electron primitives for the bootstrap contract'
       }),
       importOriginalCv: vi.fn(),
     },
+    tailoredApplication,
     vacancy,
     platform: 'linux',
     preloadPath: '/tmp/preload.js',

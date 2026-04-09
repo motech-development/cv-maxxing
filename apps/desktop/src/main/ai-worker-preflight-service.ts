@@ -1,4 +1,5 @@
 import type { AiWorkerFailureCode, AiWorkerPreflightResult } from '../shared/ai-worker-preflight.js'
+import type { PendingGenerationCommand } from '../shared/pending-generation.js'
 import type { StartupDestination } from '../shared/startup-destination.js'
 
 export interface AiWorkerPreflightEnvironment {
@@ -6,12 +7,6 @@ export interface AiWorkerPreflightEnvironment {
   CV_MAXXING_AI_WORKER_PREFLIGHT_STATUS?: string
   CV_MAXXING_AI_WORKER_RETRY_STATUS?: string
   CV_MAXXING_AI_WORKER_SIGN_IN_STATUS?: string
-}
-
-export interface PendingGenerationCommand {
-  commandId: string
-  originalCvId: string
-  vacancyText: string
 }
 
 export type AiWorkerProbeOutcome =

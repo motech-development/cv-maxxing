@@ -51,7 +51,11 @@ test('persists checking timeout, startup destination, and pending generation con
   await firstReadinessStore.savePendingGenerationCommand({
     commandId: 'command-123',
     originalCvId: 'original-cv-123',
-    vacancyText: 'Senior staff product designer',
+    originalCvLabel: 'ada-lovelace.pdf',
+    vacancyDraft: {
+      text: 'Senior staff product designer',
+      url: 'https://jobs.example.com/roles/123',
+    },
   })
   await firstStore.close()
 
@@ -68,7 +72,11 @@ test('persists checking timeout, startup destination, and pending generation con
   await expect(secondReadinessStore.getPendingGenerationCommand()).resolves.toEqual({
     commandId: 'command-123',
     originalCvId: 'original-cv-123',
-    vacancyText: 'Senior staff product designer',
+    originalCvLabel: 'ada-lovelace.pdf',
+    vacancyDraft: {
+      text: 'Senior staff product designer',
+      url: 'https://jobs.example.com/roles/123',
+    },
   })
 
   await secondReadinessStore.clearPendingGenerationCommand()

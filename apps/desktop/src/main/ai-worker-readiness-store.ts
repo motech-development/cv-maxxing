@@ -1,5 +1,5 @@
+import type { PendingGenerationCommand } from '../shared/pending-generation.js'
 import type { StartupDestination } from '../shared/startup-destination.js'
-import type { PendingGenerationCommand } from './ai-worker-preflight-service.js'
 import type { JsonValue, LocalAppDataStore } from './local-app-data-service.js'
 
 const APP_CONFIG_SCOPE = 'app-config'
@@ -73,7 +73,11 @@ export function createAiWorkerReadinessStore({
         value: {
           commandId: command.commandId,
           originalCvId: command.originalCvId,
-          vacancyText: command.vacancyText,
+          originalCvLabel: command.originalCvLabel,
+          vacancyDraft: {
+            text: command.vacancyDraft.text,
+            url: command.vacancyDraft.url,
+          } satisfies Record<string, JsonValue>,
         } satisfies Record<string, JsonValue>,
       })
     },
@@ -106,7 +110,15 @@ function isPendingGenerationCommand(value: unknown): value is PendingGenerationC
   return (
     typeof candidate.commandId === 'string' &&
     typeof candidate.originalCvId === 'string' &&
-    typeof candidate.vacancyText === 'string'
+    typeof candidate.originalCvLabel === 'string' &&
+    'vacancyDraft' in candidate &&
+    candidate.vacancyDraft !== null &&
+    typeof candidate.vacancyDraft === 'object' &&
+    !Array.isArray(candidate.vacancyDraft) &&
+    'text' in candidate.vacancyDraft &&
+    typeof candidate.vacancyDraft.text === 'string' &&
+    'url' in candidate.vacancyDraft &&
+    typeof candidate.vacancyDraft.url === 'string'
   )
 }
 

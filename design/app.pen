@@ -938,26 +938,30 @@
                   "children": [
                     {
                       "type": "frame",
-                      "id": "5klVo",
+                      "id": "hRopF",
                       "name": "urlCardEmpty",
                       "width": "fill_container",
-                      "height": 230,
+                      "height": 278,
                       "fill": "#F7F8F6",
                       "cornerRadius": 8,
                       "stroke": {
                         "align": "inside",
                         "thickness": 1,
-                        "fill": "$app.divider"
+                        "fill": "#D9DEDA"
                       },
                       "layout": "vertical",
                       "gap": 12,
-                      "padding": 20,
+                      "padding": [
+                        20,
+                        20,
+                        18,
+                        20
+                      ],
                       "children": [
                         {
                           "type": "text",
-                          "id": "nDpKW",
-                          "name": "urlTitleEmpty",
-                          "fill": "$app.ink",
+                          "id": "p0jRv",
+                          "fill": "#1E2428",
                           "content": "Open vacancy URL",
                           "fontFamily": "Manrope",
                           "fontSize": 18,
@@ -965,41 +969,113 @@
                         },
                         {
                           "type": "text",
-                          "id": "XhoKO",
-                          "name": "urlTextEmpty",
-                          "fill": "$app.muted",
+                          "id": "G418d",
+                          "fill": "#5E6872",
                           "textGrowth": "fixed-width",
                           "width": "fill_container",
-                          "content": "Use the internal browser for authenticated LinkedIn or Indeed pages.",
+                          "content": "Paste one role URL to start tailoring immediately. If the AI worker needs repair, this draft stays attached to the active original CV.",
                           "lineHeight": 1.4,
                           "fontFamily": "Manrope",
                           "fontSize": 13,
                           "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "vYVQT",
+                          "fill": "#7A838B",
+                          "content": "Vacancy URL",
+                          "fontFamily": "Manrope",
+                          "fontSize": 11,
+                          "fontWeight": "800"
+                        },
+                        {
+                          "type": "frame",
+                          "id": "i3lOu",
+                          "width": "fill_container",
+                          "fill": "#FFFFFF",
+                          "cornerRadius": 8,
+                          "stroke": {
+                            "align": "inside",
+                            "thickness": 1,
+                            "fill": "#D9DEDA"
+                          },
+                          "layout": "vertical",
+                          "padding": [
+                            12,
+                            14
+                          ],
+                          "justifyContent": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "1Q2JK",
+                              "fill": "#8D979E",
+                              "content": "https://jobs.example.com/roles/123",
+                              "fontFamily": "Manrope",
+                              "fontSize": 13,
+                              "fontWeight": "500"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "G9r1F",
+                          "width": "fill_container",
+                          "height": "fill_container"
+                        },
+                        {
+                          "type": "frame",
+                          "id": "4cDsX",
+                          "width": "fill_container",
+                          "fill": "#1E2428",
+                          "cornerRadius": 8,
+                          "layout": "vertical",
+                          "padding": [
+                            11,
+                            14
+                          ],
+                          "justifyContent": "center",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "Skvj8",
+                              "fill": "#FFFFFF",
+                              "content": "Start tailoring from URL",
+                              "fontFamily": "Manrope",
+                              "fontSize": 13,
+                              "fontWeight": "800"
+                            }
+                          ]
                         }
                       ]
                     },
                     {
                       "type": "frame",
-                      "id": "xI5b5",
+                      "id": "uuWVW",
                       "name": "pasteCardEmpty",
                       "width": "fill_container",
-                      "height": 230,
+                      "height": 278,
                       "fill": "#F7F8F6",
                       "cornerRadius": 8,
                       "stroke": {
                         "align": "inside",
                         "thickness": 1,
-                        "fill": "$app.divider"
+                        "fill": "#D9DEDA"
                       },
                       "layout": "vertical",
                       "gap": 12,
-                      "padding": 20,
+                      "padding": [
+                        20,
+                        20,
+                        18,
+                        20
+                      ],
                       "children": [
                         {
                           "type": "text",
-                          "id": "Smsgy",
-                          "name": "pasteTitleEmpty",
-                          "fill": "$app.ink",
+                          "id": "gdK7z",
+                          "fill": "#1E2428",
                           "content": "Paste job text",
                           "fontFamily": "Manrope",
                           "fontSize": 18,
@@ -1007,16 +1083,88 @@
                         },
                         {
                           "type": "text",
-                          "id": "QyA4B",
-                          "name": "pasteTextEmpty",
-                          "fill": "$app.muted",
+                          "id": "a84if",
+                          "fill": "#5E6872",
                           "textGrowth": "fixed-width",
                           "width": "fill_container",
-                          "content": "Fallback for blocked pages or vacancy posts without a stable URL.",
+                          "content": "Use pasted vacancy text when the page is blocked or the role has no stable URL. The draft is preserved if tailoring has to pause for AI worker repair.",
                           "lineHeight": 1.4,
                           "fontFamily": "Manrope",
                           "fontSize": 13,
                           "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "1h4JO",
+                          "fill": "#7A838B",
+                          "content": "Job vacancy text",
+                          "fontFamily": "Manrope",
+                          "fontSize": 11,
+                          "fontWeight": "800"
+                        },
+                        {
+                          "type": "frame",
+                          "id": "oWZ7g",
+                          "width": "fill_container",
+                          "height": 108,
+                          "fill": "#FFFFFF",
+                          "cornerRadius": 8,
+                          "stroke": {
+                            "align": "inside",
+                            "thickness": 1,
+                            "fill": "#D9DEDA"
+                          },
+                          "layout": "vertical",
+                          "gap": 10,
+                          "padding": [
+                            12,
+                            14
+                          ],
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "q4Xhc",
+                              "fill": "#8D979E",
+                              "textGrowth": "fixed-width",
+                              "width": "fill_container",
+                              "content": "Senior platform engineer\nBuild reliable desktop tooling for technical users.",
+                              "lineHeight": 1.45,
+                              "fontFamily": "Manrope",
+                              "fontSize": 13,
+                              "fontWeight": "500"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "2cpta",
+                          "width": "fill_container",
+                          "height": "fill_container"
+                        },
+                        {
+                          "type": "frame",
+                          "id": "vCBtn",
+                          "width": "fill_container",
+                          "fill": "#1E2428",
+                          "cornerRadius": 8,
+                          "layout": "vertical",
+                          "padding": [
+                            11,
+                            14
+                          ],
+                          "justifyContent": "center",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "u4z0P",
+                              "fill": "#FFFFFF",
+                              "content": "Start tailoring from text",
+                              "fontFamily": "Manrope",
+                              "fontSize": 13,
+                              "fontWeight": "800"
+                            }
+                          ]
                         }
                       ]
                     }
@@ -1426,14 +1574,14 @@
                   "fill": "$app.muted",
                   "textGrowth": "fixed-width",
                   "width": "fill_container",
-                  "content": "The adapted CV and cover letter will be immutable once generated.",
+                  "content": "Your vacancy draft stays available here until the tailored application is completed or abandoned.",
                   "fontFamily": "Manrope",
                   "fontSize": 13,
                   "fontWeight": "normal"
                 },
                 {
                   "type": "frame",
-                  "id": "AuFuT",
+                  "id": "hX40d",
                   "name": "Generation progress",
                   "width": "fill_container",
                   "fill": "#F7F8F6",
@@ -1441,7 +1589,7 @@
                   "stroke": {
                     "align": "inside",
                     "thickness": 1,
-                    "fill": "$app.divider"
+                    "fill": "#D9DEDA"
                   },
                   "layout": "vertical",
                   "gap": 16,
@@ -1449,9 +1597,8 @@
                   "children": [
                     {
                       "type": "text",
-                      "id": "vneBT",
-                      "name": "processTitle",
-                      "fill": "$app.ink",
+                      "id": "o1xUk",
+                      "fill": "#1E2428",
                       "content": "Local AI worker is adapting the CV",
                       "fontFamily": "Manrope",
                       "fontSize": 18,
@@ -1459,12 +1606,11 @@
                     },
                     {
                       "type": "text",
-                      "id": "8FXAs",
-                      "name": "processText",
-                      "fill": "$app.muted",
+                      "id": "J9MjO",
+                      "fill": "#5E6872",
                       "textGrowth": "fixed-width",
                       "width": "fill_container",
-                      "content": "Truthfulness checks, British English, and style preservation are applied before the PDF previews are created.",
+                      "content": "Truthfulness checks, British English, and style preservation are applied before the PDF previews are created. If setup repair interrupts the run, this screen restores the saved vacancy draft.",
                       "lineHeight": 1.4,
                       "fontFamily": "Manrope",
                       "fontSize": 13,
@@ -1472,8 +1618,7 @@
                     },
                     {
                       "type": "frame",
-                      "id": "Vidaa",
-                      "name": "processTrack",
+                      "id": "OqQ3d",
                       "width": "fill_container",
                       "height": 8,
                       "fill": "#D9DEDA",
@@ -1481,12 +1626,75 @@
                       "children": [
                         {
                           "type": "frame",
-                          "id": "mGgnx",
+                          "id": "6fzoO",
                           "name": "processFill",
                           "width": 560,
                           "height": "fill_container",
                           "fill": "#93A29A",
                           "cornerRadius": 8
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "CVb0q",
+                      "width": "fill_container",
+                      "gap": 10,
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "yA8iI",
+                          "width": 216,
+                          "fill": "#1E2428",
+                          "cornerRadius": 8,
+                          "layout": "vertical",
+                          "padding": [
+                            11,
+                            14
+                          ],
+                          "justifyContent": "center",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "EOd5t",
+                              "fill": "#FFFFFF",
+                              "content": "Open tailored application",
+                              "fontFamily": "Manrope",
+                              "fontSize": 13,
+                              "fontWeight": "800"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "1FG6r",
+                          "width": 152,
+                          "fill": "#EEF2EF",
+                          "cornerRadius": 8,
+                          "stroke": {
+                            "align": "inside",
+                            "thickness": 1,
+                            "fill": "#D9DEDA"
+                          },
+                          "layout": "vertical",
+                          "padding": [
+                            11,
+                            14
+                          ],
+                          "justifyContent": "center",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "O1uQd",
+                              "fill": "#1E2428",
+                              "content": "Abandon draft",
+                              "fontFamily": "Manrope",
+                              "fontSize": 13,
+                              "fontWeight": "800"
+                            }
+                          ]
                         }
                       ]
                     }

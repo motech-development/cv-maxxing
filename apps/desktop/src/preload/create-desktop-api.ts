@@ -2,6 +2,7 @@ import type { DesktopIpcChannel } from '../shared/ipc.js'
 import {
   AI_WORKER_IPC_CHANNELS,
   ORIGINAL_CV_IPC_CHANNELS,
+  TAILORED_APPLICATION_IPC_CHANNELS,
   VACANCY_IPC_CHANNELS,
 } from '../shared/ipc.js'
 import type { AiWorkerPreflightResult } from '../shared/ai-worker-preflight.js'
@@ -10,6 +11,10 @@ import type {
   OriginalCvImportResult,
   OriginalCvWorkspaceState,
 } from '../shared/original-cv.js'
+import type {
+  PendingGenerationCommand,
+  StartPendingGenerationInput,
+} from '../shared/pending-generation.js'
 import type { StartupDestination } from '../shared/startup-destination.js'
 import type {
   PastedVacancyInput,
@@ -50,6 +55,24 @@ export function createDesktopApi({ invoke }: DesktopApiInvoker): CvMaxxingWindow
       },
       importOriginalCv: async (input: OriginalCvImportInput): Promise<OriginalCvImportResult> => {
         return await invoke(ORIGINAL_CV_IPC_CHANNELS.importOriginalCv, input)
+      },
+    },
+    tailoredApplication: {
+      abandonPendingGeneration: async (): Promise<void> => {
+        await invoke<undefined>(TAILORED_APPLICATION_IPC_CHANNELS.abandonPendingGeneration)
+      },
+      completePendingGeneration: async (commandId: string): Promise<void> => {
+        await invoke<undefined>(TAILORED_APPLICATION_IPC_CHANNELS.completePendingGeneration, {
+          commandId,
+        })
+      },
+      getPendingGenerationCommand: async (): Promise<PendingGenerationCommand | null> => {
+        return await invoke(TAILORED_APPLICATION_IPC_CHANNELS.getPendingGeneration)
+      },
+      startPendingGeneration: async (
+        input: StartPendingGenerationInput,
+      ): Promise<AiWorkerPreflightResult> => {
+        return await invoke(TAILORED_APPLICATION_IPC_CHANNELS.startPendingGeneration, input)
       },
     },
     vacancy: {

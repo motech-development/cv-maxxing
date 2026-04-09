@@ -64,7 +64,7 @@ test('imports the first PDF original CV and lands on the workspace-empty screen'
   await page.getByRole('button', { name: 'Import original CV' }).click()
   await expect(page.getByRole('heading', { name: 'Create a tailored application' })).toBeVisible()
   await expect(page.getByText('No tailored applications yet')).toBeVisible()
-  await expect(page.getByText('Active original CV')).toBeVisible()
+  await expect(page.getByText('Active original CV', { exact: true })).toBeVisible()
   await expect(page.getByText('ada-lovelace.pdf')).toBeVisible()
 
   await electronApp.close()
@@ -122,7 +122,11 @@ test('keeps workspace_loading explicit after sign-in repair for a pending genera
     CV_MAXXING_PENDING_GENERATION_COMMAND: JSON.stringify({
       commandId: 'command-123',
       originalCvId: 'original-cv-123',
-      vacancyText: 'Senior platform engineer',
+      originalCvLabel: 'ada-lovelace.pdf',
+      vacancyDraft: {
+        text: 'Senior platform engineer',
+        url: 'https://jobs.example.com/roles/123',
+      },
     }),
   })
 
@@ -131,6 +135,76 @@ test('keeps workspace_loading explicit after sign-in repair for a pending genera
   await expect(page.getByRole('heading', { name: 'Connect the local AI worker' })).toBeVisible()
   await page.getByRole('button', { name: 'Continue sign-in' }).click()
   await expect(page.getByRole('heading', { name: 'Generating tailored application' })).toBeVisible()
+  await expect(page.getByText('Tailoring in progress')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Open tailored application' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Abandon draft' })).toBeVisible()
+
+  await electronApp.close()
+})
+
+test('persists pending generation before repair and clears it after completion', async () => {
+  const testPaths = await createOriginalCvTestPaths()
+
+  await writeFile(
+    testPaths.pdfPath,
+    createPdfDocumentBuffer([
+      'Ada Lovelace',
+      'Principal Product Designer',
+      'Summary',
+      'Design leader focused on complex workflow products for technical users.',
+      'Experience',
+      'Principal Product Designer | Analytical Engines Ltd',
+      'Led product design for AI-assisted desktop tooling.',
+      'Skills',
+      'Product strategy, UX research, prototyping',
+    ]),
+  )
+
+  let electronApp = await launchDesktopApp({
+    CV_MAXXING_AI_WORKER_PREFLIGHT_STATUS: 'ready',
+    CV_MAXXING_AI_WORKER_RETRY_STATUS: 'auth_missing',
+    CV_MAXXING_LOCAL_APP_DATA_ROOT: testPaths.appDataRoot,
+    CV_MAXXING_STARTUP_DESTINATION: 'first_launch',
+  })
+
+  let page = await electronApp.firstWindow()
+
+  await expect(page.getByRole('heading', { name: 'Import your original CV' })).toBeVisible()
+  await page.getByLabel('Original CV file').setInputFiles(testPaths.pdfPath)
+  await page.getByRole('button', { name: 'Import original CV' }).click()
+  await expect(page.getByRole('heading', { name: 'Create a tailored application' })).toBeVisible()
+  await page
+    .getByLabel('Job vacancy text')
+    .fill('Senior platform engineer\nBuild reliable desktop tooling for technical users.')
+  await page.getByRole('button', { name: 'Start tailoring from text' }).click()
+  await expect(page.getByRole('heading', { name: 'Connect the local AI worker' })).toBeVisible()
+
+  await electronApp.close()
+
+  electronApp = await launchDesktopApp({
+    CV_MAXXING_AI_WORKER_PREFLIGHT_STATUS: 'auth_missing',
+    CV_MAXXING_AI_WORKER_SIGN_IN_STATUS: 'ready',
+    CV_MAXXING_LOCAL_APP_DATA_ROOT: testPaths.appDataRoot,
+  })
+
+  page = await electronApp.firstWindow()
+
+  await expect(page.getByRole('heading', { name: 'Connect the local AI worker' })).toBeVisible()
+  await page.getByRole('button', { name: 'Continue sign-in' }).click()
+  await expect(page.getByRole('heading', { name: 'Generating tailored application' })).toBeVisible()
+  await expect(page.getByText('Senior platform engineer')).toBeVisible()
+  await page.getByRole('button', { name: 'Open tailored application' }).click()
+
+  await electronApp.close()
+
+  electronApp = await launchDesktopApp({
+    CV_MAXXING_AI_WORKER_PREFLIGHT_STATUS: 'ready',
+    CV_MAXXING_LOCAL_APP_DATA_ROOT: testPaths.appDataRoot,
+  })
+
+  page = await electronApp.firstWindow()
+
+  await expect(page.getByRole('heading', { name: 'Tailored application' })).toBeVisible()
 
   await electronApp.close()
 })
