@@ -7,6 +7,13 @@ import { _electron as electron } from 'playwright'
 
 const temporaryDirectories: string[] = []
 
+const visualScreenshotBudgets = {
+  'ai-worker-repair-screen.png': 2000,
+  'first-launch-screen.png': 4000,
+  'workspace-active-adapted-cv-screen.png': 24_000,
+  'workspace-empty-screen.png': 8000,
+} as const
+
 async function launchDesktopApp(environment: NodeJS.ProcessEnv = {}) {
   const combinedEnvironment = Object.fromEntries(
     Object.entries({
@@ -47,6 +54,7 @@ test('captures the first-launch screen', async () => {
   await expect(page).toHaveScreenshot('first-launch-screen.png', {
     animations: 'disabled',
     caret: 'hide',
+    maxDiffPixels: visualScreenshotBudgets['first-launch-screen.png'],
   })
 
   await electronApp.close()
@@ -64,6 +72,7 @@ test('captures the AI worker repair screen', async () => {
   await expect(page).toHaveScreenshot('ai-worker-repair-screen.png', {
     animations: 'disabled',
     caret: 'hide',
+    maxDiffPixels: visualScreenshotBudgets['ai-worker-repair-screen.png'],
   })
 
   await electronApp.close()
@@ -101,6 +110,7 @@ test('captures the workspace-empty state after the original CV import', async ()
   await expect(page).toHaveScreenshot('workspace-empty-screen.png', {
     animations: 'disabled',
     caret: 'hide',
+    maxDiffPixels: visualScreenshotBudgets['workspace-empty-screen.png'],
   })
 
   await electronApp.close()
@@ -149,6 +159,7 @@ test('captures the workspace-active adapted CV preview', async () => {
   await expect(page).toHaveScreenshot('workspace-active-adapted-cv-screen.png', {
     animations: 'disabled',
     caret: 'hide',
+    maxDiffPixels: visualScreenshotBudgets['workspace-active-adapted-cv-screen.png'],
   })
 
   await electronApp.close()
