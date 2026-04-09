@@ -3,17 +3,23 @@ import type { ChangeEvent } from 'react'
 import type { OriginalCvSummary } from '../../shared/original-cv.js'
 import { DesktopShell } from '../shell/desktop-shell.js'
 import { Button } from '../ui/button.js'
+import { OriginalCvReplacementCard } from '../ui/original-cv-replacement-card.js'
 import { PanelCard } from '../ui/panel-card.js'
 import { SectionLabel } from '../ui/section-label.js'
 
 interface WorkspaceEmptyScreenProperties {
   activeOriginalCv: OriginalCvSummary | null
+  importError: string | null
+  isImportingOriginalCv: boolean
   isStartingGeneration: boolean
+  onOriginalCvFileSelection: (event: ChangeEvent<HTMLInputElement>) => void
+  onReplaceOriginalCv: () => void
   onResetDrafts: () => void
   onStartFromText: () => void
   onStartFromUrl: () => void
   onTextDraftChange: (event: ChangeEvent<HTMLTextAreaElement>) => void
   onUrlDraftChange: (event: ChangeEvent<HTMLInputElement>) => void
+  originalCvFile: File | null
   textDraft: string
   urlDraft: string
 }
@@ -23,12 +29,17 @@ const fieldClassName =
 
 export function WorkspaceEmptyScreen({
   activeOriginalCv,
+  importError,
+  isImportingOriginalCv,
   isStartingGeneration,
+  onOriginalCvFileSelection,
+  onReplaceOriginalCv,
   onResetDrafts,
   onStartFromText,
   onStartFromUrl,
   onTextDraftChange,
   onUrlDraftChange,
+  originalCvFile,
   textDraft,
   urlDraft,
 }: WorkspaceEmptyScreenProperties) {
@@ -53,14 +64,15 @@ export function WorkspaceEmptyScreen({
           </Button>
           <div className="flex-1" />
           {activeOriginalCv ? (
-            <PanelCard className="bg-[var(--color-surface-3)] p-4">
-              <p className="m-0 text-sm font-extrabold text-[var(--color-copy-strong)]">
-                Active original CV
-              </p>
-              <p className="mt-1 text-xs leading-5 text-[var(--color-copy-muted)]">
-                {activeOriginalCv.originalFilename}
-              </p>
-            </PanelCard>
+            <OriginalCvReplacementCard
+              activeOriginalCv={activeOriginalCv}
+              importError={importError}
+              inputId="workspace-empty-original-cv-file-input"
+              isImportingOriginalCv={isImportingOriginalCv}
+              onFileSelection={onOriginalCvFileSelection}
+              onImportOriginalCv={onReplaceOriginalCv}
+              originalCvFile={originalCvFile}
+            />
           ) : null}
         </>
       }

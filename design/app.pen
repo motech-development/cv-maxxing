@@ -869,8 +869,8 @@
                   "fill": "#EEF2EF",
                   "cornerRadius": 8,
                   "layout": "vertical",
-                  "gap": 6,
-                  "padding": 14,
+                  "gap": 10,
+                  "padding": 16,
                   "children": [
                     {
                       "type": "text",
@@ -886,11 +886,111 @@
                       "type": "text",
                       "id": "koF4R",
                       "name": "cvSnapshotTextEmpty",
-                      "fill": "$app.muted",
+                      "fill": "#5E6872",
                       "content": "Senior Frontend Engineer.pdf",
                       "fontFamily": "Manrope",
                       "fontSize": 12,
                       "fontWeight": "normal"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "eJuw0",
+                      "name": "badgeEmpty",
+                      "width": "fill_container",
+                      "justifyContent": "space_between",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "hT7up",
+                          "name": "emptyTitle",
+                          "fill": "#1E2428",
+                          "content": "Active original CV",
+                          "fontFamily": "Manrope",
+                          "fontSize": 13,
+                          "fontWeight": "800"
+                        },
+                        {
+                          "type": "text",
+                          "id": "zQuiy",
+                          "name": "emptyBadge",
+                          "fill": "#5E6872",
+                          "content": "1 snapshot",
+                          "fontFamily": "Manrope",
+                          "fontSize": 10,
+                          "fontWeight": "800"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "KpmxP",
+                      "name": "emptyCopy",
+                      "fill": "#5E6872",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Replace the active original CV to create snapshot 2 without mutating tailored applications that already reference an earlier snapshot.",
+                      "lineHeight": 1.4,
+                      "fontFamily": "Manrope",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "el3EF",
+                      "name": "emptyChoose",
+                      "width": "fill_container",
+                      "fill": "#FFFFFF",
+                      "cornerRadius": 8,
+                      "stroke": {
+                        "align": "inside",
+                        "thickness": 1,
+                        "fill": "#D9DEDA"
+                      },
+                      "padding": [
+                        11,
+                        14
+                      ],
+                      "justifyContent": "center",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "V9hK7",
+                          "name": "emptyChooseText",
+                          "fill": "#1E2428",
+                          "content": "Choose replacement PDF or DOCX",
+                          "fontFamily": "Manrope",
+                          "fontSize": 13,
+                          "fontWeight": "800"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "vtjcf",
+                      "name": "emptyReplace",
+                      "width": "fill_container",
+                      "fill": "#E1E6E3",
+                      "cornerRadius": 8,
+                      "padding": [
+                        11,
+                        14
+                      ],
+                      "justifyContent": "center",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "KZNTL",
+                          "name": "emptyReplaceText",
+                          "fill": "#7A838B",
+                          "content": "Replace original CV",
+                          "fontFamily": "Manrope",
+                          "fontSize": 13,
+                          "fontWeight": "800"
+                        }
+                      ]
                     }
                   ]
                 }
@@ -2146,6 +2246,129 @@
                   "name": "spacerActive",
                   "width": "fill_container",
                   "height": "fill_container"
+                },
+                {
+                  "type": "frame",
+                  "id": "J8sYn",
+                  "name": "activeCard",
+                  "width": "fill_container",
+                  "fill": "#EEF2EF",
+                  "cornerRadius": 8,
+                  "layout": "vertical",
+                  "gap": 10,
+                  "padding": 16,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "MPPNj",
+                      "name": "activeHead",
+                      "width": "fill_container",
+                      "justifyContent": "space_between",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "QnceG",
+                          "name": "activeTitle",
+                          "fill": "#1E2428",
+                          "content": "Active original CV",
+                          "fontFamily": "Manrope",
+                          "fontSize": 13,
+                          "fontWeight": "800"
+                        },
+                        {
+                          "type": "text",
+                          "id": "49u8s",
+                          "name": "activeBadge",
+                          "fill": "#5E6872",
+                          "content": "1 snapshot",
+                          "fontFamily": "Manrope",
+                          "fontSize": 10,
+                          "fontWeight": "800"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "AUm4C",
+                      "name": "activeFile",
+                      "fill": "#5E6872",
+                      "content": "Senior Frontend Engineer.pdf",
+                      "fontFamily": "Manrope",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "text",
+                      "id": "HFer6",
+                      "name": "activeCopy",
+                      "fill": "#5E6872",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Replace the active original CV to create snapshot 2 without mutating tailored applications that already reference an earlier snapshot.",
+                      "lineHeight": 1.4,
+                      "fontFamily": "Manrope",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "dTAR1",
+                      "name": "activeChoose",
+                      "width": "fill_container",
+                      "fill": "#FFFFFF",
+                      "cornerRadius": 8,
+                      "stroke": {
+                        "align": "inside",
+                        "thickness": 1,
+                        "fill": "#D9DEDA"
+                      },
+                      "padding": [
+                        11,
+                        14
+                      ],
+                      "justifyContent": "center",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "kLHam",
+                          "name": "activeChooseText",
+                          "fill": "#1E2428",
+                          "content": "Choose replacement PDF or DOCX",
+                          "fontFamily": "Manrope",
+                          "fontSize": 13,
+                          "fontWeight": "800"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "ZSWeU",
+                      "name": "activeReplace",
+                      "width": "fill_container",
+                      "fill": "#E1E6E3",
+                      "cornerRadius": 8,
+                      "padding": [
+                        11,
+                        14
+                      ],
+                      "justifyContent": "center",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "QPpOz",
+                          "name": "activeReplaceText",
+                          "fill": "#7A838B",
+                          "content": "Replace original CV",
+                          "fontFamily": "Manrope",
+                          "fontSize": 13,
+                          "fontWeight": "800"
+                        }
+                      ]
+                    }
+                  ]
                 }
               ]
             },

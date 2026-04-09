@@ -1,13 +1,31 @@
+import type { ChangeEvent } from 'react'
+
+import type { OriginalCvSummary } from '../../shared/original-cv.js'
 import { Button } from '../ui/button.js'
 import { DesktopShell } from '../shell/desktop-shell.js'
+import { OriginalCvReplacementCard } from '../ui/original-cv-replacement-card.js'
 import { PanelCard } from '../ui/panel-card.js'
 import { SectionLabel } from '../ui/section-label.js'
 
 interface WorkspaceActiveScreenProperties {
+  activeOriginalCv: OriginalCvSummary | null
   applicationTitle: string | null
+  importError: string | null
+  isImportingOriginalCv: boolean
+  onOriginalCvFileSelection: (event: ChangeEvent<HTMLInputElement>) => void
+  onReplaceOriginalCv: () => void
+  originalCvFile: File | null
 }
 
-export function WorkspaceActiveScreen({ applicationTitle }: WorkspaceActiveScreenProperties) {
+export function WorkspaceActiveScreen({
+  activeOriginalCv,
+  applicationTitle,
+  importError,
+  isImportingOriginalCv,
+  onOriginalCvFileSelection,
+  onReplaceOriginalCv,
+  originalCvFile,
+}: WorkspaceActiveScreenProperties) {
   const resolvedApplicationTitle = applicationTitle ?? 'Tailored application'
 
   return (
@@ -34,6 +52,17 @@ export function WorkspaceActiveScreen({ applicationTitle }: WorkspaceActiveScree
                 Immutable PDF output
               </p>
             </PanelCard>
+            {activeOriginalCv ? (
+              <OriginalCvReplacementCard
+                activeOriginalCv={activeOriginalCv}
+                importError={importError}
+                inputId="workspace-active-original-cv-file-input"
+                isImportingOriginalCv={isImportingOriginalCv}
+                onFileSelection={onOriginalCvFileSelection}
+                onImportOriginalCv={onReplaceOriginalCv}
+                originalCvFile={originalCvFile}
+              />
+            ) : null}
           </div>
           <div className="flex-1" />
         </>

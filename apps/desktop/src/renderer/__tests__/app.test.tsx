@@ -3,6 +3,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, expect, test, vi } from 'vitest'
 
+import type { OriginalCvImportInput, OriginalCvImportResult } from '../../shared/original-cv.js'
 import { App } from '../app.js'
 
 afterEach(() => {
@@ -361,7 +362,7 @@ test('imports the first original CV and transitions into the design-aligned work
   expect(screen.getByLabelText('Job vacancy text')).toBeDefined()
   expect(screen.getByRole('button', { name: 'Start tailoring from URL' })).toBeDefined()
   expect(screen.getByRole('button', { name: 'Start tailoring from text' })).toBeDefined()
-  expect(screen.queryByText('Replace original CV')).toBeNull()
+  expect(screen.getByRole('button', { name: 'Replace original CV' })).toBeDefined()
   expect(screen.queryByText('Vacancy preview')).toBeNull()
 })
 
@@ -409,7 +410,252 @@ test('renders the design-aligned workspace-empty screen when an original CV alre
   expect(screen.getByLabelText('Job vacancy text')).toBeDefined()
   expect(screen.queryByText('Original CV active')).toBeNull()
   expect(screen.queryByText('Vacancy preview')).toBeNull()
-  expect(screen.queryByText('Replace original CV')).toBeNull()
+  expect(screen.getByRole('button', { name: 'Replace original CV' })).toBeDefined()
+})
+
+test('replaces the active original CV from the workspace-empty screen and keeps the workspace open', async () => {
+  const importOriginalCv = vi.fn(
+    (input: OriginalCvImportInput): Promise<OriginalCvImportResult> => {
+      void input
+
+      return Promise.resolve({
+        kind: 'imported',
+        originalCv: {
+          fileType: 'docx',
+          headline: 'Staff Product Designer',
+          id: 'original-cv-456',
+          importedAt: '2026-04-08T15:10:00.000Z',
+          originalFilename: 'ada-lovelace-revised.docx',
+          pageCount: 1,
+          snapshotCount: 2,
+          summary: 'Product designer adapting CVs for desktop AI tooling.',
+          writingStyle: {
+            averageSentenceLength: 8,
+            clicheDetections: [],
+            firstPersonUsage: 'absent',
+            formality: 'direct',
+          },
+        },
+      })
+    },
+  )
+
+  renderApp({
+    aiWorker: createAiWorkerApi({
+      getAiWorkerPreflight: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+      getStartupDestination: vi.fn().mockResolvedValue('workspace_empty'),
+    }),
+    originalCv: createOriginalCvApi({
+      getOriginalCvWorkspaceState: vi.fn().mockResolvedValue({
+        activeOriginalCv: {
+          fileType: 'pdf',
+          headline: 'Principal Product Designer',
+          id: 'original-cv-123',
+          importedAt: '2026-04-08T14:30:00.000Z',
+          originalFilename: 'ada-lovelace.pdf',
+          pageCount: 1,
+          snapshotCount: 1,
+          summary: 'Design leader focused on complex workflow products.',
+          writingStyle: {
+            averageSentenceLength: 7,
+            clicheDetections: [],
+            firstPersonUsage: 'absent',
+            formality: 'direct',
+          },
+        },
+        snapshotCount: 1,
+      }),
+      importOriginalCv,
+    }),
+  })
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Create a tailored application' })).toBeDefined()
+  })
+
+  fireEvent.change(screen.getByLabelText('Replacement original CV file'), {
+    target: {
+      files: [
+        new File(['DOCX'], 'ada-lovelace-revised.docx', {
+          type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        }),
+      ],
+    },
+  })
+  fireEvent.click(screen.getByRole('button', { name: 'Replace original CV' }))
+
+  await waitFor(() => {
+    expect(importOriginalCv).toHaveBeenCalledTimes(1)
+  })
+
+  expect(importOriginalCv.mock.calls[0]?.[0].filename).toBe('ada-lovelace-revised.docx')
+  expect(importOriginalCv.mock.calls[0]?.[0].content).toBeInstanceOf(Uint8Array)
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Create a tailored application' })).toBeDefined()
+  })
+
+  expect(screen.getByText('ada-lovelace-revised.docx')).toBeDefined()
+  expect(screen.queryByRole('heading', { name: 'Import your original CV' })).toBeNull()
+})
+
+test('replaces the active original CV from the workspace-active screen and keeps the tailored application open', async () => {
+  const importOriginalCv = vi.fn(
+    (input: OriginalCvImportInput): Promise<OriginalCvImportResult> => {
+      void input
+
+      return Promise.resolve({
+        kind: 'imported',
+        originalCv: {
+          fileType: 'docx',
+          headline: 'Staff Product Designer',
+          id: 'original-cv-456',
+          importedAt: '2026-04-08T15:10:00.000Z',
+          originalFilename: 'ada-lovelace-revised.docx',
+          pageCount: 1,
+          snapshotCount: 2,
+          summary: 'Product designer adapting CVs for desktop AI tooling.',
+          writingStyle: {
+            averageSentenceLength: 8,
+            clicheDetections: [],
+            firstPersonUsage: 'absent',
+            formality: 'direct',
+          },
+        },
+      })
+    },
+  )
+
+  renderApp({
+    aiWorker: createAiWorkerApi({
+      getAiWorkerPreflight: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+      getStartupDestination: vi.fn().mockResolvedValue('workspace_active'),
+    }),
+    originalCv: createOriginalCvApi({
+      getOriginalCvWorkspaceState: vi.fn().mockResolvedValue({
+        activeOriginalCv: {
+          fileType: 'pdf',
+          headline: 'Principal Product Designer',
+          id: 'original-cv-123',
+          importedAt: '2026-04-08T14:30:00.000Z',
+          originalFilename: 'ada-lovelace.pdf',
+          pageCount: 1,
+          snapshotCount: 1,
+          summary: 'Design leader focused on complex workflow products.',
+          writingStyle: {
+            averageSentenceLength: 7,
+            clicheDetections: [],
+            firstPersonUsage: 'absent',
+            formality: 'direct',
+          },
+        },
+        snapshotCount: 1,
+      }),
+      importOriginalCv,
+    }),
+  })
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Tailored application' })).toBeDefined()
+  })
+
+  fireEvent.change(screen.getByLabelText('Replacement original CV file'), {
+    target: {
+      files: [
+        new File(['DOCX'], 'ada-lovelace-revised.docx', {
+          type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        }),
+      ],
+    },
+  })
+  fireEvent.click(screen.getByRole('button', { name: 'Replace original CV' }))
+
+  await waitFor(() => {
+    expect(importOriginalCv).toHaveBeenCalledTimes(1)
+  })
+
+  expect(importOriginalCv.mock.calls[0]?.[0].filename).toBe('ada-lovelace-revised.docx')
+  expect(importOriginalCv.mock.calls[0]?.[0].content).toBeInstanceOf(Uint8Array)
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Tailored application' })).toBeDefined()
+  })
+
+  expect(screen.getByText('ada-lovelace-revised.docx')).toBeDefined()
+})
+
+test('keeps the existing active original CV visible when a workspace replacement is rejected', async () => {
+  renderApp({
+    aiWorker: createAiWorkerApi({
+      getAiWorkerPreflight: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+      getStartupDestination: vi.fn().mockResolvedValue('workspace_empty'),
+    }),
+    originalCv: createOriginalCvApi({
+      getOriginalCvWorkspaceState: vi.fn().mockResolvedValue({
+        activeOriginalCv: {
+          fileType: 'pdf',
+          headline: 'Principal Product Designer',
+          id: 'original-cv-123',
+          importedAt: '2026-04-08T14:30:00.000Z',
+          originalFilename: 'ada-lovelace.pdf',
+          pageCount: 1,
+          snapshotCount: 1,
+          summary: 'Design leader focused on complex workflow products.',
+          writingStyle: {
+            averageSentenceLength: 7,
+            clicheDetections: [],
+            firstPersonUsage: 'absent',
+            formality: 'direct',
+          },
+        },
+        snapshotCount: 1,
+      }),
+      importOriginalCv: vi.fn().mockResolvedValue({
+        error: {
+          code: 'weak_extraction',
+          message: 'This original CV could not be read reliably. Use a text-based PDF or DOCX.',
+        },
+        kind: 'rejected',
+      }),
+    }),
+  })
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Create a tailored application' })).toBeDefined()
+  })
+
+  fireEvent.change(screen.getByLabelText('Replacement original CV file'), {
+    target: {
+      files: [new File(['broken'], 'broken.pdf', { type: 'application/pdf' })],
+    },
+  })
+  fireEvent.click(screen.getByRole('button', { name: 'Replace original CV' }))
+
+  await waitFor(() => {
+    expect(
+      screen.getByText(
+        'This original CV could not be read reliably. Use a text-based PDF or DOCX.',
+      ),
+    ).toBeDefined()
+  })
+
+  expect(screen.getByText('ada-lovelace.pdf')).toBeDefined()
+  expect(screen.getByRole('heading', { name: 'Create a tailored application' })).toBeDefined()
 })
 
 test('starts tailoring from a vacancy URL and transitions into the design-aligned loading screen', async () => {

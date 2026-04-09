@@ -51,6 +51,8 @@ function isSupportedOriginalCvFile(file: File): boolean {
   )
 }
 
+type OriginalCvImportDestination = 'workspace_active' | 'workspace_empty'
+
 export function App() {
   const [activeApplicationTitle, setActiveApplicationTitle] = useState<string | null>(null)
   const [importError, setImportError] = useState<string | null>(null)
@@ -158,7 +160,9 @@ export function App() {
     }
   }
 
-  const handleOriginalCvImport = async (): Promise<void> => {
+  const handleOriginalCvImport = async (
+    nextStartupDestination: OriginalCvImportDestination,
+  ): Promise<void> => {
     if (originalCvFile === null || isImportingOriginalCv) {
       return
     }
@@ -188,7 +192,7 @@ export function App() {
       setViewModel((previousViewModel) => {
         return {
           ...previousViewModel,
-          startupDestination: 'workspace_empty',
+          startupDestination: nextStartupDestination,
         }
       })
     } finally {
@@ -348,20 +352,38 @@ export function App() {
           onFileDrop={handleOriginalCvDrop}
           onFileSelection={handleOriginalCvSelection}
           onImportOriginalCv={() => {
-            handleOriginalCvImport().catch(() => null)
+            handleOriginalCvImport('workspace_empty').catch(() => null)
           }}
           originalCvFile={originalCvFile}
         />
       )
     },
     workspace_active: () => {
-      return <WorkspaceActiveScreen applicationTitle={activeApplicationTitle} />
+      return (
+        <WorkspaceActiveScreen
+          activeOriginalCv={originalCvWorkspaceState.activeOriginalCv}
+          applicationTitle={activeApplicationTitle}
+          importError={importError}
+          isImportingOriginalCv={isImportingOriginalCv}
+          onOriginalCvFileSelection={handleOriginalCvSelection}
+          onReplaceOriginalCv={() => {
+            handleOriginalCvImport('workspace_active').catch(() => null)
+          }}
+          originalCvFile={originalCvFile}
+        />
+      )
     },
     workspace_empty: () => {
       return (
         <WorkspaceEmptyScreen
           activeOriginalCv={originalCvWorkspaceState.activeOriginalCv}
+          importError={importError}
+          isImportingOriginalCv={isImportingOriginalCv}
           isStartingGeneration={isPendingGenerationActionPending}
+          onOriginalCvFileSelection={handleOriginalCvSelection}
+          onReplaceOriginalCv={() => {
+            handleOriginalCvImport('workspace_empty').catch(() => null)
+          }}
           onResetDrafts={() => {
             setTextDraft('')
             setUrlDraft('')
@@ -384,6 +406,7 @@ export function App() {
           onUrlDraftChange={(event) => {
             setUrlDraft(event.target.value)
           }}
+          originalCvFile={originalCvFile}
           textDraft={textDraft}
           urlDraft={urlDraft}
         />

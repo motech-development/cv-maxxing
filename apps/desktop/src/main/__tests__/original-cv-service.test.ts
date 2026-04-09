@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 
@@ -266,6 +266,105 @@ test('replaces the active original CV by creating a new snapshot and leaves exis
       isActive: true,
     }),
   )
+
+  await expect(
+    localAppData.artifacts.read({
+      id: 'original-cv-001',
+      name: 'source.pdf',
+      scope: 'original-cvs',
+    }),
+  ).resolves.toEqual(Buffer.from('%PDF-1.7 first', 'utf8'))
+  await expect(
+    localAppData.artifacts.read({
+      id: 'original-cv-002',
+      name: 'source.pdf',
+      scope: 'original-cvs',
+    }),
+  ).resolves.toEqual(Buffer.from('%PDF-1.7 second', 'utf8'))
+
+  await localAppData.close()
+
+  const databaseBytes = await readFile(paths.databasePath)
+
+  expect(databaseBytes.includes(Buffer.from('Ada Lovelace', 'utf8'))).toBe(false)
+  expect(databaseBytes.includes(Buffer.from('Staff Product Designer', 'utf8'))).toBe(false)
+})
+
+test('rejects an unreadable replacement and keeps the previous original CV snapshot active', async () => {
+  const paths = await createTestPaths()
+  const localAppData = await openLocalAppData({
+    keychain: createKeychainBoundary(),
+    paths,
+  })
+  const pdfExtractor = vi
+    .fn()
+    .mockResolvedValueOnce({
+      pageCount: 1,
+      text: [
+        'Ada Lovelace',
+        'Principal Product Designer',
+        '',
+        'Summary',
+        'Design leader focused on complex workflow products for technical users.',
+        '',
+        'Experience',
+        'Principal Product Designer | Analytical Engines Ltd',
+        'Led product design for AI-assisted desktop tooling.',
+        '',
+        'Skills',
+        'Product strategy, UX research, prototyping',
+      ].join('\n'),
+    })
+    .mockResolvedValueOnce({
+      pageCount: 1,
+      text: '%%%% 12345 ###',
+    })
+  const originalCvService = createOriginalCvService({
+    extractTextFromDocx: vi.fn(),
+    extractTextFromPdf: pdfExtractor,
+    generateId: vi
+      .fn()
+      .mockReturnValueOnce('original-cv-001')
+      .mockReturnValueOnce('original-cv-002'),
+    getCurrentTimestamp: vi
+      .fn()
+      .mockReturnValueOnce('2026-04-08T14:30:00.000Z')
+      .mockReturnValueOnce('2026-04-08T14:45:00.000Z'),
+    localAppData,
+  })
+
+  await originalCvService.importOriginalCv({
+    content: Buffer.from('%PDF-1.7 first', 'utf8'),
+    filename: 'ada-lovelace.pdf',
+  })
+
+  await expect(
+    originalCvService.importOriginalCv({
+      content: Buffer.from('%PDF-1.7 broken', 'utf8'),
+      filename: 'ada-lovelace-broken.pdf',
+    }),
+  ).rejects.toEqual(
+    new OriginalCvImportError({
+      code: 'weak_extraction',
+      message: 'This original CV could not be read reliably. Use a text-based PDF or DOCX.',
+    }),
+  )
+
+  const workspaceState = await originalCvService.getWorkspaceState()
+
+  expect(workspaceState.snapshotCount).toBe(1)
+  expect(workspaceState.activeOriginalCv).not.toBeNull()
+  expect(workspaceState.activeOriginalCv?.id).toBe('original-cv-001')
+  expect(workspaceState.activeOriginalCv?.originalFilename).toBe('ada-lovelace.pdf')
+  expect(workspaceState.activeOriginalCv?.snapshotCount).toBe(1)
+  await expect(localAppData.metadata.list('original-cvs')).resolves.toHaveLength(1)
+  await expect(
+    localAppData.artifacts.read({
+      id: 'original-cv-002',
+      name: 'source.pdf',
+      scope: 'original-cvs',
+    }),
+  ).resolves.toBeNull()
 
   await localAppData.close()
 })

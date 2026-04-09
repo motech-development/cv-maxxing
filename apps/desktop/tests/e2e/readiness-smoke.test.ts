@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 
 import { expect, test } from '@playwright/test'
+import { strToU8, zipSync } from 'fflate'
 import { _electron as electron } from 'playwright'
 
 const temporaryDirectories: string[] = []
@@ -94,6 +95,108 @@ test('rejects unreadable original CV imports without leaving the first-launch fl
     page.getByText('This original CV could not be read reliably. Use a text-based PDF or DOCX.'),
   ).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Import your original CV' })).toBeVisible()
+
+  await electronApp.close()
+})
+
+test('replaces the active original CV from the workspace with a DOCX snapshot', async () => {
+  const testPaths = await createOriginalCvTestPaths()
+
+  await writeFile(
+    testPaths.pdfPath,
+    createPdfDocumentBuffer([
+      'Ada Lovelace',
+      'Principal Product Designer',
+      'Summary',
+      'Design leader focused on complex workflow products for technical users.',
+      'Experience',
+      'Principal Product Designer | Analytical Engines Ltd',
+      'Led product design for AI-assisted desktop tooling.',
+      'Skills',
+      'Product strategy, UX research, prototyping',
+    ]),
+  )
+  await writeFile(
+    testPaths.docxPath,
+    createDocxDocumentBuffer([
+      'Ada Lovelace',
+      'Staff Product Designer',
+      'Summary',
+      'Product designer adapting CVs for desktop AI tooling.',
+      'Experience',
+      'Staff Product Designer | Analytical Engines Ltd',
+      'Refined import and adaptation workflows for complex authoring tools.',
+      'Skills',
+      'Design systems, desktop UX, content strategy',
+    ]),
+  )
+
+  const electronApp = await launchDesktopApp({
+    CV_MAXXING_AI_WORKER_PREFLIGHT_STATUS: 'ready',
+    CV_MAXXING_LOCAL_APP_DATA_ROOT: testPaths.appDataRoot,
+    CV_MAXXING_STARTUP_DESTINATION: 'first_launch',
+  })
+
+  const page = await electronApp.firstWindow()
+
+  await expect(page.getByRole('heading', { name: 'Import your original CV' })).toBeVisible()
+  await page.getByLabel('Original CV file').setInputFiles(testPaths.pdfPath)
+  await page.getByRole('button', { name: 'Import original CV' }).click()
+  await expect(page.getByRole('heading', { name: 'Create a tailored application' })).toBeVisible()
+  await expect(page.getByText('ada-lovelace.pdf')).toBeVisible()
+  await page.getByLabel('Replacement original CV file').setInputFiles(testPaths.docxPath)
+  await page.getByRole('button', { name: 'Replace original CV' }).click()
+  await expect(page.getByRole('heading', { name: 'Create a tailored application' })).toBeVisible()
+  await expect(page.getByText('ada-lovelace-revised.docx')).toBeVisible()
+  await expect(page.getByText('2 snapshots')).toBeVisible()
+
+  await electronApp.close()
+
+  const databaseBytes = await readFile(path.join(testPaths.appDataRoot, 'app.db'))
+
+  expect(databaseBytes.includes(Buffer.from('Ada Lovelace', 'utf8'))).toBe(false)
+  expect(databaseBytes.includes(Buffer.from('Staff Product Designer', 'utf8'))).toBe(false)
+})
+
+test('rejects an unreadable original CV replacement without leaving the workspace', async () => {
+  const testPaths = await createOriginalCvTestPaths()
+
+  await writeFile(
+    testPaths.pdfPath,
+    createPdfDocumentBuffer([
+      'Ada Lovelace',
+      'Principal Product Designer',
+      'Summary',
+      'Design leader focused on complex workflow products for technical users.',
+      'Experience',
+      'Principal Product Designer | Analytical Engines Ltd',
+      'Led product design for AI-assisted desktop tooling.',
+      'Skills',
+      'Product strategy, UX research, prototyping',
+    ]),
+  )
+  await writeFile(testPaths.unreadablePdfPath, createPdfDocumentBuffer([]))
+
+  const electronApp = await launchDesktopApp({
+    CV_MAXXING_AI_WORKER_PREFLIGHT_STATUS: 'ready',
+    CV_MAXXING_LOCAL_APP_DATA_ROOT: testPaths.appDataRoot,
+    CV_MAXXING_STARTUP_DESTINATION: 'first_launch',
+  })
+
+  const page = await electronApp.firstWindow()
+
+  await expect(page.getByRole('heading', { name: 'Import your original CV' })).toBeVisible()
+  await page.getByLabel('Original CV file').setInputFiles(testPaths.pdfPath)
+  await page.getByRole('button', { name: 'Import original CV' }).click()
+  await expect(page.getByRole('heading', { name: 'Create a tailored application' })).toBeVisible()
+  await page.getByLabel('Replacement original CV file').setInputFiles(testPaths.unreadablePdfPath)
+  await page.getByRole('button', { name: 'Replace original CV' }).click()
+  await expect(
+    page.getByText('This original CV could not be read reliably. Use a text-based PDF or DOCX.'),
+  ).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Create a tailored application' })).toBeVisible()
+  await expect(page.getByText('ada-lovelace.pdf')).toBeVisible()
+  await expect(page.getByText('1 snapshot')).toBeVisible()
 
   await electronApp.close()
 })
@@ -224,7 +327,9 @@ test('keeps workspace_active explicit when the saved startup destination request
 
 async function createOriginalCvTestPaths(): Promise<{
   appDataRoot: string
+  docxPath: string
   pdfPath: string
+  unreadablePdfPath: string
 }> {
   const rootDirectoryPath = await mkdtemp(path.join(tmpdir(), 'cv-maxxing-e2e-original-cv-'))
 
@@ -232,8 +337,39 @@ async function createOriginalCvTestPaths(): Promise<{
 
   return {
     appDataRoot: path.join(rootDirectoryPath, 'app-data'),
+    docxPath: path.join(rootDirectoryPath, 'ada-lovelace-revised.docx'),
     pdfPath: path.join(rootDirectoryPath, 'ada-lovelace.pdf'),
+    unreadablePdfPath: path.join(rootDirectoryPath, 'unreadable.pdf'),
   }
+}
+
+function createDocxDocumentBuffer(lines: string[]): Buffer {
+  const documentXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:body>
+    ${lines
+      .map((line) => {
+        return `<w:p><w:r><w:t>${escapeXmlText(line)}</w:t></w:r></w:p>`
+      })
+      .join('')}
+  </w:body>
+</w:document>`
+
+  return Buffer.from(
+    zipSync({
+      '[Content_Types].xml': strToU8(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml" />
+  <Default Extension="xml" ContentType="application/xml" />
+  <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml" />
+</Types>`),
+      '_rels/.rels': strToU8(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml" />
+</Relationships>`),
+      'word/document.xml': strToU8(documentXml),
+    }),
+  )
 }
 
 function createPdfDocumentBuffer(lines: string[]): Buffer {
@@ -292,6 +428,15 @@ function escapePdfText(value: string): string {
     .replaceAll('\\', String.raw`\\`)
     .replaceAll('(', String.raw`\(`)
     .replaceAll(')', String.raw`\)`)
+}
+
+function escapeXmlText(value: string): string {
+  return value
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&apos;')
 }
 
 test('fails closed on a bounded health-check timeout and offers a retry path', async () => {
