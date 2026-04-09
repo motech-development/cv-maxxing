@@ -40,6 +40,7 @@ export interface CvMaxxingWindowApi {
     completePendingGeneration: (
       commandId: CompletePendingGenerationInput['commandId'],
     ) => Promise<void>
+    deleteTailoredApplication: (tailoredApplicationId: string) => Promise<void>
     exportAdaptedCvPdf: (
       tailoredApplicationId: string,
     ) => Promise<TailoredApplicationExportResult | null>

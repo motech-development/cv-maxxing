@@ -1,3 +1,6 @@
+import type { OriginalCvSummary } from './original-cv.js'
+import type { VacancySummary } from './vacancy.js'
+
 export interface GroundedText {
   sourceEvidence: string[]
   text: string
@@ -76,11 +79,14 @@ export interface TailoredApplicationCoverLetterPreview extends TailoredApplicati
 
 export interface TailoredApplicationPreview {
   adaptedCv: TailoredApplicationPdfPreview
+  adaptationSummary: AdaptationSummaryModel
   coverLetter: TailoredApplicationCoverLetterPreview
   createdAt: string
   employer: string | null
   id: string
+  originalCv: OriginalCvSummary
   title: string
+  vacancy: VacancySummary
   vacancyTitle: string | null
 }
 

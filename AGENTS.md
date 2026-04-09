@@ -163,8 +163,12 @@ Absent these conditions, continue without asking for confirmation.
 - Always run relevant linting and type-checking after changes.
 - Run broader verification when shared code, public APIs, or cross-cutting behavior changes.
 - Before concluding any issue or feature slice, explicitly verify the implemented result against the task's acceptance criteria and against any applicable decisions in `ARCHITECTURE.md`. Treat mismatches as failed quality gates.
-- Before concluding any issue or feature slice, run CodeRabbit review on the current diff when the CLI is available and authenticated. Fix reported issues and rerun until CodeRabbit returns no findings, or report the concrete blocker if the review cannot complete.
-- Treat CodeRabbit review as a slow quality gate. Once a review run has started successfully, wait for it to complete instead of restarting it prematurely.
+- Before concluding any issue or feature slice, run CodeRabbit review on the current diff when the CLI is available and authenticated.
+- CodeRabbit is a mandatory blocking quality gate when available. After the review command starts successfully, wait indefinitely until it reaches a terminal result.
+- Do not treat a quiet, slow, or long-running CodeRabbit session as a blocker, failure, timeout, or reason to stop waiting.
+- Do not restart, replace, or abandon an in-flight CodeRabbit review unless it exits with an explicit error or a separate concrete tooling/authentication blocker is observed.
+- A CodeRabbit review counts as complete only when it returns a terminal result with findings/no findings, or when the command itself fails with an explicit error that can be documented as the blocker.
+- If CodeRabbit returns findings, fix them and rerun until CodeRabbit returns no findings or fails with an explicit blocker.
 - If a quality gate fails, diagnose and fix the cause autonomously.
 
 ---
@@ -199,7 +203,7 @@ After implementation:
 4. Check for regressions in at least one related workflow not directly modified.
 5. Confirm all identified consumers remain consistent.
 6. Check the finished work against the stated acceptance criteria and the relevant sections of `ARCHITECTURE.md`, and resolve any gaps before reporting completion.
-7. Run CodeRabbit against the final diff, address findings, and repeat until the review is clear or a tooling/authentication blocker is explicitly documented.
+7. Run CodeRabbit against the final diff when available, wait indefinitely once it starts successfully, address findings, and repeat until it returns no findings or exits with an explicit blocker that is documented.
 
 If anything fails, fix it before concluding.
 
@@ -369,7 +373,7 @@ Work is done only when all are true:
 - Coverage remains at or above required threshold, or the gap is explicitly identified.
 - Affected workflows are verified.
 - The result has been explicitly checked against the task acceptance criteria and relevant `ARCHITECTURE.md` decisions.
-- CodeRabbit has been run against the final diff and either returned no findings or a concrete blocker has been documented.
+- CodeRabbit, when available, has been run against the final diff to a terminal result; if it started successfully, it was allowed to run until completion, and it either returned no findings or exited with an explicit documented blocker.
 - Related consumers are updated.
 - Changed files have been re-read.
 - Project learnings discovered during the task are recorded in `AGENTS.md`.

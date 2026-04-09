@@ -72,6 +72,11 @@ export function createDesktopApi({ invoke }: DesktopApiInvoker): CvMaxxingWindow
           commandId,
         })
       },
+      deleteTailoredApplication: async (tailoredApplicationId: string): Promise<void> => {
+        await invoke<undefined>(TAILORED_APPLICATION_IPC_CHANNELS.delete, {
+          tailoredApplicationId,
+        })
+      },
       getPendingGenerationCommand: async (): Promise<PendingGenerationCommand | null> => {
         return await invoke(TAILORED_APPLICATION_IPC_CHANNELS.getPendingGeneration)
       },

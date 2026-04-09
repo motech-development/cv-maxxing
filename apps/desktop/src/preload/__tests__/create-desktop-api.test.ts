@@ -520,6 +520,7 @@ test('preload exposes tailored-application repair and resume commands over typed
     })
     .mockImplementationOnce(() => Promise.resolve())
     .mockImplementationOnce(() => Promise.resolve())
+    .mockImplementationOnce(() => Promise.resolve())
     .mockResolvedValueOnce({
       activeApplicationId: 'tailored-application-123',
       applications: [
@@ -540,6 +541,22 @@ test('preload exposes tailored-application repair and resume commands over typed
         pageWarning: 'This adapted CV runs to 4 pages. Export is still available.',
         pdfBytes: new Uint8Array([37, 80, 68, 70]),
       },
+      adaptationSummary: {
+        emphasized: [
+          {
+            sourceEvidence: ['Led product design for AI-assisted desktop workflows.'],
+            text: 'Emphasises workflow-design leadership for the job vacancy.',
+          },
+        ],
+        gaps: ['Add stronger evidence for direct workflow-shipping metrics.'],
+        omitted: [
+          {
+            sourceEvidence: ['Strong written communication.'],
+            text: 'Compresses broader communication language to keep the tailored application focused.',
+          },
+        ],
+        validationHints: ['Validate any performance claims against the original CV snapshot.'],
+      },
       coverLetter: {
         pageCount: 2,
         pageWarning: 'This cover letter runs to 2 pages. Export and copy remain available.',
@@ -549,7 +566,40 @@ test('preload exposes tailored-application repair and resume commands over typed
       createdAt: '2026-04-09T09:30:00.000Z',
       employer: 'Example Labs',
       id: 'tailored-application-123',
+      originalCv: {
+        fileType: 'pdf',
+        headline: 'Principal Product Designer',
+        id: 'original-cv-123',
+        importedAt: '2026-04-08T14:30:00.000Z',
+        originalFilename: 'ada-lovelace.pdf',
+        pageCount: 1,
+        snapshotCount: 1,
+        summary: 'Design leader focused on complex workflow products.',
+        writingStyle: {
+          averageSentenceLength: 7,
+          clicheDetections: [],
+          firstPersonUsage: 'absent',
+          formality: 'direct',
+        },
+      },
       title: 'Senior platform engineer · Example Labs',
+      vacancy: {
+        blockingReason: null,
+        canGenerate: true,
+        employer: 'Example Labs',
+        fetchedAt: '2026-04-08T21:18:00.000Z',
+        id: 'vacancy-123',
+        inputType: 'url',
+        location: 'London, United Kingdom',
+        originalUrl: 'https://jobs.example.com/roles/123',
+        requirements: ['Experience shipping workflow software.'],
+        resolvedUrl: 'https://jobs.example.com/roles/123',
+        responsibilities: ['Lead product design for authenticated desktop workflows.'],
+        source: 'linkedin',
+        status: 'ready',
+        textPreview: 'Lead product design for authenticated desktop workflows.',
+        title: 'Senior platform engineer',
+      },
       vacancyTitle: 'Senior platform engineer',
     })
     .mockResolvedValueOnce({
@@ -602,6 +652,9 @@ test('preload exposes tailored-application repair and resume commands over typed
     desktopApi.tailoredApplication.completePendingGeneration('command-123'),
   ).resolves.toBeUndefined()
   await expect(desktopApi.tailoredApplication.abandonPendingGeneration()).resolves.toBeUndefined()
+  await expect(
+    desktopApi.tailoredApplication.deleteTailoredApplication('tailored-application-123'),
+  ).resolves.toBeUndefined()
   await expect(desktopApi.tailoredApplication.getWorkspaceState()).resolves.toEqual({
     activeApplicationId: 'tailored-application-123',
     applications: [
@@ -624,6 +677,22 @@ test('preload exposes tailored-application repair and resume commands over typed
       pageWarning: 'This adapted CV runs to 4 pages. Export is still available.',
       pdfBytes: new Uint8Array([37, 80, 68, 70]),
     },
+    adaptationSummary: {
+      emphasized: [
+        {
+          sourceEvidence: ['Led product design for AI-assisted desktop workflows.'],
+          text: 'Emphasises workflow-design leadership for the job vacancy.',
+        },
+      ],
+      gaps: ['Add stronger evidence for direct workflow-shipping metrics.'],
+      omitted: [
+        {
+          sourceEvidence: ['Strong written communication.'],
+          text: 'Compresses broader communication language to keep the tailored application focused.',
+        },
+      ],
+      validationHints: ['Validate any performance claims against the original CV snapshot.'],
+    },
     coverLetter: {
       pageCount: 2,
       pageWarning: 'This cover letter runs to 2 pages. Export and copy remain available.',
@@ -633,7 +702,40 @@ test('preload exposes tailored-application repair and resume commands over typed
     createdAt: '2026-04-09T09:30:00.000Z',
     employer: 'Example Labs',
     id: 'tailored-application-123',
+    originalCv: {
+      fileType: 'pdf',
+      headline: 'Principal Product Designer',
+      id: 'original-cv-123',
+      importedAt: '2026-04-08T14:30:00.000Z',
+      originalFilename: 'ada-lovelace.pdf',
+      pageCount: 1,
+      snapshotCount: 1,
+      summary: 'Design leader focused on complex workflow products.',
+      writingStyle: {
+        averageSentenceLength: 7,
+        clicheDetections: [],
+        firstPersonUsage: 'absent',
+        formality: 'direct',
+      },
+    },
     title: 'Senior platform engineer · Example Labs',
+    vacancy: {
+      blockingReason: null,
+      canGenerate: true,
+      employer: 'Example Labs',
+      fetchedAt: '2026-04-08T21:18:00.000Z',
+      id: 'vacancy-123',
+      inputType: 'url',
+      location: 'London, United Kingdom',
+      originalUrl: 'https://jobs.example.com/roles/123',
+      requirements: ['Experience shipping workflow software.'],
+      resolvedUrl: 'https://jobs.example.com/roles/123',
+      responsibilities: ['Lead product design for authenticated desktop workflows.'],
+      source: 'linkedin',
+      status: 'ready',
+      textPreview: 'Lead product design for authenticated desktop workflows.',
+      title: 'Senior platform engineer',
+    },
     vacancyTitle: 'Senior platform engineer',
   })
   await expect(
@@ -679,15 +781,18 @@ test('preload exposes tailored-application repair and resume commands over typed
     5,
     TAILORED_APPLICATION_IPC_CHANNELS.abandonPendingGeneration,
   )
-  expect(invoke).toHaveBeenNthCalledWith(6, TAILORED_APPLICATION_IPC_CHANNELS.getWorkspaceState)
-  expect(invoke).toHaveBeenNthCalledWith(7, TAILORED_APPLICATION_IPC_CHANNELS.getPreview, {
+  expect(invoke).toHaveBeenNthCalledWith(6, TAILORED_APPLICATION_IPC_CHANNELS.delete, {
     tailoredApplicationId: 'tailored-application-123',
   })
-  expect(invoke).toHaveBeenNthCalledWith(8, TAILORED_APPLICATION_IPC_CHANNELS.exportAdaptedCvPdf, {
+  expect(invoke).toHaveBeenNthCalledWith(7, TAILORED_APPLICATION_IPC_CHANNELS.getWorkspaceState)
+  expect(invoke).toHaveBeenNthCalledWith(8, TAILORED_APPLICATION_IPC_CHANNELS.getPreview, {
+    tailoredApplicationId: 'tailored-application-123',
+  })
+  expect(invoke).toHaveBeenNthCalledWith(9, TAILORED_APPLICATION_IPC_CHANNELS.exportAdaptedCvPdf, {
     tailoredApplicationId: 'tailored-application-123',
   })
   expect(invoke).toHaveBeenNthCalledWith(
-    9,
+    10,
     TAILORED_APPLICATION_IPC_CHANNELS.exportCoverLetterPdf,
     {
       tailoredApplicationId: 'tailored-application-123',

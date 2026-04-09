@@ -8,6 +8,7 @@ import type {
   ResumePendingGenerationResult,
   StartPendingGenerationInput,
 } from '../shared/pending-generation.js'
+import type { OriginalCvSummary } from '../shared/original-cv.js'
 import type {
   AdaptationSummaryModel,
   AdaptedCvModel,
@@ -18,7 +19,7 @@ import type {
   TailoredApplicationPreview,
   TailoredApplicationWorkspaceState,
 } from '../shared/tailored-application.js'
-import type { VacancyDraft } from '../shared/vacancy.js'
+import type { VacancyDraft, VacancySummary } from '../shared/vacancy.js'
 import type { AiWorkerPreflightService } from './ai-worker-preflight-service.js'
 import type { AiWorkerReadinessStore } from './ai-worker-readiness-store.js'
 import { buildAdaptedCvExportFilename, resolveUniqueExportFilePath } from './adapted-cv-document.js'
@@ -83,6 +84,7 @@ export interface TailoredApplicationGenerationWorker {
 export interface TailoredApplicationSessionService {
   abandonPendingGeneration: () => Promise<void>
   completePendingGeneration: (commandId: string) => Promise<void>
+  deleteTailoredApplication: (tailoredApplicationId: string) => Promise<void>
   exportAdaptedCvPdf: (
     tailoredApplicationId: string,
   ) => Promise<TailoredApplicationExportResult | null>
@@ -166,10 +168,36 @@ interface TailoredApplicationMetadataValue extends Record<string, JsonValue> {
   vacancyTitle: string | null
 }
 
+interface OriginalCvMetadataValue extends Record<string, JsonValue> {
+  fileType: 'docx' | 'pdf'
+  headline: string
+  id: string
+  importedAt: string
+  originalFilename: string
+  pageCount: number
+  summary: string
+  writingStyle: {
+    averageSentenceLength: number
+    clicheDetections: string[]
+    firstPersonUsage: 'absent' | 'mixed' | 'present'
+    formality: 'conversational' | 'direct' | 'formal'
+  }
+}
+
 interface VacancyMetadataValue extends Record<string, JsonValue> {
+  blockingReason: string | null
   canGenerate: boolean
   employer: string | null
+  fetchedAt: string
+  inputType: 'pasted_text' | 'url'
+  location: string | null
+  originalUrl: string | null
+  requirements: string[]
+  resolvedUrl: string | null
+  responsibilities: string[]
+  source: 'generic' | 'greenhouse' | 'indeed' | 'linkedin'
   status: 'incomplete' | 'ready'
+  textPreview: string
   title: string | null
 }
 
@@ -595,6 +623,67 @@ export function createTailoredApplicationSessionService({
     return metadata
   }
 
+  async function getOriginalCvSummary(
+    localAppData: Pick<LocalAppDataStore, 'metadata'>,
+    originalCvId: string,
+  ): Promise<OriginalCvSummary | null> {
+    const originalCvMetadata = await localAppData.metadata.get<OriginalCvMetadataValue>({
+      id: originalCvId,
+      scope: ORIGINAL_CV_SCOPE,
+    })
+
+    if (originalCvMetadata === null) {
+      return null
+    }
+
+    const snapshotRecords =
+      await localAppData.metadata.list<OriginalCvMetadataValue>(ORIGINAL_CV_SCOPE)
+
+    return {
+      fileType: originalCvMetadata.fileType,
+      headline: originalCvMetadata.headline,
+      id: originalCvId,
+      importedAt: originalCvMetadata.importedAt,
+      originalFilename: originalCvMetadata.originalFilename,
+      pageCount: originalCvMetadata.pageCount,
+      snapshotCount: snapshotRecords.length,
+      summary: originalCvMetadata.summary,
+      writingStyle: originalCvMetadata.writingStyle,
+    }
+  }
+
+  async function getVacancySummary(
+    localAppData: Pick<LocalAppDataStore, 'metadata'>,
+    vacancyId: string,
+  ): Promise<VacancySummary | null> {
+    const vacancyMetadata = await localAppData.metadata.get<VacancyMetadataValue>({
+      id: vacancyId,
+      scope: VACANCY_SCOPE,
+    })
+
+    if (vacancyMetadata === null) {
+      return null
+    }
+
+    return {
+      blockingReason: vacancyMetadata.blockingReason,
+      canGenerate: vacancyMetadata.canGenerate,
+      employer: vacancyMetadata.employer,
+      fetchedAt: vacancyMetadata.fetchedAt,
+      id: vacancyId,
+      inputType: vacancyMetadata.inputType,
+      location: vacancyMetadata.location,
+      originalUrl: vacancyMetadata.originalUrl,
+      requirements: vacancyMetadata.requirements,
+      resolvedUrl: vacancyMetadata.resolvedUrl,
+      responsibilities: vacancyMetadata.responsibilities,
+      source: vacancyMetadata.source,
+      status: vacancyMetadata.status,
+      textPreview: vacancyMetadata.textPreview,
+      title: vacancyMetadata.title,
+    }
+  }
+
   async function exportPdfArtifact({
     artifactName,
     defaultFilename,
@@ -853,6 +942,28 @@ export function createTailoredApplicationSessionService({
       await readinessStore.clearPendingGenerationCommand()
       await readinessStore.setStartupDestination('workspace_active')
     },
+    deleteTailoredApplication: async (tailoredApplicationId) => {
+      await localAppData.deleteScopedData({
+        id: tailoredApplicationId,
+        scope: TAILORED_APPLICATION_SCOPE,
+      })
+
+      const generationRunRecords =
+        await localAppData.metadata.list<GenerationRunRecord>(GENERATION_RUN_SCOPE)
+
+      await Promise.all(
+        generationRunRecords
+          .filter((record) => {
+            return record.value.tailoredApplicationId === tailoredApplicationId
+          })
+          .map(async (record) => {
+            await localAppData.metadata.delete({
+              id: record.id,
+              scope: GENERATION_RUN_SCOPE,
+            })
+          }),
+      )
+    },
     exportAdaptedCvPdf: async (tailoredApplicationId) => {
       const metadata = await getReadyTailoredApplicationMetadata(tailoredApplicationId)
 
@@ -899,31 +1010,56 @@ export function createTailoredApplicationSessionService({
         return null
       }
 
-      const [adaptedCvPdfBytes, coverLetterPdfBytes, coverLetterPlainTextBytes] = await Promise.all(
-        [
-          localAppData.artifacts.read({
-            id: tailoredApplicationId,
-            name: ADAPTED_CV_PDF_ARTIFACT_NAME,
-            scope: TAILORED_APPLICATION_SCOPE,
-          }),
-          localAppData.artifacts.read({
-            id: tailoredApplicationId,
-            name: COVER_LETTER_PDF_ARTIFACT_NAME,
-            scope: TAILORED_APPLICATION_SCOPE,
-          }),
-          localAppData.artifacts.read({
-            id: tailoredApplicationId,
-            name: 'cover-letter.txt',
-            scope: TAILORED_APPLICATION_SCOPE,
-          }),
-        ],
-      )
+      const [
+        adaptedCvPdfBytes,
+        adaptationSummaryBytes,
+        coverLetterPdfBytes,
+        coverLetterPlainTextBytes,
+        originalCv,
+        vacancy,
+      ] = await Promise.all([
+        localAppData.artifacts.read({
+          id: tailoredApplicationId,
+          name: ADAPTED_CV_PDF_ARTIFACT_NAME,
+          scope: TAILORED_APPLICATION_SCOPE,
+        }),
+        localAppData.artifacts.read({
+          id: tailoredApplicationId,
+          name: 'adaptation-summary.json',
+          scope: TAILORED_APPLICATION_SCOPE,
+        }),
+        localAppData.artifacts.read({
+          id: tailoredApplicationId,
+          name: COVER_LETTER_PDF_ARTIFACT_NAME,
+          scope: TAILORED_APPLICATION_SCOPE,
+        }),
+        localAppData.artifacts.read({
+          id: tailoredApplicationId,
+          name: 'cover-letter.txt',
+          scope: TAILORED_APPLICATION_SCOPE,
+        }),
+        getOriginalCvSummary(localAppData, metadata.originalCvId),
+        getVacancySummary(localAppData, metadata.vacancyId),
+      ])
 
       if (
         adaptedCvPdfBytes === null ||
+        adaptationSummaryBytes === null ||
         coverLetterPdfBytes === null ||
-        coverLetterPlainTextBytes === null
+        coverLetterPlainTextBytes === null ||
+        originalCv === null ||
+        vacancy === null
       ) {
+        return null
+      }
+
+      let adaptationSummary: AdaptationSummaryModel
+
+      try {
+        adaptationSummary = JSON.parse(
+          adaptationSummaryBytes.toString('utf8'),
+        ) as AdaptationSummaryModel
+      } catch {
         return null
       }
 
@@ -933,6 +1069,7 @@ export function createTailoredApplicationSessionService({
           pageWarning: metadata.adaptedCvPageWarning,
           pdfBytes: new Uint8Array(adaptedCvPdfBytes),
         },
+        adaptationSummary,
         coverLetter: {
           pageCount: metadata.coverLetterPageCount ?? 1,
           pageWarning: metadata.coverLetterPageWarning,
@@ -942,7 +1079,9 @@ export function createTailoredApplicationSessionService({
         createdAt: metadata.createdAt,
         employer: metadata.employer,
         id: tailoredApplicationId,
+        originalCv,
         title: createTailoredApplicationTitle(metadata),
+        vacancy,
         vacancyTitle: metadata.vacancyTitle,
       }
     },

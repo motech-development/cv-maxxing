@@ -260,6 +260,11 @@ export function createDesktopAppBootstrap({
     ipcMain.handle(TAILORED_APPLICATION_IPC_CHANNELS.abandonPendingGeneration, async () => {
       await tailoredApplication.abandonPendingGeneration()
     })
+    ipcMain.handle(TAILORED_APPLICATION_IPC_CHANNELS.delete, async (_event, payload) => {
+      await tailoredApplication.deleteTailoredApplication(
+        parseTailoredApplicationIdInput(payload).tailoredApplicationId,
+      )
+    })
     ipcMain.handle(
       TAILORED_APPLICATION_IPC_CHANNELS.exportAdaptedCvPdf,
       async (_event, payload) => {

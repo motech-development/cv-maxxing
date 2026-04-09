@@ -256,6 +256,7 @@ test('returns both PDF artifacts in the preview payload and exports the cover-le
       pageWarning: 'This adapted CV runs to 4 pages. Export is still available.',
       pdfBytes: new Uint8Array(Buffer.from('%PDF-1.7 adapted cv', 'utf8')),
     },
+    adaptationSummary: createValidGenerationResult().adaptationSummary,
     coverLetter: {
       pageCount: 2,
       pageWarning: 'This cover letter runs to 2 pages. Export and copy remain available.',
@@ -265,7 +266,40 @@ test('returns both PDF artifacts in the preview payload and exports the cover-le
     createdAt: '2026-04-09T09:30:00.000Z',
     employer: 'Example Labs',
     id: 'tailored-application-123',
+    originalCv: {
+      fileType: 'pdf',
+      headline: 'Principal Product Designer',
+      id: 'original-cv-123',
+      importedAt: '2026-04-08T14:30:00.000Z',
+      originalFilename: 'ada-lovelace.pdf',
+      pageCount: 1,
+      snapshotCount: 1,
+      summary: 'Design leader focused on complex workflow products for technical users.',
+      writingStyle: {
+        averageSentenceLength: 7,
+        clicheDetections: ['passionate', 'world-class'],
+        firstPersonUsage: 'absent',
+        formality: 'direct',
+      },
+    },
     title: 'Senior platform engineer · Example Labs',
+    vacancy: {
+      blockingReason: null,
+      canGenerate: true,
+      employer: 'Example Labs',
+      fetchedAt: '2026-04-08T21:00:00.000Z',
+      id: 'vacancy-123',
+      inputType: 'pasted_text',
+      location: 'London, United Kingdom',
+      originalUrl: 'https://jobs.example.com/roles/123',
+      requirements: ['Experience shipping workflow software.'],
+      resolvedUrl: 'https://jobs.example.com/roles/123',
+      responsibilities: ['Build reliable desktop tooling for technical users.'],
+      source: 'generic',
+      status: 'ready',
+      textPreview: 'Build reliable desktop tooling for technical users.',
+      title: 'Senior platform engineer',
+    },
     vacancyTitle: 'Senior platform engineer',
   })
   await expect(service.exportCoverLetterPdf('tailored-application-123')).resolves.toEqual({
@@ -273,6 +307,170 @@ test('returns both PDF artifacts in the preview payload and exports the cover-le
     overwriteAvoided: true,
     pageWarning: 'This cover letter runs to 2 pages. Export and copy remain available.',
   })
+})
+
+test('deletes a tailored application without removing original CV or job vacancy snapshots used elsewhere', async () => {
+  const harness = await createHarness()
+
+  await seedOriginalCvAndVacancy(harness)
+  await harness.localAppData.metadata.put({
+    id: 'tailored-application-456',
+    scope: 'tailored-applications',
+    value: {
+      adaptedCvPageCount: 2,
+      adaptedCvPageWarning: null,
+      candidateName: 'Ada Lovelace',
+      coverLetterPageCount: 1,
+      coverLetterPageWarning: null,
+      createdAt: '2026-04-09T10:00:00.000Z',
+      employer: 'Example Labs',
+      originalCvId: 'original-cv-123',
+      status: 'ready',
+      vacancyId: 'vacancy-123',
+      vacancyTitle: 'Senior platform engineer',
+    },
+  })
+  await harness.localAppData.metadata.put({
+    id: 'run-456',
+    scope: 'generation-runs',
+    value: {
+      finishedAt: '2026-04-09T10:05:00.000Z',
+      provider: 'codex',
+      startedAt: '2026-04-09T10:00:00.000Z',
+      status: 'ready',
+      tailoredApplicationId: 'tailored-application-456',
+    },
+  })
+  await harness.localAppData.artifacts.write({
+    content: Buffer.from('{}', 'utf8'),
+    id: 'tailored-application-456',
+    name: 'adapted-cv.json',
+    scope: 'tailored-applications',
+  })
+
+  const service = createTailoredApplicationSessionService({
+    adaptedCvRenderer: {
+      renderAdaptedCvPdf: vi.fn(),
+    },
+    aiWorker: {
+      retryAiWorkerPreflight: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+    },
+    coverLetterRenderer: {
+      renderCoverLetterPdf: vi.fn(),
+    },
+    generateId: createIdGenerator([]),
+    localAppData: harness.localAppData,
+    readinessStore: harness.readinessStore,
+    runWorkspaceRootPath: path.join(harness.paths.rootDirectoryPath, 'runs'),
+    worker: {
+      runGeneration: vi.fn(),
+    },
+  })
+
+  await expect(
+    service.deleteTailoredApplication('tailored-application-456'),
+  ).resolves.toBeUndefined()
+
+  await expect(
+    harness.localAppData.metadata.get({
+      id: 'tailored-application-456',
+      scope: 'tailored-applications',
+    }),
+  ).resolves.toBeNull()
+  await expect(
+    harness.localAppData.metadata.get({
+      id: 'run-456',
+      scope: 'generation-runs',
+    }),
+  ).resolves.toBeNull()
+  await expect(
+    harness.localAppData.artifacts.list({
+      id: 'tailored-application-456',
+      scope: 'tailored-applications',
+    }),
+  ).resolves.toEqual([])
+  await expect(
+    harness.localAppData.metadata.get({
+      id: 'original-cv-123',
+      scope: 'original-cvs',
+    }),
+  ).resolves.toMatchObject({
+    originalFilename: 'ada-lovelace.pdf',
+  })
+  await expect(
+    harness.localAppData.metadata.get({
+      id: 'vacancy-123',
+      scope: 'vacancies',
+    }),
+  ).resolves.toMatchObject({
+    title: 'Senior platform engineer',
+  })
+})
+
+test('returns null when a saved adaptation summary artifact is malformed', async () => {
+  const harness = await createHarness()
+
+  await seedOriginalCvAndVacancy(harness)
+
+  const service = createTailoredApplicationSessionService({
+    adaptedCvRenderer: {
+      renderAdaptedCvPdf: vi.fn().mockResolvedValue({
+        pageCount: 1,
+        pageWarning: null,
+        pdfBytes: Buffer.from('%PDF-1.7 adapted cv', 'utf8'),
+      }),
+    },
+    aiWorker: {
+      retryAiWorkerPreflight: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+    },
+    coverLetterRenderer: {
+      renderCoverLetterPdf: vi.fn().mockResolvedValue({
+        pageCount: 1,
+        pageWarning: null,
+        pdfBytes: Buffer.from('%PDF-1.7 cover letter', 'utf8'),
+      }),
+    },
+    generateId: createIdGenerator(['command-123', 'run-123', 'tailored-application-123']),
+    getCurrentTimestamp: () => {
+      return '2026-04-09T09:30:00.000Z'
+    },
+    localAppData: harness.localAppData,
+    readinessStore: harness.readinessStore,
+    runWorkspaceRootPath: path.join(harness.paths.rootDirectoryPath, 'runs'),
+    worker: {
+      runGeneration: () => Promise.resolve(createValidGenerationResult()),
+    },
+  })
+
+  await service.startPendingGeneration({
+    originalCvId: 'original-cv-123',
+    originalCvLabel: 'ada-lovelace.pdf',
+    vacancyDraft: {
+      text: 'Senior platform engineer',
+      url: 'https://jobs.example.com/roles/123',
+    },
+  })
+  await service.resumePendingGeneration()
+  await harness.localAppData.artifacts.write({
+    content: Buffer.from('{invalid json', 'utf8'),
+    id: 'tailored-application-123',
+    name: 'adaptation-summary.json',
+    scope: 'tailored-applications',
+  })
+
+  await expect(
+    service.getTailoredApplicationPreview('tailored-application-123'),
+  ).resolves.toBeNull()
 })
 
 test('rejects fabricated output, clears partial artifacts, and resets the pending session', async () => {

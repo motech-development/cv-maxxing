@@ -2792,7 +2792,7 @@
                         "fill": "$app.divider"
                       },
                       "layout": "vertical",
-                      "gap": 14,
+                      "gap": 12,
                       "padding": 18,
                       "children": [
                         {
@@ -2800,7 +2800,7 @@
                           "id": "oAaHZ",
                           "name": "detailsTitleActive",
                           "fill": "$app.ink",
-                          "content": "Vacancy details",
+                          "content": "Job vacancy",
                           "fontFamily": "Manrope",
                           "fontSize": 18,
                           "fontWeight": "800"
@@ -2842,7 +2842,7 @@
                                   "id": "OojC6",
                                   "name": "tagOneTextActive",
                                   "fill": "$app.ink",
-                                  "content": "Front-end systems emphasised",
+                                  "content": "4-page adapted CV kept immutable",
                                   "fontFamily": "Manrope",
                                   "fontSize": 12,
                                   "fontWeight": "800"
@@ -2865,7 +2865,7 @@
                                   "id": "NUdyg",
                                   "name": "tagTwoTextActive",
                                   "fill": "$app.ink",
-                                  "content": "2 measurable details compressed",
+                                  "content": "Cover letter stays copyable text",
                                   "fontFamily": "Manrope",
                                   "fontSize": 12,
                                   "fontWeight": "800"
@@ -2876,22 +2876,128 @@
                         },
                         {
                           "type": "frame",
-                          "id": "IxyJK",
-                          "name": "copyButtonActive",
+                          "id": "Z9b8y",
+                          "name": "dividerIssue11",
                           "width": "fill_container",
+                          "height": 1,
+                          "fill": "#D9DEDA"
+                        },
+                        {
+                          "type": "text",
+                          "id": "4OZ3P",
+                          "name": "cvHeadingIssue11",
+                          "fill": "#1E2428",
+                          "content": "Original CV snapshot",
+                          "fontFamily": "Manrope",
+                          "fontSize": 13,
+                          "fontWeight": "800"
+                        },
+                        {
+                          "type": "text",
+                          "id": "BMIkI",
+                          "name": "cvCopyIssue11",
+                          "fill": "#5E6872",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "Senior Frontend Engineer.pdf\nSnapshot 1 · imported 9 Apr 2026",
+                          "lineHeight": 1.4,
+                          "fontFamily": "Manrope",
+                          "fontSize": 12,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "u5tqi",
+                          "name": "summaryHeadingIssue11",
+                          "fill": "#1E2428",
+                          "content": "Adaptation summary",
+                          "fontFamily": "Manrope",
+                          "fontSize": 13,
+                          "fontWeight": "800"
+                        },
+                        {
+                          "type": "text",
+                          "id": "S34Nx",
+                          "name": "summaryCopyIssue11",
+                          "fill": "#5E6872",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "Front-end systems leadership and accessibility depth are emphasised for this job vacancy.",
+                          "lineHeight": 1.4,
+                          "fontFamily": "Manrope",
+                          "fontSize": 12,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "bC56R",
+                          "name": "gapsHeadingIssue11",
+                          "fill": "#1E2428",
+                          "content": "Gaps and validation hints",
+                          "fontFamily": "Manrope",
+                          "fontSize": 13,
+                          "fontWeight": "800"
+                        },
+                        {
+                          "type": "text",
+                          "id": "IGqOR",
+                          "name": "gapsCopyIssue11",
+                          "fill": "#5E6872",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "Missing direct pricing metrics for payments work. Validate React performance claims against the original CV.",
+                          "lineHeight": 1.4,
+                          "fontFamily": "Manrope",
+                          "fontSize": 12,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "frame",
+                          "id": "WViTV",
+                          "name": "copyButtonIssue11",
+                          "width": "fill_container",
+                          "height": "fit_content(38)",
                           "fill": "#1E2428",
                           "cornerRadius": 8,
-                          "padding": [
-                            10,
-                            14
-                          ],
+                          "layout": "none",
                           "children": [
                             {
                               "type": "text",
-                              "id": "geq33",
-                              "name": "copyButtonTextActive",
+                              "id": "z4WP5",
+                              "x": 62.5,
+                              "y": 10,
+                              "name": "copyButtonLabelIssue11b",
                               "fill": "#FFFFFF",
                               "content": "Copy cover letter text",
+                              "fontFamily": "Manrope",
+                              "fontSize": 13,
+                              "fontWeight": "800"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "zOT08",
+                          "name": "deleteButtonIssue11",
+                          "width": "fill_container",
+                          "height": "fit_content(38)",
+                          "fill": "#FFF0F0",
+                          "cornerRadius": 8,
+                          "stroke": {
+                            "align": "inside",
+                            "thickness": 1,
+                            "fill": "#E4B7B7"
+                          },
+                          "layout": "none",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "aOdvQ",
+                              "x": 46.5,
+                              "y": 10,
+                              "name": "deleteButtonLabelIssue11b",
+                              "fill": "#7A1F1F",
+                              "content": "Delete tailored application",
                               "fontFamily": "Manrope",
                               "fontSize": 13,
                               "fontWeight": "800"

@@ -1,4 +1,4 @@
-import type { ChangeEvent } from 'react'
+import type { ChangeEvent, ReactNode } from 'react'
 
 import type { OriginalCvSummary } from '../../shared/original-cv.js'
 import type {
@@ -19,13 +19,16 @@ interface WorkspaceActiveScreenProperties {
   applicationTitle: string | null
   applications: TailoredApplicationListItem[]
   importError: string | null
+  isConfirmingDeleteTailoredApplication: boolean
   isCopyingCoverLetterText: boolean
   isExportingPdf: boolean
   isImportingOriginalCv: boolean
   onCopyCoverLetterText: () => void
+  onDeleteTailoredApplication: () => void
   onExportPdf: () => void
   onOriginalCvFileSelection: (event: ChangeEvent<HTMLInputElement>) => void
   onReplaceOriginalCv: () => void
+  onSelectApplication: (tailoredApplicationId: string) => void
   onSelectPreviewDocument: (kind: PreviewDocumentKind) => void
   preview: TailoredApplicationPreview | null
   previewDocumentKind: PreviewDocumentKind
@@ -37,13 +40,16 @@ export function WorkspaceActiveScreen({
   applicationTitle,
   applications,
   importError,
+  isConfirmingDeleteTailoredApplication,
   isCopyingCoverLetterText,
   isExportingPdf,
   isImportingOriginalCv,
   onCopyCoverLetterText,
+  onDeleteTailoredApplication,
   onExportPdf,
   onOriginalCvFileSelection,
   onReplaceOriginalCv,
+  onSelectApplication,
   onSelectPreviewDocument,
   preview,
   previewDocumentKind,
@@ -88,12 +94,23 @@ export function WorkspaceActiveScreen({
                   className={`${isActiveApplication ? 'bg-[var(--color-surface-3)]' : 'bg-white'} p-3`}
                   key={application.id}
                 >
-                  <p className="m-0 text-sm font-extrabold text-[var(--color-copy-strong)]">
-                    {application.vacancyTitle ?? application.title}
-                  </p>
-                  <p className="mt-1 text-xs leading-5 text-[var(--color-copy-muted)]">
-                    {application.employer ? `${application.employer} · ` : ''}immutable PDF outputs
-                  </p>
+                  <button
+                    aria-label={`Open tailored application ${application.vacancyTitle ?? application.title}`}
+                    className="w-full text-left"
+                    disabled={isExportingPdf}
+                    onClick={() => {
+                      onSelectApplication(application.id)
+                    }}
+                    type="button"
+                  >
+                    <p className="m-0 text-sm font-extrabold text-[var(--color-copy-strong)]">
+                      {application.vacancyTitle ?? application.title}
+                    </p>
+                    <p className="mt-1 text-xs leading-5 text-[var(--color-copy-muted)]">
+                      {application.employer ? `${application.employer} · ` : ''}immutable PDF
+                      outputs
+                    </p>
+                  </button>
                 </PanelCard>
               )
             })}
@@ -170,13 +187,18 @@ export function WorkspaceActiveScreen({
           />
         </PanelCard>
 
-        <PanelCard className="flex w-[300px] flex-col gap-3 p-[18px]">
+        <PanelCard className="flex w-[300px] flex-col gap-3 overflow-y-auto p-[18px]">
           <h2 className="m-0 text-sm font-extrabold text-[var(--color-copy-strong)]">
-            Vacancy details
+            Job vacancy
           </h2>
           <p className="m-0 text-xs leading-5 text-[var(--color-copy-muted)]">
             {resolvedVacancySubtitle}
           </p>
+          {preview?.vacancy.responsibilities[0] ? (
+            <p className="m-0 text-xs leading-5 text-[var(--color-copy-muted)]">
+              {preview.vacancy.responsibilities[0]}
+            </p>
+          ) : null}
           <div className="h-px bg-[var(--color-border)]" />
           <div className="flex flex-col gap-2">
             {previewStatusTags.map((tag) => {
@@ -190,6 +212,43 @@ export function WorkspaceActiveScreen({
               )
             })}
           </div>
+          {preview ? (
+            <>
+              <DetailSection title="Original CV snapshot">
+                <p className="m-0 text-xs font-extrabold text-[var(--color-copy-strong)]">
+                  {preview.originalCv.originalFilename}
+                </p>
+                <p className="m-0 text-xs leading-5 text-[var(--color-copy-muted)]">
+                  {preview.originalCv.headline}
+                </p>
+                <p className="m-0 text-xs leading-5 text-[var(--color-copy-muted)]">
+                  Imported {formatTimestamp(preview.originalCv.importedAt)}
+                </p>
+              </DetailSection>
+              <DetailSection title="Adaptation summary">
+                <DetailList
+                  emptyMessage="No adaptation notes recorded."
+                  items={[
+                    ...preview.adaptationSummary.emphasized.map((item) => {
+                      return item.text
+                    }),
+                    ...preview.adaptationSummary.omitted.map((item) => {
+                      return item.text
+                    }),
+                  ]}
+                />
+              </DetailSection>
+              <DetailSection title="Gaps and validation hints">
+                <DetailList
+                  emptyMessage="No gaps or validation hints recorded."
+                  items={[
+                    ...preview.adaptationSummary.gaps,
+                    ...preview.adaptationSummary.validationHints,
+                  ]}
+                />
+              </DetailSection>
+            </>
+          ) : null}
           <Button
             disabled={preview === null || isCopyingCoverLetterText}
             onClick={onCopyCoverLetterText}
@@ -197,8 +256,59 @@ export function WorkspaceActiveScreen({
           >
             Copy cover letter text
           </Button>
+          <Button
+            className="border-[var(--color-border)] bg-[var(--color-surface-danger)] text-[var(--color-status-danger)] hover:bg-[#ffe5e5]"
+            disabled={preview === null || isExportingPdf}
+            onClick={onDeleteTailoredApplication}
+            tone="secondary"
+          >
+            {isConfirmingDeleteTailoredApplication
+              ? 'Confirm delete tailored application'
+              : 'Delete tailored application'}
+          </Button>
         </PanelCard>
       </div>
     </DesktopShell>
   )
+}
+
+function DetailList({ emptyMessage, items }: { emptyMessage?: string; items: string[] }) {
+  if (items.length === 0) {
+    return (
+      <p className="m-0 text-xs leading-5 text-[var(--color-copy-muted)]">
+        {emptyMessage ?? 'No items recorded.'}
+      </p>
+    )
+  }
+
+  return (
+    <ul className="m-0 flex list-disc flex-col gap-2 pl-4 text-xs leading-5 text-[var(--color-copy-muted)]">
+      {items.map((item, index) => {
+        return <li key={`${item}-${String(index)}`}>{item}</li>
+      })}
+    </ul>
+  )
+}
+
+function DetailSection({ children, title }: { children: ReactNode; title: string }) {
+  return (
+    <div className="flex flex-col gap-2 rounded-[8px] bg-[var(--color-surface-2)] px-3 py-2">
+      <h3 className="m-0 text-xs font-extrabold uppercase tracking-[0.08em] text-[var(--color-copy-strong)]">
+        {title}
+      </h3>
+      {children}
+    </div>
+  )
+}
+
+function formatTimestamp(timestamp: string): string {
+  const parsedTimestamp = new Date(timestamp)
+
+  if (Number.isNaN(parsedTimestamp.valueOf())) {
+    return timestamp
+  }
+
+  return new Intl.DateTimeFormat('en-GB', {
+    dateStyle: 'medium',
+  }).format(parsedTimestamp)
 }

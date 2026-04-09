@@ -95,6 +95,7 @@ function createTailoredApplicationDouble() {
   return {
     abandonPendingGeneration: vi.fn().mockImplementation(() => Promise.resolve()),
     completePendingGeneration: vi.fn().mockImplementation(() => Promise.resolve()),
+    deleteTailoredApplication: vi.fn().mockImplementation(() => Promise.resolve()),
     exportAdaptedCvPdf: vi.fn().mockResolvedValue({
       filePath: '/exports/Ada Lovelace - Senior platform engineer - adapted-cv.pdf',
       overwriteAvoided: false,
@@ -650,6 +651,11 @@ test('bootstrap registers the full AI worker onboarding IPC surface and opens th
     registeredHandlers.get(TAILORED_APPLICATION_IPC_CHANNELS.abandonPendingGeneration)?.(),
   ).resolves.toBeUndefined()
   await expect(
+    registeredHandlers.get(TAILORED_APPLICATION_IPC_CHANNELS.delete)?.(undefined, {
+      tailoredApplicationId: 'tailored-application-123',
+    }),
+  ).resolves.toBeUndefined()
+  await expect(
     registeredHandlers.get(TAILORED_APPLICATION_IPC_CHANNELS.exportCoverLetterPdf)?.(undefined, {
       tailoredApplicationId: 'tailored-application-123',
     }),
@@ -669,6 +675,9 @@ test('bootstrap registers the full AI worker onboarding IPC surface and opens th
   expect(tailoredApplication.resumePendingGeneration).toHaveBeenCalledTimes(1)
   expect(tailoredApplication.completePendingGeneration).toHaveBeenCalledWith('command-123')
   expect(tailoredApplication.abandonPendingGeneration).toHaveBeenCalledTimes(1)
+  expect(tailoredApplication.deleteTailoredApplication).toHaveBeenCalledWith(
+    'tailored-application-123',
+  )
   expect(tailoredApplication.exportCoverLetterPdf).toHaveBeenCalledWith('tailored-application-123')
   expect(constructor).toHaveBeenCalledWith({
     backgroundColor: '#08141f',

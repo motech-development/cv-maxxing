@@ -72,6 +72,8 @@ type PreviewDocumentKind = 'adapted_cv' | 'cover_letter'
 
 export function App() {
   const [activeApplicationTitle, setActiveApplicationTitle] = useState<string | null>(null)
+  const [isConfirmingDeleteTailoredApplication, setIsConfirmingDeleteTailoredApplication] =
+    useState(false)
   const [isCopyingCoverLetterText, setIsCopyingCoverLetterText] = useState(false)
   const [importError, setImportError] = useState<string | null>(null)
   const [isImportingOriginalCv, setIsImportingOriginalCv] = useState(false)
@@ -111,11 +113,15 @@ export function App() {
       globalThis.window.cvMaxxing.tailoredApplication.getWorkspaceState(),
       globalThis.window.cvMaxxing.vacancy.getVacancyWorkspaceState(),
     ])
+    const nextTailoredApplicationId = resolveTailoredApplicationId({
+      preferredTailoredApplicationId: tailoredApplicationPreview?.id ?? null,
+      workspaceState: nextTailoredApplicationWorkspaceState,
+    })
     const nextTailoredApplicationPreview =
-      nextTailoredApplicationWorkspaceState.activeApplicationId === null
+      nextTailoredApplicationId === null
         ? null
         : await globalThis.window.cvMaxxing.tailoredApplication.getTailoredApplicationPreview(
-            nextTailoredApplicationWorkspaceState.activeApplicationId,
+            nextTailoredApplicationId,
           )
 
     setOriginalCvWorkspaceState(nextOriginalCvWorkspaceState)
@@ -124,6 +130,7 @@ export function App() {
     )
     setTailoredApplicationPreview(nextTailoredApplicationPreview)
     setTailoredApplicationWorkspaceState(nextTailoredApplicationWorkspaceState)
+    setIsConfirmingDeleteTailoredApplication(false)
     setPreviewDocumentKind('adapted_cv')
     setVacancyDraft(nextVacancyWorkspaceState.draft)
     setVacancyPreview(nextVacancyWorkspaceState.vacancy)
@@ -363,6 +370,62 @@ export function App() {
     }
   }
 
+  const handleSelectTailoredApplication = async (tailoredApplicationId: string): Promise<void> => {
+    if (
+      tailoredApplicationPreview?.id === tailoredApplicationId ||
+      isPendingGenerationActionPending
+    ) {
+      return
+    }
+
+    setIsPendingGenerationActionPending(true)
+
+    try {
+      const nextTailoredApplicationPreview =
+        await globalThis.window.cvMaxxing.tailoredApplication.getTailoredApplicationPreview(
+          tailoredApplicationId,
+        )
+
+      setIsConfirmingDeleteTailoredApplication(false)
+      setTailoredApplicationPreview(nextTailoredApplicationPreview)
+      setPreviewDocumentKind('adapted_cv')
+      setReadinessError(null)
+    } catch {
+      setReadinessError(`${readinessErrorMessage} ${readinessErrorAction}`)
+    } finally {
+      setIsPendingGenerationActionPending(false)
+    }
+  }
+
+  const handleDeleteTailoredApplication = async (): Promise<void> => {
+    if (tailoredApplicationPreview === null || isPendingGenerationActionPending) {
+      return
+    }
+
+    if (isConfirmingDeleteTailoredApplication) {
+      setIsPendingGenerationActionPending(true)
+
+      try {
+        await globalThis.window.cvMaxxing.tailoredApplication.deleteTailoredApplication(
+          tailoredApplicationPreview.id,
+        )
+        setActiveApplicationTitle(null)
+        setIsConfirmingDeleteTailoredApplication(false)
+        setTailoredApplicationPreview(null)
+        await loadWorkspaceState()
+        setReadinessError(null)
+      } catch {
+        setReadinessError(`${readinessErrorMessage} ${readinessErrorAction}`)
+      } finally {
+        setIsPendingGenerationActionPending(false)
+      }
+
+      return
+    }
+
+    setIsConfirmingDeleteTailoredApplication(true)
+  }
+
   const handleCopyCoverLetterText = async (): Promise<void> => {
     if (tailoredApplicationPreview === null || isCopyingCoverLetterText) {
       return
@@ -509,6 +572,7 @@ export function App() {
           applicationTitle={tailoredApplicationPreview?.title ?? activeApplicationTitle}
           applications={tailoredApplicationWorkspaceState.applications}
           importError={importError}
+          isConfirmingDeleteTailoredApplication={isConfirmingDeleteTailoredApplication}
           isCopyingCoverLetterText={isCopyingCoverLetterText}
           isExportingPdf={isPendingGenerationActionPending}
           isImportingOriginalCv={isImportingOriginalCv}
@@ -518,9 +582,15 @@ export function App() {
           onExportPdf={() => {
             handleExportAdaptedCvPdf().catch(() => null)
           }}
+          onDeleteTailoredApplication={() => {
+            handleDeleteTailoredApplication().catch(() => null)
+          }}
           onOriginalCvFileSelection={handleOriginalCvSelection}
           onReplaceOriginalCv={() => {
             handleOriginalCvImport('workspace_active').catch(() => null)
+          }}
+          onSelectApplication={(tailoredApplicationId) => {
+            handleSelectTailoredApplication(tailoredApplicationId).catch(() => null)
           }}
           onSelectPreviewDocument={setPreviewDocumentKind}
           preview={tailoredApplicationPreview}
@@ -728,6 +798,26 @@ function resolveErrorMessage(error: unknown, fallbackMessage: string): string {
   }
 
   return fallbackMessage
+}
+
+function resolveTailoredApplicationId({
+  preferredTailoredApplicationId,
+  workspaceState,
+}: {
+  preferredTailoredApplicationId: string | null
+  workspaceState: TailoredApplicationWorkspaceState
+}): string | null {
+  const preferredTailoredApplicationStillExists = workspaceState.applications.some(
+    (application) => {
+      return application.id === preferredTailoredApplicationId
+    },
+  )
+
+  if (preferredTailoredApplicationStillExists) {
+    return preferredTailoredApplicationId
+  }
+
+  return workspaceState.activeApplicationId
 }
 
 function createWorkspaceActiveViewModel(): ReadinessRouteViewModel {
