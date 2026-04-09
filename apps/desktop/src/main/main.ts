@@ -33,6 +33,7 @@ import {
   createTailoredApplicationSessionService,
   type TailoredApplicationSessionService,
 } from './tailored-application-session-service.js'
+import { createVacancyBrowserSessionService } from './vacancy-browser-session-service.js'
 import { createVacancyService, type VacancyService } from './vacancy-service.js'
 
 const CODEX_SETUP_GUIDE_URL = 'https://developers.openai.com/codex/app/'
@@ -136,6 +137,9 @@ interface RuntimeEnvironment {
   CV_MAXXING_AI_WORKER_SIGN_IN_STATUS?: string
   CV_MAXXING_PENDING_GENERATION_COMMAND?: string
   CV_MAXXING_STARTUP_DESTINATION?: string
+  CV_MAXXING_VACANCY_BROWSER_SESSION_CLOSE_AFTER_LOAD?: string
+  CV_MAXXING_VACANCY_BROWSER_SESSION_HTML?: string
+  CV_MAXXING_VACANCY_BROWSER_SESSION_RESOLVED_URL?: string
 }
 
 export function createDesktopAppBootstrap({
@@ -213,7 +217,7 @@ export function createDesktopAppBootstrap({
       return await vacancy.ingestPastedVacancy(parsePastedVacancyInput(payload))
     })
     ipcMain.handle(VACANCY_IPC_CHANNELS.openBrowserSession, async (_event, payload) => {
-      await vacancy.openBrowserSession(parseVacancyUrlInput(payload))
+      return await vacancy.openBrowserSession(parseVacancyUrlInput(payload))
     })
     ipcMain.handle(TAILORED_APPLICATION_IPC_CHANNELS.getPendingGeneration, async () => {
       return await tailoredApplication.getPendingGenerationCommand()
@@ -405,6 +409,13 @@ async function createRuntimeServices(): Promise<{
       await shell.openExternal(CODEX_SETUP_GUIDE_URL)
     },
   })
+  const vacancyBrowserSession = createVacancyBrowserSessionService({
+    autoCloseAfterFirstObservation:
+      environment.CV_MAXXING_VACANCY_BROWSER_SESSION_CLOSE_AFTER_LOAD === 'true',
+    profileRootPath: path.join(paths.rootDirectoryPath, 'browser-sessions'),
+    testResolvedUrl: environment.CV_MAXXING_VACANCY_BROWSER_SESSION_RESOLVED_URL,
+    testSnapshotHtml: environment.CV_MAXXING_VACANCY_BROWSER_SESSION_HTML,
+  })
 
   return {
     aiWorker,
@@ -422,8 +433,11 @@ async function createRuntimeServices(): Promise<{
     }),
     vacancy: createVacancyService({
       localAppData,
-      openVacancyBrowserSession: async (url) => {
-        await openVacancyBrowserSession(url)
+      openVacancyBrowserSession: async ({ shouldCapturePage, url }) => {
+        return await vacancyBrowserSession.openSession({
+          shouldCapturePage,
+          url,
+        })
       },
     }),
   }
@@ -606,23 +620,4 @@ function isCompletePendingGenerationInput(
     'commandId' in payload &&
     typeof payload.commandId === 'string'
   )
-}
-
-async function openVacancyBrowserSession(url: string): Promise<void> {
-  const vacancyBrowserWindow = new BrowserWindow({
-    autoHideMenuBar: true,
-    backgroundColor: '#08141f',
-    height: 900,
-    show: true,
-    title: 'Vacancy Browser Session',
-    webPreferences: {
-      contextIsolation: true,
-      nodeIntegration: false,
-      partition: 'persist:cv-maxxing-vacancy-browser',
-      sandbox: false,
-    },
-    width: 1280,
-  })
-
-  await vacancyBrowserWindow.loadURL(url)
 }

@@ -42,6 +42,6 @@ export interface CvMaxxingWindowApi {
     getVacancyWorkspaceState: () => Promise<VacancyWorkspaceState>
     ingestPastedVacancy: (input: PastedVacancyInput) => Promise<VacancyIngestResult>
     ingestVacancyUrl: (input: VacancyUrlInput) => Promise<VacancyIngestResult>
-    openVacancyBrowserSession: (input: VacancyUrlInput) => Promise<void>
+    openVacancyBrowserSession: (input: VacancyUrlInput) => Promise<VacancyIngestResult>
   }
 }

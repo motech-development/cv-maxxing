@@ -8,6 +8,7 @@ import type {
   VacancyWorkspaceState,
 } from '../shared/vacancy.js'
 import type { JsonValue, LocalAppDataStore } from './local-app-data-service.js'
+import type { VacancyBrowserPageSnapshot } from './vacancy-browser-session-service.js'
 
 const VACANCY_DRAFT_SCOPE = 'vacancy-workspace'
 const VACANCY_FETCH_TIMEOUT_MS = 15_000
@@ -23,7 +24,10 @@ interface VacancyServiceDependencies {
   generateId?: () => string
   getCurrentTimestamp?: () => string
   localAppData: Pick<LocalAppDataStore, 'artifacts' | 'metadata'>
-  openVacancyBrowserSession: (url: string) => Promise<void>
+  openVacancyBrowserSession: (input: {
+    shouldCapturePage: (snapshot: VacancyBrowserPageSnapshot) => boolean
+    url: string
+  }) => Promise<VacancyBrowserPageSnapshot | null>
 }
 
 interface VacancyMetadataValue extends Record<string, JsonValue> {
@@ -54,7 +58,7 @@ export interface VacancyService {
   getWorkspaceState: () => Promise<VacancyWorkspaceState>
   ingestPastedVacancy: (input: { text: string; url?: string }) => Promise<VacancyIngestResult>
   ingestVacancyUrl: (input: { url: string }) => Promise<VacancyIngestResult>
-  openBrowserSession: (input: { url: string }) => Promise<void>
+  openBrowserSession: (input: { url: string }) => Promise<VacancyIngestResult>
 }
 
 interface NormalizedVacancy {
@@ -220,98 +224,175 @@ export function createVacancyService({
       }
 
       const fetchedPage = await fetchVacancyPage(normalizedUrl)
-      const extractedText = extractTextFromHtml(fetchedPage.html)
-      const normalizedVacancy = normalizeVacancyText(extractedText)
-      const vacancyId = generateId()
-      const fetchedAt = getCurrentTimestamp()
-      const canGenerate = isVacancyReady(normalizedVacancy)
-      const blockingReason = canGenerate ? null : detectIncompleteVacancyReason(extractedText)
-      let incompletePreview: ReturnType<typeof createIncompleteExtractedPreview> | null = null
 
-      if (blockingReason !== null) {
-        incompletePreview = createIncompleteExtractedPreview({
-          blockingReason,
-          extractedText,
-          pageTitle: fetchedPage.pageTitle,
-        })
-      }
-      const vacancy = toVacancySummary({
-        id: vacancyId,
-        metadata: {
-          blockingReason:
-            incompletePreview === null ? blockingReason : incompletePreview.blockingReason,
-          canGenerate,
-          employer:
-            incompletePreview === null ? normalizedVacancy.employer : incompletePreview.employer,
-          fetchedAt,
-          inputType: 'url',
-          location:
-            incompletePreview === null ? normalizedVacancy.location : incompletePreview.location,
-          originalUrl: normalizedUrl,
-          requirements:
-            incompletePreview === null
-              ? normalizedVacancy.requirements
-              : incompletePreview.requirements,
-          resolvedUrl: fetchedPage.resolvedUrl,
-          responsibilities:
-            incompletePreview === null
-              ? normalizedVacancy.responsibilities
-              : incompletePreview.responsibilities,
-          source,
-          status: canGenerate ? 'ready' : 'incomplete',
-          textPreview:
-            incompletePreview === null
-              ? normalizedVacancy.bodyText.slice(0, 280)
-              : incompletePreview.textPreview,
-          title:
-            incompletePreview === null
-              ? (normalizedVacancy.title ?? inferTitleFromPageTitle(fetchedPage.pageTitle))
-              : incompletePreview.title,
+      return await persistFetchedVacancyPage({
+        fetchedPage,
+        generateId,
+        getCurrentTimestamp,
+        localAppData,
+        originalUrl: normalizedUrl,
+        source,
+      })
+    },
+    openBrowserSession: async ({ url }: { url: string }): Promise<VacancyIngestResult> => {
+      const normalizedUrl = requireUrl(url)
+      const source = classifyVacancyUrl(normalizedUrl)
+      const browserSnapshot = await openVacancyBrowserSession({
+        shouldCapturePage: (snapshot) => {
+          const extractedText = extractTextFromHtml(snapshot.html)
+          const normalizedVacancy = normalizeVacancyText(extractedText)
+
+          return isVacancyReady(normalizedVacancy)
         },
+        url: normalizedUrl,
       })
 
-      await localAppData.metadata.put({
-        id: vacancyId,
-        scope: VACANCY_SCOPE,
-        value: toVacancyMetadataValue(vacancy),
-      })
-      await localAppData.artifacts.write({
-        content: Buffer.from(sanitizeSnapshotHtml(fetchedPage.html), 'utf8'),
-        id: vacancyId,
-        name: 'snapshot.html',
-        scope: VACANCY_SCOPE,
-      })
-      await localAppData.artifacts.write({
-        content: Buffer.from(extractedText, 'utf8'),
-        id: vacancyId,
-        name: 'extracted.txt',
-        scope: VACANCY_SCOPE,
-      })
-      await localAppData.artifacts.write({
-        content: Buffer.from(JSON.stringify(normalizedVacancy), 'utf8'),
-        id: vacancyId,
-        name: 'normalized.json',
-        scope: VACANCY_SCOPE,
-      })
-      await localAppData.metadata.put({
-        id: VACANCY_WORKSPACE_RECORD_ID,
-        scope: VACANCY_DRAFT_SCOPE,
-        value: {
-          text: '',
-          url: normalizedUrl,
-          vacancyId,
-        } satisfies VacancyDraftMetadataValue,
-      })
+      if (browserSnapshot === null) {
+        const incompleteVacancy = createBlockedVacancySummary({
+          blockingReason:
+            'Close the internal browser session after the vacancy page loads, or paste the full job text instead.',
+          fetchedAt: getCurrentTimestamp(),
+          inputType: 'url',
+          originalUrl: normalizedUrl,
+          source,
+        })
 
-      return {
-        kind: canGenerate ? 'ingested' : 'incomplete',
-        vacancy,
-        workspaceState: await thisGetWorkspaceState(localAppData),
+        await localAppData.metadata.put({
+          id: VACANCY_WORKSPACE_RECORD_ID,
+          scope: VACANCY_DRAFT_SCOPE,
+          value: {
+            text: '',
+            url: normalizedUrl,
+            vacancyId: null,
+          } satisfies VacancyDraftMetadataValue,
+        })
+
+        return {
+          kind: 'incomplete',
+          vacancy: incompleteVacancy,
+          workspaceState: await thisGetWorkspaceState(localAppData),
+        }
       }
+
+      return await persistFetchedVacancyPage({
+        fetchedPage: browserSnapshot,
+        generateId,
+        getCurrentTimestamp,
+        localAppData,
+        originalUrl: normalizedUrl,
+        source,
+      })
     },
-    openBrowserSession: async ({ url }: { url: string }): Promise<void> => {
-      await openVacancyBrowserSession(url)
+  }
+}
+
+async function persistFetchedVacancyPage({
+  fetchedPage,
+  generateId,
+  getCurrentTimestamp,
+  localAppData,
+  originalUrl,
+  source,
+}: {
+  fetchedPage: {
+    html: string
+    pageTitle: string | null
+    resolvedUrl: string
+  }
+  generateId: () => string
+  getCurrentTimestamp: () => string
+  localAppData: Pick<LocalAppDataStore, 'artifacts' | 'metadata'>
+  originalUrl: string
+  source: VacancySource
+}): Promise<VacancyIngestResult> {
+  const extractedText = extractTextFromHtml(fetchedPage.html)
+  const normalizedVacancy = normalizeVacancyText(extractedText)
+  const vacancyId = generateId()
+  const fetchedAt = getCurrentTimestamp()
+  const canGenerate = isVacancyReady(normalizedVacancy)
+  const blockingReason = canGenerate ? null : detectIncompleteVacancyReason(extractedText)
+  let incompletePreview: ReturnType<typeof createIncompleteExtractedPreview> | null = null
+
+  if (blockingReason !== null) {
+    incompletePreview = createIncompleteExtractedPreview({
+      blockingReason,
+      extractedText,
+      pageTitle: fetchedPage.pageTitle,
+    })
+  }
+
+  const vacancy = toVacancySummary({
+    id: vacancyId,
+    metadata: {
+      blockingReason:
+        incompletePreview === null ? blockingReason : incompletePreview.blockingReason,
+      canGenerate,
+      employer:
+        incompletePreview === null ? normalizedVacancy.employer : incompletePreview.employer,
+      fetchedAt,
+      inputType: 'url',
+      location:
+        incompletePreview === null ? normalizedVacancy.location : incompletePreview.location,
+      originalUrl,
+      requirements:
+        incompletePreview === null
+          ? normalizedVacancy.requirements
+          : incompletePreview.requirements,
+      resolvedUrl: fetchedPage.resolvedUrl,
+      responsibilities:
+        incompletePreview === null
+          ? normalizedVacancy.responsibilities
+          : incompletePreview.responsibilities,
+      source,
+      status: canGenerate ? 'ready' : 'incomplete',
+      textPreview:
+        incompletePreview === null
+          ? normalizedVacancy.bodyText.slice(0, 280)
+          : incompletePreview.textPreview,
+      title:
+        incompletePreview === null
+          ? (normalizedVacancy.title ?? inferTitleFromPageTitle(fetchedPage.pageTitle))
+          : incompletePreview.title,
     },
+  })
+
+  await localAppData.metadata.put({
+    id: vacancyId,
+    scope: VACANCY_SCOPE,
+    value: toVacancyMetadataValue(vacancy),
+  })
+  await localAppData.artifacts.write({
+    content: Buffer.from(sanitizeSnapshotHtml(fetchedPage.html), 'utf8'),
+    id: vacancyId,
+    name: 'snapshot.html',
+    scope: VACANCY_SCOPE,
+  })
+  await localAppData.artifacts.write({
+    content: Buffer.from(extractedText, 'utf8'),
+    id: vacancyId,
+    name: 'extracted.txt',
+    scope: VACANCY_SCOPE,
+  })
+  await localAppData.artifacts.write({
+    content: Buffer.from(JSON.stringify(normalizedVacancy), 'utf8'),
+    id: vacancyId,
+    name: 'normalized.json',
+    scope: VACANCY_SCOPE,
+  })
+  await localAppData.metadata.put({
+    id: VACANCY_WORKSPACE_RECORD_ID,
+    scope: VACANCY_DRAFT_SCOPE,
+    value: {
+      text: '',
+      url: originalUrl,
+      vacancyId,
+    } satisfies VacancyDraftMetadataValue,
+  })
+
+  return {
+    kind: canGenerate ? 'ingested' : 'incomplete',
+    vacancy,
+    workspaceState: await thisGetWorkspaceState(localAppData),
   }
 }
 
@@ -686,7 +767,21 @@ function extractTextFromHtml(html: string): string {
 }
 
 function sanitizeSnapshotHtml(html: string): string {
-  return html.replaceAll(/localStorage|sessionStorage|document\.cookie/gi, '')
+  return html
+    .replaceAll(/<head[\s\S]*?<\/head>/gi, ' ')
+    .replaceAll(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replaceAll(/<style[\s\S]*?<\/style>/gi, ' ')
+    .replaceAll(/<noscript[\s\S]*?<\/noscript>/gi, ' ')
+    .replaceAll(/<iframe[\s\S]*?<\/iframe>/gi, ' ')
+    .replaceAll(/<form[\s\S]*?<\/form>/gi, ' ')
+    .replaceAll(/<input[^>]*>/gi, ' ')
+    .replaceAll(/<textarea[\s\S]*?<\/textarea>/gi, ' ')
+    .replaceAll(/<select[\s\S]*?<\/select>/gi, ' ')
+    .replaceAll(
+      /localStorage|sessionStorage|document\.cookie|sessionToken|accessToken|refreshToken/gi,
+      '',
+    )
+    .replaceAll(/\b(?:authorization|set-cookie|cookie)\b/gi, '')
 }
 
 function inferPageTitle(html: string): string | null {

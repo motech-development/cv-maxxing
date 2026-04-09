@@ -77,7 +77,49 @@ test('preload exposes the AI worker onboarding queries and commands over typed I
       },
       vacancy: null,
     })
-    .mockImplementationOnce(() => Promise.resolve())
+    .mockResolvedValueOnce({
+      kind: 'ingested',
+      vacancy: {
+        blockingReason: null,
+        canGenerate: true,
+        employer: 'Example Labs',
+        fetchedAt: '2026-04-08T21:18:00.000Z',
+        id: 'vacancy-006',
+        inputType: 'url',
+        location: 'London, United Kingdom',
+        originalUrl: 'https://www.linkedin.com/jobs/view/123456',
+        requirements: ['Experience shipping workflow software.'],
+        resolvedUrl: 'https://www.linkedin.com/jobs/view/123456',
+        responsibilities: ['Lead product design for authenticated desktop workflows.'],
+        source: 'linkedin',
+        status: 'ready',
+        textPreview: 'Lead product design for authenticated desktop workflows.',
+        title: 'Senior Product Designer',
+      },
+      workspaceState: {
+        draft: {
+          text: '',
+          url: 'https://www.linkedin.com/jobs/view/123456',
+        },
+        vacancy: {
+          blockingReason: null,
+          canGenerate: true,
+          employer: 'Example Labs',
+          fetchedAt: '2026-04-08T21:18:00.000Z',
+          id: 'vacancy-006',
+          inputType: 'url',
+          location: 'London, United Kingdom',
+          originalUrl: 'https://www.linkedin.com/jobs/view/123456',
+          requirements: ['Experience shipping workflow software.'],
+          resolvedUrl: 'https://www.linkedin.com/jobs/view/123456',
+          responsibilities: ['Lead product design for authenticated desktop workflows.'],
+          source: 'linkedin',
+          status: 'ready',
+          textPreview: 'Lead product design for authenticated desktop workflows.',
+          title: 'Senior Product Designer',
+        },
+      },
+    })
     .mockResolvedValueOnce({
       kind: 'ingested',
       vacancy: {
@@ -164,7 +206,49 @@ test('preload exposes the AI worker onboarding queries and commands over typed I
         },
       },
     })
-    .mockImplementationOnce(() => Promise.resolve())
+    .mockResolvedValueOnce({
+      kind: 'ingested',
+      vacancy: {
+        blockingReason: null,
+        canGenerate: true,
+        employer: 'Example Labs',
+        fetchedAt: '2026-04-08T21:18:00.000Z',
+        id: 'vacancy-006',
+        inputType: 'url',
+        location: 'London, United Kingdom',
+        originalUrl: 'https://www.linkedin.com/jobs/view/123456',
+        requirements: ['Experience shipping workflow software.'],
+        resolvedUrl: 'https://www.linkedin.com/jobs/view/123456',
+        responsibilities: ['Lead product design for authenticated desktop workflows.'],
+        source: 'linkedin',
+        status: 'ready',
+        textPreview: 'Lead product design for authenticated desktop workflows.',
+        title: 'Senior Product Designer',
+      },
+      workspaceState: {
+        draft: {
+          text: '',
+          url: 'https://www.linkedin.com/jobs/view/123456',
+        },
+        vacancy: {
+          blockingReason: null,
+          canGenerate: true,
+          employer: 'Example Labs',
+          fetchedAt: '2026-04-08T21:18:00.000Z',
+          id: 'vacancy-006',
+          inputType: 'url',
+          location: 'London, United Kingdom',
+          originalUrl: 'https://www.linkedin.com/jobs/view/123456',
+          requirements: ['Experience shipping workflow software.'],
+          resolvedUrl: 'https://www.linkedin.com/jobs/view/123456',
+          responsibilities: ['Lead product design for authenticated desktop workflows.'],
+          source: 'linkedin',
+          status: 'ready',
+          textPreview: 'Lead product design for authenticated desktop workflows.',
+          title: 'Senior Product Designer',
+        },
+      },
+    })
 
   const desktopApi = createDesktopApi({
     invoke,
@@ -341,7 +425,49 @@ test('preload exposes the AI worker onboarding queries and commands over typed I
     desktopApi.vacancy.openVacancyBrowserSession({
       url: 'https://www.linkedin.com/jobs/view/123456',
     }),
-  ).resolves.toBeUndefined()
+  ).resolves.toEqual({
+    kind: 'ingested',
+    vacancy: {
+      blockingReason: null,
+      canGenerate: true,
+      employer: 'Example Labs',
+      fetchedAt: '2026-04-08T21:18:00.000Z',
+      id: 'vacancy-006',
+      inputType: 'url',
+      location: 'London, United Kingdom',
+      originalUrl: 'https://www.linkedin.com/jobs/view/123456',
+      requirements: ['Experience shipping workflow software.'],
+      resolvedUrl: 'https://www.linkedin.com/jobs/view/123456',
+      responsibilities: ['Lead product design for authenticated desktop workflows.'],
+      source: 'linkedin',
+      status: 'ready',
+      textPreview: 'Lead product design for authenticated desktop workflows.',
+      title: 'Senior Product Designer',
+    },
+    workspaceState: {
+      draft: {
+        text: '',
+        url: 'https://www.linkedin.com/jobs/view/123456',
+      },
+      vacancy: {
+        blockingReason: null,
+        canGenerate: true,
+        employer: 'Example Labs',
+        fetchedAt: '2026-04-08T21:18:00.000Z',
+        id: 'vacancy-006',
+        inputType: 'url',
+        location: 'London, United Kingdom',
+        originalUrl: 'https://www.linkedin.com/jobs/view/123456',
+        requirements: ['Experience shipping workflow software.'],
+        resolvedUrl: 'https://www.linkedin.com/jobs/view/123456',
+        responsibilities: ['Lead product design for authenticated desktop workflows.'],
+        source: 'linkedin',
+        status: 'ready',
+        textPreview: 'Lead product design for authenticated desktop workflows.',
+        title: 'Senior Product Designer',
+      },
+    },
+  })
 
   expect(invoke).toHaveBeenNthCalledWith(1, AI_WORKER_IPC_CHANNELS.getPreflight)
   expect(invoke).toHaveBeenNthCalledWith(2, AI_WORKER_IPC_CHANNELS.retryPreflight)

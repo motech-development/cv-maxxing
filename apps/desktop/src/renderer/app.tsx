@@ -432,6 +432,11 @@ export function App() {
               .openVacancyBrowserSession({
                 url: originalUrl,
               })
+              .then((result) => {
+                setPreviewedVacancyDraft(result.workspaceState.draft)
+                setVacancyDraft(result.workspaceState.draft)
+                setVacancyPreview(result.vacancy)
+              })
               .catch((error: unknown) => {
                 setVacancyReviewError(
                   resolveErrorMessage(

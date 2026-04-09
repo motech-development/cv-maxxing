@@ -46,7 +46,7 @@ test('ingests pasted vacancy text into a ready preview and persists encrypted va
     generateId: vi.fn(() => 'vacancy-001'),
     getCurrentTimestamp: vi.fn(() => '2026-04-08T21:00:00.000Z'),
     localAppData,
-    openVacancyBrowserSession: vi.fn(() => Promise.resolve()),
+    openVacancyBrowserSession: vi.fn(() => Promise.resolve(null)),
   })
 
   const result = await vacancyService.ingestPastedVacancy({
@@ -162,7 +162,7 @@ test('classifies a Greenhouse vacancy URL, fetches it deterministically, and per
     generateId: vi.fn(() => 'vacancy-002'),
     getCurrentTimestamp: vi.fn(() => '2026-04-08T21:10:00.000Z'),
     localAppData,
-    openVacancyBrowserSession: vi.fn(() => Promise.resolve()),
+    openVacancyBrowserSession: vi.fn(() => Promise.resolve(null)),
   })
 
   const result = await vacancyService.ingestVacancyUrl({
@@ -201,7 +201,7 @@ test('preserves a LinkedIn vacancy URL and blocks generation until the browser-a
     generateId: vi.fn(() => 'vacancy-003'),
     getCurrentTimestamp: vi.fn(() => '2026-04-08T21:15:00.000Z'),
     localAppData,
-    openVacancyBrowserSession: vi.fn(() => Promise.resolve()),
+    openVacancyBrowserSession: vi.fn(() => Promise.resolve(null)),
   })
 
   const result = await vacancyService.ingestVacancyUrl({
@@ -220,6 +220,128 @@ test('preserves a LinkedIn vacancy URL and blocks generation until the browser-a
     },
     vacancy: null,
   })
+
+  await localAppData.close()
+})
+
+test('ingests a browser-assisted LinkedIn vacancy into a ready preview and persists a sanitized snapshot', async () => {
+  const paths = await createTestPaths()
+  const localAppData = await openLocalAppData({
+    keychain: createKeychainBoundary(),
+    paths,
+  })
+  const vacancyService = createVacancyService({
+    generateId: vi.fn(() => 'vacancy-006'),
+    getCurrentTimestamp: vi.fn(() => '2026-04-08T21:18:00.000Z'),
+    localAppData,
+    openVacancyBrowserSession: vi.fn(() => {
+      return Promise.resolve({
+        html: [
+          '<html>',
+          '<head>',
+          '<script>localStorage.setItem("sessionToken", "top-secret-token")</script>',
+          '</head>',
+          '<body>',
+          '<main>',
+          '<h1>Senior Product Designer</h1>',
+          '<p>Example Labs</p>',
+          '<p>London, United Kingdom</p>',
+          '<section><h2>Responsibilities</h2><ul><li>Lead product design for authenticated desktop workflows.</li><li>Partner with engineering and research.</li></ul></section>',
+          '<section><h2>Requirements</h2><ul><li>Experience shipping workflow software.</li><li>Excellent written communication.</li></ul></section>',
+          '<input type="hidden" name="sessionToken" value="top-secret-token" />',
+          '</main>',
+          '</body>',
+          '</html>',
+        ].join(''),
+        pageTitle: 'Senior Product Designer | LinkedIn',
+        resolvedUrl: 'https://www.linkedin.com/jobs/view/123456',
+      })
+    }),
+  })
+
+  await vacancyService.ingestVacancyUrl({
+    url: 'https://www.linkedin.com/jobs/view/123456',
+  })
+
+  const result = await vacancyService.openBrowserSession({
+    url: 'https://www.linkedin.com/jobs/view/123456',
+  })
+
+  expect(result.kind).toBe('ingested')
+  expect(result.vacancy.id).toBe('vacancy-006')
+  expect(result.vacancy.source).toBe('linkedin')
+  expect(result.vacancy.canGenerate).toBe(true)
+  expect(result.vacancy.title).toBe('Senior Product Designer')
+  expect(result.workspaceState.draft).toEqual({
+    text: '',
+    url: 'https://www.linkedin.com/jobs/view/123456',
+  })
+
+  const snapshotArtifact = await localAppData.artifacts.read({
+    id: 'vacancy-006',
+    name: 'snapshot.html',
+    scope: 'vacancies',
+  })
+
+  expect(snapshotArtifact?.toString('utf8')).toContain('Senior Product Designer')
+  expect(snapshotArtifact?.toString('utf8')).not.toContain('localStorage')
+  expect(snapshotArtifact?.toString('utf8')).not.toContain('sessionToken')
+  expect(snapshotArtifact?.toString('utf8')).not.toContain('top-secret-token')
+
+  await localAppData.close()
+})
+
+test('returns an incomplete browser-assisted preview, preserves the vacancy draft, and keeps adaptation blocked when the authenticated page is still incomplete', async () => {
+  const paths = await createTestPaths()
+  const localAppData = await openLocalAppData({
+    keychain: createKeychainBoundary(),
+    paths,
+  })
+  const vacancyService = createVacancyService({
+    generateId: vi.fn(() => 'vacancy-007'),
+    getCurrentTimestamp: vi.fn(() => '2026-04-08T21:19:00.000Z'),
+    localAppData,
+    openVacancyBrowserSession: vi.fn(() => {
+      return Promise.resolve({
+        html: [
+          '<html>',
+          '<body>',
+          '<main>',
+          '<h1>Sign in to view this job</h1>',
+          '<p>Join LinkedIn or sign in to continue.</p>',
+          '</main>',
+          '</body>',
+          '</html>',
+        ].join(''),
+        pageTitle: 'Sign in to view this job | LinkedIn',
+        resolvedUrl: 'https://www.linkedin.com/jobs/view/123456',
+      })
+    }),
+  })
+
+  await vacancyService.ingestVacancyUrl({
+    url: 'https://www.linkedin.com/jobs/view/123456',
+  })
+
+  const result = await vacancyService.openBrowserSession({
+    url: 'https://www.linkedin.com/jobs/view/123456',
+  })
+
+  expect(result.kind).toBe('incomplete')
+  expect(result.vacancy.source).toBe('linkedin')
+  expect(result.vacancy.canGenerate).toBe(false)
+  expect(result.vacancy.blockingReason).toContain('sign-in wall')
+  expect(result.workspaceState.draft).toEqual({
+    text: '',
+    url: 'https://www.linkedin.com/jobs/view/123456',
+  })
+  expect(result.workspaceState.vacancy).toEqual(
+    expect.objectContaining({
+      id: 'vacancy-007',
+      status: 'incomplete',
+      title: 'Sign in to view this job | LinkedIn',
+    }),
+  )
 
   await localAppData.close()
 })
@@ -250,7 +372,7 @@ test('blocks a generic vacancy preview when the fetched page only contains a coo
     generateId: vi.fn(() => 'vacancy-004'),
     getCurrentTimestamp: vi.fn(() => '2026-04-08T21:20:00.000Z'),
     localAppData,
-    openVacancyBrowserSession: vi.fn(() => Promise.resolve()),
+    openVacancyBrowserSession: vi.fn(() => Promise.resolve(null)),
   })
 
   const result = await vacancyService.ingestVacancyUrl({
@@ -299,7 +421,7 @@ test('clears the persisted vacancy workspace draft without deleting the stored v
     generateId: vi.fn(() => 'vacancy-005'),
     getCurrentTimestamp: vi.fn(() => '2026-04-08T21:30:00.000Z'),
     localAppData,
-    openVacancyBrowserSession: vi.fn(() => Promise.resolve()),
+    openVacancyBrowserSession: vi.fn(() => Promise.resolve(null)),
   })
 
   await vacancyService.ingestPastedVacancy({

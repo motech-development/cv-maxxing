@@ -948,8 +948,50 @@ test('preserves pasted vacancy context in a blocking preview and keeps Adapt CV 
   expect(screen.getByRole('button', { name: 'Adapt CV' })).toHaveProperty('disabled', true)
 })
 
-test('keeps a LinkedIn URL visible and opens the internal browser fallback from the blocking preview', async () => {
-  const openVacancyBrowserSession = vi.fn().mockImplementation(() => Promise.resolve())
+test('restores the vacancy preview from the internal browser session and re-enables adaptation when browser-assisted extraction succeeds', async () => {
+  const openVacancyBrowserSession = vi.fn().mockResolvedValue({
+    kind: 'ingested',
+    vacancy: {
+      blockingReason: null,
+      canGenerate: true,
+      employer: 'Example Labs',
+      fetchedAt: '2026-04-08T21:18:00.000Z',
+      id: 'vacancy-006',
+      inputType: 'url',
+      location: 'London, United Kingdom',
+      originalUrl: 'https://www.linkedin.com/jobs/view/123456',
+      requirements: ['Experience shipping workflow software.'],
+      resolvedUrl: 'https://www.linkedin.com/jobs/view/123456',
+      responsibilities: ['Lead product design for authenticated desktop workflows.'],
+      source: 'linkedin',
+      status: 'ready',
+      textPreview: 'Lead product design for authenticated desktop workflows.',
+      title: 'Senior Product Designer',
+    },
+    workspaceState: {
+      draft: {
+        text: '',
+        url: 'https://www.linkedin.com/jobs/view/123456',
+      },
+      vacancy: {
+        blockingReason: null,
+        canGenerate: true,
+        employer: 'Example Labs',
+        fetchedAt: '2026-04-08T21:18:00.000Z',
+        id: 'vacancy-006',
+        inputType: 'url',
+        location: 'London, United Kingdom',
+        originalUrl: 'https://www.linkedin.com/jobs/view/123456',
+        requirements: ['Experience shipping workflow software.'],
+        resolvedUrl: 'https://www.linkedin.com/jobs/view/123456',
+        responsibilities: ['Lead product design for authenticated desktop workflows.'],
+        source: 'linkedin',
+        status: 'ready',
+        textPreview: 'Lead product design for authenticated desktop workflows.',
+        title: 'Senior Product Designer',
+      },
+    },
+  })
 
   renderApp({
     aiWorker: createAiWorkerApi({
@@ -1048,6 +1090,12 @@ test('keeps a LinkedIn URL visible and opens the internal browser fallback from 
       url: 'https://www.linkedin.com/jobs/view/123456',
     })
   })
+
+  await waitFor(() => {
+    expect(screen.getByText('Senior Product Designer')).toBeDefined()
+  })
+
+  expect(screen.getByRole('button', { name: 'Adapt CV' })).toHaveProperty('disabled', false)
 })
 
 test('resumes the pending flow into the design-aligned loading screen after sign-in repair', async () => {

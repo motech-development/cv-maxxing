@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 
@@ -197,6 +197,124 @@ test('rejects an unreadable original CV replacement without leaving the workspac
   await expect(page.getByRole('heading', { name: 'Create a tailored application' })).toBeVisible()
   await expect(page.getByText('ada-lovelace.pdf')).toBeVisible()
   await expect(page.getByText('1 snapshot')).toBeVisible()
+
+  await electronApp.close()
+})
+
+test('captures a LinkedIn vacancy through the internal browser session and restores a ready preview in the app shell', async () => {
+  const testPaths = await createOriginalCvTestPaths()
+
+  await writeFile(
+    testPaths.pdfPath,
+    createPdfDocumentBuffer([
+      'Ada Lovelace',
+      'Principal Product Designer',
+      'Summary',
+      'Design leader focused on complex workflow products for technical users.',
+      'Experience',
+      'Principal Product Designer | Analytical Engines Ltd',
+      'Led product design for AI-assisted desktop tooling.',
+      'Skills',
+      'Product strategy, UX research, prototyping',
+    ]),
+  )
+
+  const electronApp = await launchDesktopApp({
+    CV_MAXXING_AI_WORKER_PREFLIGHT_STATUS: 'ready',
+    CV_MAXXING_LOCAL_APP_DATA_ROOT: testPaths.appDataRoot,
+    CV_MAXXING_STARTUP_DESTINATION: 'first_launch',
+    CV_MAXXING_VACANCY_BROWSER_SESSION_HTML: [
+      '<html>',
+      '<head><script>localStorage.setItem("sessionToken","top-secret-token")</script></head>',
+      '<body>',
+      '<main>',
+      '<h1>Senior Product Designer</h1>',
+      '<p>Example Labs</p>',
+      '<p>London, United Kingdom</p>',
+      '<section><h2>Responsibilities</h2><ul><li>Lead product design for authenticated desktop workflows.</li><li>Partner with engineering and research.</li></ul></section>',
+      '<section><h2>Requirements</h2><ul><li>Experience shipping workflow software.</li><li>Excellent written communication.</li></ul></section>',
+      '<input type="hidden" name="sessionToken" value="top-secret-token" />',
+      '</main>',
+      '</body>',
+      '</html>',
+    ].join(''),
+    CV_MAXXING_VACANCY_BROWSER_SESSION_RESOLVED_URL: 'https://www.linkedin.com/jobs/view/123456',
+  })
+
+  const page = await electronApp.firstWindow()
+
+  await expect(page.getByRole('heading', { name: 'Import your original CV' })).toBeVisible()
+  await page.getByLabel('Original CV file').setInputFiles(testPaths.pdfPath)
+  await page.getByRole('button', { name: 'Import original CV' }).click()
+  await expect(page.getByRole('heading', { name: 'Create a tailored application' })).toBeVisible()
+  await page.getByLabel('Vacancy URL').fill('https://www.linkedin.com/jobs/view/123456')
+  await page.getByRole('button', { name: 'Review vacancy from URL' }).click()
+  await expect(page.getByText('Browser sign-in required')).toBeVisible()
+  await page.getByRole('button', { name: 'Open internal browser session' }).click()
+  await expect(page.getByText('Senior Product Designer')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Adapt CV' })).toBeEnabled()
+
+  await electronApp.close()
+
+  const persistedPlaintext = await readDirectoryText(testPaths.appDataRoot)
+
+  expect(persistedPlaintext.includes('top-secret-token')).toBe(false)
+  expect(persistedPlaintext.includes('sessionToken')).toBe(false)
+})
+
+test('returns cleanly to the vacancy intake with blocking guidance when the internal browser session still exposes an incomplete page', async () => {
+  const testPaths = await createOriginalCvTestPaths()
+
+  await writeFile(
+    testPaths.pdfPath,
+    createPdfDocumentBuffer([
+      'Ada Lovelace',
+      'Principal Product Designer',
+      'Summary',
+      'Design leader focused on complex workflow products for technical users.',
+      'Experience',
+      'Principal Product Designer | Analytical Engines Ltd',
+      'Led product design for AI-assisted desktop tooling.',
+      'Skills',
+      'Product strategy, UX research, prototyping',
+    ]),
+  )
+
+  const electronApp = await launchDesktopApp({
+    CV_MAXXING_AI_WORKER_PREFLIGHT_STATUS: 'ready',
+    CV_MAXXING_LOCAL_APP_DATA_ROOT: testPaths.appDataRoot,
+    CV_MAXXING_STARTUP_DESTINATION: 'first_launch',
+    CV_MAXXING_VACANCY_BROWSER_SESSION_CLOSE_AFTER_LOAD: 'true',
+    CV_MAXXING_VACANCY_BROWSER_SESSION_HTML: [
+      '<html>',
+      '<body>',
+      '<main>',
+      '<h1>Sign in to view this job</h1>',
+      '<p>Join LinkedIn or sign in to continue.</p>',
+      '</main>',
+      '</body>',
+      '</html>',
+    ].join(''),
+    CV_MAXXING_VACANCY_BROWSER_SESSION_RESOLVED_URL: 'https://www.linkedin.com/jobs/view/123456',
+  })
+
+  const page = await electronApp.firstWindow()
+
+  await expect(page.getByRole('heading', { name: 'Import your original CV' })).toBeVisible()
+  await page.getByLabel('Original CV file').setInputFiles(testPaths.pdfPath)
+  await page.getByRole('button', { name: 'Import original CV' }).click()
+  await expect(page.getByRole('heading', { name: 'Create a tailored application' })).toBeVisible()
+  await page.getByLabel('Vacancy URL').fill('https://www.linkedin.com/jobs/view/123456')
+  await page.getByRole('button', { name: 'Review vacancy from URL' }).click()
+  await expect(page.getByText('Browser sign-in required')).toBeVisible()
+  await page.getByRole('button', { name: 'Open internal browser session' }).click()
+  await expect(
+    page.getByText('This vacancy page looks incomplete because it only exposed a sign-in wall.'),
+  ).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Adapt CV' })).toBeDisabled()
+  await expect(page.getByLabel('Vacancy URL')).toHaveValue(
+    'https://www.linkedin.com/jobs/view/123456',
+  )
 
   await electronApp.close()
 })
@@ -439,6 +557,23 @@ ${String(xrefOffset)}
 %%EOF`
 
   return Buffer.from(pdf, 'utf8')
+}
+
+async function readDirectoryText(rootPath: string): Promise<string> {
+  const entries = await readdir(rootPath, {
+    recursive: true,
+    withFileTypes: true,
+  })
+  const files = entries.filter((entry) => {
+    return entry.isFile()
+  })
+  const fileContents = await Promise.all(
+    files.map(async (entry) => {
+      return await readFile(path.join(entry.parentPath, entry.name))
+    }),
+  )
+
+  return Buffer.concat(fileContents).toString('utf8')
 }
 
 function escapePdfText(value: string): string {

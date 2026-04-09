@@ -88,8 +88,8 @@ export function createDesktopApi({ invoke }: DesktopApiInvoker): CvMaxxingWindow
       ingestVacancyUrl: async (input: VacancyUrlInput): Promise<VacancyIngestResult> => {
         return await invoke(VACANCY_IPC_CHANNELS.ingestUrl, input)
       },
-      openVacancyBrowserSession: async (input: VacancyUrlInput): Promise<void> => {
-        await invoke<undefined>(VACANCY_IPC_CHANNELS.openBrowserSession, input)
+      openVacancyBrowserSession: async (input: VacancyUrlInput): Promise<VacancyIngestResult> => {
+        return await invoke(VACANCY_IPC_CHANNELS.openBrowserSession, input)
       },
     },
   }

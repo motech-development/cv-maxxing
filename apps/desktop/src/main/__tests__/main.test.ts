@@ -59,7 +59,34 @@ function createVacancyDouble() {
     }),
     ingestPastedVacancy: vi.fn(),
     ingestVacancyUrl: vi.fn(),
-    openBrowserSession: vi.fn().mockImplementation(() => Promise.resolve()),
+    openBrowserSession: vi.fn().mockResolvedValue({
+      kind: 'incomplete',
+      vacancy: {
+        blockingReason:
+          'Close the internal browser session after the vacancy page loads, or paste the full job text instead.',
+        canGenerate: false,
+        employer: null,
+        fetchedAt: '2026-04-08T21:15:00.000Z',
+        id: 'vacancy-pending-browser',
+        inputType: 'url',
+        location: null,
+        originalUrl: 'https://www.linkedin.com/jobs/view/123456',
+        requirements: [],
+        resolvedUrl: null,
+        responsibilities: [],
+        source: 'linkedin',
+        status: 'incomplete',
+        textPreview: '',
+        title: null,
+      },
+      workspaceState: {
+        draft: {
+          text: '',
+          url: 'https://www.linkedin.com/jobs/view/123456',
+        },
+        vacancy: null,
+      },
+    }),
     resetWorkspaceState: vi.fn().mockImplementation(() => Promise.resolve()),
   }
 }
@@ -243,7 +270,34 @@ test('bootstrap registers the full AI worker onboarding IPC surface and opens th
         vacancy: null,
       },
     }),
-    openBrowserSession: vi.fn().mockImplementation(() => Promise.resolve()),
+    openBrowserSession: vi.fn().mockResolvedValue({
+      kind: 'incomplete',
+      vacancy: {
+        blockingReason:
+          'Close the internal browser session after the vacancy page loads, or paste the full job text instead.',
+        canGenerate: false,
+        employer: null,
+        fetchedAt: '2026-04-08T21:15:00.000Z',
+        id: 'vacancy-pending-browser',
+        inputType: 'url',
+        location: null,
+        originalUrl: 'https://www.linkedin.com/jobs/view/123456',
+        requirements: [],
+        resolvedUrl: null,
+        responsibilities: [],
+        source: 'linkedin',
+        status: 'incomplete',
+        textPreview: '',
+        title: null,
+      },
+      workspaceState: {
+        draft: {
+          text: '',
+          url: 'https://www.linkedin.com/jobs/view/123456',
+        },
+        vacancy: null,
+      },
+    }),
     resetWorkspaceState: vi.fn().mockImplementation(() => Promise.resolve()),
   }
   const tailoredApplication = createTailoredApplicationDouble()
@@ -481,7 +535,34 @@ test('bootstrap registers the full AI worker onboarding IPC surface and opens th
     registeredHandlers.get(VACANCY_IPC_CHANNELS.openBrowserSession)?.(undefined, {
       url: 'https://www.linkedin.com/jobs/view/123456',
     }),
-  ).resolves.toBeUndefined()
+  ).resolves.toEqual({
+    kind: 'incomplete',
+    vacancy: {
+      blockingReason:
+        'Close the internal browser session after the vacancy page loads, or paste the full job text instead.',
+      canGenerate: false,
+      employer: null,
+      fetchedAt: '2026-04-08T21:15:00.000Z',
+      id: 'vacancy-pending-browser',
+      inputType: 'url',
+      location: null,
+      originalUrl: 'https://www.linkedin.com/jobs/view/123456',
+      requirements: [],
+      resolvedUrl: null,
+      responsibilities: [],
+      source: 'linkedin',
+      status: 'incomplete',
+      textPreview: '',
+      title: null,
+    },
+    workspaceState: {
+      draft: {
+        text: '',
+        url: 'https://www.linkedin.com/jobs/view/123456',
+      },
+      vacancy: null,
+    },
+  })
   expect(vacancy.ingestVacancyUrl).toHaveBeenCalledWith({
     url: 'https://www.linkedin.com/jobs/view/123456',
   })
