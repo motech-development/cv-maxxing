@@ -1,9 +1,12 @@
+import { spawn } from 'node:child_process'
+
 import type { AiWorkerFailureCode, AiWorkerPreflightResult } from '../shared/ai-worker-preflight.js'
 import type { PendingGenerationCommand } from '../shared/pending-generation.js'
 import type { StartupDestination } from '../shared/startup-destination.js'
 
 export interface AiWorkerPreflightEnvironment {
   CHECKING_TIMEOUT_MS?: string
+  CV_MAXXING_AI_WORKER_CODEX_COMMAND?: string
   CV_MAXXING_AI_WORKER_PREFLIGHT_STATUS?: string
   CV_MAXXING_AI_WORKER_RETRY_STATUS?: string
   CV_MAXXING_AI_WORKER_SIGN_IN_STATUS?: string
@@ -22,6 +25,12 @@ export interface AiWorkerProbeInput {
   timeoutMs: number
 }
 
+interface CommandExecutionResult {
+  exitCode: number
+  stderr: string
+  stdout: string
+}
+
 export interface AiWorkerPreflightService {
   getAiWorkerPreflight: () => Promise<AiWorkerPreflightResult>
   getStartupDestination: () => Promise<StartupDestination>
@@ -37,6 +46,11 @@ interface CreateAiWorkerPreflightServiceOptions {
   getPersistedStartupDestination?: () => Promise<StartupDestination | null>
   openAiWorkerSetupGuide?: () => Promise<void>
   probeAiWorker?: (input: AiWorkerProbeInput) => Promise<AiWorkerProbeOutcome>
+  runCommand?: (
+    command: string,
+    args: string[],
+    timeoutMs: number,
+  ) => Promise<CommandExecutionResult>
 }
 
 const DEFAULT_CHECKING_TIMEOUT_MS = 12_000
@@ -59,7 +73,11 @@ export function createAiWorkerPreflightService({
   getPersistedCheckingTimeout = resolveNullCheckingTimeout,
   getPersistedStartupDestination = resolveNullStartupDestination,
   openAiWorkerSetupGuide = resolveVoid,
-  probeAiWorker = createEnvironmentBackedProbe(environment),
+  runCommand = executeCommand,
+  probeAiWorker = createProbeAiWorker({
+    environment,
+    runCommand,
+  }),
 }: CreateAiWorkerPreflightServiceOptions = {}): AiWorkerPreflightService {
   async function runPreflight(
     reason: AiWorkerProbeInput['reason'],
@@ -145,48 +163,66 @@ export function resolveCheckingTimeoutMs({
   return DEFAULT_CHECKING_TIMEOUT_MS
 }
 
-function createEnvironmentBackedProbe(
-  environment: AiWorkerPreflightEnvironment,
-): (input: AiWorkerProbeInput) => Promise<AiWorkerProbeOutcome> {
-  return async ({ reason }) => {
-    const status = readProbeStatus({
+function createProbeAiWorker({
+  environment,
+  runCommand,
+}: {
+  environment: AiWorkerPreflightEnvironment
+  runCommand: (
+    command: string,
+    args: string[],
+    timeoutMs: number,
+  ) => Promise<CommandExecutionResult>
+}): (input: AiWorkerProbeInput) => Promise<AiWorkerProbeOutcome> {
+  return async ({ reason, timeoutMs }) => {
+    const statusOverride = readProbeStatusOverride({
       environment,
       reason,
     })
 
-    if (status === 'hang') {
-      return await new Promise<AiWorkerProbeOutcome>((resolve) => {
-        void resolve
-      })
+    if (statusOverride !== undefined) {
+      const status = normalizeProbeStatus(statusOverride)
+
+      if (status === 'hang') {
+        return await new Promise<AiWorkerProbeOutcome>((resolve) => {
+          void resolve
+        })
+      }
+
+      return status
     }
 
-    return status
+    return await probeCodexCli({
+      command: environment.CV_MAXXING_AI_WORKER_CODEX_COMMAND ?? 'codex',
+      runCommand,
+      timeoutMs,
+    })
   }
 }
 
-function readProbeStatus({
+function readProbeStatusOverride({
   environment,
   reason,
 }: {
   environment: AiWorkerPreflightEnvironment
   reason: AiWorkerProbeInput['reason']
-}): AiWorkerProbeOutcome {
+}): string | undefined {
   if (reason === 'sign_in') {
-    return normalizeProbeStatus(
+    return (
       environment.CV_MAXXING_AI_WORKER_SIGN_IN_STATUS ??
-        environment.CV_MAXXING_AI_WORKER_RETRY_STATUS ??
-        environment.CV_MAXXING_AI_WORKER_PREFLIGHT_STATUS,
+      environment.CV_MAXXING_AI_WORKER_RETRY_STATUS ??
+      environment.CV_MAXXING_AI_WORKER_PREFLIGHT_STATUS
     )
   }
 
   if (reason === 'retry') {
-    return normalizeProbeStatus(
+    return (
       environment.CV_MAXXING_AI_WORKER_RETRY_STATUS ??
-        environment.CV_MAXXING_AI_WORKER_PREFLIGHT_STATUS,
+      environment.CV_MAXXING_AI_WORKER_PREFLIGHT_STATUS
     )
   }
 
-  return normalizeProbeStatus(environment.CV_MAXXING_AI_WORKER_PREFLIGHT_STATUS)
+  return environment.CV_MAXXING_AI_WORKER_PREFLIGHT_STATUS
 }
 
 function normalizeProbeStatus(status: string | undefined): AiWorkerProbeOutcome {
@@ -237,6 +273,101 @@ async function resolveProbeOutcome({
       clearTimeout(timeoutId)
     }
   }
+}
+
+async function probeCodexCli({
+  command,
+  runCommand,
+  timeoutMs,
+}: {
+  command: string
+  runCommand: (
+    command: string,
+    args: string[],
+    timeoutMs: number,
+  ) => Promise<CommandExecutionResult>
+  timeoutMs: number
+}): Promise<AiWorkerProbeOutcome> {
+  try {
+    const loginStatus = await runCommand(command, ['login', 'status'], timeoutMs)
+
+    if (loginStatus.exitCode === 0) {
+      return 'ready'
+    }
+
+    const diagnosticText = `${loginStatus.stdout}\n${loginStatus.stderr}`.toLowerCase()
+
+    if (diagnosticText.includes('expired')) {
+      return 'auth_expired'
+    }
+
+    if (
+      diagnosticText.includes('not logged in') ||
+      diagnosticText.includes('login required') ||
+      diagnosticText.includes('sign in')
+    ) {
+      return 'auth_missing'
+    }
+
+    return 'launch_failed'
+  } catch (error) {
+    if (isCommandMissingError(error)) {
+      return 'runtime_missing'
+    }
+
+    if (isCommandTimeoutError(error)) {
+      return 'hang'
+    }
+
+    return 'launch_failed'
+  }
+}
+
+async function executeCommand(
+  command: string,
+  args: string[],
+  timeoutMs: number,
+): Promise<CommandExecutionResult> {
+  return await new Promise((resolve, reject) => {
+    const stdoutChunks: string[] = []
+    const stderrChunks: string[] = []
+
+    const child = spawn(command, args, {
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+
+    const timeoutId = setTimeout(() => {
+      child.kill('SIGTERM')
+      reject(new Error('Command timed out.'))
+    }, timeoutMs)
+
+    child.stdout.on('data', (chunk: Buffer | string) => {
+      stdoutChunks.push(chunk.toString())
+    })
+    child.stderr.on('data', (chunk: Buffer | string) => {
+      stderrChunks.push(chunk.toString())
+    })
+    child.on('error', (error) => {
+      clearTimeout(timeoutId)
+      reject(error)
+    })
+    child.on('close', (code) => {
+      clearTimeout(timeoutId)
+      resolve({
+        exitCode: code ?? 1,
+        stderr: stderrChunks.join(''),
+        stdout: stdoutChunks.join(''),
+      })
+    })
+  })
+}
+
+function isCommandMissingError(error: unknown): error is NodeJS.ErrnoException {
+  return error instanceof Error && 'code' in error && error.code === 'ENOENT'
+}
+
+function isCommandTimeoutError(error: unknown): error is Error {
+  return error instanceof Error && error.message === 'Command timed out.'
 }
 
 function mapProbeOutcomeToPreflightResult({

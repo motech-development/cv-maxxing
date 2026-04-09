@@ -35,6 +35,74 @@ test('falls back to persisted checking timeout and then the 12000 ms default', (
   ).toBe(12 * 1000)
 })
 
+test('probes the configured Codex CLI when no test override status is present', async () => {
+  const service = createAiWorkerPreflightService({
+    environment: {
+      CV_MAXXING_AI_WORKER_CODEX_COMMAND: 'custom-codex',
+    },
+    getPendingGenerationCommand: vi.fn().mockResolvedValue(null),
+    getPersistedCheckingTimeout: vi.fn().mockResolvedValue(null),
+    getPersistedStartupDestination: vi.fn().mockResolvedValue('first_launch'),
+    runCommand: vi.fn().mockResolvedValue({
+      exitCode: 0,
+      stderr: '',
+      stdout: 'Logged in using ChatGPT',
+    }),
+  })
+
+  await expect(service.getAiWorkerPreflight()).resolves.toEqual({
+    canResumeGeneration: true,
+    message: 'The local AI worker is ready.',
+    provider: 'codex',
+    status: 'ready',
+  })
+})
+
+test('maps a CLI login-status auth failure to sign-in-required guidance', async () => {
+  const service = createAiWorkerPreflightService({
+    environment: {},
+    getPendingGenerationCommand: vi.fn().mockResolvedValue(null),
+    getPersistedCheckingTimeout: vi.fn().mockResolvedValue(null),
+    getPersistedStartupDestination: vi.fn().mockResolvedValue('first_launch'),
+    runCommand: vi.fn().mockResolvedValue({
+      exitCode: 1,
+      stderr: '',
+      stdout: 'Not logged in',
+    }),
+  })
+
+  await expect(service.getAiWorkerPreflight()).resolves.toEqual({
+    canResumeGeneration: false,
+    failureCode: 'auth_missing',
+    message: 'The local AI worker needs a valid sign-in before CV Maxxing can continue.',
+    provider: 'codex',
+    status: 'sign_in_required',
+  })
+})
+
+test('maps an expired CLI session to the expired-auth guidance', async () => {
+  const service = createAiWorkerPreflightService({
+    environment: {},
+    getPendingGenerationCommand: vi.fn().mockResolvedValue(null),
+    getPersistedCheckingTimeout: vi.fn().mockResolvedValue(null),
+    getPersistedStartupDestination: vi.fn().mockResolvedValue('first_launch'),
+    runCommand: vi.fn().mockResolvedValue({
+      exitCode: 1,
+      stderr: '',
+      stdout: 'Session expired. Sign in again.',
+    }),
+  })
+
+  await expect(service.getAiWorkerPreflight()).resolves.toEqual({
+    canResumeGeneration: false,
+    failureCode: 'auth_expired',
+    message:
+      'The local AI worker sign-in has expired. Sign in again before CV Maxxing can continue.',
+    provider: 'codex',
+    status: 'sign_in_required',
+  })
+})
+
 test('returns sign-in-required guidance and keeps resumability when a pending generation is blocked on auth', async () => {
   const service = createAiWorkerPreflightService({
     environment: {
