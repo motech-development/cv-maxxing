@@ -18,7 +18,8 @@
   "packageManager": "pnpm@10.28.0",
   "pnpm": {
     "onlyBuiltDependencies": [
-      "@journeyapps/sqlcipher"
+      "@journeyapps/sqlcipher",
+      "electron"
     ]
   },
   "devDependencies": {

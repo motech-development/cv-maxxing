@@ -24,7 +24,7 @@ These rules always apply. Follow project-local rules first when they are more sp
 ### Project-Specific Conventions
 
 - Use `pnpm` as the package manager and keep the repository as a `pnpm` workspace, even while v1 ships as one desktop app package. The repository already declares `pnpm@10.28.0` in `package.json`.
-- Keep native install scripts on the `pnpm` allowlist narrowly scoped. The workspace currently permits `@journeyapps/sqlcipher` because the encrypted metadata layer depends on its SQLCipher binary.
+- Keep native install scripts on the `pnpm` allowlist narrowly scoped. The workspace currently permits `@journeyapps/sqlcipher` for the encrypted metadata layer and `electron` for required smoke, visual, and packaged desktop verification binaries.
 - Put package-specific build, dev, test, smoke, and type-check scripts in the owning workspace package. Keep root scripts limited to repo-wide tooling instead of delegating app-specific commands.
 - Use Node 24 as the project runtime version. The repository pins this in `.nvmrc`.
 - Use Conventional Commits for commit messages. Husky runs commitlint on `commit-msg` to enforce this.
