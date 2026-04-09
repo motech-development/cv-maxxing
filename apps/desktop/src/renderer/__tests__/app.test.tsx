@@ -185,6 +185,11 @@ function createTailoredApplicationApi(
       overwriteAvoided: true,
       pageWarning: 'This adapted CV runs to 4 pages. Export is still available.',
     }),
+    exportCoverLetterPdf: vi.fn().mockResolvedValue({
+      filePath: '/exports/Ada Lovelace - Senior platform engineer - cover-letter (2).pdf',
+      overwriteAvoided: true,
+      pageWarning: 'This cover letter runs to 2 pages. Export and copy remain available.',
+    }),
     resumePendingGeneration: vi.fn().mockResolvedValue({
       generationRunId: 'run-123',
       tailoredApplicationId: 'tailored-application-123',
@@ -1256,18 +1261,32 @@ test('automatically opens the tailored application after generation completes fr
     .mockResolvedValueOnce('workspace_loading')
     .mockResolvedValueOnce('workspace_active')
   const completePendingGeneration = vi.fn().mockImplementation(() => Promise.resolve())
+  const clipboardWriteText = vi.fn().mockImplementation(() => Promise.resolve())
   const exportAdaptedCvPdf = vi.fn().mockResolvedValue({
     filePath: '/exports/Ada Lovelace - Senior platform engineer - adapted-cv (2).pdf',
     overwriteAvoided: true,
     pageWarning: 'This adapted CV runs to 4 pages. Export is still available.',
   })
+  const exportCoverLetterPdf = vi.fn().mockResolvedValue({
+    filePath: '/exports/Ada Lovelace - Senior platform engineer - cover-letter (2).pdf',
+    overwriteAvoided: true,
+    pageWarning: 'This cover letter runs to 2 pages. Export and copy remain available.',
+  })
   const getTailoredApplicationPreview = vi.fn().mockResolvedValue({
+    adaptedCv: {
+      pageCount: 4,
+      pageWarning: 'This adapted CV runs to 4 pages. Export is still available.',
+      pdfBytes: new Uint8Array([37, 80, 68, 70]),
+    },
+    coverLetter: {
+      pageCount: 2,
+      pageWarning: 'This cover letter runs to 2 pages. Export and copy remain available.',
+      pdfBytes: new Uint8Array([37, 80, 68, 70, 45, 67, 76]),
+      plainText: 'Dear Hiring Manager,\n\nAda Lovelace',
+    },
     createdAt: '2026-04-09T09:30:00.000Z',
     employer: 'Example Labs',
     id: 'tailored-application-123',
-    pageCount: 4,
-    pageWarning: 'This adapted CV runs to 4 pages. Export is still available.',
-    pdfBytes: new Uint8Array([37, 80, 68, 70]),
     title: 'Senior platform engineer · Example Labs',
     vacancyTitle: 'Senior platform engineer',
   })
@@ -1303,6 +1322,7 @@ test('automatically opens the tailored application after generation completes fr
     tailoredApplication: createTailoredApplicationApi({
       completePendingGeneration,
       exportAdaptedCvPdf,
+      exportCoverLetterPdf,
       getTailoredApplicationPreview,
       getWorkspaceState,
       resumePendingGeneration,
@@ -1317,6 +1337,13 @@ test('automatically opens the tailored application after generation completes fr
         },
       }),
     }),
+  })
+
+  Object.defineProperty(globalThis.navigator, 'clipboard', {
+    configurable: true,
+    value: {
+      writeText: clipboardWriteText,
+    },
   })
 
   await waitFor(() => {
@@ -1339,12 +1366,28 @@ test('automatically opens the tailored application after generation completes fr
     screen.getByText('This adapted CV runs to 4 pages. Export is still available.'),
   ).toBeDefined()
   expect(screen.getByRole('button', { name: 'Zoom in' })).toBeDefined()
-  expect(screen.getByRole('button', { name: 'Export PDF' })).toBeDefined()
+  expect(screen.getByRole('button', { name: 'Export PDFs' })).toBeDefined()
 
-  fireEvent.click(screen.getByRole('button', { name: 'Export PDF' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Export PDFs' }))
 
   await waitFor(() => {
     expect(exportAdaptedCvPdf).toHaveBeenCalledWith('tailored-application-123')
+  })
+
+  fireEvent.click(screen.getByRole('button', { name: 'Cover letter' }))
+
+  await waitFor(() => {
+    expect(
+      screen.getByText('This cover letter runs to 2 pages. Export and copy remain available.'),
+    ).toBeDefined()
+  })
+
+  fireEvent.click(screen.getByRole('button', { name: 'Export PDFs' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Copy cover letter text' }))
+
+  await waitFor(() => {
+    expect(exportCoverLetterPdf).toHaveBeenCalledWith('tailored-application-123')
+    expect(clipboardWriteText).toHaveBeenCalledWith('Dear Hiring Manager,\n\nAda Lovelace')
   })
 })
 

@@ -64,13 +64,22 @@ export interface TailoredApplicationWorkspaceState {
   applications: TailoredApplicationListItem[]
 }
 
-export interface TailoredApplicationPreview {
-  createdAt: string
-  employer: string | null
-  id: string
+export interface TailoredApplicationPdfPreview {
   pageCount: number
   pageWarning: string | null
   pdfBytes: Uint8Array
+}
+
+export interface TailoredApplicationCoverLetterPreview extends TailoredApplicationPdfPreview {
+  plainText: string
+}
+
+export interface TailoredApplicationPreview {
+  adaptedCv: TailoredApplicationPdfPreview
+  coverLetter: TailoredApplicationCoverLetterPreview
+  createdAt: string
+  employer: string | null
+  id: string
   title: string
   vacancyTitle: string | null
 }

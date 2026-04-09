@@ -43,6 +43,9 @@ export interface CvMaxxingWindowApi {
     exportAdaptedCvPdf: (
       tailoredApplicationId: string,
     ) => Promise<TailoredApplicationExportResult | null>
+    exportCoverLetterPdf: (
+      tailoredApplicationId: string,
+    ) => Promise<TailoredApplicationExportResult | null>
     getPendingGenerationCommand: () => Promise<PendingGenerationCommand | null>
     getTailoredApplicationPreview: (
       tailoredApplicationId: string,

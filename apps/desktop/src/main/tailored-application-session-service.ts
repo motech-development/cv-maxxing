@@ -22,6 +22,7 @@ import type { VacancyDraft } from '../shared/vacancy.js'
 import type { AiWorkerPreflightService } from './ai-worker-preflight-service.js'
 import type { AiWorkerReadinessStore } from './ai-worker-readiness-store.js'
 import { buildAdaptedCvExportFilename, resolveUniqueExportFilePath } from './adapted-cv-document.js'
+import { buildCoverLetterExportFilename } from './cover-letter-document.js'
 import type { JsonValue, LocalAppDataStore } from './local-app-data-service.js'
 
 const ORIGINAL_CV_SCOPE = 'original-cvs'
@@ -33,6 +34,7 @@ const PENDING_GENERATION_SESSION_ENTRY_ID = 'active-session'
 const TAILORED_APPLICATION_SCOPE = 'tailored-applications'
 const GENERATION_RUN_SCOPE = 'generation-runs'
 const ADAPTED_CV_PDF_ARTIFACT_NAME = 'adapted-cv.pdf'
+const COVER_LETTER_PDF_ARTIFACT_NAME = 'cover-letter.pdf'
 
 const BRITISH_MONTH_NAMES = [
   'January',
@@ -84,6 +86,9 @@ export interface TailoredApplicationSessionService {
   exportAdaptedCvPdf: (
     tailoredApplicationId: string,
   ) => Promise<TailoredApplicationExportResult | null>
+  exportCoverLetterPdf: (
+    tailoredApplicationId: string,
+  ) => Promise<TailoredApplicationExportResult | null>
   getPendingGenerationCommand: () => Promise<PendingGenerationCommand | null>
   getTailoredApplicationPreview: (
     tailoredApplicationId: string,
@@ -97,6 +102,18 @@ export interface TailoredApplicationSessionService {
 export interface AdaptedCvRenderer {
   renderAdaptedCvPdf: (input: {
     adaptedCv: AdaptedCvModel
+    employer: string | null
+    vacancyTitle: string | null
+  }) => Promise<{
+    pageCount: number
+    pageWarning: string | null
+    pdfBytes: Uint8Array
+  }>
+}
+
+export interface CoverLetterRenderer {
+  renderCoverLetterPdf: (input: {
+    coverLetter: CoverLetterModel
     employer: string | null
     vacancyTitle: string | null
   }) => Promise<{
@@ -139,6 +156,8 @@ interface TailoredApplicationMetadataValue extends Record<string, JsonValue> {
   adaptedCvPageCount: number | null
   adaptedCvPageWarning: string | null
   candidateName: string | null
+  coverLetterPageCount: number | null
+  coverLetterPageWarning: string | null
   createdAt: string
   employer: string | null
   originalCvId: string
@@ -163,6 +182,7 @@ interface VacancyWorkspaceMetadataValue extends Record<string, JsonValue> {
 interface CreateTailoredApplicationSessionServiceOptions {
   adaptedCvRenderer?: AdaptedCvRenderer
   aiWorker: Pick<AiWorkerPreflightService, 'retryAiWorkerPreflight'>
+  coverLetterRenderer?: CoverLetterRenderer
   exportDialog?: TailoredApplicationExportDialog
   generateId?: () => string
   getCurrentTimestamp?: () => string
@@ -213,6 +233,12 @@ const missingAdaptedCvRenderer: AdaptedCvRenderer = {
   },
 }
 
+const missingCoverLetterRenderer: CoverLetterRenderer = {
+  renderCoverLetterPdf: () => {
+    return Promise.reject(new Error('No cover-letter renderer is configured.'))
+  },
+}
+
 function createTailoredApplicationTitle({
   employer,
   vacancyTitle,
@@ -234,6 +260,7 @@ function createTailoredApplicationTitle({
 export function createTailoredApplicationSessionService({
   adaptedCvRenderer = missingAdaptedCvRenderer,
   aiWorker,
+  coverLetterRenderer = missingCoverLetterRenderer,
   exportDialog,
   generateId = randomUUID,
   getCurrentTimestamp = () => {
@@ -442,9 +469,12 @@ export function createTailoredApplicationSessionService({
   async function persistReadyArtifacts({
     adaptedCvPageCount,
     adaptedCvPageWarning,
+    adaptedCvPdfBytes,
+    coverLetterPageCount,
+    coverLetterPageWarning,
+    coverLetterPdfBytes,
     employer,
     originalCvId,
-    pdfBytes,
     result,
     tailoredApplicationId,
     timestamp,
@@ -453,9 +483,12 @@ export function createTailoredApplicationSessionService({
   }: {
     adaptedCvPageCount: number
     adaptedCvPageWarning: string | null
+    adaptedCvPdfBytes: Uint8Array
+    coverLetterPageCount: number
+    coverLetterPageWarning: string | null
+    coverLetterPdfBytes: Uint8Array
     employer: string | null
     originalCvId: string
-    pdfBytes: Uint8Array
     result: TailoredApplicationGenerationResult
     tailoredApplicationId: string
     timestamp: string
@@ -469,6 +502,8 @@ export function createTailoredApplicationSessionService({
         adaptedCvPageCount,
         adaptedCvPageWarning,
         candidateName: result.adaptedCv.candidateName,
+        coverLetterPageCount,
+        coverLetterPageWarning,
         createdAt: timestamp,
         employer,
         originalCvId,
@@ -484,7 +519,7 @@ export function createTailoredApplicationSessionService({
       scope: TAILORED_APPLICATION_SCOPE,
     })
     await localAppData.artifacts.write({
-      content: Buffer.from(pdfBytes),
+      content: Buffer.from(adaptedCvPdfBytes),
       id: tailoredApplicationId,
       name: ADAPTED_CV_PDF_ARTIFACT_NAME,
       scope: TAILORED_APPLICATION_SCOPE,
@@ -493,6 +528,12 @@ export function createTailoredApplicationSessionService({
       content: Buffer.from(JSON.stringify(result.coverLetter), 'utf8'),
       id: tailoredApplicationId,
       name: 'cover-letter.json',
+      scope: TAILORED_APPLICATION_SCOPE,
+    })
+    await localAppData.artifacts.write({
+      content: Buffer.from(coverLetterPdfBytes),
+      id: tailoredApplicationId,
+      name: COVER_LETTER_PDF_ARTIFACT_NAME,
       scope: TAILORED_APPLICATION_SCOPE,
     })
     await localAppData.artifacts.write({
@@ -527,6 +568,8 @@ export function createTailoredApplicationSessionService({
         adaptedCvPageCount: null,
         adaptedCvPageWarning: null,
         candidateName: null,
+        coverLetterPageCount: null,
+        coverLetterPageWarning: null,
         createdAt: timestamp,
         employer: null,
         originalCvId,
@@ -550,6 +593,66 @@ export function createTailoredApplicationSessionService({
     }
 
     return metadata
+  }
+
+  async function exportPdfArtifact({
+    artifactName,
+    defaultFilename,
+    pageWarning,
+    tailoredApplicationId,
+    title,
+  }: {
+    artifactName: string
+    defaultFilename: string
+    pageWarning: string | null
+    tailoredApplicationId: string
+    title: string
+  }): Promise<TailoredApplicationExportResult | null> {
+    const pdfBytes = await localAppData.artifacts.read({
+      id: tailoredApplicationId,
+      name: artifactName,
+      scope: TAILORED_APPLICATION_SCOPE,
+    })
+
+    if (pdfBytes === null || exportDialog === undefined) {
+      return null
+    }
+
+    const dialogResult = await exportDialog.showSaveDialog({
+      defaultPath: defaultFilename,
+      filters: [
+        {
+          extensions: ['pdf'],
+          name: 'PDF',
+        },
+      ],
+      title,
+    })
+
+    if (dialogResult.canceled || dialogResult.filePath === undefined) {
+      return null
+    }
+
+    const resolvedPath = await resolveUniqueExportFilePath(
+      dialogResult.filePath,
+      async (candidatePath) => {
+        try {
+          await access(candidatePath)
+
+          return true
+        } catch {
+          return false
+        }
+      },
+    )
+
+    await writeFile(resolvedPath, pdfBytes)
+
+    return {
+      filePath: resolvedPath,
+      overwriteAvoided: resolvedPath !== dialogResult.filePath,
+      pageWarning,
+    }
   }
 
   async function removeRunWorkspace(generationRunId: string): Promise<void> {
@@ -620,22 +723,32 @@ export function createTailoredApplicationSessionService({
         runDirectoryPath,
         signal: activeAbortController?.signal ?? new AbortController().signal,
       })
-      const renderedAdaptedCv = await adaptedCvRenderer.renderAdaptedCvPdf({
-        adaptedCv: result.adaptedCv,
-        employer: vacancy.employer,
-        vacancyTitle: vacancy.title,
-      })
 
       validateTailoredApplicationGenerationResult(result, {
         originalCvText: originalCv.originalCvText,
         vacancyText: vacancy.vacancyText,
       })
+      const [renderedAdaptedCv, renderedCoverLetter] = await Promise.all([
+        adaptedCvRenderer.renderAdaptedCvPdf({
+          adaptedCv: result.adaptedCv,
+          employer: vacancy.employer,
+          vacancyTitle: vacancy.title,
+        }),
+        coverLetterRenderer.renderCoverLetterPdf({
+          coverLetter: result.coverLetter,
+          employer: vacancy.employer,
+          vacancyTitle: vacancy.title,
+        }),
+      ])
       await persistReadyArtifacts({
         adaptedCvPageCount: renderedAdaptedCv.pageCount,
         adaptedCvPageWarning: renderedAdaptedCv.pageWarning,
+        adaptedCvPdfBytes: renderedAdaptedCv.pdfBytes,
+        coverLetterPageCount: renderedCoverLetter.pageCount,
+        coverLetterPageWarning: renderedCoverLetter.pageWarning,
+        coverLetterPdfBytes: renderedCoverLetter.pdfBytes,
         employer: vacancy.employer,
         originalCvId: command.originalCvId,
-        pdfBytes: renderedAdaptedCv.pdfBytes,
         result,
         tailoredApplicationId,
         timestamp,
@@ -747,55 +860,34 @@ export function createTailoredApplicationSessionService({
         return null
       }
 
-      const pdfBytes = await localAppData.artifacts.read({
-        id: tailoredApplicationId,
-        name: ADAPTED_CV_PDF_ARTIFACT_NAME,
-        scope: TAILORED_APPLICATION_SCOPE,
-      })
-
-      if (pdfBytes === null || exportDialog === undefined) {
-        return null
-      }
-
-      const defaultFilename = buildAdaptedCvExportFilename({
-        candidateName: metadata.candidateName ?? 'adapted-cv',
-        vacancyTitle: metadata.vacancyTitle,
-      })
-      const dialogResult = await exportDialog.showSaveDialog({
-        defaultPath: defaultFilename,
-        filters: [
-          {
-            extensions: ['pdf'],
-            name: 'PDF',
-          },
-        ],
+      return await exportPdfArtifact({
+        artifactName: ADAPTED_CV_PDF_ARTIFACT_NAME,
+        defaultFilename: buildAdaptedCvExportFilename({
+          candidateName: metadata.candidateName ?? 'adapted-cv',
+          vacancyTitle: metadata.vacancyTitle,
+        }),
+        pageWarning: metadata.adaptedCvPageWarning,
+        tailoredApplicationId,
         title: 'Export adapted CV PDF',
       })
+    },
+    exportCoverLetterPdf: async (tailoredApplicationId) => {
+      const metadata = await getReadyTailoredApplicationMetadata(tailoredApplicationId)
 
-      if (dialogResult.canceled || dialogResult.filePath === undefined) {
+      if (metadata === null) {
         return null
       }
 
-      const resolvedPath = await resolveUniqueExportFilePath(
-        dialogResult.filePath,
-        async (candidatePath) => {
-          try {
-            await access(candidatePath)
-
-            return true
-          } catch {
-            return false
-          }
-        },
-      )
-
-      await writeFile(resolvedPath, pdfBytes)
-
-      return {
-        filePath: resolvedPath,
-        overwriteAvoided: resolvedPath !== dialogResult.filePath,
-        pageWarning: metadata.adaptedCvPageWarning,
-      }
+      return await exportPdfArtifact({
+        artifactName: COVER_LETTER_PDF_ARTIFACT_NAME,
+        defaultFilename: buildCoverLetterExportFilename({
+          candidateName: metadata.candidateName ?? 'cover-letter',
+          vacancyTitle: metadata.vacancyTitle,
+        }),
+        pageWarning: metadata.coverLetterPageWarning,
+        tailoredApplicationId,
+        title: 'Export cover letter PDF',
+      })
     },
     getPendingGenerationCommand: async () => {
       return await readinessStore.getPendingGenerationCommand()
@@ -807,23 +899,49 @@ export function createTailoredApplicationSessionService({
         return null
       }
 
-      const pdfBytes = await localAppData.artifacts.read({
-        id: tailoredApplicationId,
-        name: ADAPTED_CV_PDF_ARTIFACT_NAME,
-        scope: TAILORED_APPLICATION_SCOPE,
-      })
+      const [adaptedCvPdfBytes, coverLetterPdfBytes, coverLetterPlainTextBytes] = await Promise.all(
+        [
+          localAppData.artifacts.read({
+            id: tailoredApplicationId,
+            name: ADAPTED_CV_PDF_ARTIFACT_NAME,
+            scope: TAILORED_APPLICATION_SCOPE,
+          }),
+          localAppData.artifacts.read({
+            id: tailoredApplicationId,
+            name: COVER_LETTER_PDF_ARTIFACT_NAME,
+            scope: TAILORED_APPLICATION_SCOPE,
+          }),
+          localAppData.artifacts.read({
+            id: tailoredApplicationId,
+            name: 'cover-letter.txt',
+            scope: TAILORED_APPLICATION_SCOPE,
+          }),
+        ],
+      )
 
-      if (pdfBytes === null) {
+      if (
+        adaptedCvPdfBytes === null ||
+        coverLetterPdfBytes === null ||
+        coverLetterPlainTextBytes === null
+      ) {
         return null
       }
 
       return {
+        adaptedCv: {
+          pageCount: metadata.adaptedCvPageCount ?? 1,
+          pageWarning: metadata.adaptedCvPageWarning,
+          pdfBytes: new Uint8Array(adaptedCvPdfBytes),
+        },
+        coverLetter: {
+          pageCount: metadata.coverLetterPageCount ?? 1,
+          pageWarning: metadata.coverLetterPageWarning,
+          pdfBytes: new Uint8Array(coverLetterPdfBytes),
+          plainText: coverLetterPlainTextBytes.toString('utf8'),
+        },
         createdAt: metadata.createdAt,
         employer: metadata.employer,
         id: tailoredApplicationId,
-        pageCount: metadata.adaptedCvPageCount ?? 1,
-        pageWarning: metadata.adaptedCvPageWarning,
-        pdfBytes: new Uint8Array(pdfBytes),
         title: createTailoredApplicationTitle(metadata),
         vacancyTitle: metadata.vacancyTitle,
       }

@@ -1,4 +1,4 @@
-import { mkdtemp, mkdir, readFile, rm, stat } from 'node:fs/promises'
+import { mkdtemp, mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 
@@ -36,9 +36,17 @@ test('assembles structured worker inputs and persists immutable tailored-applica
     pageWarning: null,
     pdfBytes: Buffer.from('%PDF-1.7 adapted cv', 'utf8'),
   })
+  const renderCoverLetterPdf = vi.fn().mockResolvedValue({
+    pageCount: 1,
+    pageWarning: null,
+    pdfBytes: Buffer.from('%PDF-1.7 cover letter', 'utf8'),
+  })
   const service = createTailoredApplicationSessionService({
     adaptedCvRenderer: {
       renderAdaptedCvPdf,
+    },
+    coverLetterRenderer: {
+      renderCoverLetterPdf,
     },
     aiWorker: {
       retryAiWorkerPreflight: vi.fn().mockResolvedValue({
@@ -129,6 +137,8 @@ test('assembles structured worker inputs and persists immutable tailored-applica
   ).resolves.toMatchObject({
     adaptedCvPageCount: 1,
     adaptedCvPageWarning: null,
+    coverLetterPageCount: 1,
+    coverLetterPageWarning: null,
     createdAt: '2026-04-09T09:30:00.000Z',
     employer: 'Example Labs',
     originalCvId: 'original-cv-123',
@@ -147,11 +157,17 @@ test('assembles structured worker inputs and persists immutable tailored-applica
     'adapted-cv.json',
     'adapted-cv.pdf',
     'cover-letter.json',
+    'cover-letter.pdf',
     'cover-letter.txt',
   ])
 
   expect(renderAdaptedCvPdf).toHaveBeenCalledWith({
     adaptedCv: createValidGenerationResult().adaptedCv,
+    employer: 'Example Labs',
+    vacancyTitle: 'Senior platform engineer',
+  })
+  expect(renderCoverLetterPdf).toHaveBeenCalledWith({
+    coverLetter: createValidGenerationResult().coverLetter,
     employer: 'Example Labs',
     vacancyTitle: 'Senior platform engineer',
   })
@@ -169,6 +185,96 @@ test('assembles structured worker inputs and persists immutable tailored-applica
   ).rejects.toThrow()
 })
 
+test('returns both PDF artifacts in the preview payload and exports the cover-letter PDF with overwrite avoidance', async () => {
+  const harness = await createHarness()
+
+  await seedOriginalCvAndVacancy(harness)
+
+  const exportDialog = {
+    showSaveDialog: vi.fn().mockResolvedValue({
+      canceled: false,
+      filePath: path.join(harness.paths.rootDirectoryPath, 'exports', 'cover-letter.pdf'),
+    }),
+  }
+  const service = createTailoredApplicationSessionService({
+    adaptedCvRenderer: {
+      renderAdaptedCvPdf: vi.fn().mockResolvedValue({
+        pageCount: 4,
+        pageWarning: 'This adapted CV runs to 4 pages. Export is still available.',
+        pdfBytes: Buffer.from('%PDF-1.7 adapted cv', 'utf8'),
+      }),
+    },
+    coverLetterRenderer: {
+      renderCoverLetterPdf: vi.fn().mockResolvedValue({
+        pageCount: 2,
+        pageWarning: 'This cover letter runs to 2 pages. Export and copy remain available.',
+        pdfBytes: Buffer.from('%PDF-1.7 cover letter', 'utf8'),
+      }),
+    },
+    aiWorker: {
+      retryAiWorkerPreflight: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+    },
+    exportDialog,
+    generateId: createIdGenerator(['command-123', 'run-123', 'tailored-application-123']),
+    getCurrentTimestamp: () => {
+      return '2026-04-09T09:30:00.000Z'
+    },
+    localAppData: harness.localAppData,
+    readinessStore: harness.readinessStore,
+    runWorkspaceRootPath: path.join(harness.paths.rootDirectoryPath, 'runs'),
+    worker: {
+      runGeneration: () => Promise.resolve(createValidGenerationResult()),
+    },
+  })
+
+  await service.startPendingGeneration({
+    originalCvId: 'original-cv-123',
+    originalCvLabel: 'ada-lovelace.pdf',
+    vacancyDraft: {
+      text: 'Senior platform engineer',
+      url: 'https://jobs.example.com/roles/123',
+    },
+  })
+  await service.resumePendingGeneration()
+  await mkdir(path.join(harness.paths.rootDirectoryPath, 'exports'), {
+    recursive: true,
+  })
+  await writeFile(
+    path.join(harness.paths.rootDirectoryPath, 'exports', 'cover-letter.pdf'),
+    'existing',
+    'utf8',
+  )
+
+  await expect(service.getTailoredApplicationPreview('tailored-application-123')).resolves.toEqual({
+    adaptedCv: {
+      pageCount: 4,
+      pageWarning: 'This adapted CV runs to 4 pages. Export is still available.',
+      pdfBytes: new Uint8Array(Buffer.from('%PDF-1.7 adapted cv', 'utf8')),
+    },
+    coverLetter: {
+      pageCount: 2,
+      pageWarning: 'This cover letter runs to 2 pages. Export and copy remain available.',
+      pdfBytes: new Uint8Array(Buffer.from('%PDF-1.7 cover letter', 'utf8')),
+      plainText: createValidGenerationResult().coverLetterPlainText,
+    },
+    createdAt: '2026-04-09T09:30:00.000Z',
+    employer: 'Example Labs',
+    id: 'tailored-application-123',
+    title: 'Senior platform engineer · Example Labs',
+    vacancyTitle: 'Senior platform engineer',
+  })
+  await expect(service.exportCoverLetterPdf('tailored-application-123')).resolves.toEqual({
+    filePath: path.join(harness.paths.rootDirectoryPath, 'exports', 'cover-letter (2).pdf'),
+    overwriteAvoided: true,
+    pageWarning: 'This cover letter runs to 2 pages. Export and copy remain available.',
+  })
+})
+
 test('rejects fabricated output, clears partial artifacts, and resets the pending session', async () => {
   const harness = await createHarness()
 
@@ -177,6 +283,9 @@ test('rejects fabricated output, clears partial artifacts, and resets the pendin
   const service = createTailoredApplicationSessionService({
     adaptedCvRenderer: {
       renderAdaptedCvPdf: vi.fn(),
+    },
+    coverLetterRenderer: {
+      renderCoverLetterPdf: vi.fn(),
     },
     aiWorker: {
       retryAiWorkerPreflight: vi.fn().mockResolvedValue({
@@ -246,6 +355,9 @@ test('preserves the underlying generation failure as the thrown error cause', as
     adaptedCvRenderer: {
       renderAdaptedCvPdf: vi.fn(),
     },
+    coverLetterRenderer: {
+      renderCoverLetterPdf: vi.fn(),
+    },
     aiWorker: {
       retryAiWorkerPreflight: vi.fn().mockResolvedValue({
         canResumeGeneration: true,
@@ -290,6 +402,12 @@ test('cancels an active generation, removes transient workspaces, and preserves 
 
   let abortSignalTriggered = false
   const service = createTailoredApplicationSessionService({
+    adaptedCvRenderer: {
+      renderAdaptedCvPdf: vi.fn(),
+    },
+    coverLetterRenderer: {
+      renderCoverLetterPdf: vi.fn(),
+    },
     aiWorker: {
       retryAiWorkerPreflight: vi.fn().mockResolvedValue({
         canResumeGeneration: true,
@@ -383,6 +501,13 @@ test('persists a resumable pending command before sign-in repair and resumes the
         pageCount: 1,
         pageWarning: null,
         pdfBytes: Buffer.from('%PDF-1.7 adapted cv', 'utf8'),
+      }),
+    },
+    coverLetterRenderer: {
+      renderCoverLetterPdf: vi.fn().mockResolvedValue({
+        pageCount: 1,
+        pageWarning: null,
+        pdfBytes: Buffer.from('%PDF-1.7 cover letter', 'utf8'),
       }),
     },
     aiWorker: {
@@ -490,6 +615,9 @@ test('cleans interrupted running sessions on startup recovery without deleting t
   const service = createTailoredApplicationSessionService({
     adaptedCvRenderer: {
       renderAdaptedCvPdf: vi.fn(),
+    },
+    coverLetterRenderer: {
+      renderCoverLetterPdf: vi.fn(),
     },
     aiWorker: {
       retryAiWorkerPreflight: vi.fn().mockResolvedValue({

@@ -535,12 +535,20 @@ test('preload exposes tailored-application repair and resume commands over typed
       ],
     })
     .mockResolvedValueOnce({
+      adaptedCv: {
+        pageCount: 4,
+        pageWarning: 'This adapted CV runs to 4 pages. Export is still available.',
+        pdfBytes: new Uint8Array([37, 80, 68, 70]),
+      },
+      coverLetter: {
+        pageCount: 2,
+        pageWarning: 'This cover letter runs to 2 pages. Export and copy remain available.',
+        pdfBytes: new Uint8Array([37, 80, 68, 70, 45, 67, 76]),
+        plainText: 'Dear Hiring Manager,\n\nAda Lovelace',
+      },
       createdAt: '2026-04-09T09:30:00.000Z',
       employer: 'Example Labs',
       id: 'tailored-application-123',
-      pageCount: 4,
-      pageWarning: 'This adapted CV runs to 4 pages. Export is still available.',
-      pdfBytes: new Uint8Array([37, 80, 68, 70]),
       title: 'Senior platform engineer · Example Labs',
       vacancyTitle: 'Senior platform engineer',
     })
@@ -548,6 +556,11 @@ test('preload exposes tailored-application repair and resume commands over typed
       filePath: '/exports/Ada Lovelace - Senior platform engineer - adapted-cv (2).pdf',
       overwriteAvoided: true,
       pageWarning: 'This adapted CV runs to 4 pages. Export is still available.',
+    })
+    .mockResolvedValueOnce({
+      filePath: '/exports/Ada Lovelace - Senior platform engineer - cover-letter (2).pdf',
+      overwriteAvoided: true,
+      pageWarning: 'This cover letter runs to 2 pages. Export and copy remain available.',
     })
 
   const desktopApi = createDesktopApi({
@@ -606,12 +619,20 @@ test('preload exposes tailored-application repair and resume commands over typed
   await expect(
     desktopApi.tailoredApplication.getTailoredApplicationPreview('tailored-application-123'),
   ).resolves.toEqual({
+    adaptedCv: {
+      pageCount: 4,
+      pageWarning: 'This adapted CV runs to 4 pages. Export is still available.',
+      pdfBytes: new Uint8Array([37, 80, 68, 70]),
+    },
+    coverLetter: {
+      pageCount: 2,
+      pageWarning: 'This cover letter runs to 2 pages. Export and copy remain available.',
+      pdfBytes: new Uint8Array([37, 80, 68, 70, 45, 67, 76]),
+      plainText: 'Dear Hiring Manager,\n\nAda Lovelace',
+    },
     createdAt: '2026-04-09T09:30:00.000Z',
     employer: 'Example Labs',
     id: 'tailored-application-123',
-    pageCount: 4,
-    pageWarning: 'This adapted CV runs to 4 pages. Export is still available.',
-    pdfBytes: new Uint8Array([37, 80, 68, 70]),
     title: 'Senior platform engineer · Example Labs',
     vacancyTitle: 'Senior platform engineer',
   })
@@ -621,6 +642,13 @@ test('preload exposes tailored-application repair and resume commands over typed
     filePath: '/exports/Ada Lovelace - Senior platform engineer - adapted-cv (2).pdf',
     overwriteAvoided: true,
     pageWarning: 'This adapted CV runs to 4 pages. Export is still available.',
+  })
+  await expect(
+    desktopApi.tailoredApplication.exportCoverLetterPdf('tailored-application-123'),
+  ).resolves.toEqual({
+    filePath: '/exports/Ada Lovelace - Senior platform engineer - cover-letter (2).pdf',
+    overwriteAvoided: true,
+    pageWarning: 'This cover letter runs to 2 pages. Export and copy remain available.',
   })
 
   expect(invoke).toHaveBeenNthCalledWith(1, TAILORED_APPLICATION_IPC_CHANNELS.getPendingGeneration)
@@ -658,4 +686,11 @@ test('preload exposes tailored-application repair and resume commands over typed
   expect(invoke).toHaveBeenNthCalledWith(8, TAILORED_APPLICATION_IPC_CHANNELS.exportAdaptedCvPdf, {
     tailoredApplicationId: 'tailored-application-123',
   })
+  expect(invoke).toHaveBeenNthCalledWith(
+    9,
+    TAILORED_APPLICATION_IPC_CHANNELS.exportCoverLetterPdf,
+    {
+      tailoredApplicationId: 'tailored-application-123',
+    },
+  )
 })

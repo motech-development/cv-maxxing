@@ -15,6 +15,7 @@ export const TAILORED_APPLICATION_IPC_CHANNELS = {
   abandonPendingGeneration: 'tailored-application:abandon-pending-generation',
   completePendingGeneration: 'tailored-application:complete-pending-generation',
   exportAdaptedCvPdf: 'tailored-application:export-adapted-cv-pdf',
+  exportCoverLetterPdf: 'tailored-application:export-cover-letter-pdf',
   getPendingGeneration: 'tailored-application:get-pending-generation',
   getPreview: 'tailored-application:get-preview',
   getWorkspaceState: 'tailored-application:get-workspace-state',

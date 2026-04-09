@@ -100,6 +100,11 @@ function createTailoredApplicationDouble() {
       overwriteAvoided: false,
       pageWarning: null,
     }),
+    exportCoverLetterPdf: vi.fn().mockResolvedValue({
+      filePath: '/exports/Ada Lovelace - Senior platform engineer - cover-letter.pdf',
+      overwriteAvoided: false,
+      pageWarning: null,
+    }),
     getPendingGenerationCommand: vi.fn().mockResolvedValue({
       commandId: 'command-123',
       originalCvId: 'original-cv-123',
@@ -383,6 +388,10 @@ test('bootstrap registers the full AI worker onboarding IPC surface and opens th
     TAILORED_APPLICATION_IPC_CHANNELS.abandonPendingGeneration,
     expect.any(Function),
   )
+  expect(handle).toHaveBeenCalledWith(
+    TAILORED_APPLICATION_IPC_CHANNELS.exportCoverLetterPdf,
+    expect.any(Function),
+  )
 
   await expect(registeredHandlers.get(AI_WORKER_IPC_CHANNELS.getPreflight)?.()).resolves.toEqual({
     canResumeGeneration: false,
@@ -640,6 +649,15 @@ test('bootstrap registers the full AI worker onboarding IPC surface and opens th
   await expect(
     registeredHandlers.get(TAILORED_APPLICATION_IPC_CHANNELS.abandonPendingGeneration)?.(),
   ).resolves.toBeUndefined()
+  await expect(
+    registeredHandlers.get(TAILORED_APPLICATION_IPC_CHANNELS.exportCoverLetterPdf)?.(undefined, {
+      tailoredApplicationId: 'tailored-application-123',
+    }),
+  ).resolves.toEqual({
+    filePath: '/exports/Ada Lovelace - Senior platform engineer - cover-letter.pdf',
+    overwriteAvoided: false,
+    pageWarning: null,
+  })
   expect(tailoredApplication.startPendingGeneration).toHaveBeenCalledWith({
     originalCvId: 'original-cv-123',
     originalCvLabel: 'ada-lovelace.pdf',
@@ -651,6 +669,7 @@ test('bootstrap registers the full AI worker onboarding IPC surface and opens th
   expect(tailoredApplication.resumePendingGeneration).toHaveBeenCalledTimes(1)
   expect(tailoredApplication.completePendingGeneration).toHaveBeenCalledWith('command-123')
   expect(tailoredApplication.abandonPendingGeneration).toHaveBeenCalledTimes(1)
+  expect(tailoredApplication.exportCoverLetterPdf).toHaveBeenCalledWith('tailored-application-123')
   expect(constructor).toHaveBeenCalledWith({
     backgroundColor: '#08141f',
     height: 900,

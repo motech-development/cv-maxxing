@@ -100,6 +100,13 @@ export function createDesktopApi({ invoke }: DesktopApiInvoker): CvMaxxingWindow
           tailoredApplicationId,
         })
       },
+      exportCoverLetterPdf: async (
+        tailoredApplicationId: string,
+      ): Promise<TailoredApplicationExportResult | null> => {
+        return await invoke(TAILORED_APPLICATION_IPC_CHANNELS.exportCoverLetterPdf, {
+          tailoredApplicationId,
+        })
+      },
     },
     vacancy: {
       clearVacancyWorkspaceState: async (): Promise<void> => {

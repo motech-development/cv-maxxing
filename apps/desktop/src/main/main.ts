@@ -18,6 +18,7 @@ import type { StartupDestination } from '../shared/startup-destination.js'
 import type { PastedVacancyInput, VacancyUrlInput } from '../shared/vacancy.js'
 import { createAiWorkerReadinessStore } from './ai-worker-readiness-store.js'
 import { createElectronAdaptedCvRenderer } from './adapted-cv-electron-renderer.js'
+import { createElectronCoverLetterRenderer } from './cover-letter-electron-renderer.js'
 import {
   createAiWorkerPreflightService,
   type AiWorkerPreflightService,
@@ -267,6 +268,14 @@ export function createDesktopAppBootstrap({
         )
       },
     )
+    ipcMain.handle(
+      TAILORED_APPLICATION_IPC_CHANNELS.exportCoverLetterPdf,
+      async (_event, payload) => {
+        return await tailoredApplication.exportCoverLetterPdf(
+          parseTailoredApplicationIdInput(payload).tailoredApplicationId,
+        )
+      },
+    )
   }
 
   async function createMainWindow(): Promise<void> {
@@ -445,6 +454,7 @@ async function createRuntimeServices(): Promise<{
   const tailoredApplication = createTailoredApplicationSessionService({
     adaptedCvRenderer: createElectronAdaptedCvRenderer(),
     aiWorker,
+    coverLetterRenderer: createElectronCoverLetterRenderer(),
     exportDialog: createAdaptedCvExportDialog(environment),
     localAppData,
     readinessStore,

@@ -68,9 +68,11 @@ function isSupportedOriginalCvFile(file: File): boolean {
 }
 
 type OriginalCvImportDestination = 'workspace_active' | 'workspace_empty'
+type PreviewDocumentKind = 'adapted_cv' | 'cover_letter'
 
 export function App() {
   const [activeApplicationTitle, setActiveApplicationTitle] = useState<string | null>(null)
+  const [isCopyingCoverLetterText, setIsCopyingCoverLetterText] = useState(false)
   const [importError, setImportError] = useState<string | null>(null)
   const [isImportingOriginalCv, setIsImportingOriginalCv] = useState(false)
   const [isOpeningVacancyBrowser, setIsOpeningVacancyBrowser] = useState(false)
@@ -85,6 +87,7 @@ export function App() {
   const [pendingGenerationCommand, setPendingGenerationCommand] =
     useState<PendingGenerationCommand | null>(null)
   const [previewedVacancyDraft, setPreviewedVacancyDraft] = useState<VacancyDraft | null>(null)
+  const [previewDocumentKind, setPreviewDocumentKind] = useState<PreviewDocumentKind>('adapted_cv')
   const [readinessError, setReadinessError] = useState<string | null>(null)
   const [vacancyDraft, setVacancyDraft] = useState(initialVacancyDraft)
   const [vacancyPreview, setVacancyPreview] = useState<VacancySummary | null>(null)
@@ -121,6 +124,7 @@ export function App() {
     )
     setTailoredApplicationPreview(nextTailoredApplicationPreview)
     setTailoredApplicationWorkspaceState(nextTailoredApplicationWorkspaceState)
+    setPreviewDocumentKind('adapted_cv')
     setVacancyDraft(nextVacancyWorkspaceState.draft)
     setVacancyPreview(nextVacancyWorkspaceState.vacancy)
     setVacancyReviewError(null)
@@ -346,13 +350,35 @@ export function App() {
     setIsPendingGenerationActionPending(true)
 
     try {
-      await globalThis.window.cvMaxxing.tailoredApplication.exportAdaptedCvPdf(
-        tailoredApplicationPreview.id,
-      )
+      const exportPdf =
+        previewDocumentKind === 'adapted_cv'
+          ? globalThis.window.cvMaxxing.tailoredApplication.exportAdaptedCvPdf
+          : globalThis.window.cvMaxxing.tailoredApplication.exportCoverLetterPdf
+
+      await exportPdf(tailoredApplicationPreview.id)
     } catch {
       setReadinessError(`${readinessErrorMessage} ${readinessErrorAction}`)
     } finally {
       setIsPendingGenerationActionPending(false)
+    }
+  }
+
+  const handleCopyCoverLetterText = async (): Promise<void> => {
+    if (tailoredApplicationPreview === null || isCopyingCoverLetterText) {
+      return
+    }
+
+    setIsCopyingCoverLetterText(true)
+
+    try {
+      await globalThis.navigator.clipboard.writeText(
+        tailoredApplicationPreview.coverLetter.plainText,
+      )
+      setReadinessError(null)
+    } catch {
+      setReadinessError('Unable to copy the cover letter text.')
+    } finally {
+      setIsCopyingCoverLetterText(false)
     }
   }
 
@@ -482,17 +508,23 @@ export function App() {
           activeOriginalCv={originalCvWorkspaceState.activeOriginalCv}
           applicationTitle={tailoredApplicationPreview?.title ?? activeApplicationTitle}
           applications={tailoredApplicationWorkspaceState.applications}
-          isExportingAdaptedCv={isPendingGenerationActionPending}
           importError={importError}
+          isCopyingCoverLetterText={isCopyingCoverLetterText}
+          isExportingPdf={isPendingGenerationActionPending}
           isImportingOriginalCv={isImportingOriginalCv}
-          onExportAdaptedCvPdf={() => {
+          onCopyCoverLetterText={() => {
+            handleCopyCoverLetterText().catch(() => null)
+          }}
+          onExportPdf={() => {
             handleExportAdaptedCvPdf().catch(() => null)
           }}
           onOriginalCvFileSelection={handleOriginalCvSelection}
           onReplaceOriginalCv={() => {
             handleOriginalCvImport('workspace_active').catch(() => null)
           }}
+          onSelectPreviewDocument={setPreviewDocumentKind}
           preview={tailoredApplicationPreview}
+          previewDocumentKind={previewDocumentKind}
           originalCvFile={originalCvFile}
         />
       )
