@@ -52,6 +52,7 @@ test('persists checking timeout, startup destination, and pending generation con
     commandId: 'command-123',
     originalCvId: 'original-cv-123',
     originalCvLabel: 'ada-lovelace.pdf',
+    vacancyId: 'vacancy-123',
     vacancyDraft: {
       text: 'Senior staff product designer',
       url: 'https://jobs.example.com/roles/123',
@@ -73,6 +74,7 @@ test('persists checking timeout, startup destination, and pending generation con
     commandId: 'command-123',
     originalCvId: 'original-cv-123',
     originalCvLabel: 'ada-lovelace.pdf',
+    vacancyId: 'vacancy-123',
     vacancyDraft: {
       text: 'Senior staff product designer',
       url: 'https://jobs.example.com/roles/123',

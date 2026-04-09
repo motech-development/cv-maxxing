@@ -44,6 +44,7 @@ test('returns sign-in-required guidance and keeps resumability when a pending ge
       commandId: 'command-123',
       originalCvId: 'original-cv-123',
       originalCvLabel: 'ada-lovelace.pdf',
+      vacancyId: 'vacancy-123',
       vacancyDraft: {
         text: 'Senior product designer',
         url: 'https://jobs.example.com/roles/123',
@@ -109,6 +110,7 @@ test('restores workspace loading ahead of saved startup state when a pending gen
       commandId: 'command-123',
       originalCvId: 'original-cv-123',
       originalCvLabel: 'ada-lovelace.pdf',
+      vacancyId: 'vacancy-123',
       vacancyDraft: {
         text: 'Senior engineer',
         url: 'https://jobs.example.com/roles/123',

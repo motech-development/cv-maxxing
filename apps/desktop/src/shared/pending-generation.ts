@@ -4,6 +4,7 @@ export interface PendingGenerationCommand {
   commandId: string
   originalCvId: string
   originalCvLabel: string
+  vacancyId: string
   vacancyDraft: VacancyDraft
 }
 
@@ -15,4 +16,9 @@ export interface StartPendingGenerationInput {
 
 export interface CompletePendingGenerationInput {
   commandId: string
+}
+
+export interface ResumePendingGenerationResult {
+  generationRunId: string
+  tailoredApplicationId: string
 }

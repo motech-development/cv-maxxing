@@ -74,6 +74,7 @@ export function createAiWorkerReadinessStore({
           commandId: command.commandId,
           originalCvId: command.originalCvId,
           originalCvLabel: command.originalCvLabel,
+          vacancyId: command.vacancyId,
           vacancyDraft: {
             text: command.vacancyDraft.text,
             url: command.vacancyDraft.url,
@@ -111,6 +112,7 @@ function isPendingGenerationCommand(value: unknown): value is PendingGenerationC
     typeof candidate.commandId === 'string' &&
     typeof candidate.originalCvId === 'string' &&
     typeof candidate.originalCvLabel === 'string' &&
+    typeof candidate.vacancyId === 'string' &&
     'vacancyDraft' in candidate &&
     candidate.vacancyDraft !== null &&
     typeof candidate.vacancyDraft === 'object' &&

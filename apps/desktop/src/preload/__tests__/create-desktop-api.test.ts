@@ -500,10 +500,15 @@ test('preload exposes tailored-application repair and resume commands over typed
       commandId: 'command-123',
       originalCvId: 'original-cv-123',
       originalCvLabel: 'ada-lovelace.pdf',
+      vacancyId: 'vacancy-123',
       vacancyDraft: {
         text: 'Senior platform engineer',
         url: 'https://jobs.example.com/roles/123',
       },
+    })
+    .mockResolvedValueOnce({
+      generationRunId: 'run-123',
+      tailoredApplicationId: 'tailored-application-123',
     })
     .mockResolvedValueOnce({
       canResumeGeneration: true,
@@ -524,10 +529,15 @@ test('preload exposes tailored-application repair and resume commands over typed
     commandId: 'command-123',
     originalCvId: 'original-cv-123',
     originalCvLabel: 'ada-lovelace.pdf',
+    vacancyId: 'vacancy-123',
     vacancyDraft: {
       text: 'Senior platform engineer',
       url: 'https://jobs.example.com/roles/123',
     },
+  })
+  await expect(desktopApi.tailoredApplication.resumePendingGeneration()).resolves.toEqual({
+    generationRunId: 'run-123',
+    tailoredApplicationId: 'tailored-application-123',
   })
   await expect(
     desktopApi.tailoredApplication.startPendingGeneration({
@@ -554,6 +564,10 @@ test('preload exposes tailored-application repair and resume commands over typed
   expect(invoke).toHaveBeenNthCalledWith(1, TAILORED_APPLICATION_IPC_CHANNELS.getPendingGeneration)
   expect(invoke).toHaveBeenNthCalledWith(
     2,
+    TAILORED_APPLICATION_IPC_CHANNELS.resumePendingGeneration,
+  )
+  expect(invoke).toHaveBeenNthCalledWith(
+    3,
     TAILORED_APPLICATION_IPC_CHANNELS.startPendingGeneration,
     {
       originalCvId: 'original-cv-123',
@@ -565,14 +579,14 @@ test('preload exposes tailored-application repair and resume commands over typed
     },
   )
   expect(invoke).toHaveBeenNthCalledWith(
-    3,
+    4,
     TAILORED_APPLICATION_IPC_CHANNELS.completePendingGeneration,
     {
       commandId: 'command-123',
     },
   )
   expect(invoke).toHaveBeenNthCalledWith(
-    4,
+    5,
     TAILORED_APPLICATION_IPC_CHANNELS.abandonPendingGeneration,
   )
 })

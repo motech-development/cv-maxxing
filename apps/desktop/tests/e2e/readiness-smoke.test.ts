@@ -344,6 +344,7 @@ test('keeps workspace_loading explicit after sign-in repair for a pending genera
       commandId: 'command-123',
       originalCvId: 'original-cv-123',
       originalCvLabel: 'ada-lovelace.pdf',
+      vacancyId: 'vacancy-123',
       vacancyDraft: {
         text: 'Senior platform engineer',
         url: 'https://jobs.example.com/roles/123',
@@ -421,18 +422,17 @@ test('persists pending generation before repair and clears it after completion',
   await electronApp.close()
 
   electronApp = await launchDesktopApp({
-    CV_MAXXING_AI_WORKER_PREFLIGHT_STATUS: 'auth_missing',
-    CV_MAXXING_AI_WORKER_SIGN_IN_STATUS: 'ready',
+    CV_MAXXING_AI_WORKER_GENERATION_OUTPUT: JSON.stringify(createGenerationResultFixture()),
+    CV_MAXXING_AI_WORKER_PREFLIGHT_STATUS: 'ready',
     CV_MAXXING_LOCAL_APP_DATA_ROOT: testPaths.appDataRoot,
   })
 
   page = await electronApp.firstWindow()
 
-  await expect(page.getByRole('heading', { name: 'Connect the local AI worker' })).toBeVisible()
-  await page.getByRole('button', { name: 'Continue sign-in' }).click()
-  await expect(page.getByRole('heading', { name: 'Generating tailored application' })).toBeVisible()
-  await expect(page.getByText('Senior platform engineer')).toBeVisible()
-  await page.getByRole('button', { name: 'Open tailored application' }).click()
+  await expect(page.getByRole('heading', { name: 'Senior platform engineer' })).toBeVisible({
+    timeout: 15_000,
+  })
+  await page.waitForTimeout(1000)
 
   await electronApp.close()
 
@@ -443,7 +443,9 @@ test('persists pending generation before repair and clears it after completion',
 
   page = await electronApp.firstWindow()
 
-  await expect(page.getByRole('heading', { name: 'Tailored application' })).toBeVisible()
+  await expect(
+    page.getByRole('heading', { exact: true, name: 'Tailored application' }),
+  ).toBeVisible()
 
   await electronApp.close()
 })
@@ -476,6 +478,109 @@ async function createOriginalCvTestPaths(): Promise<{
     docxPath: path.join(rootDirectoryPath, 'ada-lovelace-revised.docx'),
     pdfPath: path.join(rootDirectoryPath, 'ada-lovelace.pdf'),
     unreadablePdfPath: path.join(rootDirectoryPath, 'unreadable.pdf'),
+  }
+}
+
+function createGenerationResultFixture() {
+  return {
+    adaptationSummary: {
+      emphasized: [
+        {
+          sourceEvidence: [
+            'Led product design for AI-assisted desktop tooling.',
+            'Build reliable desktop tooling for technical users.',
+          ],
+          text: 'Emphasises desktop workflow design for technical users.',
+        },
+      ],
+      gaps: [
+        'The vacancy asks for workflow-software shipping experience; the original CV shows related desktop-tooling design work but does not claim engineering ownership.',
+      ],
+      omitted: [
+        {
+          sourceEvidence: ['Product strategy, UX research, prototyping'],
+          text: 'Compresses broader research language so the desktop-tooling evidence stays primary.',
+        },
+      ],
+      validationHints: ['Keep interview examples grounded in shipped desktop workflow tooling.'],
+    },
+    adaptedCv: {
+      candidateName: 'Ada Lovelace',
+      experienceHighlights: [
+        {
+          bullets: [
+            {
+              sourceEvidence: [
+                'Led product design for AI-assisted desktop tooling.',
+                'Build reliable desktop tooling for technical users.',
+              ],
+              text: 'Led product design for AI-assisted desktop tooling used by technical teams.',
+            },
+          ],
+          heading: 'Analytical Engines Ltd',
+        },
+      ],
+      headline: {
+        sourceEvidence: [
+          'Principal Product Designer',
+          'Build reliable desktop tooling for technical users.',
+        ],
+        text: 'Principal Product Designer for desktop workflow products',
+      },
+      skills: [
+        {
+          sourceEvidence: ['Product strategy, UX research, prototyping'],
+          text: 'Product strategy',
+        },
+      ],
+      summary: {
+        sourceEvidence: [
+          'Design leader focused on complex workflow products for technical users.',
+          'Build reliable desktop tooling for technical users.',
+        ],
+        text: 'Design leader adapting complex desktop workflow products for technical users.',
+      },
+    },
+    coverLetter: {
+      body: [
+        {
+          sourceEvidence: [
+            'Led product design for AI-assisted desktop tooling.',
+            'Build reliable desktop tooling for technical users.',
+          ],
+          text: 'I have led product design for AI-assisted desktop tooling, which aligns with your focus on reliable tooling for technical users.',
+        },
+      ],
+      closing: {
+        sourceEvidence: ['Design leader focused on complex workflow products for technical users.'],
+        text: 'I would welcome the chance to discuss how that experience could support Analytical Engines Ltd.',
+      },
+      date: '9 April 2026',
+      greeting: 'Dear Hiring Manager,',
+      opening: {
+        sourceEvidence: ['Principal Product Designer', 'Senior platform engineer'],
+        text: 'I am applying for the Senior platform engineer role at Analytical Engines Ltd.',
+      },
+      signature: 'Ada Lovelace',
+    },
+    coverLetterPlainText: [
+      '9 April 2026',
+      '',
+      'Dear Hiring Manager,',
+      '',
+      'I am applying for the Senior platform engineer role at Analytical Engines Ltd.',
+      '',
+      'I have led product design for AI-assisted desktop tooling, which aligns with your focus on reliable tooling for technical users.',
+      '',
+      'I would welcome the chance to discuss how that experience could support Analytical Engines Ltd.',
+      '',
+      'Ada Lovelace',
+    ].join('\n'),
+    trace: {
+      model: 'gpt-5.4-codex',
+      provider: 'codex',
+      sessionId: 'session-123',
+    },
   }
 }
 

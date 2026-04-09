@@ -99,11 +99,17 @@ function createTailoredApplicationDouble() {
       commandId: 'command-123',
       originalCvId: 'original-cv-123',
       originalCvLabel: 'ada-lovelace.pdf',
+      vacancyId: 'vacancy-123',
       vacancyDraft: {
         text: 'Senior platform engineer',
         url: 'https://jobs.example.com/roles/123',
       },
     }),
+    resumePendingGeneration: vi.fn().mockResolvedValue({
+      generationRunId: 'run-123',
+      tailoredApplicationId: 'tailored-application-123',
+    }),
+    recoverInterruptedGeneration: vi.fn().mockImplementation(() => Promise.resolve()),
     startPendingGeneration: vi.fn().mockResolvedValue({
       canResumeGeneration: true,
       failureCode: 'auth_missing',
@@ -352,6 +358,10 @@ test('bootstrap registers the full AI worker onboarding IPC surface and opens th
     expect.any(Function),
   )
   expect(handle).toHaveBeenCalledWith(
+    TAILORED_APPLICATION_IPC_CHANNELS.resumePendingGeneration,
+    expect.any(Function),
+  )
+  expect(handle).toHaveBeenCalledWith(
     TAILORED_APPLICATION_IPC_CHANNELS.startPendingGeneration,
     expect.any(Function),
   )
@@ -580,10 +590,17 @@ test('bootstrap registers the full AI worker onboarding IPC surface and opens th
     commandId: 'command-123',
     originalCvId: 'original-cv-123',
     originalCvLabel: 'ada-lovelace.pdf',
+    vacancyId: 'vacancy-123',
     vacancyDraft: {
       text: 'Senior platform engineer',
       url: 'https://jobs.example.com/roles/123',
     },
+  })
+  await expect(
+    registeredHandlers.get(TAILORED_APPLICATION_IPC_CHANNELS.resumePendingGeneration)?.(),
+  ).resolves.toEqual({
+    generationRunId: 'run-123',
+    tailoredApplicationId: 'tailored-application-123',
   })
   await expect(
     registeredHandlers.get(TAILORED_APPLICATION_IPC_CHANNELS.startPendingGeneration)?.(undefined, {
@@ -621,6 +638,7 @@ test('bootstrap registers the full AI worker onboarding IPC surface and opens th
       url: 'https://jobs.example.com/roles/123',
     },
   })
+  expect(tailoredApplication.resumePendingGeneration).toHaveBeenCalledTimes(1)
   expect(tailoredApplication.completePendingGeneration).toHaveBeenCalledWith('command-123')
   expect(tailoredApplication.abandonPendingGeneration).toHaveBeenCalledTimes(1)
   expect(constructor).toHaveBeenCalledWith({

@@ -175,6 +175,10 @@ function createTailoredApplicationApi(
     abandonPendingGeneration: vi.fn().mockImplementation(() => Promise.resolve()),
     completePendingGeneration: vi.fn().mockImplementation(() => Promise.resolve()),
     getPendingGenerationCommand: vi.fn().mockResolvedValue(null),
+    resumePendingGeneration: vi.fn().mockResolvedValue({
+      generationRunId: 'run-123',
+      tailoredApplicationId: 'tailored-application-123',
+    }),
     startPendingGeneration: vi.fn().mockResolvedValue({
       canResumeGeneration: true,
       message: 'The local AI worker is ready.',
@@ -733,6 +737,11 @@ test('reviews a ready vacancy URL and only starts tailoring after Adapt CV is cl
     .fn()
     .mockResolvedValueOnce('workspace_empty')
     .mockResolvedValueOnce('workspace_loading')
+  const resumePendingGeneration = vi.fn().mockImplementation(() => {
+    return new Promise<never>((resolve) => {
+      void resolve
+    })
+  })
   const startPendingGeneration = vi.fn().mockResolvedValue({
     canResumeGeneration: true,
     message: 'The local AI worker is ready.',
@@ -776,11 +785,13 @@ test('reviews a ready vacancy URL and only starts tailoring after Adapt CV is cl
         commandId: 'command-123',
         originalCvId: 'original-cv-123',
         originalCvLabel: 'ada-lovelace.pdf',
+        vacancyId: 'vacancy-123',
         vacancyDraft: {
           text: '',
           url: 'https://jobs.example.com/roles/123',
         },
       }),
+      resumePendingGeneration,
       startPendingGeneration,
     }),
   })
@@ -827,6 +838,7 @@ test('reviews a ready vacancy URL and only starts tailoring after Adapt CV is cl
 
   expect(screen.getByRole('button', { name: 'Open tailored application' })).toBeDefined()
   expect(screen.getByRole('button', { name: 'Abandon draft' })).toBeDefined()
+  expect(resumePendingGeneration).toHaveBeenCalledTimes(1)
 })
 
 test('preserves pasted vacancy context in a blocking preview and keeps Adapt CV disabled', async () => {
@@ -1099,10 +1111,16 @@ test('restores the vacancy preview from the internal browser session and re-enab
 })
 
 test('resumes the pending flow into the design-aligned loading screen after sign-in repair', async () => {
+  const resumePendingGeneration = vi.fn().mockImplementation(() => {
+    return new Promise<never>((resolve) => {
+      void resolve
+    })
+  })
+
   renderApp({
     aiWorker: createAiWorkerApi({
       getAiWorkerPreflight: vi.fn().mockResolvedValue({
-        canResumeGeneration: true,
+        canResumeGeneration: false,
         failureCode: 'auth_missing',
         message:
           'The local AI worker needs a valid sign-in before CV Maxxing can resume your tailored application.',
@@ -1143,11 +1161,13 @@ test('resumes the pending flow into the design-aligned loading screen after sign
         commandId: 'command-123',
         originalCvId: 'original-cv-123',
         originalCvLabel: 'ada-lovelace.pdf',
+        vacancyId: 'vacancy-123',
         vacancyDraft: {
           text: 'Senior platform engineer',
           url: 'https://jobs.example.com/roles/123',
         },
       }),
+      resumePendingGeneration,
     }),
   })
 
@@ -1166,9 +1186,16 @@ test('resumes the pending flow into the design-aligned loading screen after sign
   expect(screen.getByText('Senior platform engineer')).toBeDefined()
   expect(screen.getByRole('button', { name: 'Open tailored application' })).toBeDefined()
   expect(screen.getByRole('button', { name: 'Abandon draft' })).toBeDefined()
+  expect(resumePendingGeneration).toHaveBeenCalledTimes(1)
 })
 
 test('renders the design-aligned loading screen when startup restores workspace loading', async () => {
+  const resumePendingGeneration = vi.fn().mockImplementation(() => {
+    return new Promise<never>((resolve) => {
+      void resolve
+    })
+  })
+
   renderApp({
     aiWorker: createAiWorkerApi({
       getAiWorkerPreflight: vi.fn().mockResolvedValue({
@@ -1184,11 +1211,13 @@ test('renders the design-aligned loading screen when startup restores workspace 
         commandId: 'command-123',
         originalCvId: 'original-cv-123',
         originalCvLabel: 'ada-lovelace.pdf',
+        vacancyId: 'vacancy-123',
         vacancyDraft: {
           text: 'Senior platform engineer',
           url: 'https://jobs.example.com/roles/123',
         },
       }),
+      resumePendingGeneration,
     }),
   })
 
@@ -1211,12 +1240,16 @@ test('renders the design-aligned loading screen when startup restores workspace 
   expect(screen.getByRole('button', { name: 'Abandon draft' })).toBeDefined()
 })
 
-test('opens the tailored application from the loading screen and restores workspace active', async () => {
+test('automatically opens the tailored application after generation completes from the loading screen', async () => {
   const getStartupDestination = vi
     .fn()
     .mockResolvedValueOnce('workspace_loading')
     .mockResolvedValueOnce('workspace_active')
   const completePendingGeneration = vi.fn().mockImplementation(() => Promise.resolve())
+  const resumePendingGeneration = vi.fn().mockResolvedValue({
+    generationRunId: 'run-123',
+    tailoredApplicationId: 'tailored-application-123',
+  })
 
   renderApp({
     aiWorker: createAiWorkerApi({
@@ -1230,10 +1263,12 @@ test('opens the tailored application from the loading screen and restores worksp
     }),
     tailoredApplication: createTailoredApplicationApi({
       completePendingGeneration,
+      resumePendingGeneration,
       getPendingGenerationCommand: vi.fn().mockResolvedValue({
         commandId: 'command-123',
         originalCvId: 'original-cv-123',
         originalCvLabel: 'ada-lovelace.pdf',
+        vacancyId: 'vacancy-123',
         vacancyDraft: {
           text: 'Senior platform engineer',
           url: 'https://jobs.example.com/roles/123',
@@ -1246,9 +1281,8 @@ test('opens the tailored application from the loading screen and restores worksp
     expect(screen.getByRole('heading', { name: 'Generating tailored application' })).toBeDefined()
   })
 
-  fireEvent.click(screen.getByRole('button', { name: 'Open tailored application' }))
-
   await waitFor(() => {
+    expect(resumePendingGeneration).toHaveBeenCalledTimes(1)
     expect(completePendingGeneration).toHaveBeenCalledWith('command-123')
   })
 
@@ -1265,6 +1299,11 @@ test('abandons the pending draft from the loading screen and returns to workspac
     .mockResolvedValueOnce('workspace_loading')
     .mockResolvedValueOnce('workspace_empty')
   const abandonPendingGeneration = vi.fn().mockImplementation(() => Promise.resolve())
+  const resumePendingGeneration = vi.fn().mockImplementation(() => {
+    return new Promise<never>((resolve) => {
+      void resolve
+    })
+  })
 
   renderApp({
     aiWorker: createAiWorkerApi({
@@ -1303,11 +1342,13 @@ test('abandons the pending draft from the loading screen and returns to workspac
         commandId: 'command-123',
         originalCvId: 'original-cv-123',
         originalCvLabel: 'ada-lovelace.pdf',
+        vacancyId: 'vacancy-123',
         vacancyDraft: {
           text: 'Senior platform engineer',
           url: 'https://jobs.example.com/roles/123',
         },
       }),
+      resumePendingGeneration,
     }),
   })
 

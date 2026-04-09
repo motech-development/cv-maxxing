@@ -7,6 +7,7 @@ import type {
 import type {
   CompletePendingGenerationInput,
   PendingGenerationCommand,
+  ResumePendingGenerationResult,
   StartPendingGenerationInput,
 } from './pending-generation.js'
 import type { StartupDestination } from './startup-destination.js'
@@ -35,6 +36,7 @@ export interface CvMaxxingWindowApi {
       commandId: CompletePendingGenerationInput['commandId'],
     ) => Promise<void>
     getPendingGenerationCommand: () => Promise<PendingGenerationCommand | null>
+    resumePendingGeneration: () => Promise<ResumePendingGenerationResult>
     startPendingGeneration: (input: StartPendingGenerationInput) => Promise<AiWorkerPreflightResult>
   }
   vacancy: {

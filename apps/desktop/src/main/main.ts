@@ -29,6 +29,7 @@ import {
   type OriginalCvService,
 } from './original-cv-service.js'
 import { createSafeStorageKeychain } from './safe-storage-keychain.js'
+import { createTailoredApplicationGenerationWorker } from './tailored-application-generation-worker.js'
 import {
   createTailoredApplicationSessionService,
   type TailoredApplicationSessionService,
@@ -132,6 +133,10 @@ interface RuntimeDependencyOptions {
 interface RuntimeEnvironment {
   CHECKING_TIMEOUT_MS?: string
   CV_MAXXING_AI_WORKER_PREFLIGHT_STATUS?: string
+  CV_MAXXING_AI_WORKER_CODEX_COMMAND?: string
+  CV_MAXXING_AI_WORKER_GENERATION_DELAY_MS?: string
+  CV_MAXXING_AI_WORKER_GENERATION_FAILURE?: string
+  CV_MAXXING_AI_WORKER_GENERATION_OUTPUT?: string
   CV_MAXXING_LOCAL_APP_DATA_ROOT?: string
   CV_MAXXING_AI_WORKER_RETRY_STATUS?: string
   CV_MAXXING_AI_WORKER_SIGN_IN_STATUS?: string
@@ -221,6 +226,9 @@ export function createDesktopAppBootstrap({
     })
     ipcMain.handle(TAILORED_APPLICATION_IPC_CHANNELS.getPendingGeneration, async () => {
       return await tailoredApplication.getPendingGenerationCommand()
+    })
+    ipcMain.handle(TAILORED_APPLICATION_IPC_CHANNELS.resumePendingGeneration, async () => {
+      return await tailoredApplication.resumePendingGeneration()
     })
     ipcMain.handle(
       TAILORED_APPLICATION_IPC_CHANNELS.startPendingGeneration,
@@ -416,6 +424,17 @@ async function createRuntimeServices(): Promise<{
     testResolvedUrl: environment.CV_MAXXING_VACANCY_BROWSER_SESSION_RESOLVED_URL,
     testSnapshotHtml: environment.CV_MAXXING_VACANCY_BROWSER_SESSION_HTML,
   })
+  const tailoredApplication = createTailoredApplicationSessionService({
+    aiWorker,
+    localAppData,
+    readinessStore,
+    runWorkspaceRootPath: path.join(paths.rootDirectoryPath, 'runs'),
+    worker: createTailoredApplicationGenerationWorker({
+      environment,
+    }),
+  })
+
+  await tailoredApplication.recoverInterruptedGeneration()
 
   return {
     aiWorker,
@@ -427,10 +446,7 @@ async function createRuntimeServices(): Promise<{
       extractTextFromPdf,
       localAppData,
     }),
-    tailoredApplication: createTailoredApplicationSessionService({
-      aiWorker,
-      readinessStore,
-    }),
+    tailoredApplication,
     vacancy: createVacancyService({
       localAppData,
       openVacancyBrowserSession: async ({ shouldCapturePage, url }) => {
@@ -473,6 +489,8 @@ function isPendingGenerationCommand(value: unknown): value is PendingGenerationC
     typeof value.originalCvId === 'string' &&
     'originalCvLabel' in value &&
     typeof value.originalCvLabel === 'string' &&
+    'vacancyId' in value &&
+    typeof value.vacancyId === 'string' &&
     'vacancyDraft' in value &&
     value.vacancyDraft !== null &&
     typeof value.vacancyDraft === 'object' &&

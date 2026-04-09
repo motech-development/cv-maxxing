@@ -1,6 +1,7 @@
 import {
   useEffect,
   useEffectEvent,
+  useRef,
   useState,
   type ChangeEvent,
   type DragEvent,
@@ -80,6 +81,8 @@ export function App() {
   const [vacancyPreview, setVacancyPreview] = useState<VacancySummary | null>(null)
   const [vacancyReviewError, setVacancyReviewError] = useState<string | null>(null)
   const [viewModel, setViewModel] = useState(initialReadinessViewModel)
+  const isResumingPendingGeneration = useRef(false)
+  const lastResumedCommandId = useRef<string | null>(null)
 
   const loadWorkspaceState = async (): Promise<void> => {
     const [nextOriginalCvWorkspaceState, nextVacancyWorkspaceState] = await Promise.all([
@@ -276,6 +279,20 @@ export function App() {
     }
   }
 
+  const completePendingGenerationFlow = async (
+    nextPendingGenerationCommand: PendingGenerationCommand,
+  ): Promise<void> => {
+    await globalThis.window.cvMaxxing.tailoredApplication.completePendingGeneration(
+      nextPendingGenerationCommand.commandId,
+    )
+    await globalThis.window.cvMaxxing.vacancy.clearVacancyWorkspaceState()
+    setActiveApplicationTitle(createPendingGenerationTitle(nextPendingGenerationCommand))
+    await loadWorkspaceState()
+    setPendingGenerationCommand(null)
+    setReadinessError(null)
+    setViewModel(createWorkspaceActiveViewModel())
+  }
+
   const handleOpenTailoredApplication = async (): Promise<void> => {
     if (pendingGenerationCommand === null || isPendingGenerationActionPending) {
       return
@@ -284,16 +301,7 @@ export function App() {
     setIsPendingGenerationActionPending(true)
 
     try {
-      await globalThis.window.cvMaxxing.tailoredApplication.completePendingGeneration(
-        pendingGenerationCommand.commandId,
-      )
-      await globalThis.window.cvMaxxing.vacancy.clearVacancyWorkspaceState()
-      setActiveApplicationTitle(createPendingGenerationTitle(pendingGenerationCommand))
-      setPreviewedVacancyDraft(null)
-      setVacancyDraft(initialVacancyDraft)
-      setVacancyPreview(null)
-      setVacancyReviewError(null)
-      await loadReadinessState(globalThis.window.cvMaxxing.aiWorker.getAiWorkerPreflight)
+      await completePendingGenerationFlow(pendingGenerationCommand)
     } catch {
       setReadinessError(`${readinessErrorMessage} ${readinessErrorAction}`)
     } finally {
@@ -310,12 +318,6 @@ export function App() {
 
     try {
       await globalThis.window.cvMaxxing.tailoredApplication.abandonPendingGeneration()
-      await globalThis.window.cvMaxxing.vacancy.clearVacancyWorkspaceState()
-      setActiveApplicationTitle(null)
-      setPreviewedVacancyDraft(null)
-      setVacancyDraft(initialVacancyDraft)
-      setVacancyPreview(null)
-      setVacancyReviewError(null)
       await loadReadinessState(globalThis.window.cvMaxxing.aiWorker.getAiWorkerPreflight)
     } catch {
       setReadinessError(`${readinessErrorMessage} ${readinessErrorAction}`)
@@ -328,6 +330,46 @@ export function App() {
     originalCvWorkspaceState,
     readinessViewModel: viewModel,
   })
+
+  const resumePendingGeneration = useEffectEvent(async (): Promise<void> => {
+    if (pendingGenerationCommand === null) {
+      return
+    }
+
+    try {
+      await globalThis.window.cvMaxxing.tailoredApplication.resumePendingGeneration()
+      await completePendingGenerationFlow(pendingGenerationCommand)
+    } catch (error) {
+      setReadinessError(
+        resolveErrorMessage(error, `${readinessErrorMessage} ${readinessErrorAction}`),
+      )
+      await loadReadinessState(globalThis.window.cvMaxxing.aiWorker.getAiWorkerPreflight)
+    }
+  })
+
+  useEffect(() => {
+    if (screenKind !== 'workspace_loading' || pendingGenerationCommand === null) {
+      return
+    }
+
+    if (
+      isResumingPendingGeneration.current ||
+      lastResumedCommandId.current === pendingGenerationCommand.commandId
+    ) {
+      return
+    }
+
+    isResumingPendingGeneration.current = true
+    lastResumedCommandId.current = pendingGenerationCommand.commandId
+
+    resumePendingGeneration()
+      .catch(() => {
+        lastResumedCommandId.current = null
+      })
+      .finally(() => {
+        isResumingPendingGeneration.current = false
+      })
+  }, [pendingGenerationCommand, screenKind])
 
   const screenRegistry: Record<RendererScreenKind, () => ReactElement> = {
     ai_worker_checking: () => {
@@ -632,4 +674,17 @@ function resolveErrorMessage(error: unknown, fallbackMessage: string): string {
   }
 
   return fallbackMessage
+}
+
+function createWorkspaceActiveViewModel(): ReadinessRouteViewModel {
+  return {
+    body: 'The local AI worker is ready. Restoring your last tailored application.',
+    canEnterWorkspace: true,
+    diagnostic: 'Startup route restored: workspace_active.',
+    heading: 'Workspace restored',
+    primaryActionLabel: undefined,
+    secondaryActionLabel: undefined,
+    startupDestination: 'workspace_active',
+    status: 'ready',
+  }
 }
