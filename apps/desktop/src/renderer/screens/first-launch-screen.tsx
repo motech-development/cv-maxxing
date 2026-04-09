@@ -1,6 +1,6 @@
 import type { ChangeEvent, DragEvent, KeyboardEvent } from 'react'
 
-import { DesktopShell } from '../shell/desktop-shell.js'
+import { DesktopShell, type RailItemId } from '../shell/desktop-shell.js'
 import { Button } from '../ui/button.js'
 import { PanelCard } from '../ui/panel-card.js'
 import { SectionLabel } from '../ui/section-label.js'
@@ -11,6 +11,7 @@ interface FirstLaunchScreenProperties {
   onFileDrop: (event: DragEvent<HTMLElement>) => void
   onFileSelection: (event: ChangeEvent<HTMLInputElement>) => void
   onImportOriginalCv: () => void
+  onSelectRailItem?: (item: RailItemId) => void
   originalCvFile: File | null
 }
 
@@ -45,11 +46,13 @@ export function FirstLaunchScreen({
   onFileDrop,
   onFileSelection,
   onImportOriginalCv,
+  onSelectRailItem,
   originalCvFile,
 }: FirstLaunchScreenProperties) {
   return (
     <DesktopShell
       activeRailItem="original_cv"
+      onSelectRailItem={onSelectRailItem}
       sidebar={<FirstLaunchSidebar />}
       subtitle="First launch"
       workerLabel="Worker ready"

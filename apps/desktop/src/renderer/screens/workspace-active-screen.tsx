@@ -5,7 +5,7 @@ import type {
   TailoredApplicationListItem,
   TailoredApplicationPreview,
 } from '../../shared/tailored-application.js'
-import { DesktopShell } from '../shell/desktop-shell.js'
+import { DesktopShell, type RailItemId } from '../shell/desktop-shell.js'
 import { Button } from '../ui/button.js'
 import { OriginalCvReplacementCard } from '../ui/original-cv-replacement-card.js'
 import { PanelCard } from '../ui/panel-card.js'
@@ -28,6 +28,7 @@ interface WorkspaceActiveScreenProperties {
   onExportPdf: () => void
   onOriginalCvFileSelection: (event: ChangeEvent<HTMLInputElement>) => void
   onReplaceOriginalCv: () => void
+  onSelectRailItem?: (item: RailItemId) => void
   onSelectApplication: (tailoredApplicationId: string) => void
   onSelectPreviewDocument: (kind: PreviewDocumentKind) => void
   preview: TailoredApplicationPreview | null
@@ -49,6 +50,7 @@ export function WorkspaceActiveScreen({
   onExportPdf,
   onOriginalCvFileSelection,
   onReplaceOriginalCv,
+  onSelectRailItem,
   onSelectApplication,
   onSelectPreviewDocument,
   preview,
@@ -80,6 +82,7 @@ export function WorkspaceActiveScreen({
   return (
     <DesktopShell
       activeRailItem="job_vacancies"
+      onSelectRailItem={onSelectRailItem}
       sidebar={
         <>
           <SectionLabel>Job vacancies</SectionLabel>

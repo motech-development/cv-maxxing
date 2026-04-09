@@ -6243,6 +6243,512 @@
           ]
         }
       ]
+    },
+    {
+      "type": "frame",
+      "id": "zpXoc",
+      "x": 16320,
+      "y": 0,
+      "name": "CV Maxxing / Settings / Local Data",
+      "clip": true,
+      "width": 1512,
+      "height": 982,
+      "fill": "#10181D",
+      "cornerRadius": 12,
+      "layout": "vertical",
+      "children": [
+        {
+          "type": "frame",
+          "id": "kXalZ",
+          "name": "barSettings",
+          "width": "fill_container",
+          "height": 52,
+          "fill": "#1B252B",
+          "gap": 14,
+          "padding": [
+            0,
+            18
+          ],
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "twPU3",
+              "name": "Window controls",
+              "gap": 8,
+              "children": [
+                {
+                  "type": "ellipse",
+                  "id": "eBXsH",
+                  "name": "Close",
+                  "fill": "#FF5F57",
+                  "width": 12,
+                  "height": 12
+                },
+                {
+                  "type": "ellipse",
+                  "id": "1KM89",
+                  "name": "Minimise",
+                  "fill": "#FFBD2E",
+                  "width": 12,
+                  "height": 12
+                },
+                {
+                  "type": "ellipse",
+                  "id": "RYIOR",
+                  "name": "Zoom",
+                  "fill": "#28C840",
+                  "width": 12,
+                  "height": 12
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "64WdI",
+              "name": "Window title",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "dIBWO",
+                  "name": "titleText",
+                  "fill": "#F7F8F6",
+                  "content": "CV Maxxing",
+                  "fontFamily": "Manrope",
+                  "fontSize": 14,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "FmkMA",
+                  "name": "subtitleText",
+                  "fill": "#AAB4B0",
+                  "content": "Settings",
+                  "fontFamily": "Manrope",
+                  "fontSize": 11,
+                  "fontWeight": "500"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "6Y98Y",
+              "name": "Worker status",
+              "fill": "#26343C",
+              "cornerRadius": 999,
+              "gap": 8,
+              "padding": [
+                7,
+                10
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "ellipse",
+                  "id": "U2PeH",
+                  "name": "Status dot",
+                  "fill": "#28C840",
+                  "width": 8,
+                  "height": 8
+                },
+                {
+                  "type": "text",
+                  "id": "znVud",
+                  "name": "statusLabel",
+                  "fill": "#F7F8F6",
+                  "content": "Local",
+                  "fontFamily": "Manrope",
+                  "fontSize": 12,
+                  "fontWeight": "700"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "FFsWu",
+          "name": "Desktop body",
+          "width": "fill_container",
+          "height": "fill_container",
+          "fill": "$app.canvas",
+          "children": [
+            {
+              "type": "frame",
+              "id": "POTi0",
+              "name": "railSettings",
+              "width": 64,
+              "height": "fill_container",
+              "fill": "#182126",
+              "layout": "vertical",
+              "padding": [
+                16,
+                10
+              ],
+              "justifyContent": "space_between",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "WGzY2",
+                  "name": "Primary tabs",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 14,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "u1VZ2",
+                      "name": "Tab / AI worker",
+                      "width": 44,
+                      "height": 44,
+                      "fill": "#182126",
+                      "cornerRadius": 8,
+                      "layout": "vertical",
+                      "justifyContent": "center",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon_font",
+                          "id": "MCgyF",
+                          "name": "tabWorkerIcon",
+                          "width": 20,
+                          "height": 20,
+                          "iconFontName": "sparkles",
+                          "iconFontFamily": "lucide",
+                          "fill": "#93A29A"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "gXpRw",
+                      "name": "Tab / Job vacancies",
+                      "width": 44,
+                      "height": 44,
+                      "fill": "#182126",
+                      "cornerRadius": 8,
+                      "layout": "vertical",
+                      "justifyContent": "center",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon_font",
+                          "id": "di7dD",
+                          "name": "tabVacanciesIcon",
+                          "width": 20,
+                          "height": 20,
+                          "iconFontName": "briefcase",
+                          "iconFontFamily": "lucide",
+                          "fill": "#93A29A"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "xwzXF",
+                      "name": "Tab / Original CV",
+                      "width": 44,
+                      "height": 44,
+                      "fill": "#182126",
+                      "cornerRadius": 8,
+                      "layout": "vertical",
+                      "justifyContent": "center",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon_font",
+                          "id": "T14P2",
+                          "name": "tabCvIcon",
+                          "width": 20,
+                          "height": 20,
+                          "iconFontName": "file-text",
+                          "iconFontFamily": "lucide",
+                          "fill": "#93A29A"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "y18BA",
+                  "name": "Utility tabs",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 14,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "0j3lm",
+                      "name": "Tab / Settings",
+                      "width": 44,
+                      "height": 44,
+                      "fill": "#2D3B43",
+                      "cornerRadius": 8,
+                      "layout": "vertical",
+                      "justifyContent": "center",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon_font",
+                          "id": "IQiSy",
+                          "name": "tabSettingsIcon",
+                          "width": 20,
+                          "height": 20,
+                          "iconFontName": "settings",
+                          "iconFontFamily": "lucide",
+                          "fill": "#F7F8F6"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "u4cJE",
+              "name": "Settings panel",
+              "width": 328,
+              "height": "fill_container",
+              "fill": "#F7F8F6",
+              "stroke": {
+                "align": "inside",
+                "thickness": {
+                  "right": 1
+                },
+                "fill": "$app.divider"
+              },
+              "layout": "vertical",
+              "gap": 16,
+              "padding": 20,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "FzItO",
+                  "name": "labelSettings",
+                  "fill": "$app.subtle",
+                  "content": "Settings",
+                  "fontFamily": "Manrope",
+                  "fontSize": 11,
+                  "fontWeight": "800"
+                },
+                {
+                  "type": "text",
+                  "id": "8tW2Y",
+                  "name": "titleSettings",
+                  "fill": "$app.ink",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Local app settings",
+                  "lineHeight": 1.05,
+                  "fontFamily": "Manrope",
+                  "fontSize": 24,
+                  "fontWeight": "800"
+                },
+                {
+                  "type": "frame",
+                  "id": "IKVMJ",
+                  "name": "navSettings",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 10,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "UptDg",
+                      "name": "navWorkerSettings",
+                      "width": "fill_container",
+                      "fill": "#FFFFFF",
+                      "cornerRadius": 8,
+                      "gap": 10,
+                      "padding": 10,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon_font",
+                          "id": "5XT4D",
+                          "name": "navWorkerIconSettings",
+                          "width": 16,
+                          "height": 16,
+                          "iconFontName": "sparkles",
+                          "iconFontFamily": "lucide",
+                          "fill": "#93A29A"
+                        },
+                        {
+                          "type": "text",
+                          "id": "pIBsK",
+                          "name": "navWorkerTextSettings",
+                          "fill": "$app.ink",
+                          "content": "AI worker",
+                          "fontFamily": "Manrope",
+                          "fontSize": 13,
+                          "fontWeight": "800"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "eMTbk",
+                      "name": "navSecuritySettings",
+                      "width": "fill_container",
+                      "fill": "#EAF0EC",
+                      "cornerRadius": 8,
+                      "gap": 10,
+                      "padding": 10,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon_font",
+                          "id": "tAJjM",
+                          "name": "navSecurityIconSettings",
+                          "width": 16,
+                          "height": 16,
+                          "iconFontName": "shield",
+                          "iconFontFamily": "lucide",
+                          "fill": "#4D6258"
+                        },
+                        {
+                          "type": "text",
+                          "id": "MzoZw",
+                          "name": "navSecurityTextSettings",
+                          "fill": "$app.ink",
+                          "content": "Local data",
+                          "fontFamily": "Manrope",
+                          "fontSize": 13,
+                          "fontWeight": "800"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "ft2a7",
+                  "name": "spacerSettings",
+                  "width": "fill_container",
+                  "height": "fill_container"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "8vRgi",
+              "name": "Settings main",
+              "width": "fill_container",
+              "height": "fill_container",
+              "fill": "$app.paper",
+              "layout": "vertical",
+              "gap": 20,
+              "padding": 28,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "XXzco",
+                  "name": "hSettings",
+                  "fill": "$app.ink",
+                  "content": "Local data",
+                  "fontFamily": "Manrope",
+                  "fontSize": 30,
+                  "fontWeight": "800"
+                },
+                {
+                  "type": "text",
+                  "id": "TbUJj",
+                  "name": "subSettings",
+                  "fill": "$app.muted",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Control app-managed browser sessions and destructive local resets for this machine.",
+                  "fontFamily": "Manrope",
+                  "fontSize": 13,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "frame",
+                  "id": "rAYFx",
+                  "name": "Worker settings card",
+                  "width": "fill_container",
+                  "fill": "#F7F8F6",
+                  "cornerRadius": 8,
+                  "stroke": {
+                    "align": "inside",
+                    "thickness": 1,
+                    "fill": "$app.divider"
+                  },
+                  "layout": "vertical",
+                  "gap": 14,
+                  "padding": 24,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "Jn9ra",
+                      "name": "settingsCardTitle",
+                      "fill": "$app.ink",
+                      "content": "Provider-neutral worker",
+                      "fontFamily": "Manrope",
+                      "fontSize": 18,
+                      "fontWeight": "800"
+                    },
+                    {
+                      "type": "text",
+                      "id": "DQ24c",
+                      "name": "settingsCardText",
+                      "fill": "$app.muted",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "V1 uses a bring-your-own Codex CLI adapter while the app UI keeps provider-neutral AI worker language.",
+                      "lineHeight": 1.4,
+                      "fontFamily": "Manrope",
+                      "fontSize": 13,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "OA86b",
+                      "name": "pathRowSettings",
+                      "width": "fill_container",
+                      "fill": "#FFFFFF",
+                      "cornerRadius": 8,
+                      "gap": 12,
+                      "padding": 12,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "TrMBE",
+                          "name": "pathLabelSettings",
+                          "fill": "$app.ink",
+                          "content": "Worker command",
+                          "fontFamily": "Manrope",
+                          "fontSize": 13,
+                          "fontWeight": "800"
+                        },
+                        {
+                          "type": "text",
+                          "id": "0IGzw",
+                          "name": "pathValueSettings",
+                          "fill": "$app.muted",
+                          "content": "codex",
+                          "fontFamily": "Manrope",
+                          "fontSize": 13,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
     }
   ],
   "variables": {

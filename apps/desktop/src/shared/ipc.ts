@@ -11,6 +11,12 @@ export const ORIGINAL_CV_IPC_CHANNELS = {
   importOriginalCv: 'original-cv:import',
 } as const
 
+export const SETTINGS_IPC_CHANNELS = {
+  clearJobSiteBrowserData: 'settings:clear-job-site-browser-data',
+  getSnapshot: 'settings:get-snapshot',
+  resetLocalAppData: 'settings:reset-local-app-data',
+} as const
+
 export const TAILORED_APPLICATION_IPC_CHANNELS = {
   abandonPendingGeneration: 'tailored-application:abandon-pending-generation',
   completePendingGeneration: 'tailored-application:complete-pending-generation',
@@ -38,6 +44,8 @@ export type AiWorkerIpcChannel =
 export type OriginalCvIpcChannel =
   (typeof ORIGINAL_CV_IPC_CHANNELS)[keyof typeof ORIGINAL_CV_IPC_CHANNELS]
 
+export type SettingsIpcChannel = (typeof SETTINGS_IPC_CHANNELS)[keyof typeof SETTINGS_IPC_CHANNELS]
+
 export type TailoredApplicationIpcChannel =
   (typeof TAILORED_APPLICATION_IPC_CHANNELS)[keyof typeof TAILORED_APPLICATION_IPC_CHANNELS]
 
@@ -46,5 +54,6 @@ export type VacancyIpcChannel = (typeof VACANCY_IPC_CHANNELS)[keyof typeof VACAN
 export type DesktopIpcChannel =
   | AiWorkerIpcChannel
   | OriginalCvIpcChannel
+  | SettingsIpcChannel
   | TailoredApplicationIpcChannel
   | VacancyIpcChannel

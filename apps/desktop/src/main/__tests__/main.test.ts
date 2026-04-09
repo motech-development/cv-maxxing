@@ -3,6 +3,7 @@ import { beforeEach, expect, test, vi } from 'vitest'
 import {
   AI_WORKER_IPC_CHANNELS,
   ORIGINAL_CV_IPC_CHANNELS,
+  SETTINGS_IPC_CHANNELS,
   TAILORED_APPLICATION_IPC_CHANNELS,
   VACANCY_IPC_CHANNELS,
 } from '../../shared/ipc.js'
@@ -134,6 +135,25 @@ function createTailoredApplicationDouble() {
       provider: 'codex',
       status: 'sign_in_required',
     }),
+  }
+}
+
+function createSettingsDouble() {
+  return {
+    clearJobSiteBrowserData: vi.fn().mockImplementation(() => Promise.resolve()),
+    getSettingsSnapshot: vi.fn().mockResolvedValue({
+      appVersion: '1.0.0',
+      privacy: {
+        analytics: false,
+        automaticUpdateChecks: false,
+        crashReporting: false,
+        remoteConfig: false,
+        runtimeFontCdnCalls: false,
+        telemetry: false,
+      },
+      workerCommand: 'codex',
+    }),
+    resetLocalAppData: vi.fn().mockImplementation(() => Promise.resolve()),
   }
 }
 
@@ -323,6 +343,7 @@ test('bootstrap registers the full AI worker onboarding IPC surface and opens th
     resetWorkspaceState: vi.fn().mockImplementation(() => Promise.resolve()),
   }
   const tailoredApplication = createTailoredApplicationDouble()
+  const settings = createSettingsDouble()
   const onOriginalCvImported = vi.fn().mockImplementation(() => Promise.resolve())
 
   const bootstrap = createDesktopAppBootstrap({
@@ -334,6 +355,7 @@ test('bootstrap registers the full AI worker onboarding IPC surface and opens th
     },
     onOriginalCvImported,
     originalCv,
+    settings,
     tailoredApplication,
     vacancy,
     platform: 'linux',
@@ -361,6 +383,12 @@ test('bootstrap registers the full AI worker onboarding IPC surface and opens th
     ORIGINAL_CV_IPC_CHANNELS.importOriginalCv,
     expect.any(Function),
   )
+  expect(handle).toHaveBeenCalledWith(SETTINGS_IPC_CHANNELS.getSnapshot, expect.any(Function))
+  expect(handle).toHaveBeenCalledWith(
+    SETTINGS_IPC_CHANNELS.clearJobSiteBrowserData,
+    expect.any(Function),
+  )
+  expect(handle).toHaveBeenCalledWith(SETTINGS_IPC_CHANNELS.resetLocalAppData, expect.any(Function))
   expect(handle).toHaveBeenCalledWith(
     VACANCY_IPC_CHANNELS.clearWorkspaceState,
     expect.any(Function),
@@ -469,6 +497,30 @@ test('bootstrap registers the full AI worker onboarding IPC surface and opens th
     filename: 'ada-lovelace-revised.docx',
   })
   expect(onOriginalCvImported).toHaveBeenCalledTimes(1)
+  await expect(registeredHandlers.get(SETTINGS_IPC_CHANNELS.getSnapshot)?.()).resolves.toEqual({
+    appVersion: '1.0.0',
+    privacy: {
+      analytics: false,
+      automaticUpdateChecks: false,
+      crashReporting: false,
+      remoteConfig: false,
+      runtimeFontCdnCalls: false,
+      telemetry: false,
+    },
+    workerCommand: 'codex',
+  })
+  await expect(
+    registeredHandlers.get(SETTINGS_IPC_CHANNELS.clearJobSiteBrowserData)?.(),
+  ).resolves.toBeUndefined()
+  await expect(
+    registeredHandlers.get(SETTINGS_IPC_CHANNELS.resetLocalAppData)?.(undefined, {
+      confirmationPhrase: 'RESET',
+    }),
+  ).resolves.toBeUndefined()
+  expect(settings.clearJobSiteBrowserData).toHaveBeenCalledTimes(1)
+  expect(settings.resetLocalAppData).toHaveBeenCalledWith({
+    confirmationPhrase: 'RESET',
+  })
   await expect(registeredHandlers.get(VACANCY_IPC_CHANNELS.getWorkspaceState)?.()).resolves.toEqual(
     {
       draft: {
@@ -740,6 +792,7 @@ test('bootstrap recreates the window on activate and quits on window-all-closed 
       }),
       importOriginalCv: vi.fn(),
     },
+    settings: createSettingsDouble(),
     tailoredApplication,
     vacancy,
     platform: 'linux',
@@ -822,6 +875,7 @@ test('bootstrap logs and swallows activate window recreation failures', async ()
       }),
       importOriginalCv: vi.fn(),
     },
+    settings: createSettingsDouble(),
     tailoredApplication,
     vacancy,
     platform: 'linux',
@@ -885,6 +939,7 @@ test('bootstrap keeps the app open when every window closes on macOS', async () 
       }),
       importOriginalCv: vi.fn(),
     },
+    settings: createSettingsDouble(),
     tailoredApplication,
     vacancy,
     platform: 'darwin',
@@ -941,6 +996,7 @@ test('bootstrap hides the native macOS title bar chrome when opening the main wi
       }),
       importOriginalCv: vi.fn(),
     },
+    settings: createSettingsDouble(),
     tailoredApplication,
     vacancy,
     platform: 'darwin',
@@ -1033,6 +1089,7 @@ test('runtime dependencies adapt Electron primitives for the bootstrap contract'
       }),
       importOriginalCv: vi.fn(),
     },
+    settings: createSettingsDouble(),
     tailoredApplication,
     vacancy,
     platform: 'linux',

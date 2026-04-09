@@ -2,6 +2,7 @@ import type { DesktopIpcChannel } from '../shared/ipc.js'
 import {
   AI_WORKER_IPC_CHANNELS,
   ORIGINAL_CV_IPC_CHANNELS,
+  SETTINGS_IPC_CHANNELS,
   TAILORED_APPLICATION_IPC_CHANNELS,
   VACANCY_IPC_CHANNELS,
 } from '../shared/ipc.js'
@@ -17,6 +18,7 @@ import type {
   StartPendingGenerationInput,
 } from '../shared/pending-generation.js'
 import type { StartupDestination } from '../shared/startup-destination.js'
+import type { ResetLocalAppDataInput, SettingsSnapshot } from '../shared/settings.js'
 import type {
   TailoredApplicationExportResult,
   TailoredApplicationPreview,
@@ -61,6 +63,17 @@ export function createDesktopApi({ invoke }: DesktopApiInvoker): CvMaxxingWindow
       },
       importOriginalCv: async (input: OriginalCvImportInput): Promise<OriginalCvImportResult> => {
         return await invoke(ORIGINAL_CV_IPC_CHANNELS.importOriginalCv, input)
+      },
+    },
+    settings: {
+      clearJobSiteBrowserData: async (): Promise<void> => {
+        await invoke<undefined>(SETTINGS_IPC_CHANNELS.clearJobSiteBrowserData)
+      },
+      getSettingsSnapshot: async (): Promise<SettingsSnapshot> => {
+        return await invoke(SETTINGS_IPC_CHANNELS.getSnapshot)
+      },
+      resetLocalAppData: async (input: ResetLocalAppDataInput): Promise<void> => {
+        await invoke<undefined>(SETTINGS_IPC_CHANNELS.resetLocalAppData, input)
       },
     },
     tailoredApplication: {

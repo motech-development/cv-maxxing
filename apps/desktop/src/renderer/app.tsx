@@ -12,6 +12,7 @@ import { createReadinessRouteViewModel } from '../readiness/readiness-route.js'
 import type { ReadinessRouteViewModel } from '../readiness/readiness-route.js'
 import type { OriginalCvWorkspaceState } from '../shared/original-cv.js'
 import type { PendingGenerationCommand } from '../shared/pending-generation.js'
+import type { SettingsSnapshot } from '../shared/settings.js'
 import type {
   TailoredApplicationPreview,
   TailoredApplicationWorkspaceState,
@@ -21,6 +22,7 @@ import { AiWorkerCheckingScreen } from './screens/ai-worker-checking-screen.js'
 import { AiWorkerSignInRequiredScreen } from './screens/ai-worker-sign-in-required-screen.js'
 import { AiWorkerUnavailableScreen } from './screens/ai-worker-unavailable-screen.js'
 import { FirstLaunchScreen } from './screens/first-launch-screen.js'
+import { SettingsScreen, type SettingsSection } from './screens/settings-screen.js'
 import { WorkspaceActiveScreen } from './screens/workspace-active-screen.js'
 import { WorkspaceEmptyScreen } from './screens/workspace-empty-screen.js'
 import { WorkspaceLoadingScreen } from './screens/workspace-loading-screen.js'
@@ -69,16 +71,21 @@ function isSupportedOriginalCvFile(file: File): boolean {
 
 type OriginalCvImportDestination = 'workspace_active' | 'workspace_empty'
 type PreviewDocumentKind = 'adapted_cv' | 'cover_letter'
+type WorkspaceSection = 'settings' | 'workspace'
 
 export function App() {
   const [activeApplicationTitle, setActiveApplicationTitle] = useState<string | null>(null)
+  const [activeWorkspaceSection, setActiveWorkspaceSection] =
+    useState<WorkspaceSection>('workspace')
   const [isConfirmingDeleteTailoredApplication, setIsConfirmingDeleteTailoredApplication] =
     useState(false)
+  const [isClearingJobSiteBrowserData, setIsClearingJobSiteBrowserData] = useState(false)
   const [isCopyingCoverLetterText, setIsCopyingCoverLetterText] = useState(false)
   const [importError, setImportError] = useState<string | null>(null)
   const [isImportingOriginalCv, setIsImportingOriginalCv] = useState(false)
   const [isOpeningVacancyBrowser, setIsOpeningVacancyBrowser] = useState(false)
   const [isPendingGenerationActionPending, setIsPendingGenerationActionPending] = useState(false)
+  const [isResettingLocalAppData, setIsResettingLocalAppData] = useState(false)
   const [isSecondaryActionPending, setIsSecondaryActionPending] = useState(false)
   const [isSubmittingPrimaryAction, setIsSubmittingPrimaryAction] = useState(false)
   const [isSubmittingVacancyReview, setIsSubmittingVacancyReview] = useState(false)
@@ -91,6 +98,10 @@ export function App() {
   const [previewedVacancyDraft, setPreviewedVacancyDraft] = useState<VacancyDraft | null>(null)
   const [previewDocumentKind, setPreviewDocumentKind] = useState<PreviewDocumentKind>('adapted_cv')
   const [readinessError, setReadinessError] = useState<string | null>(null)
+  const [resetConfirmationPhrase, setResetConfirmationPhrase] = useState('')
+  const [settingsMessage, setSettingsMessage] = useState<string | null>(null)
+  const [settingsSection, setSettingsSection] = useState<SettingsSection>('ai_worker')
+  const [settingsSnapshot, setSettingsSnapshot] = useState<SettingsSnapshot | null>(null)
   const [vacancyDraft, setVacancyDraft] = useState(initialVacancyDraft)
   const [vacancyPreview, setVacancyPreview] = useState<VacancySummary | null>(null)
   const [vacancyReviewError, setVacancyReviewError] = useState<string | null>(null)
@@ -144,6 +155,12 @@ export function App() {
     setPendingGenerationCommand(nextPendingGenerationCommand)
   }
 
+  const loadSettingsSnapshot = async (): Promise<void> => {
+    const nextSettingsSnapshot = await globalThis.window.cvMaxxing.settings.getSettingsSnapshot()
+
+    setSettingsSnapshot(nextSettingsSnapshot)
+  }
+
   const loadReadinessState = async (
     getAiWorkerPreflight: typeof globalThis.window.cvMaxxing.aiWorker.getAiWorkerPreflight,
   ): Promise<void> => {
@@ -156,7 +173,7 @@ export function App() {
     setViewModel(nextViewModel)
 
     if (nextViewModel.canEnterWorkspace) {
-      await loadWorkspaceState()
+      await Promise.all([loadSettingsSnapshot(), loadWorkspaceState()])
 
       if (nextViewModel.startupDestination !== 'workspace_active') {
         setActiveApplicationTitle(null)
@@ -171,7 +188,11 @@ export function App() {
       }
 
       setPendingGenerationCommand(null)
+
+      return
     }
+
+    setActiveWorkspaceSection('workspace')
   }
 
   const loadInitialState = useEffectEvent(async (): Promise<void> => {
@@ -218,6 +239,75 @@ export function App() {
       setReadinessError(`${readinessErrorMessage} ${readinessErrorAction}`)
     } finally {
       setIsSecondaryActionPending(false)
+    }
+  }
+
+  const handleSelectRailItem = (item: 'job_vacancies' | 'original_cv' | 'settings' | 'setup') => {
+    if (item === 'settings') {
+      setActiveWorkspaceSection('settings')
+      setSettingsMessage(null)
+
+      return
+    }
+
+    if (viewModel.canEnterWorkspace) {
+      setActiveWorkspaceSection('workspace')
+      setSettingsMessage(null)
+    }
+  }
+
+  const handleClearJobSiteBrowserData = async (): Promise<void> => {
+    if (isClearingJobSiteBrowserData) {
+      return
+    }
+
+    setIsClearingJobSiteBrowserData(true)
+
+    try {
+      await globalThis.window.cvMaxxing.settings.clearJobSiteBrowserData()
+      setSettingsMessage('Internal job-site browser data cleared.')
+    } catch (error) {
+      setSettingsMessage(resolveErrorMessage(error, 'Unable to clear the internal browser data.'))
+    } finally {
+      setIsClearingJobSiteBrowserData(false)
+    }
+  }
+
+  const handleResetLocalAppData = async (): Promise<void> => {
+    if (isResettingLocalAppData) {
+      return
+    }
+
+    setIsResettingLocalAppData(true)
+
+    try {
+      await globalThis.window.cvMaxxing.settings.resetLocalAppData({
+        confirmationPhrase: resetConfirmationPhrase,
+      })
+
+      setActiveApplicationTitle(null)
+      setActiveWorkspaceSection('workspace')
+      setOriginalCvFile(null)
+      setOriginalCvWorkspaceState(initialOriginalCvWorkspaceState)
+      setPendingGenerationCommand(null)
+      setPreviewedVacancyDraft(null)
+      setPreviewDocumentKind('adapted_cv')
+      setReadinessError(null)
+      setResetConfirmationPhrase('')
+      setSettingsMessage(null)
+      setTailoredApplicationPreview(null)
+      setTailoredApplicationWorkspaceState(initialTailoredApplicationWorkspaceState)
+      setVacancyDraft(initialVacancyDraft)
+      setVacancyPreview(null)
+      setVacancyReviewError(null)
+      setViewModel(initialReadinessViewModel)
+      await loadReadinessState(globalThis.window.cvMaxxing.aiWorker.getAiWorkerPreflight)
+    } catch (error) {
+      setSettingsMessage(
+        resolveErrorMessage(error, 'Unable to reset local app data on this machine.'),
+      )
+    } finally {
+      setIsResettingLocalAppData(false)
     }
   }
 
@@ -467,6 +557,9 @@ export function App() {
     readinessViewModel: viewModel,
   })
 
+  const workerStatusLabel = resolveWorkerStatusLabel(viewModel.status)
+  const workerStatusTone = resolveWorkerStatusTone(viewModel.status)
+
   const resumePendingGeneration = useEffectEvent(async (): Promise<void> => {
     if (pendingGenerationCommand === null) {
       return
@@ -561,6 +654,7 @@ export function App() {
           onImportOriginalCv={() => {
             handleOriginalCvImport('workspace_empty').catch(() => null)
           }}
+          onSelectRailItem={handleSelectRailItem}
           originalCvFile={originalCvFile}
         />
       )
@@ -589,6 +683,7 @@ export function App() {
           onReplaceOriginalCv={() => {
             handleOriginalCvImport('workspace_active').catch(() => null)
           }}
+          onSelectRailItem={handleSelectRailItem}
           onSelectApplication={(tailoredApplicationId) => {
             handleSelectTailoredApplication(tailoredApplicationId).catch(() => null)
           }}
@@ -650,6 +745,7 @@ export function App() {
           onReplaceOriginalCv={() => {
             handleOriginalCvImport('workspace_empty').catch(() => null)
           }}
+          onSelectRailItem={handleSelectRailItem}
           onResetDrafts={() => {
             globalThis.window.cvMaxxing.vacancy
               .clearVacancyWorkspaceState()
@@ -774,6 +870,57 @@ export function App() {
     },
   }
 
+  if (
+    activeWorkspaceSection === 'settings' &&
+    screenKind !== 'workspace_loading' &&
+    viewModel.canEnterWorkspace &&
+    settingsSnapshot !== null
+  ) {
+    return (
+      <SettingsScreen
+        activeSection={settingsSection}
+        isClearingJobSiteBrowserData={isClearingJobSiteBrowserData}
+        isOpeningSetupGuide={isSecondaryActionPending}
+        isResettingLocalAppData={isResettingLocalAppData}
+        isRetryingAiWorker={isSubmittingPrimaryAction}
+        onChangeResetConfirmationPhrase={setResetConfirmationPhrase}
+        onClearJobSiteBrowserData={() => {
+          handleClearJobSiteBrowserData().catch(() => null)
+        }}
+        onOpenSetupGuide={() => {
+          handleSecondaryAction().catch(() => null)
+        }}
+        onResetLocalAppData={() => {
+          handleResetLocalAppData().catch(() => null)
+        }}
+        onRetryAiWorker={() => {
+          setIsSubmittingPrimaryAction(true)
+          setSettingsMessage(null)
+
+          loadReadinessState(globalThis.window.cvMaxxing.aiWorker.retryAiWorkerPreflight)
+            .catch((error: unknown) => {
+              setSettingsMessage(
+                resolveErrorMessage(error, `${readinessErrorMessage} ${readinessErrorAction}`),
+              )
+            })
+            .finally(() => {
+              setIsSubmittingPrimaryAction(false)
+            })
+        }}
+        onSelectRailItem={handleSelectRailItem}
+        onSelectSection={(section) => {
+          setSettingsMessage(null)
+          setSettingsSection(section)
+        }}
+        resetConfirmationPhrase={resetConfirmationPhrase}
+        settingsMessage={settingsMessage}
+        snapshot={settingsSnapshot}
+        workerStatusLabel={workerStatusLabel}
+        workerStatusTone={workerStatusTone}
+      />
+    )
+  }
+
   const renderScreen = screenRegistry[screenKind]
 
   return renderScreen()
@@ -831,4 +978,38 @@ function createWorkspaceActiveViewModel(): ReadinessRouteViewModel {
     startupDestination: 'workspace_active',
     status: 'ready',
   }
+}
+
+function resolveWorkerStatusLabel(status: ReadinessRouteViewModel['status']): string {
+  if (status === 'ready') {
+    return 'Local'
+  }
+
+  if (status === 'sign_in_required') {
+    return 'Sign in required'
+  }
+
+  if (status === 'unavailable') {
+    return 'Unavailable'
+  }
+
+  return 'Checking'
+}
+
+function resolveWorkerStatusTone(
+  status: ReadinessRouteViewModel['status'],
+): 'danger' | 'muted' | 'ready' | 'warning' {
+  if (status === 'ready') {
+    return 'ready'
+  }
+
+  if (status === 'sign_in_required') {
+    return 'warning'
+  }
+
+  if (status === 'unavailable') {
+    return 'danger'
+  }
+
+  return 'muted'
 }

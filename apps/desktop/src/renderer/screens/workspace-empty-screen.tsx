@@ -2,7 +2,7 @@ import type { ChangeEvent } from 'react'
 
 import type { OriginalCvSummary } from '../../shared/original-cv.js'
 import type { VacancySummary } from '../../shared/vacancy.js'
-import { DesktopShell } from '../shell/desktop-shell.js'
+import { DesktopShell, type RailItemId } from '../shell/desktop-shell.js'
 import { Button } from '../ui/button.js'
 import { OriginalCvReplacementCard } from '../ui/original-cv-replacement-card.js'
 import { PanelCard } from '../ui/panel-card.js'
@@ -23,6 +23,7 @@ interface WorkspaceEmptyScreenProperties {
   onResetDrafts: () => void
   onReviewPastedVacancy: () => void
   onReviewVacancyUrl: () => void
+  onSelectRailItem?: (item: RailItemId) => void
   onTextDraftChange: (event: ChangeEvent<HTMLTextAreaElement>) => void
   onUrlDraftChange: (event: ChangeEvent<HTMLInputElement>) => void
   originalCvFile: File | null
@@ -49,6 +50,7 @@ export function WorkspaceEmptyScreen({
   onResetDrafts,
   onReviewPastedVacancy,
   onReviewVacancyUrl,
+  onSelectRailItem,
   onTextDraftChange,
   onUrlDraftChange,
   originalCvFile,
@@ -63,6 +65,7 @@ export function WorkspaceEmptyScreen({
   return (
     <DesktopShell
       activeRailItem="job_vacancies"
+      onSelectRailItem={onSelectRailItem}
       sidebar={
         <>
           <SectionLabel>Job vacancies</SectionLabel>

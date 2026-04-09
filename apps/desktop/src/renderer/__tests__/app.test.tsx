@@ -4,6 +4,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { afterEach, expect, test, vi } from 'vitest'
 
 import type { OriginalCvImportInput, OriginalCvImportResult } from '../../shared/original-cv.js'
+import { SETTINGS_RESET_CONFIRMATION_PHRASE } from '../../shared/settings.js'
 import type { TailoredApplicationPreview } from '../../shared/tailored-application.js'
 import { App } from '../app.js'
 
@@ -206,15 +207,37 @@ function createTailoredApplicationApi(
   }
 }
 
+function createSettingsApi(overrides?: Partial<(typeof globalThis.window.cvMaxxing)['settings']>) {
+  return {
+    clearJobSiteBrowserData: vi.fn().mockImplementation(() => Promise.resolve()),
+    getSettingsSnapshot: vi.fn().mockResolvedValue({
+      appVersion: '1.0.0',
+      privacy: {
+        analytics: false,
+        automaticUpdateChecks: false,
+        crashReporting: false,
+        remoteConfig: false,
+        runtimeFontCdnCalls: false,
+        telemetry: false,
+      },
+      workerCommand: 'codex',
+    }),
+    resetLocalAppData: vi.fn().mockImplementation(() => Promise.resolve()),
+    ...overrides,
+  }
+}
+
 function renderApp({
   aiWorker = createAiWorkerApi(),
   originalCv = createOriginalCvApi(),
+  settings = createSettingsApi(),
   tailoredApplication = createTailoredApplicationApi(),
   vacancy = createVacancyApi(),
 }: Partial<typeof globalThis.window.cvMaxxing> = {}) {
   globalThis.window.cvMaxxing = {
     aiWorker,
     originalCv,
+    settings,
     tailoredApplication,
     vacancy,
   }
@@ -1764,5 +1787,142 @@ test('abandons the pending draft from the loading screen and returns to workspac
 
   await waitFor(() => {
     expect(screen.getByRole('heading', { name: 'Create a tailored application' })).toBeDefined()
+  })
+})
+
+test('opens settings from the rail, shows version and privacy guardrails, and retries the AI worker from settings', async () => {
+  const retryAiWorkerPreflight = vi.fn().mockResolvedValue({
+    canResumeGeneration: true,
+    message: 'The local AI worker is ready.',
+    provider: 'codex',
+    status: 'ready',
+  })
+
+  renderApp({
+    aiWorker: createAiWorkerApi({
+      getAiWorkerPreflight: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+      getStartupDestination: vi.fn().mockResolvedValue('first_launch'),
+      retryAiWorkerPreflight,
+    }),
+  })
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Import your original CV' })).toBeDefined()
+  })
+
+  fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'AI worker' })).toBeDefined()
+  })
+
+  expect(screen.getByText('Provider-neutral worker')).toBeDefined()
+  expect(screen.getByText('Worker command')).toBeDefined()
+  expect(screen.getByText('codex')).toBeDefined()
+
+  fireEvent.click(screen.getByRole('button', { name: 'Show Local data settings' }))
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Local data' })).toBeDefined()
+  })
+
+  expect(screen.getByText('App version')).toBeDefined()
+  expect(screen.getByText('1.0.0')).toBeDefined()
+  expect(screen.getByText('Telemetry')).toBeDefined()
+  expect(screen.getByText('Automatic update checks')).toBeDefined()
+
+  fireEvent.click(screen.getByRole('button', { name: 'Show AI worker settings' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Retry status check' }))
+
+  await waitFor(() => {
+    expect(retryAiWorkerPreflight).toHaveBeenCalledTimes(1)
+  })
+})
+
+test('requires the destructive confirmation phrase before resetting local app data and returns to first launch after reset', async () => {
+  const getStartupDestination = vi
+    .fn()
+    .mockResolvedValueOnce('workspace_empty')
+    .mockResolvedValueOnce('first_launch')
+  const getOriginalCvWorkspaceState = vi
+    .fn()
+    .mockResolvedValueOnce({
+      activeOriginalCv: {
+        fileType: 'pdf',
+        headline: 'Principal Product Designer',
+        id: 'original-cv-123',
+        importedAt: '2026-04-08T14:30:00.000Z',
+        originalFilename: 'ada-lovelace.pdf',
+        pageCount: 1,
+        snapshotCount: 1,
+        summary: 'Design leader focused on complex workflow products.',
+        writingStyle: {
+          averageSentenceLength: 7,
+          clicheDetections: [],
+          firstPersonUsage: 'absent',
+          formality: 'direct',
+        },
+      },
+      snapshotCount: 1,
+    })
+    .mockResolvedValueOnce({
+      activeOriginalCv: null,
+      snapshotCount: 0,
+    })
+  const resetLocalAppData = vi.fn().mockImplementation(() => Promise.resolve())
+
+  renderApp({
+    aiWorker: createAiWorkerApi({
+      getAiWorkerPreflight: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+      getStartupDestination,
+    }),
+    originalCv: createOriginalCvApi({
+      getOriginalCvWorkspaceState,
+    }),
+    settings: createSettingsApi({
+      resetLocalAppData,
+    }),
+  })
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Create a tailored application' })).toBeDefined()
+  })
+
+  fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Show Local data settings' }))
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Local data' })).toBeDefined()
+  })
+
+  const resetButton = screen.getByRole('button', { name: 'Reset local app data' })
+
+  expect(resetButton).toHaveProperty('disabled', true)
+
+  fireEvent.change(screen.getByLabelText('Type RESET to confirm destructive reset'), {
+    target: {
+      value: SETTINGS_RESET_CONFIRMATION_PHRASE,
+    },
+  })
+  fireEvent.click(resetButton)
+
+  await waitFor(() => {
+    expect(resetLocalAppData).toHaveBeenCalledWith({
+      confirmationPhrase: SETTINGS_RESET_CONFIRMATION_PHRASE,
+    })
+  })
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Import your original CV' })).toBeDefined()
   })
 })

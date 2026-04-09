@@ -3,11 +3,12 @@ import { Briefcase, FileText, Settings, Sparkles } from 'lucide-react'
 
 import { StatusPill } from '../ui/status-pill.js'
 
-type RailItemId = 'job_vacancies' | 'original_cv' | 'settings' | 'setup'
+export type RailItemId = 'job_vacancies' | 'original_cv' | 'settings' | 'setup'
 
 interface DesktopShellProperties {
   activeRailItem: RailItemId
   children: ReactNode
+  onSelectRailItem?: (item: RailItemId) => void
   sidebar: ReactNode
   subtitle: string
   workerTone: 'danger' | 'muted' | 'ready' | 'warning'
@@ -18,6 +19,7 @@ interface RailButtonProperties {
   icon: RailItemId
   isActive: boolean
   label: string
+  onSelect?: (item: RailItemId) => void
 }
 
 function RailIcon({ icon, isActive }: Pick<RailButtonProperties, 'icon' | 'isActive'>) {
@@ -39,25 +41,31 @@ function RailIcon({ icon, isActive }: Pick<RailButtonProperties, 'icon' | 'isAct
   return <Settings {...commonProperties} />
 }
 
-function RailButton({ icon, isActive, label }: RailButtonProperties) {
+function RailButton({ icon, isActive, label, onSelect }: RailButtonProperties) {
   return (
-    <div
-      aria-hidden="true"
+    <button
+      aria-label={label}
+      aria-current={isActive ? 'page' : undefined}
       className={`flex h-11 w-11 items-center justify-center rounded-[8px] border border-transparent text-[11px] font-bold ${
         isActive
           ? 'bg-[var(--color-rail-active)] text-[var(--color-surface-0)]'
           : 'bg-[var(--color-rail-idle)] text-[var(--color-copy-subtle)]'
       }`}
+      onClick={() => {
+        onSelect?.(icon)
+      }}
       title={label}
+      type="button"
     >
       <RailIcon icon={icon} isActive={isActive} />
-    </div>
+    </button>
   )
 }
 
 export function DesktopShell({
   activeRailItem,
   children,
+  onSelectRailItem,
   sidebar,
   subtitle,
   workerLabel,
@@ -82,16 +90,23 @@ export function DesktopShell({
             className="flex w-16 flex-col items-center justify-between bg-[var(--color-shell-rail)] px-[10px] py-4"
           >
             <div className="flex flex-col items-center gap-[14px]">
-              <RailButton icon="setup" isActive={activeRailItem === 'setup'} label="AI worker" />
+              <RailButton
+                icon="setup"
+                isActive={activeRailItem === 'setup'}
+                label="AI worker"
+                onSelect={onSelectRailItem}
+              />
               <RailButton
                 icon="job_vacancies"
                 isActive={activeRailItem === 'job_vacancies'}
                 label="Job vacancies"
+                onSelect={onSelectRailItem}
               />
               <RailButton
                 icon="original_cv"
                 isActive={activeRailItem === 'original_cv'}
                 label="Original CV"
+                onSelect={onSelectRailItem}
               />
             </div>
             <div className="flex flex-col items-center gap-[14px]">
@@ -99,6 +114,7 @@ export function DesktopShell({
                 icon="settings"
                 isActive={activeRailItem === 'settings'}
                 label="Settings"
+                onSelect={onSelectRailItem}
               />
             </div>
           </nav>

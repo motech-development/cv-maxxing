@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 
@@ -560,6 +560,139 @@ test('keeps workspace_active explicit when the saved startup destination request
   await expect(page.getByRole('heading', { name: 'Tailored application' })).toBeVisible()
 
   await electronApp.close()
+})
+
+test('retries the AI worker from settings and routes back to repair when the fresh check fails', async () => {
+  const electronApp = await launchDesktopApp({
+    CV_MAXXING_AI_WORKER_PREFLIGHT_STATUS: 'ready',
+    CV_MAXXING_AI_WORKER_RETRY_STATUS: 'runtime_missing',
+    CV_MAXXING_STARTUP_DESTINATION: 'first_launch',
+  })
+
+  const page = await electronApp.firstWindow()
+
+  await expect(page.getByRole('heading', { name: 'Import your original CV' })).toBeVisible()
+  await page.getByRole('button', { name: 'Settings' }).click()
+  await expect(page.getByRole('heading', { name: 'AI worker' })).toBeVisible()
+  await page.getByRole('button', { name: 'Retry status check' }).click()
+  await expect(page.getByRole('heading', { name: 'Repair the local AI worker' })).toBeVisible()
+
+  await electronApp.close()
+})
+
+test('clears job-site browser data from settings without deleting the active original CV', async () => {
+  const testPaths = await createOriginalCvTestPaths()
+  const browserCookiesPath = path.join(
+    testPaths.appDataRoot,
+    'browser-sessions',
+    'vacancy-browser-session',
+    'Cookies',
+  )
+
+  await writeFile(
+    testPaths.pdfPath,
+    createPdfDocumentBuffer([
+      'Ada Lovelace',
+      'Principal Product Designer',
+      'Summary',
+      'Design leader focused on complex workflow products for technical users.',
+      'Experience',
+      'Principal Product Designer | Analytical Engines Ltd',
+      'Led product design for AI-assisted desktop tooling.',
+      'Skills',
+      'Product strategy, UX research, prototyping',
+    ]),
+  )
+  await mkdir(path.dirname(browserCookiesPath), {
+    recursive: true,
+  })
+  await writeFile(browserCookiesPath, 'top-secret-cookie', 'utf8')
+
+  const electronApp = await launchDesktopApp({
+    CV_MAXXING_AI_WORKER_PREFLIGHT_STATUS: 'ready',
+    CV_MAXXING_LOCAL_APP_DATA_ROOT: testPaths.appDataRoot,
+    CV_MAXXING_STARTUP_DESTINATION: 'first_launch',
+  })
+
+  const page = await electronApp.firstWindow()
+
+  await page.getByLabel('Original CV file').setInputFiles(testPaths.pdfPath)
+  await page.getByRole('button', { name: 'Import original CV' }).click()
+  await expect(page.getByRole('heading', { name: 'Create a tailored application' })).toBeVisible()
+  await page.getByRole('button', { name: 'Settings' }).click()
+  await page.getByRole('button', { name: 'Show Local data settings' }).click()
+  await expect(page.getByRole('heading', { name: 'Local data' })).toBeVisible()
+  await expect(page.getByText('App version')).toBeVisible()
+  await expect(page.getByText('Telemetry')).toBeVisible()
+  await page.getByRole('button', { name: 'Clear browser data' }).click()
+  await expect(page.getByText('Internal job-site browser data cleared.')).toBeVisible()
+  await page.getByRole('button', { name: 'Job vacancies' }).click()
+  await expect(page.getByText('ada-lovelace.pdf')).toBeVisible()
+
+  await electronApp.close()
+
+  await expect(readFile(browserCookiesPath)).rejects.toThrow()
+  await expect(readFile(path.join(testPaths.appDataRoot, 'app.db'))).resolves.toBeDefined()
+})
+
+test('requires RESET before destructive local reset and returns to first launch after cleanup', async () => {
+  const testPaths = await createOriginalCvTestPaths()
+  const browserCookiesPath = path.join(
+    testPaths.appDataRoot,
+    'browser-sessions',
+    'vacancy-browser-session',
+    'Cookies',
+  )
+
+  await writeFile(
+    testPaths.pdfPath,
+    createPdfDocumentBuffer([
+      'Ada Lovelace',
+      'Principal Product Designer',
+      'Summary',
+      'Design leader focused on complex workflow products for technical users.',
+      'Experience',
+      'Principal Product Designer | Analytical Engines Ltd',
+      'Led product design for AI-assisted desktop tooling.',
+      'Skills',
+      'Product strategy, UX research, prototyping',
+    ]),
+  )
+  await mkdir(path.dirname(browserCookiesPath), {
+    recursive: true,
+  })
+  await writeFile(browserCookiesPath, 'top-secret-cookie', 'utf8')
+
+  const electronApp = await launchDesktopApp({
+    CV_MAXXING_AI_WORKER_PREFLIGHT_STATUS: 'ready',
+    CV_MAXXING_DISABLE_APP_RELAUNCH_ON_RESET: 'true',
+    CV_MAXXING_LOCAL_APP_DATA_ROOT: testPaths.appDataRoot,
+    CV_MAXXING_STARTUP_DESTINATION: 'first_launch',
+  })
+
+  const page = await electronApp.firstWindow()
+
+  await page.getByLabel('Original CV file').setInputFiles(testPaths.pdfPath)
+  await page.getByRole('button', { name: 'Import original CV' }).click()
+  await expect(page.getByRole('heading', { name: 'Create a tailored application' })).toBeVisible()
+  await page.getByRole('button', { name: 'Settings' }).click()
+  await page.getByRole('button', { name: 'Show Local data settings' }).click()
+
+  const resetButton = page.getByRole('button', { name: 'Reset local app data' })
+
+  await expect(resetButton).toBeDisabled()
+  await page.getByLabel('Type RESET to confirm destructive reset').fill('RESET')
+  await expect(resetButton).toBeEnabled()
+  await resetButton.click()
+  await expect(page.getByRole('heading', { name: 'Import your original CV' })).toBeVisible()
+
+  await electronApp.close()
+
+  await expect(readFile(browserCookiesPath)).rejects.toThrow()
+  const persistedText = await readDirectoryText(testPaths.appDataRoot)
+
+  expect(persistedText).not.toContain('Ada Lovelace')
+  expect(persistedText).not.toContain('Principal Product Designer')
 })
 
 async function createOriginalCvTestPaths(): Promise<{

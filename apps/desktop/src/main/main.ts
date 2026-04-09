@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url'
 import {
   AI_WORKER_IPC_CHANNELS,
   ORIGINAL_CV_IPC_CHANNELS,
+  SETTINGS_IPC_CHANNELS,
   TAILORED_APPLICATION_IPC_CHANNELS,
   VACANCY_IPC_CHANNELS,
 } from '../shared/ipc.js'
@@ -14,6 +15,7 @@ import type {
   PendingGenerationCommand,
   StartPendingGenerationInput,
 } from '../shared/pending-generation.js'
+import type { ResetLocalAppDataInput } from '../shared/settings.js'
 import type { StartupDestination } from '../shared/startup-destination.js'
 import type { PastedVacancyInput, VacancyUrlInput } from '../shared/vacancy.js'
 import { createAiWorkerReadinessStore } from './ai-worker-readiness-store.js'
@@ -36,6 +38,7 @@ import {
   createTailoredApplicationSessionService,
   type TailoredApplicationSessionService,
 } from './tailored-application-session-service.js'
+import { createSettingsService, type SettingsService } from './settings-service.js'
 import { createVacancyBrowserSessionService } from './vacancy-browser-session-service.js'
 import { createVacancyService, type VacancyService } from './vacancy-service.js'
 
@@ -99,6 +102,7 @@ interface DesktopAppBootstrapDependencies {
   preloadPath: string
   rendererDevelopmentUrl?: string
   rendererIndexPath: string
+  settings: SettingsService
   tailoredApplication: TailoredApplicationSessionService
   vacancy: VacancyService
 }
@@ -128,6 +132,7 @@ interface RuntimeDependencyOptions {
   preloadPath: string
   rendererDevelopmentUrl?: string
   rendererIndexPath: string
+  settings: SettingsService
   tailoredApplication: TailoredApplicationSessionService
   vacancy: VacancyService
 }
@@ -142,6 +147,7 @@ interface RuntimeEnvironment {
   CV_MAXXING_LOCAL_APP_DATA_ROOT?: string
   CV_MAXXING_AI_WORKER_RETRY_STATUS?: string
   CV_MAXXING_AI_WORKER_SIGN_IN_STATUS?: string
+  CV_MAXXING_DISABLE_APP_RELAUNCH_ON_RESET?: string
   CV_MAXXING_PENDING_GENERATION_COMMAND?: string
   CV_MAXXING_STARTUP_DESTINATION?: string
   CV_MAXXING_TEST_ADAPTED_CV_EXPORT_PATH?: string
@@ -161,6 +167,7 @@ export function createDesktopAppBootstrap({
   preloadPath,
   rendererDevelopmentUrl,
   rendererIndexPath,
+  settings,
   tailoredApplication,
   vacancy,
 }: DesktopAppBootstrapDependencies): { start: () => Promise<void> } {
@@ -211,6 +218,15 @@ export function createDesktopAppBootstrap({
 
         throw error
       }
+    })
+    ipcMain.handle(SETTINGS_IPC_CHANNELS.getSnapshot, async () => {
+      return await settings.getSettingsSnapshot()
+    })
+    ipcMain.handle(SETTINGS_IPC_CHANNELS.clearJobSiteBrowserData, async () => {
+      await settings.clearJobSiteBrowserData()
+    })
+    ipcMain.handle(SETTINGS_IPC_CHANNELS.resetLocalAppData, async (_event, payload) => {
+      await settings.resetLocalAppData(parseResetLocalAppDataInput(payload))
     })
     ipcMain.handle(VACANCY_IPC_CHANNELS.getWorkspaceState, async () => {
       return await vacancy.getWorkspaceState()
@@ -352,6 +368,7 @@ export function createElectronRuntimeDependencies({
   preloadPath,
   rendererDevelopmentUrl,
   rendererIndexPath,
+  settings,
   tailoredApplication,
   vacancy,
 }: RuntimeDependencyOptions): DesktopAppBootstrapDependencies {
@@ -391,6 +408,7 @@ export function createElectronRuntimeDependencies({
     preloadPath,
     rendererDevelopmentUrl,
     rendererIndexPath,
+    settings,
     tailoredApplication,
     vacancy,
   }
@@ -400,6 +418,7 @@ async function createRuntimeServices(): Promise<{
   aiWorker: AiWorkerPreflightService
   onOriginalCvImported: () => Promise<void>
   originalCv: OriginalCvService
+  settings: SettingsService
   tailoredApplication: TailoredApplicationSessionService
   vacancy: VacancyService
 }> {
@@ -480,6 +499,27 @@ async function createRuntimeServices(): Promise<{
       extractTextFromDocx,
       extractTextFromPdf,
       localAppData,
+    }),
+    settings: createSettingsService({
+      browserSessionRootPath: path.join(paths.rootDirectoryPath, 'browser-sessions'),
+      closeActiveJobs: async () => {
+        await tailoredApplication.abandonPendingGeneration()
+      },
+      getAppVersion: () => {
+        return app.getVersion()
+      },
+      localAppData,
+      restartApp: () => {
+        if (environment.CV_MAXXING_DISABLE_APP_RELAUNCH_ON_RESET === 'true') {
+          return Promise.resolve()
+        }
+
+        app.relaunch()
+        app.quit()
+
+        return Promise.resolve()
+      },
+      workerCommand: environment.CV_MAXXING_AI_WORKER_CODEX_COMMAND ?? 'codex',
     }),
     tailoredApplication,
     vacancy: createVacancyService({
@@ -564,6 +604,7 @@ async function startDesktopAppRuntime(): Promise<void> {
       preloadPath,
       rendererDevelopmentUrl,
       rendererIndexPath,
+      settings: runtimeServices.settings,
       tailoredApplication: runtimeServices.tailoredApplication,
       vacancy: runtimeServices.vacancy,
     }),
@@ -600,6 +641,21 @@ function parseOriginalCvImportInput(payload: unknown): OriginalCvImportInput {
   }
 
   return payload
+}
+
+function parseResetLocalAppDataInput(payload: unknown): ResetLocalAppDataInput {
+  if (
+    payload === null ||
+    typeof payload !== 'object' ||
+    !('confirmationPhrase' in payload) ||
+    typeof payload.confirmationPhrase !== 'string'
+  ) {
+    throw new TypeError('Invalid local app data reset payload.')
+  }
+
+  return {
+    confirmationPhrase: payload.confirmationPhrase,
+  }
 }
 
 function isOriginalCvImportPayload(payload: unknown): payload is OriginalCvImportInput {

@@ -22,6 +22,7 @@ import type {
   VacancyUrlInput,
   VacancyWorkspaceState,
 } from './vacancy.js'
+import type { ResetLocalAppDataInput, SettingsSnapshot } from './settings.js'
 
 export interface CvMaxxingWindowApi {
   aiWorker: {
@@ -34,6 +35,11 @@ export interface CvMaxxingWindowApi {
   originalCv: {
     getOriginalCvWorkspaceState: () => Promise<OriginalCvWorkspaceState>
     importOriginalCv: (input: OriginalCvImportInput) => Promise<OriginalCvImportResult>
+  }
+  settings: {
+    clearJobSiteBrowserData: () => Promise<void>
+    getSettingsSnapshot: () => Promise<SettingsSnapshot>
+    resetLocalAppData: (input: ResetLocalAppDataInput) => Promise<void>
   }
   tailoredApplication: {
     abandonPendingGeneration: () => Promise<void>
