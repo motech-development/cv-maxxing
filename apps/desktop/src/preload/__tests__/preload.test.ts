@@ -1,8 +1,8 @@
 import { expect, test, vi } from 'vitest'
 
 import { AI_WORKER_IPC_CHANNELS, type DesktopIpcChannel } from '../../shared/ipc.js'
-import { exposeDesktopApi } from '../preload.js'
-import type { IpcRendererLike } from '../preload.js'
+import { exposeDesktopApi } from '../expose-desktop-api.js'
+import type { IpcRendererLike } from '../expose-desktop-api.js'
 
 test('preload exposes the desktop API in the renderer global', async () => {
   const exposeInMainWorld = vi.fn()
