@@ -489,6 +489,15 @@ test('renders the stored adapted CV PDF artifact and exports a readable non-over
   })
 
   const page = await electronApp.firstWindow()
+  const externalRequests: string[] = []
+
+  page.on('request', (request) => {
+    const requestUrl = request.url()
+
+    if (requestUrl.startsWith('http://') || requestUrl.startsWith('https://')) {
+      externalRequests.push(requestUrl)
+    }
+  })
 
   await expect(page.getByRole('heading', { name: 'Import your original CV' })).toBeVisible()
   await page.getByLabel('Original CV file').setInputFiles(testPaths.pdfPath)
@@ -545,6 +554,19 @@ test('renders the stored adapted CV PDF artifact and exports a readable non-over
     /Principal Product Designer for desktop work\s*fl\s*ow products/u,
   )
   expect(normalizedExportedPdfText).toContain('Analytical Engines Ltd')
+
+  await page.getByRole('button', { name: 'Settings' }).click()
+  await page.getByRole('button', { name: 'Show Local data settings' }).click()
+  await expect(page.getByRole('heading', { name: 'Local data' })).toBeVisible()
+  await expect(page.getByText('App version')).toBeVisible()
+  await expect(page.getByText('Telemetry')).toBeVisible()
+  await expect(page.getByText('Analytics')).toBeVisible()
+  await expect(page.getByText('Crash reporting')).toBeVisible()
+  await expect(page.getByText('Remote config')).toBeVisible()
+  await expect(page.getByText('Runtime font CDN calls')).toBeVisible()
+  await expect(page.getByText('Automatic update checks')).toBeVisible()
+  await expect(page.getByText('Blocked').first()).toBeVisible()
+  expect(externalRequests).toStrictEqual([])
 
   await electronApp.close()
 })

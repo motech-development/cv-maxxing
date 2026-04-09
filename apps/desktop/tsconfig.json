@@ -7,6 +7,8 @@
     "src/**/*.tsx",
     "tests/**/*.ts",
     "vite.config.ts",
-    "vitest.config.ts"
+    "vitest.integration.config.ts",
+    "vitest.config.ts",
+    "vitest.unit.config.ts"
   ]
 }

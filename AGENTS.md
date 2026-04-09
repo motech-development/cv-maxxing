@@ -34,6 +34,7 @@ These rules always apply. Follow project-local rules first when they are more sp
 - Use Vitest for unit tests. Keep tests colocated in `__tests__` folders next to the source they cover.
 - Implement new behavior and bug fixes using TDD: start with a failing automated test, make it pass with the minimal change, then refactor while keeping the test suite green.
 - Use `CV_MAXXING_LOCAL_APP_DATA_ROOT` in desktop smoke/Electron tests when deterministic local encrypted storage paths are required; point it at a disposable temp directory instead of the user profile.
+- Run required desktop CI on `macos-13` so Electron smoke, visual baselines, and packaged build verification stay aligned with the v1 macOS Intel target.
 - When building new functionality or making material refactors, consult `ARCHITECTURE.md` and align implementation with its current decisions unless a newer explicit decision supersedes it.
 - Treat `design/app.pen` as the authoritative reference for desktop app UI states and layout.
 - Keep the desktop UI aligned with `design/app.pen`. If the implementation must diverge, update `design/app.pen` first so the design and shipped UI remain in sync.
@@ -55,6 +56,7 @@ These rules always apply. Follow project-local rules first when they are more sp
 - Use browser-assisted vacancy ingestion for authenticated LinkedIn/Indeed pages, with pasted job text as the fallback. Do not add saved page/file vacancy import in v1.
 - Do not add telemetry, analytics, crash reporting, remote config, runtime font CDN calls, v1 automatic update checks, or bulk app-data backup/export.
 - Do not use MUI or Redux. Prefer Tailwind with CSS-variable tokens, Radix primitives where useful, and TanStack Query for IPC-backed async renderer state.
+- Keep Playwright visual baselines for the desktop app under `apps/desktop/tests/e2e/*-snapshots` and update them only through the package-owned visual test command.
 
 ---
 

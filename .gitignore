@@ -5,6 +5,7 @@ node_modules
 coverage
 **/coverage
 **/dist
+**/release
 **/test-results
 *.log
 .playwright-mcp/
