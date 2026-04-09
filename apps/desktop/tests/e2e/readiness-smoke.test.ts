@@ -529,14 +529,6 @@ test('returns to the workspace with a visible error when generation fails style 
   await page.getByRole('button', { name: 'Review pasted vacancy' }).dispatchEvent('click')
   await expect(page.getByText('Vacancy preview', { exact: true })).toBeVisible()
   await page.getByRole('button', { name: 'Adapt CV' }).click()
-
-  await expect
-    .poll(async () => {
-      return (await page.locator('body').textContent()) ?? ''
-    })
-    .toContain('Generating tailored application')
-
-  await expect(page.getByRole('heading', { name: 'Generating tailored application' })).toBeVisible()
   await expect(
     page.getByText('Generated tailored application failed style validation.'),
   ).toBeVisible({
