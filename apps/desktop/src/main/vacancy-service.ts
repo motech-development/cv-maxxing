@@ -50,6 +50,7 @@ interface VacancyDraftMetadataValue extends Record<string, JsonValue> {
 }
 
 export interface VacancyService {
+  resetWorkspaceState: () => Promise<void>
   getWorkspaceState: () => Promise<VacancyWorkspaceState>
   ingestPastedVacancy: (input: { text: string; url?: string }) => Promise<VacancyIngestResult>
   ingestVacancyUrl: (input: { url: string }) => Promise<VacancyIngestResult>
@@ -75,6 +76,12 @@ export function createVacancyService({
   openVacancyBrowserSession,
 }: VacancyServiceDependencies): VacancyService {
   return {
+    resetWorkspaceState: async (): Promise<void> => {
+      await localAppData.metadata.delete({
+        id: VACANCY_WORKSPACE_RECORD_ID,
+        scope: VACANCY_DRAFT_SCOPE,
+      })
+    },
     getWorkspaceState: async (): Promise<VacancyWorkspaceState> => {
       const draftRecord = await localAppData.metadata.get<VacancyDraftMetadataValue>({
         id: VACANCY_WORKSPACE_RECORD_ID,

@@ -1073,7 +1073,7 @@
                           "fill": "#5E6872",
                           "textGrowth": "fixed-width",
                           "width": "fill_container",
-                          "content": "Paste one role URL to start tailoring immediately. If the AI worker needs repair, this draft stays attached to the active original CV.",
+                          "content": "Paste one role URL to fetch and normalize the role first. The vacancy preview must be reviewed before tailoring can begin.",
                           "lineHeight": 1.4,
                           "fontFamily": "Manrope",
                           "fontSize": 13,
@@ -1141,7 +1141,7 @@
                               "type": "text",
                               "id": "Skvj8",
                               "fill": "#FFFFFF",
-                              "content": "Start tailoring from URL",
+                              "content": "Review vacancy from URL",
                               "fontFamily": "Manrope",
                               "fontSize": 13,
                               "fontWeight": "800"
@@ -1187,7 +1187,7 @@
                           "fill": "#5E6872",
                           "textGrowth": "fixed-width",
                           "width": "fill_container",
-                          "content": "Use pasted vacancy text when the page is blocked or the role has no stable URL. The draft is preserved if tailoring has to pause for AI worker repair.",
+                          "content": "Use pasted vacancy text when the page is blocked or the role has no stable URL. The same preview contract is applied before `Adapt CV` becomes available.",
                           "lineHeight": 1.4,
                           "fontFamily": "Manrope",
                           "fontSize": 13,
@@ -1259,10 +1259,193 @@
                               "type": "text",
                               "id": "u4z0P",
                               "fill": "#FFFFFF",
-                              "content": "Start tailoring from text",
+                              "content": "Review pasted vacancy",
                               "fontFamily": "Manrope",
                               "fontSize": 13,
                               "fontWeight": "800"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "qNcjh",
+                  "name": "vacancyPreviewEmpty",
+                  "width": "fill_container",
+                  "fill": "#F7F8F6",
+                  "cornerRadius": 8,
+                  "stroke": {
+                    "align": "inside",
+                    "thickness": 1,
+                    "fill": "#D9DEDA"
+                  },
+                  "layout": "vertical",
+                  "gap": 16,
+                  "padding": 20,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "LwIZl",
+                      "name": "previewLabelA",
+                      "fill": "#7A838B",
+                      "content": "Vacancy preview",
+                      "fontFamily": "Manrope",
+                      "fontSize": 11,
+                      "fontWeight": "800"
+                    },
+                    {
+                      "type": "text",
+                      "id": "PiiNN",
+                      "name": "previewTitleA",
+                      "fill": "#1E2428",
+                      "content": "Review a vacancy before adapting",
+                      "fontFamily": "Manrope",
+                      "fontSize": 24,
+                      "fontWeight": "800"
+                    },
+                    {
+                      "type": "text",
+                      "id": "92gZV",
+                      "name": "previewCopyA",
+                      "fill": "#5E6872",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Use the URL or pasted-text intake above to lock a compact vacancy preview. `Adapt CV` stays disabled until the role details are reviewable.",
+                      "lineHeight": 1.4,
+                      "fontFamily": "Manrope",
+                      "fontSize": 13,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "Zy6DQ",
+                      "name": "previewHintsEmpty",
+                      "width": "fill_container",
+                      "gap": 12,
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "F02ch",
+                          "name": "singleReviewHint",
+                          "width": 246,
+                          "fill": "#FFFFFF",
+                          "cornerRadius": 8,
+                          "stroke": {
+                            "align": "inside",
+                            "thickness": 1,
+                            "fill": "#D9DEDA"
+                          },
+                          "layout": "vertical",
+                          "gap": 8,
+                          "padding": 16,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "YByqX",
+                              "name": "hintCardATitle",
+                              "fill": "#1E2428",
+                              "content": "Single review surface",
+                              "fontFamily": "Manrope",
+                              "fontSize": 13,
+                              "fontWeight": "800"
+                            },
+                            {
+                              "type": "text",
+                              "id": "pMzLW",
+                              "name": "hintCardABody",
+                              "fill": "#5E6872",
+                              "textGrowth": "fixed-width",
+                              "width": "fill_container",
+                              "content": "Deterministic URL fetches and pasted text both land in the same preview contract.",
+                              "lineHeight": 1.4,
+                              "fontFamily": "Manrope",
+                              "fontSize": 13,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "aUKrJ",
+                          "name": "draftPreservationHint",
+                          "width": 246,
+                          "fill": "#FFFFFF",
+                          "cornerRadius": 8,
+                          "stroke": {
+                            "align": "inside",
+                            "thickness": 1,
+                            "fill": "#D9DEDA"
+                          },
+                          "layout": "vertical",
+                          "gap": 8,
+                          "padding": 16,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "XyoA8",
+                              "name": "hintCardBTitle",
+                              "fill": "#1E2428",
+                              "content": "Draft preservation",
+                              "fontFamily": "Manrope",
+                              "fontSize": 13,
+                              "fontWeight": "800"
+                            },
+                            {
+                              "type": "text",
+                              "id": "Z57i8",
+                              "name": "hintCardBBody",
+                              "fill": "#5E6872",
+                              "textGrowth": "fixed-width",
+                              "width": "fill_container",
+                              "content": "Incomplete extraction keeps the entered URL or pasted text intact for the next attempt.",
+                              "lineHeight": 1.4,
+                              "fontFamily": "Manrope",
+                              "fontSize": 13,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "xdPmQ",
+                          "name": "browserFallbackHint",
+                          "width": 246,
+                          "fill": "#FFFFFF",
+                          "cornerRadius": 8,
+                          "stroke": {
+                            "align": "inside",
+                            "thickness": 1,
+                            "fill": "#D9DEDA"
+                          },
+                          "layout": "vertical",
+                          "gap": 8,
+                          "padding": 16,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "dIVkC",
+                              "name": "hintCardCTitle",
+                              "fill": "#1E2428",
+                              "content": "Browser fallback",
+                              "fontFamily": "Manrope",
+                              "fontSize": 13,
+                              "fontWeight": "800"
+                            },
+                            {
+                              "type": "text",
+                              "id": "IRy73",
+                              "name": "hintCardCBody",
+                              "fill": "#5E6872",
+                              "textGrowth": "fixed-width",
+                              "width": "fill_container",
+                              "content": "Authenticated LinkedIn and Indeed roles can hand off to the internal browser session.",
+                              "lineHeight": 1.4,
+                              "fontFamily": "Manrope",
+                              "fontSize": 13,
+                              "fontWeight": "normal"
                             }
                           ]
                         }

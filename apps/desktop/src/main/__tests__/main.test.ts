@@ -60,6 +60,7 @@ function createVacancyDouble() {
     ingestPastedVacancy: vi.fn(),
     ingestVacancyUrl: vi.fn(),
     openBrowserSession: vi.fn().mockImplementation(() => Promise.resolve()),
+    resetWorkspaceState: vi.fn().mockImplementation(() => Promise.resolve()),
   }
 }
 
@@ -243,6 +244,7 @@ test('bootstrap registers the full AI worker onboarding IPC surface and opens th
       },
     }),
     openBrowserSession: vi.fn().mockImplementation(() => Promise.resolve()),
+    resetWorkspaceState: vi.fn().mockImplementation(() => Promise.resolve()),
   }
   const tailoredApplication = createTailoredApplicationDouble()
   const onOriginalCvImported = vi.fn().mockImplementation(() => Promise.resolve())
@@ -281,6 +283,10 @@ test('bootstrap registers the full AI worker onboarding IPC surface and opens th
   )
   expect(handle).toHaveBeenCalledWith(
     ORIGINAL_CV_IPC_CHANNELS.importOriginalCv,
+    expect.any(Function),
+  )
+  expect(handle).toHaveBeenCalledWith(
+    VACANCY_IPC_CHANNELS.clearWorkspaceState,
     expect.any(Function),
   )
   expect(handle).toHaveBeenCalledWith(VACANCY_IPC_CHANNELS.getWorkspaceState, expect.any(Function))
@@ -389,6 +395,9 @@ test('bootstrap registers the full AI worker onboarding IPC surface and opens th
     },
   )
   await expect(
+    registeredHandlers.get(VACANCY_IPC_CHANNELS.clearWorkspaceState)?.(),
+  ).resolves.toBeUndefined()
+  await expect(
     registeredHandlers.get(VACANCY_IPC_CHANNELS.ingestUrl)?.(undefined, {
       url: 'https://www.linkedin.com/jobs/view/123456',
     }),
@@ -483,6 +492,7 @@ test('bootstrap registers the full AI worker onboarding IPC surface and opens th
   expect(vacancy.openBrowserSession).toHaveBeenCalledWith({
     url: 'https://www.linkedin.com/jobs/view/123456',
   })
+  expect(vacancy.resetWorkspaceState).toHaveBeenCalledTimes(1)
   await expect(
     registeredHandlers.get(TAILORED_APPLICATION_IPC_CHANNELS.getPendingGeneration)?.(),
   ).resolves.toEqual({

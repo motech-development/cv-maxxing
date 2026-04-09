@@ -77,6 +77,7 @@ test('preload exposes the AI worker onboarding queries and commands over typed I
       },
       vacancy: null,
     })
+    .mockImplementationOnce(() => Promise.resolve())
     .mockResolvedValueOnce({
       kind: 'ingested',
       vacancy: {
@@ -240,6 +241,7 @@ test('preload exposes the AI worker onboarding queries and commands over typed I
     },
     vacancy: null,
   })
+  await expect(desktopApi.vacancy.clearVacancyWorkspaceState()).resolves.toBeUndefined()
   await expect(
     desktopApi.vacancy.ingestVacancyUrl({
       url: 'https://boards.greenhouse.io/example/jobs/123',
@@ -352,14 +354,15 @@ test('preload exposes the AI worker onboarding queries and commands over typed I
     filename: 'ada-lovelace-revised.docx',
   })
   expect(invoke).toHaveBeenNthCalledWith(8, VACANCY_IPC_CHANNELS.getWorkspaceState)
-  expect(invoke).toHaveBeenNthCalledWith(9, VACANCY_IPC_CHANNELS.ingestUrl, {
+  expect(invoke).toHaveBeenNthCalledWith(9, VACANCY_IPC_CHANNELS.clearWorkspaceState)
+  expect(invoke).toHaveBeenNthCalledWith(10, VACANCY_IPC_CHANNELS.ingestUrl, {
     url: 'https://boards.greenhouse.io/example/jobs/123',
   })
-  expect(invoke).toHaveBeenNthCalledWith(10, VACANCY_IPC_CHANNELS.ingestPasted, {
+  expect(invoke).toHaveBeenNthCalledWith(11, VACANCY_IPC_CHANNELS.ingestPasted, {
     text: 'Senior Product Designer',
     url: 'https://jobs.example.com/senior-product-designer',
   })
-  expect(invoke).toHaveBeenNthCalledWith(11, VACANCY_IPC_CHANNELS.openBrowserSession, {
+  expect(invoke).toHaveBeenNthCalledWith(12, VACANCY_IPC_CHANNELS.openBrowserSession, {
     url: 'https://www.linkedin.com/jobs/view/123456',
   })
 })

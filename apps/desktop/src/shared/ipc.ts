@@ -19,6 +19,7 @@ export const TAILORED_APPLICATION_IPC_CHANNELS = {
 } as const
 
 export const VACANCY_IPC_CHANNELS = {
+  clearWorkspaceState: 'vacancy:clear-workspace-state',
   getWorkspaceState: 'vacancy:get-workspace-state',
   ingestPasted: 'vacancy:ingest-pasted',
   ingestUrl: 'vacancy:ingest-url',

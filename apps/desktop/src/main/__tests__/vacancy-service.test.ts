@@ -288,3 +288,57 @@ test('blocks a generic vacancy preview when the fetched page only contains a coo
 
   await localAppData.close()
 })
+
+test('clears the persisted vacancy workspace draft without deleting the stored vacancy snapshot', async () => {
+  const paths = await createTestPaths()
+  const localAppData = await openLocalAppData({
+    keychain: createKeychainBoundary(),
+    paths,
+  })
+  const vacancyService = createVacancyService({
+    generateId: vi.fn(() => 'vacancy-005'),
+    getCurrentTimestamp: vi.fn(() => '2026-04-08T21:30:00.000Z'),
+    localAppData,
+    openVacancyBrowserSession: vi.fn(() => Promise.resolve()),
+  })
+
+  await vacancyService.ingestPastedVacancy({
+    text: [
+      'Senior Product Designer',
+      'Example Labs',
+      'London, United Kingdom',
+      '',
+      'Responsibilities',
+      '- Lead product design for AI-assisted desktop workflows.',
+      '- Partner with engineering and research teams.',
+      '',
+      'Requirements',
+      '- Experience shipping workflow products.',
+      '- Strong written communication.',
+    ].join('\n'),
+    url: 'https://jobs.example.com/senior-product-designer',
+  })
+  await vacancyService.resetWorkspaceState()
+
+  await expect(vacancyService.getWorkspaceState()).resolves.toEqual({
+    draft: {
+      text: '',
+      url: '',
+    },
+    vacancy: null,
+  })
+  await expect(
+    localAppData.metadata.get<{
+      title: string | null
+    }>({
+      id: 'vacancy-005',
+      scope: 'vacancies',
+    }),
+  ).resolves.toEqual(
+    expect.objectContaining({
+      title: 'Senior Product Designer',
+    }),
+  )
+
+  await localAppData.close()
+})

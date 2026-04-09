@@ -1,27 +1,35 @@
 import type { ChangeEvent } from 'react'
 
 import type { OriginalCvSummary } from '../../shared/original-cv.js'
+import type { VacancySummary } from '../../shared/vacancy.js'
 import { DesktopShell } from '../shell/desktop-shell.js'
 import { Button } from '../ui/button.js'
 import { OriginalCvReplacementCard } from '../ui/original-cv-replacement-card.js'
 import { PanelCard } from '../ui/panel-card.js'
 import { SectionLabel } from '../ui/section-label.js'
+import { VacancyPreviewCard } from '../ui/vacancy-preview-card.js'
 
 interface WorkspaceEmptyScreenProperties {
   activeOriginalCv: OriginalCvSummary | null
   importError: string | null
   isImportingOriginalCv: boolean
-  isStartingGeneration: boolean
+  isAdaptingCv: boolean
+  isOpeningVacancyBrowser: boolean
+  isReviewingVacancy: boolean
+  onAdaptCv: () => void
+  onOpenVacancyBrowserSession: () => void
   onOriginalCvFileSelection: (event: ChangeEvent<HTMLInputElement>) => void
   onReplaceOriginalCv: () => void
   onResetDrafts: () => void
-  onStartFromText: () => void
-  onStartFromUrl: () => void
+  onReviewPastedVacancy: () => void
+  onReviewVacancyUrl: () => void
   onTextDraftChange: (event: ChangeEvent<HTMLTextAreaElement>) => void
   onUrlDraftChange: (event: ChangeEvent<HTMLInputElement>) => void
   originalCvFile: File | null
   textDraft: string
   urlDraft: string
+  vacancyPreview: VacancySummary | null
+  vacancyReviewError: string | null
 }
 
 const fieldClassName =
@@ -31,20 +39,26 @@ export function WorkspaceEmptyScreen({
   activeOriginalCv,
   importError,
   isImportingOriginalCv,
-  isStartingGeneration,
+  isAdaptingCv,
+  isOpeningVacancyBrowser,
+  isReviewingVacancy,
+  onAdaptCv,
+  onOpenVacancyBrowserSession,
   onOriginalCvFileSelection,
   onReplaceOriginalCv,
   onResetDrafts,
-  onStartFromText,
-  onStartFromUrl,
+  onReviewPastedVacancy,
+  onReviewVacancyUrl,
   onTextDraftChange,
   onUrlDraftChange,
   originalCvFile,
   textDraft,
   urlDraft,
+  vacancyPreview,
+  vacancyReviewError,
 }: WorkspaceEmptyScreenProperties) {
-  const isUrlSubmissionDisabled = isStartingGeneration || urlDraft.trim() === ''
-  const isTextSubmissionDisabled = isStartingGeneration || textDraft.trim() === ''
+  const isUrlSubmissionDisabled = isReviewingVacancy || isAdaptingCv || urlDraft.trim() === ''
+  const isTextSubmissionDisabled = isReviewingVacancy || isAdaptingCv || textDraft.trim() === ''
 
   return (
     <DesktopShell
@@ -94,8 +108,8 @@ export function WorkspaceEmptyScreen({
             Open vacancy URL
           </p>
           <p className="mt-2 text-sm leading-6 text-[var(--color-copy-muted)]">
-            Paste one role URL to start tailoring immediately. If the AI worker needs repair, this
-            draft stays attached to the active original CV.
+            Paste one role URL to fetch and normalize the role first. The vacancy preview must be
+            reviewed before tailoring can begin.
           </p>
           <label
             className="mt-3 text-[11px] font-extrabold uppercase tracking-[0.12em] text-[var(--color-copy-muted)]"
@@ -113,8 +127,8 @@ export function WorkspaceEmptyScreen({
             value={urlDraft}
           />
           <div className="mt-auto" />
-          <Button disabled={isUrlSubmissionDisabled} onClick={onStartFromUrl} tone="primary">
-            Start tailoring from URL
+          <Button disabled={isUrlSubmissionDisabled} onClick={onReviewVacancyUrl} tone="primary">
+            Review vacancy from URL
           </Button>
         </PanelCard>
 
@@ -123,8 +137,8 @@ export function WorkspaceEmptyScreen({
             Paste job text
           </p>
           <p className="mt-2 text-sm leading-6 text-[var(--color-copy-muted)]">
-            Use pasted vacancy text when the page is blocked or the role has no stable URL. The
-            draft is preserved if tailoring has to pause for AI worker repair.
+            Use pasted vacancy text when the page is blocked or the role has no stable URL. The same
+            preview contract is applied before `Adapt CV` becomes available.
           </p>
           <label
             className="mt-3 text-[11px] font-extrabold uppercase tracking-[0.12em] text-[var(--color-copy-muted)]"
@@ -143,11 +157,24 @@ export function WorkspaceEmptyScreen({
             value={textDraft}
           />
           <div className="mt-auto" />
-          <Button disabled={isTextSubmissionDisabled} onClick={onStartFromText} tone="primary">
-            Start tailoring from text
+          <Button
+            disabled={isTextSubmissionDisabled}
+            onClick={onReviewPastedVacancy}
+            tone="primary"
+          >
+            Review pasted vacancy
           </Button>
         </PanelCard>
       </div>
+
+      <VacancyPreviewCard
+        isAdaptingCv={isAdaptingCv}
+        isOpeningBrowserSession={isOpeningVacancyBrowser}
+        onAdaptCv={onAdaptCv}
+        onOpenBrowserSession={onOpenVacancyBrowserSession}
+        preview={vacancyPreview}
+        reviewError={vacancyReviewError}
+      />
     </DesktopShell>
   )
 }

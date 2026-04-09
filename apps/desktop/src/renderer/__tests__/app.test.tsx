@@ -69,6 +69,7 @@ function createOriginalCvApi(
 
 function createVacancyApi(overrides?: Partial<(typeof globalThis.window.cvMaxxing)['vacancy']>) {
   return {
+    clearVacancyWorkspaceState: vi.fn().mockImplementation(() => Promise.resolve()),
     getVacancyWorkspaceState: vi.fn().mockResolvedValue({
       draft: {
         text: '',
@@ -360,10 +361,10 @@ test('imports the first original CV and transitions into the design-aligned work
   expect(screen.getByRole('button', { name: 'New vacancy' })).toBeDefined()
   expect(screen.getByLabelText('Vacancy URL')).toBeDefined()
   expect(screen.getByLabelText('Job vacancy text')).toBeDefined()
-  expect(screen.getByRole('button', { name: 'Start tailoring from URL' })).toBeDefined()
-  expect(screen.getByRole('button', { name: 'Start tailoring from text' })).toBeDefined()
+  expect(screen.getByRole('button', { name: 'Review vacancy from URL' })).toBeDefined()
+  expect(screen.getByRole('button', { name: 'Review pasted vacancy' })).toBeDefined()
   expect(screen.getByRole('button', { name: 'Replace original CV' })).toBeDefined()
-  expect(screen.queryByText('Vacancy preview')).toBeNull()
+  expect(screen.getByText('Review a vacancy before adapting')).toBeDefined()
 })
 
 test('renders the design-aligned workspace-empty screen when an original CV already exists', async () => {
@@ -409,8 +410,77 @@ test('renders the design-aligned workspace-empty screen when an original CV alre
   expect(screen.getByLabelText('Vacancy URL')).toBeDefined()
   expect(screen.getByLabelText('Job vacancy text')).toBeDefined()
   expect(screen.queryByText('Original CV active')).toBeNull()
-  expect(screen.queryByText('Vacancy preview')).toBeNull()
+  expect(screen.getByText('Review a vacancy before adapting')).toBeDefined()
   expect(screen.getByRole('button', { name: 'Replace original CV' })).toBeDefined()
+})
+
+test('loads a persisted vacancy preview and keeps Adapt CV enabled for a reviewable draft', async () => {
+  renderApp({
+    aiWorker: createAiWorkerApi({
+      getAiWorkerPreflight: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+      getStartupDestination: vi.fn().mockResolvedValue('workspace_empty'),
+    }),
+    originalCv: createOriginalCvApi({
+      getOriginalCvWorkspaceState: vi.fn().mockResolvedValue({
+        activeOriginalCv: {
+          fileType: 'pdf',
+          headline: 'Principal Product Designer',
+          id: 'original-cv-123',
+          importedAt: '2026-04-08T14:30:00.000Z',
+          originalFilename: 'ada-lovelace.pdf',
+          pageCount: 1,
+          snapshotCount: 1,
+          summary: 'Design leader focused on complex workflow products.',
+          writingStyle: {
+            averageSentenceLength: 7,
+            clicheDetections: [],
+            firstPersonUsage: 'absent',
+            formality: 'direct',
+          },
+        },
+        snapshotCount: 1,
+      }),
+    }),
+    vacancy: createVacancyApi({
+      getVacancyWorkspaceState: vi.fn().mockResolvedValue({
+        draft: {
+          text: 'Senior Product Designer\nExample Labs\nLondon, United Kingdom',
+          url: 'https://jobs.example.com/senior-product-designer',
+        },
+        vacancy: {
+          blockingReason: null,
+          canGenerate: true,
+          employer: 'Example Labs',
+          fetchedAt: '2026-04-08T21:00:00.000Z',
+          id: 'vacancy-001',
+          inputType: 'pasted_text',
+          location: 'London, United Kingdom',
+          originalUrl: 'https://jobs.example.com/senior-product-designer',
+          requirements: ['Strong written communication.'],
+          resolvedUrl: 'https://jobs.example.com/senior-product-designer',
+          responsibilities: ['Lead product design for AI-assisted desktop workflows.'],
+          source: 'generic',
+          status: 'ready',
+          textPreview: 'Lead product design for AI-assisted desktop workflows.',
+          title: 'Senior Product Designer',
+        },
+      }),
+    }),
+  })
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Create a tailored application' })).toBeDefined()
+  })
+
+  expect(screen.getByText('Vacancy preview')).toBeDefined()
+  expect(screen.getByText('Senior Product Designer')).toBeDefined()
+  expect(screen.getByText('Example Labs · London, United Kingdom')).toBeDefined()
+  expect(screen.getByRole('button', { name: 'Adapt CV' })).toHaveProperty('disabled', false)
 })
 
 test('replaces the active original CV from the workspace-empty screen and keeps the workspace open', async () => {
@@ -658,7 +728,7 @@ test('keeps the existing active original CV visible when a workspace replacement
   expect(screen.getByRole('heading', { name: 'Create a tailored application' })).toBeDefined()
 })
 
-test('starts tailoring from a vacancy URL and transitions into the design-aligned loading screen', async () => {
+test('reviews a ready vacancy URL and only starts tailoring after Adapt CV is clicked', async () => {
   const getStartupDestination = vi
     .fn()
     .mockResolvedValueOnce('workspace_empty')
@@ -724,7 +794,21 @@ test('starts tailoring from a vacancy URL and transitions into the design-aligne
       value: 'https://jobs.example.com/roles/123',
     },
   })
-  fireEvent.click(screen.getByRole('button', { name: 'Start tailoring from URL' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Review vacancy from URL' }))
+
+  await waitFor(() => {
+    expect(globalThis.window.cvMaxxing.vacancy.ingestVacancyUrl).toHaveBeenCalledWith({
+      url: 'https://jobs.example.com/roles/123',
+    })
+  })
+
+  await waitFor(() => {
+    expect(screen.getByText('Vacancy preview')).toBeDefined()
+  })
+
+  expect(screen.getByRole('button', { name: 'Adapt CV' })).toHaveProperty('disabled', false)
+
+  fireEvent.click(screen.getByRole('button', { name: 'Adapt CV' }))
 
   await waitFor(() => {
     expect(startPendingGeneration).toHaveBeenCalledWith({
@@ -732,7 +816,7 @@ test('starts tailoring from a vacancy URL and transitions into the design-aligne
       originalCvLabel: 'ada-lovelace.pdf',
       vacancyDraft: {
         text: '',
-        url: 'https://jobs.example.com/roles/123',
+        url: 'https://boards.greenhouse.io/example/jobs/123',
       },
     })
   })
@@ -743,6 +827,227 @@ test('starts tailoring from a vacancy URL and transitions into the design-aligne
 
   expect(screen.getByRole('button', { name: 'Open tailored application' })).toBeDefined()
   expect(screen.getByRole('button', { name: 'Abandon draft' })).toBeDefined()
+})
+
+test('preserves pasted vacancy context in a blocking preview and keeps Adapt CV disabled', async () => {
+  renderApp({
+    aiWorker: createAiWorkerApi({
+      getAiWorkerPreflight: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+      getStartupDestination: vi.fn().mockResolvedValue('workspace_empty'),
+    }),
+    originalCv: createOriginalCvApi({
+      getOriginalCvWorkspaceState: vi.fn().mockResolvedValue({
+        activeOriginalCv: {
+          fileType: 'pdf',
+          headline: 'Principal Product Designer',
+          id: 'original-cv-123',
+          importedAt: '2026-04-08T14:30:00.000Z',
+          originalFilename: 'ada-lovelace.pdf',
+          pageCount: 1,
+          snapshotCount: 1,
+          summary: 'Design leader focused on complex workflow products.',
+          writingStyle: {
+            averageSentenceLength: 7,
+            clicheDetections: [],
+            firstPersonUsage: 'absent',
+            formality: 'direct',
+          },
+        },
+        snapshotCount: 1,
+      }),
+    }),
+    vacancy: createVacancyApi({
+      ingestPastedVacancy: vi.fn().mockResolvedValue({
+        kind: 'incomplete',
+        vacancy: {
+          blockingReason:
+            'Add the full job responsibilities or requirements before adapting this CV.',
+          canGenerate: false,
+          employer: 'Example Labs',
+          fetchedAt: '2026-04-08T21:00:00.000Z',
+          id: 'vacancy-001',
+          inputType: 'pasted_text',
+          location: 'London, United Kingdom',
+          originalUrl: 'https://jobs.example.com/senior-product-designer',
+          requirements: [],
+          resolvedUrl: 'https://jobs.example.com/senior-product-designer',
+          responsibilities: [],
+          source: 'generic',
+          status: 'incomplete',
+          textPreview: 'Short pasted vacancy draft.',
+          title: 'Senior Product Designer',
+        },
+        workspaceState: {
+          draft: {
+            text: 'Short pasted vacancy draft.',
+            url: 'https://jobs.example.com/senior-product-designer',
+          },
+          vacancy: {
+            blockingReason:
+              'Add the full job responsibilities or requirements before adapting this CV.',
+            canGenerate: false,
+            employer: 'Example Labs',
+            fetchedAt: '2026-04-08T21:00:00.000Z',
+            id: 'vacancy-001',
+            inputType: 'pasted_text',
+            location: 'London, United Kingdom',
+            originalUrl: 'https://jobs.example.com/senior-product-designer',
+            requirements: [],
+            resolvedUrl: 'https://jobs.example.com/senior-product-designer',
+            responsibilities: [],
+            source: 'generic',
+            status: 'incomplete',
+            textPreview: 'Short pasted vacancy draft.',
+            title: 'Senior Product Designer',
+          },
+        },
+      }),
+    }),
+  })
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Create a tailored application' })).toBeDefined()
+  })
+
+  fireEvent.change(screen.getByLabelText('Vacancy URL'), {
+    target: {
+      value: 'https://jobs.example.com/senior-product-designer',
+    },
+  })
+  fireEvent.change(screen.getByLabelText('Job vacancy text'), {
+    target: {
+      value: 'Short pasted vacancy draft.',
+    },
+  })
+  fireEvent.click(screen.getByRole('button', { name: 'Review pasted vacancy' }))
+
+  await waitFor(() => {
+    expect(globalThis.window.cvMaxxing.vacancy.ingestPastedVacancy).toHaveBeenCalledWith({
+      text: 'Short pasted vacancy draft.',
+      url: 'https://jobs.example.com/senior-product-designer',
+    })
+  })
+
+  expect(screen.getByText('Vacancy preview')).toBeDefined()
+  expect(
+    screen.getByText('Add the full job responsibilities or requirements before adapting this CV.'),
+  ).toBeDefined()
+  expect(screen.getByLabelText('Vacancy URL')).toHaveProperty(
+    'value',
+    'https://jobs.example.com/senior-product-designer',
+  )
+  expect(screen.getByLabelText('Job vacancy text')).toHaveProperty(
+    'value',
+    'Short pasted vacancy draft.',
+  )
+  expect(screen.getByRole('button', { name: 'Adapt CV' })).toHaveProperty('disabled', true)
+})
+
+test('keeps a LinkedIn URL visible and opens the internal browser fallback from the blocking preview', async () => {
+  const openVacancyBrowserSession = vi.fn().mockImplementation(() => Promise.resolve())
+
+  renderApp({
+    aiWorker: createAiWorkerApi({
+      getAiWorkerPreflight: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+      getStartupDestination: vi.fn().mockResolvedValue('workspace_empty'),
+    }),
+    originalCv: createOriginalCvApi({
+      getOriginalCvWorkspaceState: vi.fn().mockResolvedValue({
+        activeOriginalCv: {
+          fileType: 'pdf',
+          headline: 'Principal Product Designer',
+          id: 'original-cv-123',
+          importedAt: '2026-04-08T14:30:00.000Z',
+          originalFilename: 'ada-lovelace.pdf',
+          pageCount: 1,
+          snapshotCount: 1,
+          summary: 'Design leader focused on complex workflow products.',
+          writingStyle: {
+            averageSentenceLength: 7,
+            clicheDetections: [],
+            firstPersonUsage: 'absent',
+            formality: 'direct',
+          },
+        },
+        snapshotCount: 1,
+      }),
+    }),
+    vacancy: createVacancyApi({
+      ingestVacancyUrl: vi.fn().mockResolvedValue({
+        kind: 'incomplete',
+        vacancy: {
+          blockingReason:
+            'Open the internal browser session for authenticated pages, or paste the full job text instead.',
+          canGenerate: false,
+          employer: null,
+          fetchedAt: '2026-04-08T21:15:00.000Z',
+          id: 'vacancy-pending-browser',
+          inputType: 'url',
+          location: null,
+          originalUrl: 'https://www.linkedin.com/jobs/view/123456',
+          requirements: [],
+          resolvedUrl: null,
+          responsibilities: [],
+          source: 'linkedin',
+          status: 'incomplete',
+          textPreview: '',
+          title: null,
+        },
+        workspaceState: {
+          draft: {
+            text: '',
+            url: 'https://www.linkedin.com/jobs/view/123456',
+          },
+          vacancy: null,
+        },
+      }),
+      openVacancyBrowserSession,
+    }),
+  })
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Create a tailored application' })).toBeDefined()
+  })
+
+  fireEvent.change(screen.getByLabelText('Vacancy URL'), {
+    target: {
+      value: 'https://www.linkedin.com/jobs/view/123456',
+    },
+  })
+  fireEvent.click(screen.getByRole('button', { name: 'Review vacancy from URL' }))
+
+  await waitFor(() => {
+    expect(screen.getByText('Vacancy preview')).toBeDefined()
+  })
+
+  expect(
+    screen.getByText(
+      'Open the internal browser session for authenticated pages, or paste the full job text instead.',
+    ),
+  ).toBeDefined()
+  expect(screen.getByLabelText('Vacancy URL')).toHaveProperty(
+    'value',
+    'https://www.linkedin.com/jobs/view/123456',
+  )
+  expect(screen.getByRole('button', { name: 'Adapt CV' })).toHaveProperty('disabled', true)
+
+  fireEvent.click(screen.getByRole('button', { name: 'Open internal browser session' }))
+
+  await waitFor(() => {
+    expect(openVacancyBrowserSession).toHaveBeenCalledWith({
+      url: 'https://www.linkedin.com/jobs/view/123456',
+    })
+  })
 })
 
 test('resumes the pending flow into the design-aligned loading screen after sign-in repair', async () => {

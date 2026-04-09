@@ -76,6 +76,9 @@ export function createDesktopApi({ invoke }: DesktopApiInvoker): CvMaxxingWindow
       },
     },
     vacancy: {
+      clearVacancyWorkspaceState: async (): Promise<void> => {
+        await invoke<undefined>(VACANCY_IPC_CHANNELS.clearWorkspaceState)
+      },
       getVacancyWorkspaceState: async (): Promise<VacancyWorkspaceState> => {
         return await invoke(VACANCY_IPC_CHANNELS.getWorkspaceState)
       },

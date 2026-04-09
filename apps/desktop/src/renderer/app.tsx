@@ -11,6 +11,7 @@ import { createReadinessRouteViewModel } from '../readiness/readiness-route.js'
 import type { ReadinessRouteViewModel } from '../readiness/readiness-route.js'
 import type { OriginalCvWorkspaceState } from '../shared/original-cv.js'
 import type { PendingGenerationCommand } from '../shared/pending-generation.js'
+import type { VacancyDraft, VacancySummary } from '../shared/vacancy.js'
 import { AiWorkerCheckingScreen } from './screens/ai-worker-checking-screen.js'
 import { AiWorkerSignInRequiredScreen } from './screens/ai-worker-sign-in-required-screen.js'
 import { AiWorkerUnavailableScreen } from './screens/ai-worker-unavailable-screen.js'
@@ -36,6 +37,11 @@ const initialOriginalCvWorkspaceState: OriginalCvWorkspaceState = {
   snapshotCount: 0,
 }
 
+const initialVacancyDraft: VacancyDraft = {
+  text: '',
+  url: '',
+}
+
 const readinessErrorMessage = 'Unable to complete the AI worker startup check.'
 const readinessErrorAction = 'Restart the app or verify the local AI worker setup.'
 const originalCvFileTypeErrorMessage = 'Choose a PDF or DOCX file.'
@@ -57,25 +63,37 @@ export function App() {
   const [activeApplicationTitle, setActiveApplicationTitle] = useState<string | null>(null)
   const [importError, setImportError] = useState<string | null>(null)
   const [isImportingOriginalCv, setIsImportingOriginalCv] = useState(false)
+  const [isOpeningVacancyBrowser, setIsOpeningVacancyBrowser] = useState(false)
   const [isPendingGenerationActionPending, setIsPendingGenerationActionPending] = useState(false)
   const [isSecondaryActionPending, setIsSecondaryActionPending] = useState(false)
   const [isSubmittingPrimaryAction, setIsSubmittingPrimaryAction] = useState(false)
+  const [isSubmittingVacancyReview, setIsSubmittingVacancyReview] = useState(false)
   const [originalCvFile, setOriginalCvFile] = useState<File | null>(null)
   const [originalCvWorkspaceState, setOriginalCvWorkspaceState] = useState(
     initialOriginalCvWorkspaceState,
   )
   const [pendingGenerationCommand, setPendingGenerationCommand] =
     useState<PendingGenerationCommand | null>(null)
+  const [previewedVacancyDraft, setPreviewedVacancyDraft] = useState<VacancyDraft | null>(null)
   const [readinessError, setReadinessError] = useState<string | null>(null)
-  const [textDraft, setTextDraft] = useState('')
-  const [urlDraft, setUrlDraft] = useState('')
+  const [vacancyDraft, setVacancyDraft] = useState(initialVacancyDraft)
+  const [vacancyPreview, setVacancyPreview] = useState<VacancySummary | null>(null)
+  const [vacancyReviewError, setVacancyReviewError] = useState<string | null>(null)
   const [viewModel, setViewModel] = useState(initialReadinessViewModel)
 
   const loadWorkspaceState = async (): Promise<void> => {
-    const nextOriginalCvWorkspaceState =
-      await globalThis.window.cvMaxxing.originalCv.getOriginalCvWorkspaceState()
+    const [nextOriginalCvWorkspaceState, nextVacancyWorkspaceState] = await Promise.all([
+      globalThis.window.cvMaxxing.originalCv.getOriginalCvWorkspaceState(),
+      globalThis.window.cvMaxxing.vacancy.getVacancyWorkspaceState(),
+    ])
 
     setOriginalCvWorkspaceState(nextOriginalCvWorkspaceState)
+    setPreviewedVacancyDraft(
+      nextVacancyWorkspaceState.vacancy ? nextVacancyWorkspaceState.draft : null,
+    )
+    setVacancyDraft(nextVacancyWorkspaceState.draft)
+    setVacancyPreview(nextVacancyWorkspaceState.vacancy)
+    setVacancyReviewError(null)
   }
 
   const loadPendingGenerationCommand = async (): Promise<void> => {
@@ -182,9 +200,12 @@ export function App() {
         return
       }
 
+      await globalThis.window.cvMaxxing.vacancy.clearVacancyWorkspaceState()
       setOriginalCvFile(null)
-      setTextDraft('')
-      setUrlDraft('')
+      setPreviewedVacancyDraft(null)
+      setVacancyDraft(initialVacancyDraft)
+      setVacancyPreview(null)
+      setVacancyReviewError(null)
       setOriginalCvWorkspaceState({
         activeOriginalCv: importResult.originalCv,
         snapshotCount: importResult.originalCv.snapshotCount,
@@ -266,7 +287,12 @@ export function App() {
       await globalThis.window.cvMaxxing.tailoredApplication.completePendingGeneration(
         pendingGenerationCommand.commandId,
       )
+      await globalThis.window.cvMaxxing.vacancy.clearVacancyWorkspaceState()
       setActiveApplicationTitle(createPendingGenerationTitle(pendingGenerationCommand))
+      setPreviewedVacancyDraft(null)
+      setVacancyDraft(initialVacancyDraft)
+      setVacancyPreview(null)
+      setVacancyReviewError(null)
       await loadReadinessState(globalThis.window.cvMaxxing.aiWorker.getAiWorkerPreflight)
     } catch {
       setReadinessError(`${readinessErrorMessage} ${readinessErrorAction}`)
@@ -284,9 +310,12 @@ export function App() {
 
     try {
       await globalThis.window.cvMaxxing.tailoredApplication.abandonPendingGeneration()
+      await globalThis.window.cvMaxxing.vacancy.clearVacancyWorkspaceState()
       setActiveApplicationTitle(null)
-      setTextDraft('')
-      setUrlDraft('')
+      setPreviewedVacancyDraft(null)
+      setVacancyDraft(initialVacancyDraft)
+      setVacancyPreview(null)
+      setVacancyReviewError(null)
       await loadReadinessState(globalThis.window.cvMaxxing.aiWorker.getAiWorkerPreflight)
     } catch {
       setReadinessError(`${readinessErrorMessage} ${readinessErrorAction}`)
@@ -378,37 +407,152 @@ export function App() {
         <WorkspaceEmptyScreen
           activeOriginalCv={originalCvWorkspaceState.activeOriginalCv}
           importError={importError}
+          isAdaptingCv={isPendingGenerationActionPending}
           isImportingOriginalCv={isImportingOriginalCv}
-          isStartingGeneration={isPendingGenerationActionPending}
+          isOpeningVacancyBrowser={isOpeningVacancyBrowser}
+          isReviewingVacancy={isSubmittingVacancyReview}
+          onAdaptCv={() => {
+            if (previewedVacancyDraft === null || vacancyPreview?.canGenerate !== true) {
+              return
+            }
+
+            handleStartPendingGeneration(previewedVacancyDraft).catch(() => null)
+          }}
+          onOpenVacancyBrowserSession={() => {
+            const originalUrl = vacancyPreview?.originalUrl
+
+            if (originalUrl === undefined || originalUrl === null || isOpeningVacancyBrowser) {
+              return
+            }
+
+            setIsOpeningVacancyBrowser(true)
+            setVacancyReviewError(null)
+
+            globalThis.window.cvMaxxing.vacancy
+              .openVacancyBrowserSession({
+                url: originalUrl,
+              })
+              .catch((error: unknown) => {
+                setVacancyReviewError(
+                  resolveErrorMessage(
+                    error,
+                    'Unable to open the internal browser session for this vacancy.',
+                  ),
+                )
+              })
+              .finally(() => {
+                setIsOpeningVacancyBrowser(false)
+              })
+          }}
           onOriginalCvFileSelection={handleOriginalCvSelection}
           onReplaceOriginalCv={() => {
             handleOriginalCvImport('workspace_empty').catch(() => null)
           }}
           onResetDrafts={() => {
-            setTextDraft('')
-            setUrlDraft('')
+            globalThis.window.cvMaxxing.vacancy
+              .clearVacancyWorkspaceState()
+              .then(() => {
+                setPreviewedVacancyDraft(null)
+                setVacancyDraft(initialVacancyDraft)
+                setVacancyPreview(null)
+                setVacancyReviewError(null)
+              })
+              .catch((error: unknown) => {
+                setVacancyReviewError(
+                  resolveErrorMessage(error, 'Unable to clear the current vacancy draft.'),
+                )
+              })
           }}
-          onStartFromText={() => {
-            handleStartPendingGeneration({
-              text: textDraft.trim(),
-              url: '',
-            }).catch(() => null)
+          onReviewPastedVacancy={() => {
+            if (isSubmittingVacancyReview) {
+              return
+            }
+
+            setIsSubmittingVacancyReview(true)
+            setVacancyReviewError(null)
+
+            globalThis.window.cvMaxxing.vacancy
+              .ingestPastedVacancy({
+                text: vacancyDraft.text.trim(),
+                url: vacancyDraft.url.trim() === '' ? undefined : vacancyDraft.url.trim(),
+              })
+              .then((result) => {
+                setPreviewedVacancyDraft(result.workspaceState.draft)
+                setVacancyDraft(result.workspaceState.draft)
+                setVacancyPreview(result.vacancy)
+              })
+              .catch((error: unknown) => {
+                setPreviewedVacancyDraft(null)
+                setVacancyPreview(null)
+                setVacancyReviewError(
+                  resolveErrorMessage(error, 'Unable to review the pasted vacancy text.'),
+                )
+              })
+              .finally(() => {
+                setIsSubmittingVacancyReview(false)
+              })
           }}
-          onStartFromUrl={() => {
-            handleStartPendingGeneration({
-              text: '',
-              url: urlDraft.trim(),
-            }).catch(() => null)
+          onReviewVacancyUrl={() => {
+            if (isSubmittingVacancyReview) {
+              return
+            }
+
+            setIsSubmittingVacancyReview(true)
+            setVacancyReviewError(null)
+
+            globalThis.window.cvMaxxing.vacancy
+              .ingestVacancyUrl({
+                url: vacancyDraft.url.trim(),
+              })
+              .then((result) => {
+                setPreviewedVacancyDraft(result.workspaceState.draft)
+                setVacancyDraft(result.workspaceState.draft)
+                setVacancyPreview(result.vacancy)
+              })
+              .catch((error: unknown) => {
+                setPreviewedVacancyDraft(null)
+                setVacancyPreview(null)
+                setVacancyReviewError(
+                  resolveErrorMessage(error, 'Unable to review this vacancy URL.'),
+                )
+              })
+              .finally(() => {
+                setIsSubmittingVacancyReview(false)
+              })
           }}
           onTextDraftChange={(event) => {
-            setTextDraft(event.target.value)
+            const nextDraft = {
+              text: event.target.value,
+              url: vacancyDraft.url,
+            }
+
+            setVacancyDraft(nextDraft)
+            setVacancyReviewError(null)
+
+            if (!isVacancyDraftReviewed(nextDraft, previewedVacancyDraft)) {
+              setPreviewedVacancyDraft(null)
+              setVacancyPreview(null)
+            }
           }}
           onUrlDraftChange={(event) => {
-            setUrlDraft(event.target.value)
+            const nextDraft = {
+              text: vacancyDraft.text,
+              url: event.target.value,
+            }
+
+            setVacancyDraft(nextDraft)
+            setVacancyReviewError(null)
+
+            if (!isVacancyDraftReviewed(nextDraft, previewedVacancyDraft)) {
+              setPreviewedVacancyDraft(null)
+              setVacancyPreview(null)
+            }
           }}
           originalCvFile={originalCvFile}
-          textDraft={textDraft}
-          urlDraft={urlDraft}
+          textDraft={vacancyDraft.text}
+          urlDraft={vacancyDraft.url}
+          vacancyPreview={vacancyPreview}
+          vacancyReviewError={vacancyReviewError}
         />
       )
     },
@@ -431,6 +575,19 @@ export function App() {
   const renderScreen = screenRegistry[screenKind]
 
   return renderScreen()
+}
+
+function isVacancyDraftReviewed(
+  nextDraft: VacancyDraft,
+  previewedVacancyDraft: VacancyDraft | null,
+): boolean {
+  if (previewedVacancyDraft === null) {
+    return false
+  }
+
+  return (
+    nextDraft.text === previewedVacancyDraft.text && nextDraft.url === previewedVacancyDraft.url
+  )
 }
 
 function createPendingGenerationTitle(pendingGenerationCommand: PendingGenerationCommand): string {
@@ -462,4 +619,12 @@ function tryFormatHostname(url: string): string | null {
   } catch {
     return null
   }
+}
+
+function resolveErrorMessage(error: unknown, fallbackMessage: string): string {
+  if (error instanceof Error && error.message !== '') {
+    return error.message
+  }
+
+  return fallbackMessage
 }

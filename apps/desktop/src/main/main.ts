@@ -203,6 +203,9 @@ export function createDesktopAppBootstrap({
     ipcMain.handle(VACANCY_IPC_CHANNELS.getWorkspaceState, async () => {
       return await vacancy.getWorkspaceState()
     })
+    ipcMain.handle(VACANCY_IPC_CHANNELS.clearWorkspaceState, async () => {
+      await vacancy.resetWorkspaceState()
+    })
     ipcMain.handle(VACANCY_IPC_CHANNELS.ingestUrl, async (_event, payload) => {
       return await vacancy.ingestVacancyUrl(parseVacancyUrlInput(payload))
     })

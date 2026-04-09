@@ -278,8 +278,26 @@ test('persists pending generation before repair and clears it after completion',
   await expect(page.getByRole('heading', { name: 'Create a tailored application' })).toBeVisible()
   await page
     .getByLabel('Job vacancy text')
-    .fill('Senior platform engineer\nBuild reliable desktop tooling for technical users.')
-  await page.getByRole('button', { name: 'Start tailoring from text' }).click()
+    .fill(
+      [
+        'Senior platform engineer',
+        'Analytical Engines Ltd',
+        'London, United Kingdom',
+        '',
+        'Responsibilities',
+        '- Build reliable desktop tooling for technical users.',
+        '- Partner with design and infrastructure teams.',
+        '',
+        'Requirements',
+        '- Experience shipping workflow software.',
+        '- Strong written communication.',
+      ].join('\n'),
+    )
+  await page.getByLabel('Job vacancy text').press('Tab')
+  await expect(page.getByRole('button', { name: 'Review pasted vacancy' })).toBeEnabled()
+  await page.getByRole('button', { name: 'Review pasted vacancy' }).dispatchEvent('click')
+  await expect(page.getByText('Vacancy preview', { exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'Adapt CV' }).click()
   await expect(page.getByRole('heading', { name: 'Connect the local AI worker' })).toBeVisible()
 
   await electronApp.close()
