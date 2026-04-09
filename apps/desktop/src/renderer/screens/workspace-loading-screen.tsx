@@ -9,6 +9,7 @@ interface WorkspaceLoadingScreenProperties {
   onAbandonDraft: () => void
   onOpenTailoredApplication: () => void
   pendingGenerationCommand: PendingGenerationCommand | null
+  workspaceError: string | null
 }
 
 export function WorkspaceLoadingScreen({
@@ -16,6 +17,7 @@ export function WorkspaceLoadingScreen({
   onAbandonDraft,
   onOpenTailoredApplication,
   pendingGenerationCommand,
+  workspaceError,
 }: WorkspaceLoadingScreenProperties) {
   const loadingTitle = buildPendingGenerationTitle(pendingGenerationCommand)
   const loadingMeta = buildPendingGenerationMeta(pendingGenerationCommand)
@@ -52,6 +54,11 @@ export function WorkspaceLoadingScreen({
         Your vacancy draft stays available here until the tailored application is completed or
         abandoned.
       </p>
+      {workspaceError ? (
+        <div className="mt-4 max-w-4xl rounded-[var(--radius-card)] border border-[var(--color-status-danger)]/20 bg-[var(--color-surface-danger)] px-4 py-3 text-sm leading-6 text-[var(--color-status-danger)]">
+          {workspaceError}
+        </div>
+      ) : null}
       <PanelCard className="mt-6 max-w-4xl gap-4 p-6">
         <p className="m-0 text-xl font-extrabold text-[var(--color-copy-strong)]">
           Local AI worker is adapting the CV

@@ -320,6 +320,7 @@ export function App() {
 
     setIsImportingOriginalCv(true)
     setImportError(null)
+    setReadinessError(null)
 
     try {
       const importResult = await globalThis.window.cvMaxxing.originalCv.importOriginalCv({
@@ -393,6 +394,7 @@ export function App() {
 
     setActiveApplicationTitle(null)
     setIsPendingGenerationActionPending(true)
+    setReadinessError(null)
 
     try {
       await loadReadinessState(async () => {
@@ -569,10 +571,15 @@ export function App() {
       await globalThis.window.cvMaxxing.tailoredApplication.resumePendingGeneration()
       await completePendingGenerationFlow(pendingGenerationCommand)
     } catch (error) {
+      try {
+        await loadReadinessState(globalThis.window.cvMaxxing.aiWorker.getAiWorkerPreflight)
+      } catch {
+        // Preserve the original generation failure message even if the reload also fails.
+      }
+
       setReadinessError(
         resolveErrorMessage(error, `${readinessErrorMessage} ${readinessErrorAction}`),
       )
-      await loadReadinessState(globalThis.window.cvMaxxing.aiWorker.getAiWorkerPreflight)
     }
   })
 
@@ -691,6 +698,7 @@ export function App() {
           preview={tailoredApplicationPreview}
           previewDocumentKind={previewDocumentKind}
           originalCvFile={originalCvFile}
+          workspaceError={readinessError}
         />
       )
     },
@@ -718,6 +726,7 @@ export function App() {
             }
 
             setIsOpeningVacancyBrowser(true)
+            setReadinessError(null)
             setVacancyReviewError(null)
 
             globalThis.window.cvMaxxing.vacancy
@@ -767,6 +776,7 @@ export function App() {
             }
 
             setIsSubmittingVacancyReview(true)
+            setReadinessError(null)
             setVacancyReviewError(null)
 
             globalThis.window.cvMaxxing.vacancy
@@ -796,6 +806,7 @@ export function App() {
             }
 
             setIsSubmittingVacancyReview(true)
+            setReadinessError(null)
             setVacancyReviewError(null)
 
             globalThis.window.cvMaxxing.vacancy
@@ -825,6 +836,7 @@ export function App() {
             }
 
             setVacancyDraft(nextDraft)
+            setReadinessError(null)
             setVacancyReviewError(null)
 
             if (!isVacancyDraftReviewed(nextDraft, previewedVacancyDraft)) {
@@ -839,6 +851,7 @@ export function App() {
             }
 
             setVacancyDraft(nextDraft)
+            setReadinessError(null)
             setVacancyReviewError(null)
 
             if (!isVacancyDraftReviewed(nextDraft, previewedVacancyDraft)) {
@@ -851,6 +864,7 @@ export function App() {
           urlDraft={vacancyDraft.url}
           vacancyPreview={vacancyPreview}
           vacancyReviewError={vacancyReviewError}
+          workspaceError={readinessError}
         />
       )
     },
@@ -865,6 +879,7 @@ export function App() {
             handleOpenTailoredApplication().catch(() => null)
           }}
           pendingGenerationCommand={pendingGenerationCommand}
+          workspaceError={readinessError}
         />
       )
     },
@@ -940,7 +955,17 @@ function isVacancyDraftReviewed(
 }
 
 function resolveErrorMessage(error: unknown, fallbackMessage: string): string {
-  if (error instanceof Error && error.message !== '') {
+  if (typeof error === 'string' && error !== '') {
+    return error
+  }
+
+  if (
+    error !== null &&
+    typeof error === 'object' &&
+    'message' in error &&
+    typeof error.message === 'string' &&
+    error.message !== ''
+  ) {
     return error.message
   }
 

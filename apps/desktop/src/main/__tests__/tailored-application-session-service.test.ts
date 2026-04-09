@@ -593,6 +593,95 @@ test('preserves the underlying generation failure as the thrown error cause', as
   })
 })
 
+test('fails generation when the cover letter drifts into cliche language from the stored writing-style profile', async () => {
+  const harness = await createHarness()
+
+  await seedOriginalCvAndVacancy(harness)
+
+  const service = createTailoredApplicationSessionService({
+    adaptedCvRenderer: {
+      renderAdaptedCvPdf: vi.fn(),
+    },
+    coverLetterRenderer: {
+      renderCoverLetterPdf: vi.fn(),
+    },
+    aiWorker: {
+      retryAiWorkerPreflight: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+    },
+    generateId: createIdGenerator(['command-123', 'run-123', 'tailored-application-123']),
+    getCurrentTimestamp: () => {
+      return '2026-04-09T09:30:00.000Z'
+    },
+    localAppData: harness.localAppData,
+    readinessStore: harness.readinessStore,
+    runWorkspaceRootPath: path.join(harness.paths.rootDirectoryPath, 'runs'),
+    worker: {
+      runGeneration: () => {
+        const result = createValidGenerationResult()
+        const coverLetter = {
+          ...result.coverLetter,
+          body: [
+            {
+              sourceEvidence: [
+                'Led product design for AI-assisted desktop tooling.',
+                'Build reliable desktop tooling for technical users.',
+              ],
+              text: 'I am passionate about joining your world-class team and bringing a results-driven approach to the role.',
+            },
+          ],
+        }
+
+        return Promise.resolve({
+          ...result,
+          coverLetter,
+          coverLetterPlainText: [
+            coverLetter.date,
+            '',
+            coverLetter.greeting,
+            '',
+            coverLetter.opening.text,
+            '',
+            coverLetter.body[0]?.text ?? '',
+            '',
+            coverLetter.closing.text,
+            '',
+            coverLetter.signature,
+          ].join('\n'),
+        })
+      },
+    },
+  })
+
+  await service.startPendingGeneration({
+    originalCvId: 'original-cv-123',
+    originalCvLabel: 'ada-lovelace.pdf',
+    vacancyDraft: {
+      text: 'Senior platform engineer',
+      url: 'https://jobs.example.com/roles/123',
+    },
+  })
+
+  await expect(service.resumePendingGeneration()).rejects.toThrow(
+    'Generated tailored application failed style validation.',
+  )
+  await expect(service.getPendingGenerationCommand()).resolves.toBeNull()
+  await expect(harness.readinessStore.getStartupDestination()).resolves.toBe('workspace_empty')
+  await expect(
+    harness.localAppData.metadata.get({
+      id: 'tailored-application-123',
+      scope: 'tailored-applications',
+    }),
+  ).resolves.toBeNull()
+  await expect(
+    stat(path.join(harness.paths.rootDirectoryPath, 'runs', 'run-123')),
+  ).rejects.toThrow()
+})
+
 test('blocks generation before queueing when the selected original CV is non-English', async () => {
   const harness = await createHarness()
 

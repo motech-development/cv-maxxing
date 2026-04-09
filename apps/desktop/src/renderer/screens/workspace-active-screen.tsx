@@ -34,6 +34,7 @@ interface WorkspaceActiveScreenProperties {
   preview: TailoredApplicationPreview | null
   previewDocumentKind: PreviewDocumentKind
   originalCvFile: File | null
+  workspaceError: string | null
 }
 
 export function WorkspaceActiveScreen({
@@ -56,6 +57,7 @@ export function WorkspaceActiveScreen({
   preview,
   previewDocumentKind,
   originalCvFile,
+  workspaceError,
 }: WorkspaceActiveScreenProperties) {
   const resolvedApplicationTitle = preview?.title ?? applicationTitle ?? 'Tailored application'
   const resolvedVacancySubtitle =
@@ -144,6 +146,11 @@ export function WorkspaceActiveScreen({
           <p className="mt-2 text-sm leading-6 text-[var(--color-copy-muted)]">
             Adapted CV and cover letter generated from the active original CV snapshot.
           </p>
+          {workspaceError ? (
+            <div className="mt-4 max-w-4xl rounded-[var(--radius-card)] border border-[var(--color-status-danger)]/20 bg-[var(--color-surface-danger)] px-4 py-3 text-sm leading-6 text-[var(--color-status-danger)]">
+              {workspaceError}
+            </div>
+          ) : null}
         </div>
         <Button disabled={preview === null || isExportingPdf} onClick={onExportPdf} tone="primary">
           Export PDFs

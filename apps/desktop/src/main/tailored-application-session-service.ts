@@ -30,6 +30,12 @@ import type { AiWorkerReadinessStore } from './ai-worker-readiness-store.js'
 import { buildAdaptedCvExportFilename, resolveUniqueExportFilePath } from './adapted-cv-document.js'
 import { buildCoverLetterExportFilename } from './cover-letter-document.js'
 import type { JsonValue, LocalAppDataStore } from './local-app-data-service.js'
+import {
+  TAILORED_APPLICATION_STYLE_VALIDATION_ERROR_MESSAGE,
+  parseWritingStyleProfileJson,
+  type WritingStyleProfile,
+  validateTailoredApplicationWritingStyle,
+} from './tailored-application-style-validator.js'
 
 const ORIGINAL_CV_SCOPE = 'original-cvs'
 const VACANCY_SCOPE = 'vacancies'
@@ -237,6 +243,7 @@ interface OriginalCvContext {
   originalCvId: string
   originalCvText: string
   originalFilename: string
+  writingStyleProfile: WritingStyleProfile
   writingStyleProfileJson: string
 }
 
@@ -251,6 +258,7 @@ interface VacancyContext {
 
 interface ValidationContext {
   originalCvText: string
+  writingStyleProfile: WritingStyleProfile
   vacancyText: string
 }
 
@@ -382,6 +390,7 @@ export function createTailoredApplicationSessionService({
       originalCvId: command.originalCvId,
       originalCvText: originalCvTextBuffer.toString('utf8'),
       originalFilename: command.originalCvLabel,
+      writingStyleProfile: parseWritingStyleProfileJson(writingStyleProfileBuffer.toString('utf8')),
       writingStyleProfileJson: writingStyleProfileBuffer.toString('utf8'),
     }
   }
@@ -828,6 +837,7 @@ export function createTailoredApplicationSessionService({
 
       validateTailoredApplicationGenerationResult(result, {
         originalCvText: originalCv.originalCvText,
+        writingStyleProfile: originalCv.writingStyleProfile,
         vacancyText: vacancy.vacancyText,
       })
       const [renderedAdaptedCv, renderedCoverLetter] = await Promise.all([
@@ -903,7 +913,8 @@ export function createTailoredApplicationSessionService({
 
       if (
         error instanceof Error &&
-        error.message === 'Generated tailored application failed validation.'
+        (error.message === 'Generated tailored application failed validation.' ||
+          error.message === TAILORED_APPLICATION_STYLE_VALIDATION_ERROR_MESSAGE)
       ) {
         throw error
       }
@@ -1318,6 +1329,12 @@ function validateTailoredApplicationGenerationResult(
     throw new Error('Generated tailored application failed validation.')
   }
 
+  validateTailoredApplicationWritingStyle({
+    adaptedCvText: buildAdaptedCvValidationText(result.adaptedCv),
+    coverLetterText: buildCoverLetterValidationText(result.coverLetter),
+    profile: context.writingStyleProfile,
+  })
+
   validateNumericClaims(
     outputText,
     sourceText,
@@ -1430,6 +1447,34 @@ function buildCoverLetterPlainText(coverLetter: CoverLetterModel): string {
     }),
     coverLetter.closing.text,
     '',
+    coverLetter.signature,
+  ].join('\n')
+}
+
+function buildAdaptedCvValidationText(adaptedCv: AdaptedCvModel): string {
+  return [
+    adaptedCv.candidateName,
+    adaptedCv.headline.text,
+    adaptedCv.summary.text,
+    ...adaptedCv.experienceHighlights.flatMap((experienceHighlight) => {
+      return experienceHighlight.bullets.map((bullet) => {
+        return bullet.text
+      })
+    }),
+    ...adaptedCv.skills.map((skill) => {
+      return skill.text
+    }),
+  ].join('\n')
+}
+
+function buildCoverLetterValidationText(coverLetter: CoverLetterModel): string {
+  return [
+    coverLetter.greeting,
+    coverLetter.opening.text,
+    ...coverLetter.body.map((paragraph) => {
+      return paragraph.text
+    }),
+    coverLetter.closing.text,
     coverLetter.signature,
   ].join('\n')
 }

@@ -464,6 +464,83 @@ test('keeps workspace_loading explicit after sign-in repair for a pending genera
   await electronApp.close()
 })
 
+test('returns to the workspace with a visible error when generation fails style validation', async () => {
+  const testPaths = await createOriginalCvTestPaths()
+
+  await writeFile(
+    testPaths.pdfPath,
+    createPdfDocumentBuffer([
+      'Ada Lovelace',
+      'Principal Product Designer',
+      'Summary',
+      'Design leader focused on complex workflow products for technical users.',
+      'Experience',
+      'Principal Product Designer | Analytical Engines Ltd',
+      'Led product design for AI-assisted desktop tooling.',
+      'Skills',
+      'Product strategy, UX research, prototyping',
+    ]),
+  )
+
+  const electronApp = await launchDesktopApp({
+    CV_MAXXING_AI_WORKER_GENERATION_OUTPUT: JSON.stringify(
+      createGenerationResultFixture({
+        coverLetter: {
+          body: [
+            {
+              sourceEvidence: [
+                'Led product design for AI-assisted desktop tooling.',
+                'Build reliable desktop tooling for technical users.',
+              ],
+              text: 'I am passionate about joining your world-class team and bringing a results-driven approach to the role.',
+            },
+          ],
+        },
+      }),
+    ),
+    CV_MAXXING_AI_WORKER_PREFLIGHT_STATUS: 'ready',
+    CV_MAXXING_LOCAL_APP_DATA_ROOT: testPaths.appDataRoot,
+    CV_MAXXING_STARTUP_DESTINATION: 'first_launch',
+  })
+
+  const page = await electronApp.firstWindow()
+
+  await expect(page.getByRole('heading', { name: 'Import your original CV' })).toBeVisible()
+  await page.getByLabel('Original CV file').setInputFiles(testPaths.pdfPath)
+  await page.getByRole('button', { name: 'Import original CV' }).click()
+  await expect(page.getByRole('heading', { name: 'Create a tailored application' })).toBeVisible()
+  await page
+    .getByLabel('Job vacancy text')
+    .fill(
+      [
+        'Senior platform engineer',
+        'Example Labs',
+        'London, United Kingdom',
+        '',
+        'Responsibilities',
+        '- Build reliable desktop tooling for technical users.',
+        '- Partner with design and infrastructure teams.',
+        '',
+        'Requirements',
+        '- Experience shipping workflow software.',
+        '- Strong written communication.',
+      ].join('\n'),
+    )
+  await page.getByRole('button', { name: 'Review pasted vacancy' }).dispatchEvent('click')
+  await expect(page.getByText('Vacancy preview', { exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'Adapt CV' }).click()
+  await expect(page.getByRole('heading', { name: 'Generating tailored application' })).toBeVisible()
+  await expect(
+    page.getByText('Generated tailored application failed style validation.'),
+  ).toBeVisible({
+    timeout: 15_000,
+  })
+  await expect(page.getByRole('heading', { name: 'Create a tailored application' })).toBeVisible()
+  await expect(page.getByText('No tailored applications yet')).toBeVisible()
+
+  await electronApp.close()
+})
+
 test('persists pending generation before repair and clears it after completion', async () => {
   const testPaths = await createOriginalCvTestPaths()
 
@@ -834,8 +911,26 @@ async function createOriginalCvTestPaths(): Promise<{
   }
 }
 
-function createGenerationResultFixture() {
-  return {
+function createGenerationResultFixture(overrides?: {
+  coverLetter?: Partial<{
+    body: {
+      sourceEvidence: string[]
+      text: string
+    }[]
+    closing: {
+      sourceEvidence: string[]
+      text: string
+    }
+    date: string
+    greeting: string
+    opening: {
+      sourceEvidence: string[]
+      text: string
+    }
+    signature: string
+  }>
+}) {
+  const baseFixture = {
     adaptationSummary: {
       emphasized: [
         {
@@ -934,6 +1029,30 @@ function createGenerationResultFixture() {
       provider: 'codex',
       sessionId: 'session-123',
     },
+  }
+
+  const coverLetter = {
+    ...baseFixture.coverLetter,
+    ...overrides?.coverLetter,
+  }
+
+  return {
+    ...baseFixture,
+    coverLetter,
+    coverLetterPlainText: [
+      coverLetter.date,
+      '',
+      coverLetter.greeting,
+      '',
+      coverLetter.opening.text,
+      '',
+      ...coverLetter.body.flatMap((paragraph) => {
+        return [paragraph.text, '']
+      }),
+      coverLetter.closing.text,
+      '',
+      coverLetter.signature,
+    ].join('\n'),
   }
 }
 
