@@ -1,5 +1,6 @@
-import { BrowserWindow, session, type Session, type WebContents } from 'electron'
+import { createRequire } from 'node:module'
 import path from 'node:path'
+import type { Session } from 'electron'
 
 export interface VacancyBrowserPageSnapshot {
   html: string
@@ -16,12 +17,36 @@ export interface VacancyBrowserSessionService {
 
 interface BrowserSessionServiceDependencies {
   autoCloseAfterFirstObservation?: boolean
-  browserWindowConstructor?: typeof BrowserWindow
+  browserWindowConstructor?: BrowserWindowConstructor
   createSession?: (profilePath: string) => Session | Promise<Session>
   profileRootPath: string
   testResolvedUrl?: string
   testSnapshotHtml?: string
 }
+
+interface BrowserWindowLike {
+  close: () => void
+  isDestroyed: () => boolean
+  loadURL: (url: string) => Promise<void>
+  once: (eventName: string, listener: () => void) => void
+  webContents: BrowserWebContentsLike
+}
+
+type BrowserWindowConstructor = new (options: Record<string, unknown>) => BrowserWindowLike
+
+interface BrowserWebContentsLike {
+  executeJavaScript: (code: string) => Promise<unknown>
+  on: (eventName: string, listener: () => void) => void
+}
+
+interface ElectronRuntime {
+  BrowserWindow: BrowserWindowConstructor
+  session: {
+    fromPath: (profilePath: string) => Session
+  }
+}
+
+const require = createRequire(import.meta.url)
 
 const browserCaptureScript = `(() => {
   return {
@@ -33,14 +58,20 @@ const browserCaptureScript = `(() => {
 
 export function createVacancyBrowserSessionService({
   autoCloseAfterFirstObservation = false,
-  browserWindowConstructor = BrowserWindow,
-  createSession = (profilePath: string) => {
-    return session.fromPath(profilePath)
-  },
+  browserWindowConstructor,
+  createSession,
   profileRootPath,
   testResolvedUrl,
   testSnapshotHtml,
 }: BrowserSessionServiceDependencies): VacancyBrowserSessionService {
+  const resolvedBrowserWindowConstructor =
+    browserWindowConstructor ?? loadElectronRuntime().BrowserWindow
+  const resolvedCreateSession =
+    createSession ??
+    ((profilePath: string) => {
+      return loadElectronRuntime().session.fromPath(profilePath)
+    })
+
   return {
     openSession: async ({
       shouldCapturePage,
@@ -50,8 +81,8 @@ export function createVacancyBrowserSessionService({
       url: string
     }): Promise<VacancyBrowserPageSnapshot | null> => {
       const profilePath = path.join(profileRootPath, 'vacancy-browser-session')
-      const managedSession = await createSession(profilePath)
-      const vacancyBrowserWindow = new browserWindowConstructor({
+      const managedSession = await resolvedCreateSession(profilePath)
+      const vacancyBrowserWindow = new resolvedBrowserWindowConstructor({
         autoHideMenuBar: true,
         backgroundColor: '#08141f',
         height: 900,
@@ -138,6 +169,10 @@ export function createVacancyBrowserSessionService({
   }
 }
 
+function loadElectronRuntime(): ElectronRuntime {
+  return require('electron') as ElectronRuntime
+}
+
 function createBrowserSessionUrl({
   testSnapshotHtml,
   url,
@@ -157,7 +192,7 @@ async function captureCurrentPage({
   webContents,
 }: {
   fallbackResolvedUrl: string | undefined
-  webContents: WebContents
+  webContents: BrowserWebContentsLike
 }): Promise<VacancyBrowserPageSnapshot | null> {
   try {
     const snapshot = (await webContents.executeJavaScript(

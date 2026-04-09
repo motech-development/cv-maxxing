@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, safeStorage, shell } from 'electron'
+import { createRequire } from 'node:module'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -19,8 +19,6 @@ import type { ResetLocalAppDataInput } from '../shared/settings.js'
 import type { StartupDestination } from '../shared/startup-destination.js'
 import type { PastedVacancyInput, VacancyUrlInput } from '../shared/vacancy.js'
 import { createAiWorkerReadinessStore } from './ai-worker-readiness-store.js'
-import { createElectronAdaptedCvRenderer } from './adapted-cv-electron-renderer.js'
-import { createElectronCoverLetterRenderer } from './cover-letter-electron-renderer.js'
 import {
   createAiWorkerPreflightService,
   type AiWorkerPreflightService,
@@ -47,6 +45,7 @@ const currentDirectory = fileURLToPath(new URL('.', import.meta.url))
 const preloadPath = path.join(currentDirectory, '../preload/preload.js')
 const rendererIndexPath = fileURLToPath(new URL('../renderer/index.html', import.meta.url))
 const rendererDevelopmentUrl = process.env.CV_MAXXING_RENDERER_URL
+const require = createRequire(import.meta.url)
 
 interface AppLike {
   on: (event: 'activate' | 'window-all-closed', handler: () => void) => unknown
@@ -154,6 +153,30 @@ interface RuntimeEnvironment {
   CV_MAXXING_VACANCY_BROWSER_SESSION_CLOSE_AFTER_LOAD?: string
   CV_MAXXING_VACANCY_BROWSER_SESSION_HTML?: string
   CV_MAXXING_VACANCY_BROWSER_SESSION_RESOLVED_URL?: string
+}
+
+interface ElectronRuntimeModule {
+  BrowserWindow: ElectronBrowserWindowConstructor
+  app: ElectronAppLike & {
+    getPath: (name: 'userData') => string
+    getVersion: () => string
+    relaunch: () => void
+  }
+  dialog: {
+    showSaveDialog: (options: unknown) => Promise<{
+      canceled: boolean
+      filePath?: string
+    }>
+  }
+  ipcMain: IpcMainLike
+  safeStorage: {
+    decryptString: (encryptedValue: Buffer) => string
+    encryptString: (value: string) => Buffer
+    isEncryptionAvailable: () => boolean
+  }
+  shell: {
+    openExternal: (url: string) => Promise<void>
+  }
 }
 
 export function createDesktopAppBootstrap({
@@ -414,7 +437,7 @@ export function createElectronRuntimeDependencies({
   }
 }
 
-async function createRuntimeServices(): Promise<{
+async function createRuntimeServices(electronRuntime: ElectronRuntimeModule): Promise<{
   aiWorker: AiWorkerPreflightService
   onOriginalCvImported: () => Promise<void>
   originalCv: OriginalCvService
@@ -423,14 +446,19 @@ async function createRuntimeServices(): Promise<{
   vacancy: VacancyService
 }> {
   const environment = process.env as RuntimeEnvironment
+  const [{ createElectronAdaptedCvRenderer }, { createElectronCoverLetterRenderer }] =
+    await Promise.all([
+      import('./adapted-cv-electron-renderer.js'),
+      import('./cover-letter-electron-renderer.js'),
+    ])
   const paths = createLocalAppDataPaths(
     environment.CV_MAXXING_LOCAL_APP_DATA_ROOT ??
-      path.join(app.getPath('userData'), 'local-app-data'),
+      path.join(electronRuntime.app.getPath('userData'), 'local-app-data'),
   )
   const localAppData = await openLocalAppData({
     keychain: createSafeStorageKeychain({
       keychainRecordPath: paths.keychainRecordPath,
-      safeStorage,
+      safeStorage: electronRuntime.safeStorage,
     }),
     paths,
   })
@@ -465,7 +493,7 @@ async function createRuntimeServices(): Promise<{
       return await readinessStore.getStartupDestination()
     },
     openAiWorkerSetupGuide: async () => {
-      await shell.openExternal(CODEX_SETUP_GUIDE_URL)
+      await electronRuntime.shell.openExternal(CODEX_SETUP_GUIDE_URL)
     },
   })
   const vacancyBrowserSession = createVacancyBrowserSessionService({
@@ -479,7 +507,10 @@ async function createRuntimeServices(): Promise<{
     adaptedCvRenderer: createElectronAdaptedCvRenderer(),
     aiWorker,
     coverLetterRenderer: createElectronCoverLetterRenderer(),
-    exportDialog: createAdaptedCvExportDialog(environment),
+    exportDialog: createAdaptedCvExportDialog({
+      dialog: electronRuntime.dialog,
+      environment,
+    }),
     localAppData,
     readinessStore,
     runWorkspaceRootPath: path.join(paths.rootDirectoryPath, 'runs'),
@@ -506,7 +537,7 @@ async function createRuntimeServices(): Promise<{
         await tailoredApplication.abandonPendingGeneration()
       },
       getAppVersion: () => {
-        return app.getVersion()
+        return electronRuntime.app.getVersion()
       },
       localAppData,
       restartApp: () => {
@@ -514,8 +545,8 @@ async function createRuntimeServices(): Promise<{
           return Promise.resolve()
         }
 
-        app.relaunch()
-        app.quit()
+        electronRuntime.app.relaunch()
+        electronRuntime.app.quit()
 
         return Promise.resolve()
       },
@@ -590,14 +621,15 @@ function parseStartupDestination(value: string | undefined): StartupDestination 
 }
 
 async function startDesktopAppRuntime(): Promise<void> {
-  const runtimeServices = await createRuntimeServices()
+  const electronRuntime = loadElectronRuntime()
+  const runtimeServices = await createRuntimeServices(electronRuntime)
 
   await createDesktopAppBootstrap(
     createElectronRuntimeDependencies({
       aiWorker: runtimeServices.aiWorker,
-      app,
-      browserWindowConstructor: BrowserWindow,
-      ipcMain,
+      app: electronRuntime.app,
+      browserWindowConstructor: electronRuntime.BrowserWindow,
+      ipcMain: electronRuntime.ipcMain,
       onOriginalCvImported: runtimeServices.onOriginalCvImported,
       originalCv: runtimeServices.originalCv,
       platform: process.platform,
@@ -617,7 +649,13 @@ if (process.env.VITEST !== 'true') {
   })
 }
 
-function createAdaptedCvExportDialog(environment: RuntimeEnvironment) {
+function createAdaptedCvExportDialog({
+  dialog,
+  environment,
+}: {
+  dialog: ElectronRuntimeModule['dialog']
+  environment: RuntimeEnvironment
+}) {
   if (
     environment.CV_MAXXING_TEST_ADAPTED_CV_EXPORT_PATH !== undefined &&
     environment.CV_MAXXING_TEST_ADAPTED_CV_EXPORT_PATH !== ''
@@ -633,6 +671,10 @@ function createAdaptedCvExportDialog(environment: RuntimeEnvironment) {
   }
 
   return dialog
+}
+
+function loadElectronRuntime(): ElectronRuntimeModule {
+  return require('electron') as ElectronRuntimeModule
 }
 
 function parseOriginalCvImportInput(payload: unknown): OriginalCvImportInput {
