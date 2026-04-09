@@ -18,6 +18,11 @@ import type {
 } from '../shared/pending-generation.js'
 import type { StartupDestination } from '../shared/startup-destination.js'
 import type {
+  TailoredApplicationExportResult,
+  TailoredApplicationPreview,
+  TailoredApplicationWorkspaceState,
+} from '../shared/tailored-application.js'
+import type {
   PastedVacancyInput,
   VacancyIngestResult,
   VacancyUrlInput,
@@ -70,6 +75,16 @@ export function createDesktopApi({ invoke }: DesktopApiInvoker): CvMaxxingWindow
       getPendingGenerationCommand: async (): Promise<PendingGenerationCommand | null> => {
         return await invoke(TAILORED_APPLICATION_IPC_CHANNELS.getPendingGeneration)
       },
+      getTailoredApplicationPreview: async (
+        tailoredApplicationId: string,
+      ): Promise<TailoredApplicationPreview | null> => {
+        return await invoke(TAILORED_APPLICATION_IPC_CHANNELS.getPreview, {
+          tailoredApplicationId,
+        })
+      },
+      getWorkspaceState: async (): Promise<TailoredApplicationWorkspaceState> => {
+        return await invoke(TAILORED_APPLICATION_IPC_CHANNELS.getWorkspaceState)
+      },
       resumePendingGeneration: async (): Promise<ResumePendingGenerationResult> => {
         return await invoke(TAILORED_APPLICATION_IPC_CHANNELS.resumePendingGeneration)
       },
@@ -77,6 +92,13 @@ export function createDesktopApi({ invoke }: DesktopApiInvoker): CvMaxxingWindow
         input: StartPendingGenerationInput,
       ): Promise<AiWorkerPreflightResult> => {
         return await invoke(TAILORED_APPLICATION_IPC_CHANNELS.startPendingGeneration, input)
+      },
+      exportAdaptedCvPdf: async (
+        tailoredApplicationId: string,
+      ): Promise<TailoredApplicationExportResult | null> => {
+        return await invoke(TAILORED_APPLICATION_IPC_CHANNELS.exportAdaptedCvPdf, {
+          tailoredApplicationId,
+        })
       },
     },
     vacancy: {

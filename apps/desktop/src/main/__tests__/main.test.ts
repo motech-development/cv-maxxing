@@ -95,6 +95,11 @@ function createTailoredApplicationDouble() {
   return {
     abandonPendingGeneration: vi.fn().mockImplementation(() => Promise.resolve()),
     completePendingGeneration: vi.fn().mockImplementation(() => Promise.resolve()),
+    exportAdaptedCvPdf: vi.fn().mockResolvedValue({
+      filePath: '/exports/Ada Lovelace - Senior platform engineer - adapted-cv.pdf',
+      overwriteAvoided: false,
+      pageWarning: null,
+    }),
     getPendingGenerationCommand: vi.fn().mockResolvedValue({
       commandId: 'command-123',
       originalCvId: 'original-cv-123',
@@ -104,6 +109,11 @@ function createTailoredApplicationDouble() {
         text: 'Senior platform engineer',
         url: 'https://jobs.example.com/roles/123',
       },
+    }),
+    getTailoredApplicationPreview: vi.fn().mockResolvedValue(null),
+    getWorkspaceState: vi.fn().mockResolvedValue({
+      activeApplicationId: null,
+      applications: [],
     }),
     resumePendingGeneration: vi.fn().mockResolvedValue({
       generationRunId: 'run-123',

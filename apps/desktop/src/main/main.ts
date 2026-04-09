@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, safeStorage, shell } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, safeStorage, shell } from 'electron'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -17,6 +17,7 @@ import type {
 import type { StartupDestination } from '../shared/startup-destination.js'
 import type { PastedVacancyInput, VacancyUrlInput } from '../shared/vacancy.js'
 import { createAiWorkerReadinessStore } from './ai-worker-readiness-store.js'
+import { createElectronAdaptedCvRenderer } from './adapted-cv-electron-renderer.js'
 import {
   createAiWorkerPreflightService,
   type AiWorkerPreflightService,
@@ -142,6 +143,7 @@ interface RuntimeEnvironment {
   CV_MAXXING_AI_WORKER_SIGN_IN_STATUS?: string
   CV_MAXXING_PENDING_GENERATION_COMMAND?: string
   CV_MAXXING_STARTUP_DESTINATION?: string
+  CV_MAXXING_TEST_ADAPTED_CV_EXPORT_PATH?: string
   CV_MAXXING_VACANCY_BROWSER_SESSION_CLOSE_AFTER_LOAD?: string
   CV_MAXXING_VACANCY_BROWSER_SESSION_HTML?: string
   CV_MAXXING_VACANCY_BROWSER_SESSION_RESOLVED_URL?: string
@@ -227,6 +229,14 @@ export function createDesktopAppBootstrap({
     ipcMain.handle(TAILORED_APPLICATION_IPC_CHANNELS.getPendingGeneration, async () => {
       return await tailoredApplication.getPendingGenerationCommand()
     })
+    ipcMain.handle(TAILORED_APPLICATION_IPC_CHANNELS.getWorkspaceState, async () => {
+      return await tailoredApplication.getWorkspaceState()
+    })
+    ipcMain.handle(TAILORED_APPLICATION_IPC_CHANNELS.getPreview, async (_event, payload) => {
+      return await tailoredApplication.getTailoredApplicationPreview(
+        parseTailoredApplicationIdInput(payload).tailoredApplicationId,
+      )
+    })
     ipcMain.handle(TAILORED_APPLICATION_IPC_CHANNELS.resumePendingGeneration, async () => {
       return await tailoredApplication.resumePendingGeneration()
     })
@@ -249,6 +259,14 @@ export function createDesktopAppBootstrap({
     ipcMain.handle(TAILORED_APPLICATION_IPC_CHANNELS.abandonPendingGeneration, async () => {
       await tailoredApplication.abandonPendingGeneration()
     })
+    ipcMain.handle(
+      TAILORED_APPLICATION_IPC_CHANNELS.exportAdaptedCvPdf,
+      async (_event, payload) => {
+        return await tailoredApplication.exportAdaptedCvPdf(
+          parseTailoredApplicationIdInput(payload).tailoredApplicationId,
+        )
+      },
+    )
   }
 
   async function createMainWindow(): Promise<void> {
@@ -425,7 +443,9 @@ async function createRuntimeServices(): Promise<{
     testSnapshotHtml: environment.CV_MAXXING_VACANCY_BROWSER_SESSION_HTML,
   })
   const tailoredApplication = createTailoredApplicationSessionService({
+    adaptedCvRenderer: createElectronAdaptedCvRenderer(),
     aiWorker,
+    exportDialog: createAdaptedCvExportDialog(environment),
     localAppData,
     readinessStore,
     runWorkspaceRootPath: path.join(paths.rootDirectoryPath, 'runs'),
@@ -541,6 +561,24 @@ if (process.env.VITEST !== 'true') {
   })
 }
 
+function createAdaptedCvExportDialog(environment: RuntimeEnvironment) {
+  if (
+    environment.CV_MAXXING_TEST_ADAPTED_CV_EXPORT_PATH !== undefined &&
+    environment.CV_MAXXING_TEST_ADAPTED_CV_EXPORT_PATH !== ''
+  ) {
+    return {
+      showSaveDialog: () => {
+        return Promise.resolve({
+          canceled: false,
+          filePath: environment.CV_MAXXING_TEST_ADAPTED_CV_EXPORT_PATH,
+        })
+      },
+    }
+  }
+
+  return dialog
+}
+
 function parseOriginalCvImportInput(payload: unknown): OriginalCvImportInput {
   if (!isOriginalCvImportPayload(payload)) {
     throw new TypeError('Invalid original CV import payload.')
@@ -638,4 +676,20 @@ function isCompletePendingGenerationInput(
     'commandId' in payload &&
     typeof payload.commandId === 'string'
   )
+}
+
+function parseTailoredApplicationIdInput(payload: unknown): { tailoredApplicationId: string } {
+  if (
+    payload === null ||
+    typeof payload !== 'object' ||
+    !('tailoredApplicationId' in payload) ||
+    typeof payload.tailoredApplicationId !== 'string' ||
+    payload.tailoredApplicationId === ''
+  ) {
+    throw new TypeError('Invalid tailored application payload.')
+  }
+
+  return {
+    tailoredApplicationId: payload.tailoredApplicationId,
+  }
 }

@@ -4,12 +4,10 @@ import path from 'node:path'
 
 import { afterEach, expect, test, vi } from 'vitest'
 
+import type { TailoredApplicationGenerationResult } from '../../shared/tailored-application.js'
 import { createAiWorkerReadinessStore } from '../ai-worker-readiness-store.js'
 import { createLocalAppDataPaths, openLocalAppData } from '../local-app-data-service.js'
-import {
-  createTailoredApplicationSessionService,
-  type TailoredApplicationGenerationResult,
-} from '../tailored-application-session-service.js'
+import { createTailoredApplicationSessionService } from '../tailored-application-session-service.js'
 
 const temporaryDirectories: string[] = []
 
@@ -33,7 +31,15 @@ test('assembles structured worker inputs and persists immutable tailored-applica
     files: Record<string, string>
     taskJson: string
   }[] = []
+  const renderAdaptedCvPdf = vi.fn().mockResolvedValue({
+    pageCount: 1,
+    pageWarning: null,
+    pdfBytes: Buffer.from('%PDF-1.7 adapted cv', 'utf8'),
+  })
   const service = createTailoredApplicationSessionService({
+    adaptedCvRenderer: {
+      renderAdaptedCvPdf,
+    },
     aiWorker: {
       retryAiWorkerPreflight: vi.fn().mockResolvedValue({
         canResumeGeneration: true,
@@ -121,10 +127,14 @@ test('assembles structured worker inputs and persists immutable tailored-applica
       scope: 'tailored-applications',
     }),
   ).resolves.toMatchObject({
+    adaptedCvPageCount: 1,
+    adaptedCvPageWarning: null,
     createdAt: '2026-04-09T09:30:00.000Z',
+    employer: 'Example Labs',
     originalCvId: 'original-cv-123',
     status: 'ready',
     vacancyId: 'vacancy-123',
+    vacancyTitle: 'Senior platform engineer',
   })
 
   await expect(
@@ -135,9 +145,16 @@ test('assembles structured worker inputs and persists immutable tailored-applica
   ).resolves.toEqual([
     'adaptation-summary.json',
     'adapted-cv.json',
+    'adapted-cv.pdf',
     'cover-letter.json',
     'cover-letter.txt',
   ])
+
+  expect(renderAdaptedCvPdf).toHaveBeenCalledWith({
+    adaptedCv: createValidGenerationResult().adaptedCv,
+    employer: 'Example Labs',
+    vacancyTitle: 'Senior platform engineer',
+  })
 
   await expect(
     harness.localAppData.artifacts.read({
@@ -158,6 +175,9 @@ test('rejects fabricated output, clears partial artifacts, and resets the pendin
   await seedOriginalCvAndVacancy(harness)
 
   const service = createTailoredApplicationSessionService({
+    adaptedCvRenderer: {
+      renderAdaptedCvPdf: vi.fn(),
+    },
     aiWorker: {
       retryAiWorkerPreflight: vi.fn().mockResolvedValue({
         canResumeGeneration: true,
@@ -223,6 +243,9 @@ test('preserves the underlying generation failure as the thrown error cause', as
   await seedOriginalCvAndVacancy(harness)
 
   const service = createTailoredApplicationSessionService({
+    adaptedCvRenderer: {
+      renderAdaptedCvPdf: vi.fn(),
+    },
     aiWorker: {
       retryAiWorkerPreflight: vi.fn().mockResolvedValue({
         canResumeGeneration: true,
@@ -355,6 +378,13 @@ test('persists a resumable pending command before sign-in repair and resumes the
       status: 'ready',
     })
   const service = createTailoredApplicationSessionService({
+    adaptedCvRenderer: {
+      renderAdaptedCvPdf: vi.fn().mockResolvedValue({
+        pageCount: 1,
+        pageWarning: null,
+        pdfBytes: Buffer.from('%PDF-1.7 adapted cv', 'utf8'),
+      }),
+    },
     aiWorker: {
       retryAiWorkerPreflight,
     },
@@ -458,6 +488,9 @@ test('cleans interrupted running sessions on startup recovery without deleting t
   })
 
   const service = createTailoredApplicationSessionService({
+    adaptedCvRenderer: {
+      renderAdaptedCvPdf: vi.fn(),
+    },
     aiWorker: {
       retryAiWorkerPreflight: vi.fn().mockResolvedValue({
         canResumeGeneration: true,

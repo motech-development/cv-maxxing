@@ -175,6 +175,16 @@ function createTailoredApplicationApi(
     abandonPendingGeneration: vi.fn().mockImplementation(() => Promise.resolve()),
     completePendingGeneration: vi.fn().mockImplementation(() => Promise.resolve()),
     getPendingGenerationCommand: vi.fn().mockResolvedValue(null),
+    getTailoredApplicationPreview: vi.fn().mockResolvedValue(null),
+    getWorkspaceState: vi.fn().mockResolvedValue({
+      activeApplicationId: null,
+      applications: [],
+    }),
+    exportAdaptedCvPdf: vi.fn().mockResolvedValue({
+      filePath: '/exports/Ada Lovelace - Senior platform engineer - adapted-cv (2).pdf',
+      overwriteAvoided: true,
+      pageWarning: 'This adapted CV runs to 4 pages. Export is still available.',
+    }),
     resumePendingGeneration: vi.fn().mockResolvedValue({
       generationRunId: 'run-123',
       tailoredApplicationId: 'tailored-application-123',
@@ -1246,6 +1256,35 @@ test('automatically opens the tailored application after generation completes fr
     .mockResolvedValueOnce('workspace_loading')
     .mockResolvedValueOnce('workspace_active')
   const completePendingGeneration = vi.fn().mockImplementation(() => Promise.resolve())
+  const exportAdaptedCvPdf = vi.fn().mockResolvedValue({
+    filePath: '/exports/Ada Lovelace - Senior platform engineer - adapted-cv (2).pdf',
+    overwriteAvoided: true,
+    pageWarning: 'This adapted CV runs to 4 pages. Export is still available.',
+  })
+  const getTailoredApplicationPreview = vi.fn().mockResolvedValue({
+    createdAt: '2026-04-09T09:30:00.000Z',
+    employer: 'Example Labs',
+    id: 'tailored-application-123',
+    pageCount: 4,
+    pageWarning: 'This adapted CV runs to 4 pages. Export is still available.',
+    pdfBytes: new Uint8Array([37, 80, 68, 70]),
+    title: 'Senior platform engineer · Example Labs',
+    vacancyTitle: 'Senior platform engineer',
+  })
+  const getWorkspaceState = vi.fn().mockResolvedValue({
+    activeApplicationId: 'tailored-application-123',
+    applications: [
+      {
+        createdAt: '2026-04-09T09:30:00.000Z',
+        employer: 'Example Labs',
+        id: 'tailored-application-123',
+        pageCount: 4,
+        pageWarning: 'This adapted CV runs to 4 pages. Export is still available.',
+        title: 'Senior platform engineer · Example Labs',
+        vacancyTitle: 'Senior platform engineer',
+      },
+    ],
+  })
   const resumePendingGeneration = vi.fn().mockResolvedValue({
     generationRunId: 'run-123',
     tailoredApplicationId: 'tailored-application-123',
@@ -1263,6 +1302,9 @@ test('automatically opens the tailored application after generation completes fr
     }),
     tailoredApplication: createTailoredApplicationApi({
       completePendingGeneration,
+      exportAdaptedCvPdf,
+      getTailoredApplicationPreview,
+      getWorkspaceState,
       resumePendingGeneration,
       getPendingGenerationCommand: vi.fn().mockResolvedValue({
         commandId: 'command-123',
@@ -1287,10 +1329,23 @@ test('automatically opens the tailored application after generation completes fr
   })
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Senior platform engineer' })).toBeDefined()
+    expect(
+      screen.getByRole('heading', { name: 'Senior platform engineer · Example Labs' }),
+    ).toBeDefined()
   })
 
+  expect(screen.getByText('Page 1 of 4')).toBeDefined()
+  expect(
+    screen.getByText('This adapted CV runs to 4 pages. Export is still available.'),
+  ).toBeDefined()
+  expect(screen.getByRole('button', { name: 'Zoom in' })).toBeDefined()
   expect(screen.getByRole('button', { name: 'Export PDF' })).toBeDefined()
+
+  fireEvent.click(screen.getByRole('button', { name: 'Export PDF' }))
+
+  await waitFor(() => {
+    expect(exportAdaptedCvPdf).toHaveBeenCalledWith('tailored-application-123')
+  })
 })
 
 test('abandons the pending draft from the loading screen and returns to workspace empty', async () => {

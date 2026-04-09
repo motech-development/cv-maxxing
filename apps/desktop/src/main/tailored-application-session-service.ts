@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { mkdir, rm, writeFile } from 'node:fs/promises'
+import { access, mkdir, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 
 import type { AiWorkerPreflightResult } from '../shared/ai-worker-preflight.js'
@@ -8,9 +8,20 @@ import type {
   ResumePendingGenerationResult,
   StartPendingGenerationInput,
 } from '../shared/pending-generation.js'
+import type {
+  AdaptationSummaryModel,
+  AdaptedCvModel,
+  CoverLetterModel,
+  GroundedText,
+  TailoredApplicationExportResult,
+  TailoredApplicationGenerationResult,
+  TailoredApplicationPreview,
+  TailoredApplicationWorkspaceState,
+} from '../shared/tailored-application.js'
 import type { VacancyDraft } from '../shared/vacancy.js'
 import type { AiWorkerPreflightService } from './ai-worker-preflight-service.js'
 import type { AiWorkerReadinessStore } from './ai-worker-readiness-store.js'
+import { buildAdaptedCvExportFilename, resolveUniqueExportFilePath } from './adapted-cv-document.js'
 import type { JsonValue, LocalAppDataStore } from './local-app-data-service.js'
 
 const ORIGINAL_CV_SCOPE = 'original-cvs'
@@ -21,6 +32,7 @@ const PENDING_GENERATION_SESSION_SCOPE = 'pending-generation-session'
 const PENDING_GENERATION_SESSION_ENTRY_ID = 'active-session'
 const TAILORED_APPLICATION_SCOPE = 'tailored-applications'
 const GENERATION_RUN_SCOPE = 'generation-runs'
+const ADAPTED_CV_PDF_ARTIFACT_NAME = 'adapted-cv.pdf'
 
 const BRITISH_MONTH_NAMES = [
   'January',
@@ -59,57 +71,6 @@ const ENGLISH_MARKERS = [
   'product',
 ] as const
 
-export interface GroundedText {
-  sourceEvidence: string[]
-  text: string
-}
-
-export interface AdaptedCvExperienceHighlight {
-  bullets: GroundedText[]
-  heading: string
-}
-
-export interface AdaptedCvSkill {
-  sourceEvidence: string[]
-  text: string
-}
-
-export interface AdaptedCvModel {
-  candidateName: string
-  experienceHighlights: AdaptedCvExperienceHighlight[]
-  headline: GroundedText
-  skills: AdaptedCvSkill[]
-  summary: GroundedText
-}
-
-export interface CoverLetterModel {
-  body: GroundedText[]
-  closing: GroundedText
-  date: string
-  greeting: string
-  opening: GroundedText
-  signature: string
-}
-
-export interface AdaptationSummaryModel {
-  emphasized: GroundedText[]
-  gaps: string[]
-  omitted: GroundedText[]
-  validationHints: string[]
-}
-
-export interface TailoredApplicationGenerationResult {
-  adaptationSummary: AdaptationSummaryModel
-  adaptedCv: AdaptedCvModel
-  coverLetter: CoverLetterModel
-  coverLetterPlainText: string
-  trace: {
-    model: string | null
-    provider: 'codex'
-    sessionId: string | null
-  }
-}
-
 export interface TailoredApplicationGenerationWorker {
   runGeneration: (input: {
     runDirectoryPath: string
@@ -120,10 +81,43 @@ export interface TailoredApplicationGenerationWorker {
 export interface TailoredApplicationSessionService {
   abandonPendingGeneration: () => Promise<void>
   completePendingGeneration: (commandId: string) => Promise<void>
+  exportAdaptedCvPdf: (
+    tailoredApplicationId: string,
+  ) => Promise<TailoredApplicationExportResult | null>
   getPendingGenerationCommand: () => Promise<PendingGenerationCommand | null>
+  getTailoredApplicationPreview: (
+    tailoredApplicationId: string,
+  ) => Promise<TailoredApplicationPreview | null>
+  getWorkspaceState: () => Promise<TailoredApplicationWorkspaceState>
   recoverInterruptedGeneration: () => Promise<void>
   resumePendingGeneration: () => Promise<ResumePendingGenerationResult>
   startPendingGeneration: (input: StartPendingGenerationInput) => Promise<AiWorkerPreflightResult>
+}
+
+export interface AdaptedCvRenderer {
+  renderAdaptedCvPdf: (input: {
+    adaptedCv: AdaptedCvModel
+    employer: string | null
+    vacancyTitle: string | null
+  }) => Promise<{
+    pageCount: number
+    pageWarning: string | null
+    pdfBytes: Uint8Array
+  }>
+}
+
+interface TailoredApplicationExportDialog {
+  showSaveDialog: (input: {
+    defaultPath: string
+    filters: {
+      extensions: string[]
+      name: string
+    }[]
+    title: string
+  }) => Promise<{
+    canceled: boolean
+    filePath?: string
+  }>
 }
 
 interface PendingGenerationSessionRecord extends Record<string, JsonValue> {
@@ -142,10 +136,15 @@ interface GenerationRunRecord extends Record<string, JsonValue> {
 }
 
 interface TailoredApplicationMetadataValue extends Record<string, JsonValue> {
+  adaptedCvPageCount: number | null
+  adaptedCvPageWarning: string | null
+  candidateName: string | null
   createdAt: string
+  employer: string | null
   originalCvId: string
   status: 'generating' | 'ready'
   vacancyId: string
+  vacancyTitle: string | null
 }
 
 interface VacancyMetadataValue extends Record<string, JsonValue> {
@@ -162,7 +161,9 @@ interface VacancyWorkspaceMetadataValue extends Record<string, JsonValue> {
 }
 
 interface CreateTailoredApplicationSessionServiceOptions {
+  adaptedCvRenderer?: AdaptedCvRenderer
   aiWorker: Pick<AiWorkerPreflightService, 'retryAiWorkerPreflight'>
+  exportDialog?: TailoredApplicationExportDialog
   generateId?: () => string
   getCurrentTimestamp?: () => string
   localAppData: Pick<LocalAppDataStore, 'artifacts' | 'deleteScopedData' | 'metadata'>
@@ -206,8 +207,34 @@ const missingGenerationWorker: TailoredApplicationGenerationWorker = {
   },
 }
 
+const missingAdaptedCvRenderer: AdaptedCvRenderer = {
+  renderAdaptedCvPdf: () => {
+    return Promise.reject(new Error('No adapted-CV renderer is configured.'))
+  },
+}
+
+function createTailoredApplicationTitle({
+  employer,
+  vacancyTitle,
+}: {
+  employer: string | null
+  vacancyTitle: string | null
+}): string {
+  const titleParts = [vacancyTitle, employer].filter((value): value is string => {
+    return value !== null && value.trim() !== ''
+  })
+
+  if (titleParts.length === 0) {
+    return 'Tailored application'
+  }
+
+  return titleParts.join(' · ')
+}
+
 export function createTailoredApplicationSessionService({
+  adaptedCvRenderer = missingAdaptedCvRenderer,
   aiWorker,
+  exportDialog,
   generateId = randomUUID,
   getCurrentTimestamp = () => {
     return new Date().toISOString()
@@ -413,32 +440,53 @@ export function createTailoredApplicationSessionService({
   }
 
   async function persistReadyArtifacts({
+    adaptedCvPageCount,
+    adaptedCvPageWarning,
+    employer,
     originalCvId,
+    pdfBytes,
     result,
     tailoredApplicationId,
     timestamp,
     vacancyId,
+    vacancyTitle,
   }: {
+    adaptedCvPageCount: number
+    adaptedCvPageWarning: string | null
+    employer: string | null
     originalCvId: string
+    pdfBytes: Uint8Array
     result: TailoredApplicationGenerationResult
     tailoredApplicationId: string
     timestamp: string
     vacancyId: string
+    vacancyTitle: string | null
   }): Promise<void> {
     await localAppData.metadata.put<TailoredApplicationMetadataValue>({
       id: tailoredApplicationId,
       scope: TAILORED_APPLICATION_SCOPE,
       value: {
+        adaptedCvPageCount,
+        adaptedCvPageWarning,
+        candidateName: result.adaptedCv.candidateName,
         createdAt: timestamp,
+        employer,
         originalCvId,
         status: 'ready',
         vacancyId,
+        vacancyTitle,
       },
     })
     await localAppData.artifacts.write({
       content: Buffer.from(JSON.stringify(result.adaptedCv), 'utf8'),
       id: tailoredApplicationId,
       name: 'adapted-cv.json',
+      scope: TAILORED_APPLICATION_SCOPE,
+    })
+    await localAppData.artifacts.write({
+      content: Buffer.from(pdfBytes),
+      id: tailoredApplicationId,
+      name: ADAPTED_CV_PDF_ARTIFACT_NAME,
       scope: TAILORED_APPLICATION_SCOPE,
     })
     await localAppData.artifacts.write({
@@ -476,12 +524,32 @@ export function createTailoredApplicationSessionService({
       id: tailoredApplicationId,
       scope: TAILORED_APPLICATION_SCOPE,
       value: {
+        adaptedCvPageCount: null,
+        adaptedCvPageWarning: null,
+        candidateName: null,
         createdAt: timestamp,
+        employer: null,
         originalCvId,
         status: 'generating',
         vacancyId,
+        vacancyTitle: null,
       },
     })
+  }
+
+  async function getReadyTailoredApplicationMetadata(
+    tailoredApplicationId: string,
+  ): Promise<TailoredApplicationMetadataValue | null> {
+    const metadata = await localAppData.metadata.get<TailoredApplicationMetadataValue>({
+      id: tailoredApplicationId,
+      scope: TAILORED_APPLICATION_SCOPE,
+    })
+
+    if (metadata?.status !== 'ready') {
+      return null
+    }
+
+    return metadata
   }
 
   async function removeRunWorkspace(generationRunId: string): Promise<void> {
@@ -552,17 +620,27 @@ export function createTailoredApplicationSessionService({
         runDirectoryPath,
         signal: activeAbortController?.signal ?? new AbortController().signal,
       })
+      const renderedAdaptedCv = await adaptedCvRenderer.renderAdaptedCvPdf({
+        adaptedCv: result.adaptedCv,
+        employer: vacancy.employer,
+        vacancyTitle: vacancy.title,
+      })
 
       validateTailoredApplicationGenerationResult(result, {
         originalCvText: originalCv.originalCvText,
         vacancyText: vacancy.vacancyText,
       })
       await persistReadyArtifacts({
+        adaptedCvPageCount: renderedAdaptedCv.pageCount,
+        adaptedCvPageWarning: renderedAdaptedCv.pageWarning,
+        employer: vacancy.employer,
         originalCvId: command.originalCvId,
+        pdfBytes: renderedAdaptedCv.pdfBytes,
         result,
         tailoredApplicationId,
         timestamp,
         vacancyId: command.vacancyId,
+        vacancyTitle: vacancy.title,
       })
       await localAppData.metadata.put<GenerationRunRecord>({
         id: generationRunId,
@@ -662,8 +740,121 @@ export function createTailoredApplicationSessionService({
       await readinessStore.clearPendingGenerationCommand()
       await readinessStore.setStartupDestination('workspace_active')
     },
+    exportAdaptedCvPdf: async (tailoredApplicationId) => {
+      const metadata = await getReadyTailoredApplicationMetadata(tailoredApplicationId)
+
+      if (metadata === null) {
+        return null
+      }
+
+      const pdfBytes = await localAppData.artifacts.read({
+        id: tailoredApplicationId,
+        name: ADAPTED_CV_PDF_ARTIFACT_NAME,
+        scope: TAILORED_APPLICATION_SCOPE,
+      })
+
+      if (pdfBytes === null || exportDialog === undefined) {
+        return null
+      }
+
+      const defaultFilename = buildAdaptedCvExportFilename({
+        candidateName: metadata.candidateName ?? 'adapted-cv',
+        vacancyTitle: metadata.vacancyTitle,
+      })
+      const dialogResult = await exportDialog.showSaveDialog({
+        defaultPath: defaultFilename,
+        filters: [
+          {
+            extensions: ['pdf'],
+            name: 'PDF',
+          },
+        ],
+        title: 'Export adapted CV PDF',
+      })
+
+      if (dialogResult.canceled || dialogResult.filePath === undefined) {
+        return null
+      }
+
+      const resolvedPath = await resolveUniqueExportFilePath(
+        dialogResult.filePath,
+        async (candidatePath) => {
+          try {
+            await access(candidatePath)
+
+            return true
+          } catch {
+            return false
+          }
+        },
+      )
+
+      await writeFile(resolvedPath, pdfBytes)
+
+      return {
+        filePath: resolvedPath,
+        overwriteAvoided: resolvedPath !== dialogResult.filePath,
+        pageWarning: metadata.adaptedCvPageWarning,
+      }
+    },
     getPendingGenerationCommand: async () => {
       return await readinessStore.getPendingGenerationCommand()
+    },
+    getTailoredApplicationPreview: async (tailoredApplicationId) => {
+      const metadata = await getReadyTailoredApplicationMetadata(tailoredApplicationId)
+
+      if (metadata === null) {
+        return null
+      }
+
+      const pdfBytes = await localAppData.artifacts.read({
+        id: tailoredApplicationId,
+        name: ADAPTED_CV_PDF_ARTIFACT_NAME,
+        scope: TAILORED_APPLICATION_SCOPE,
+      })
+
+      if (pdfBytes === null) {
+        return null
+      }
+
+      return {
+        createdAt: metadata.createdAt,
+        employer: metadata.employer,
+        id: tailoredApplicationId,
+        pageCount: metadata.adaptedCvPageCount ?? 1,
+        pageWarning: metadata.adaptedCvPageWarning,
+        pdfBytes: new Uint8Array(pdfBytes),
+        title: createTailoredApplicationTitle(metadata),
+        vacancyTitle: metadata.vacancyTitle,
+      }
+    },
+    getWorkspaceState: async () => {
+      const metadataRecords = await localAppData.metadata.list<TailoredApplicationMetadataValue>(
+        TAILORED_APPLICATION_SCOPE,
+      )
+      const readyApplications = metadataRecords
+        .filter((record) => {
+          return record.value.status === 'ready'
+        })
+        .toSorted((leftRecord, rightRecord) => {
+          return rightRecord.value.createdAt.localeCompare(leftRecord.value.createdAt)
+        })
+        .map((record) => {
+          return {
+            createdAt: record.value.createdAt,
+            employer: record.value.employer,
+            id: record.id,
+            pageCount: record.value.adaptedCvPageCount ?? 1,
+            pageWarning: record.value.adaptedCvPageWarning,
+            title: createTailoredApplicationTitle(record.value),
+            vacancyTitle: record.value.vacancyTitle,
+          }
+        })
+
+      return {
+        activeApplicationId: readyApplications[0]?.id ?? null,
+        applications: readyApplications,
+      }
     },
     recoverInterruptedGeneration: async () => {
       const pendingSession = await getPendingGenerationSession()

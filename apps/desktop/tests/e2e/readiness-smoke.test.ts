@@ -5,6 +5,7 @@ import path from 'node:path'
 import { expect, test } from '@playwright/test'
 import { strToU8, zipSync } from 'fflate'
 import { _electron as electron } from 'playwright'
+import { getDocument } from 'pdfjs-dist/legacy/build/pdf.mjs'
 
 const temporaryDirectories: string[] = []
 
@@ -429,7 +430,9 @@ test('persists pending generation before repair and clears it after completion',
 
   page = await electronApp.firstWindow()
 
-  await expect(page.getByRole('heading', { name: 'Senior platform engineer' })).toBeVisible({
+  await expect(
+    page.getByRole('heading', { name: 'Senior platform engineer · Analytical Engines Ltd' }),
+  ).toBeVisible({
     timeout: 15_000,
   })
   await page.waitForTimeout(1000)
@@ -444,8 +447,104 @@ test('persists pending generation before repair and clears it after completion',
   page = await electronApp.firstWindow()
 
   await expect(
-    page.getByRole('heading', { exact: true, name: 'Tailored application' }),
+    page.getByRole('heading', { name: 'Senior platform engineer · Analytical Engines Ltd' }),
   ).toBeVisible()
+
+  await electronApp.close()
+})
+
+test('renders the stored adapted CV PDF artifact and exports a readable non-overwriting PDF', async () => {
+  const testPaths = await createOriginalCvTestPaths()
+  const requestedExportPath = path.join(
+    path.dirname(testPaths.pdfPath),
+    'Ada Lovelace - Senior platform engineer - adapted-cv.pdf',
+  )
+  const resolvedExportPath = path.join(
+    path.dirname(testPaths.pdfPath),
+    'Ada Lovelace - Senior platform engineer - adapted-cv (2).pdf',
+  )
+
+  await writeFile(
+    testPaths.pdfPath,
+    createPdfDocumentBuffer([
+      'Ada Lovelace',
+      'Principal Product Designer',
+      'Summary',
+      'Design leader focused on complex workflow products for technical users.',
+      'Experience',
+      'Principal Product Designer | Analytical Engines Ltd',
+      'Led product design for AI-assisted desktop tooling.',
+      'Skills',
+      'Product strategy, UX research, prototyping',
+    ]),
+  )
+  await writeFile(requestedExportPath, Buffer.from('already-here', 'utf8'))
+
+  const electronApp = await launchDesktopApp({
+    CV_MAXXING_AI_WORKER_GENERATION_OUTPUT: JSON.stringify(createGenerationResultFixture()),
+    CV_MAXXING_AI_WORKER_PREFLIGHT_STATUS: 'ready',
+    CV_MAXXING_LOCAL_APP_DATA_ROOT: testPaths.appDataRoot,
+    CV_MAXXING_STARTUP_DESTINATION: 'first_launch',
+    CV_MAXXING_TEST_ADAPTED_CV_EXPORT_PATH: requestedExportPath,
+  })
+
+  const page = await electronApp.firstWindow()
+
+  await expect(page.getByRole('heading', { name: 'Import your original CV' })).toBeVisible()
+  await page.getByLabel('Original CV file').setInputFiles(testPaths.pdfPath)
+  await page.getByRole('button', { name: 'Import original CV' }).click()
+  await expect(page.getByRole('heading', { name: 'Create a tailored application' })).toBeVisible()
+  await page
+    .getByLabel('Job vacancy text')
+    .fill(
+      [
+        'Senior platform engineer',
+        'Example Labs',
+        'London, United Kingdom',
+        '',
+        'Responsibilities',
+        '- Build reliable desktop tooling for technical users.',
+        '- Partner with design and infrastructure teams.',
+        '',
+        'Requirements',
+        '- Experience shipping workflow software.',
+        '- Strong written communication.',
+      ].join('\n'),
+    )
+  await page.getByLabel('Job vacancy text').press('Tab')
+  await page.getByRole('button', { name: 'Review pasted vacancy' }).dispatchEvent('click')
+  await expect(page.getByText('Vacancy preview', { exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'Adapt CV' }).click()
+
+  await expect(
+    page.getByRole('heading', { name: 'Senior platform engineer · Example Labs' }),
+  ).toBeVisible({
+    timeout: 15_000,
+  })
+  await expect(page.getByText('Page 1 of 1')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Zoom in' })).toBeVisible()
+  await page.getByRole('button', { name: 'Export PDF' }).click()
+
+  await expect
+    .poll(async () => {
+      try {
+        await readFile(resolvedExportPath)
+
+        return true
+      } catch {
+        return false
+      }
+    })
+    .toBe(true)
+
+  const exportedPdfText = await extractPdfTextFromFile(resolvedExportPath)
+  const normalizedExportedPdfText = exportedPdfText.replaceAll(/\s+/g, ' ')
+
+  expect(normalizedExportedPdfText).toContain('Ada Lovelace')
+  expect(normalizedExportedPdfText).toMatch(
+    /Principal Product Designer for desktop work\s*fl\s*ow products/u,
+  )
+  expect(normalizedExportedPdfText).toContain('Analytical Engines Ltd')
 
   await electronApp.close()
 })
@@ -679,6 +778,25 @@ async function readDirectoryText(rootPath: string): Promise<string> {
   )
 
   return Buffer.concat(fileContents).toString('utf8')
+}
+
+async function extractPdfTextFromFile(pdfPath: string): Promise<string> {
+  const pdfBytes = await readFile(pdfPath)
+  const pdfDocument = await getDocument(new Uint8Array(pdfBytes)).promise
+  const pageTexts = await Promise.all(
+    Array.from({ length: pdfDocument.numPages }, async (_, index) => {
+      const page = await pdfDocument.getPage(index + 1)
+      const textContent = await page.getTextContent()
+
+      return textContent.items
+        .map((item) => {
+          return 'str' in item ? item.str : ''
+        })
+        .join(' ')
+    }),
+  )
+
+  return pageTexts.join('\n')
 }
 
 function escapePdfText(value: string): string {

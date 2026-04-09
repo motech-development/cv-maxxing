@@ -14,7 +14,10 @@ export const ORIGINAL_CV_IPC_CHANNELS = {
 export const TAILORED_APPLICATION_IPC_CHANNELS = {
   abandonPendingGeneration: 'tailored-application:abandon-pending-generation',
   completePendingGeneration: 'tailored-application:complete-pending-generation',
+  exportAdaptedCvPdf: 'tailored-application:export-adapted-cv-pdf',
   getPendingGeneration: 'tailored-application:get-pending-generation',
+  getPreview: 'tailored-application:get-preview',
+  getWorkspaceState: 'tailored-application:get-workspace-state',
   resumePendingGeneration: 'tailored-application:resume-pending-generation',
   startPendingGeneration: 'tailored-application:start-pending-generation',
 } as const

@@ -12,6 +12,10 @@ import { createReadinessRouteViewModel } from '../readiness/readiness-route.js'
 import type { ReadinessRouteViewModel } from '../readiness/readiness-route.js'
 import type { OriginalCvWorkspaceState } from '../shared/original-cv.js'
 import type { PendingGenerationCommand } from '../shared/pending-generation.js'
+import type {
+  TailoredApplicationPreview,
+  TailoredApplicationWorkspaceState,
+} from '../shared/tailored-application.js'
 import type { VacancyDraft, VacancySummary } from '../shared/vacancy.js'
 import { AiWorkerCheckingScreen } from './screens/ai-worker-checking-screen.js'
 import { AiWorkerSignInRequiredScreen } from './screens/ai-worker-sign-in-required-screen.js'
@@ -36,6 +40,11 @@ const initialReadinessViewModel: ReadinessRouteViewModel = {
 const initialOriginalCvWorkspaceState: OriginalCvWorkspaceState = {
   activeOriginalCv: null,
   snapshotCount: 0,
+}
+
+const initialTailoredApplicationWorkspaceState: TailoredApplicationWorkspaceState = {
+  activeApplicationId: null,
+  applications: [],
 }
 
 const initialVacancyDraft: VacancyDraft = {
@@ -80,20 +89,38 @@ export function App() {
   const [vacancyDraft, setVacancyDraft] = useState(initialVacancyDraft)
   const [vacancyPreview, setVacancyPreview] = useState<VacancySummary | null>(null)
   const [vacancyReviewError, setVacancyReviewError] = useState<string | null>(null)
+  const [tailoredApplicationPreview, setTailoredApplicationPreview] =
+    useState<TailoredApplicationPreview | null>(null)
+  const [tailoredApplicationWorkspaceState, setTailoredApplicationWorkspaceState] = useState(
+    initialTailoredApplicationWorkspaceState,
+  )
   const [viewModel, setViewModel] = useState(initialReadinessViewModel)
   const isResumingPendingGeneration = useRef(false)
   const lastResumedCommandId = useRef<string | null>(null)
 
   const loadWorkspaceState = async (): Promise<void> => {
-    const [nextOriginalCvWorkspaceState, nextVacancyWorkspaceState] = await Promise.all([
+    const [
+      nextOriginalCvWorkspaceState,
+      nextTailoredApplicationWorkspaceState,
+      nextVacancyWorkspaceState,
+    ] = await Promise.all([
       globalThis.window.cvMaxxing.originalCv.getOriginalCvWorkspaceState(),
+      globalThis.window.cvMaxxing.tailoredApplication.getWorkspaceState(),
       globalThis.window.cvMaxxing.vacancy.getVacancyWorkspaceState(),
     ])
+    const nextTailoredApplicationPreview =
+      nextTailoredApplicationWorkspaceState.activeApplicationId === null
+        ? null
+        : await globalThis.window.cvMaxxing.tailoredApplication.getTailoredApplicationPreview(
+            nextTailoredApplicationWorkspaceState.activeApplicationId,
+          )
 
     setOriginalCvWorkspaceState(nextOriginalCvWorkspaceState)
     setPreviewedVacancyDraft(
       nextVacancyWorkspaceState.vacancy ? nextVacancyWorkspaceState.draft : null,
     )
+    setTailoredApplicationPreview(nextTailoredApplicationPreview)
+    setTailoredApplicationWorkspaceState(nextTailoredApplicationWorkspaceState)
     setVacancyDraft(nextVacancyWorkspaceState.draft)
     setVacancyPreview(nextVacancyWorkspaceState.vacancy)
     setVacancyReviewError(null)
@@ -122,6 +149,8 @@ export function App() {
 
       if (nextViewModel.startupDestination !== 'workspace_active') {
         setActiveApplicationTitle(null)
+        setTailoredApplicationPreview(null)
+        setTailoredApplicationWorkspaceState(initialTailoredApplicationWorkspaceState)
       }
 
       if (nextViewModel.startupDestination === 'workspace_loading') {
@@ -286,7 +315,7 @@ export function App() {
       nextPendingGenerationCommand.commandId,
     )
     await globalThis.window.cvMaxxing.vacancy.clearVacancyWorkspaceState()
-    setActiveApplicationTitle(createPendingGenerationTitle(nextPendingGenerationCommand))
+    setActiveApplicationTitle(null)
     await loadWorkspaceState()
     setPendingGenerationCommand(null)
     setReadinessError(null)
@@ -302,6 +331,24 @@ export function App() {
 
     try {
       await completePendingGenerationFlow(pendingGenerationCommand)
+    } catch {
+      setReadinessError(`${readinessErrorMessage} ${readinessErrorAction}`)
+    } finally {
+      setIsPendingGenerationActionPending(false)
+    }
+  }
+
+  const handleExportAdaptedCvPdf = async (): Promise<void> => {
+    if (tailoredApplicationPreview === null || isPendingGenerationActionPending) {
+      return
+    }
+
+    setIsPendingGenerationActionPending(true)
+
+    try {
+      await globalThis.window.cvMaxxing.tailoredApplication.exportAdaptedCvPdf(
+        tailoredApplicationPreview.id,
+      )
     } catch {
       setReadinessError(`${readinessErrorMessage} ${readinessErrorAction}`)
     } finally {
@@ -433,13 +480,19 @@ export function App() {
       return (
         <WorkspaceActiveScreen
           activeOriginalCv={originalCvWorkspaceState.activeOriginalCv}
-          applicationTitle={activeApplicationTitle}
+          applicationTitle={tailoredApplicationPreview?.title ?? activeApplicationTitle}
+          applications={tailoredApplicationWorkspaceState.applications}
+          isExportingAdaptedCv={isPendingGenerationActionPending}
           importError={importError}
           isImportingOriginalCv={isImportingOriginalCv}
+          onExportAdaptedCvPdf={() => {
+            handleExportAdaptedCvPdf().catch(() => null)
+          }}
           onOriginalCvFileSelection={handleOriginalCvSelection}
           onReplaceOriginalCv={() => {
             handleOriginalCvImport('workspace_active').catch(() => null)
           }}
+          preview={tailoredApplicationPreview}
           originalCvFile={originalCvFile}
         />
       )
@@ -635,37 +688,6 @@ function isVacancyDraftReviewed(
   return (
     nextDraft.text === previewedVacancyDraft.text && nextDraft.url === previewedVacancyDraft.url
   )
-}
-
-function createPendingGenerationTitle(pendingGenerationCommand: PendingGenerationCommand): string {
-  const vacancyTitle = pendingGenerationCommand.vacancyDraft.text
-    .split('\n')
-    .map((line) => {
-      return line.trim()
-    })
-    .find((line) => {
-      return line !== ''
-    })
-
-  if (vacancyTitle !== undefined) {
-    return vacancyTitle
-  }
-
-  return tryFormatHostname(pendingGenerationCommand.vacancyDraft.url) ?? 'Tailored application'
-}
-
-function tryFormatHostname(url: string): string | null {
-  try {
-    const hostname = new URL(url).hostname.replace(/^www\./u, '')
-
-    if (hostname === '') {
-      return null
-    }
-
-    return hostname
-  } catch {
-    return null
-  }
 }
 
 function resolveErrorMessage(error: unknown, fallbackMessage: string): string {

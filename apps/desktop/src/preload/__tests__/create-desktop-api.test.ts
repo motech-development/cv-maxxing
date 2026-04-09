@@ -520,6 +520,35 @@ test('preload exposes tailored-application repair and resume commands over typed
     })
     .mockImplementationOnce(() => Promise.resolve())
     .mockImplementationOnce(() => Promise.resolve())
+    .mockResolvedValueOnce({
+      activeApplicationId: 'tailored-application-123',
+      applications: [
+        {
+          createdAt: '2026-04-09T09:30:00.000Z',
+          employer: 'Example Labs',
+          id: 'tailored-application-123',
+          pageCount: 4,
+          pageWarning: 'This adapted CV runs to 4 pages. Export is still available.',
+          title: 'Senior platform engineer · Example Labs',
+          vacancyTitle: 'Senior platform engineer',
+        },
+      ],
+    })
+    .mockResolvedValueOnce({
+      createdAt: '2026-04-09T09:30:00.000Z',
+      employer: 'Example Labs',
+      id: 'tailored-application-123',
+      pageCount: 4,
+      pageWarning: 'This adapted CV runs to 4 pages. Export is still available.',
+      pdfBytes: new Uint8Array([37, 80, 68, 70]),
+      title: 'Senior platform engineer · Example Labs',
+      vacancyTitle: 'Senior platform engineer',
+    })
+    .mockResolvedValueOnce({
+      filePath: '/exports/Ada Lovelace - Senior platform engineer - adapted-cv (2).pdf',
+      overwriteAvoided: true,
+      pageWarning: 'This adapted CV runs to 4 pages. Export is still available.',
+    })
 
   const desktopApi = createDesktopApi({
     invoke,
@@ -560,6 +589,39 @@ test('preload exposes tailored-application repair and resume commands over typed
     desktopApi.tailoredApplication.completePendingGeneration('command-123'),
   ).resolves.toBeUndefined()
   await expect(desktopApi.tailoredApplication.abandonPendingGeneration()).resolves.toBeUndefined()
+  await expect(desktopApi.tailoredApplication.getWorkspaceState()).resolves.toEqual({
+    activeApplicationId: 'tailored-application-123',
+    applications: [
+      {
+        createdAt: '2026-04-09T09:30:00.000Z',
+        employer: 'Example Labs',
+        id: 'tailored-application-123',
+        pageCount: 4,
+        pageWarning: 'This adapted CV runs to 4 pages. Export is still available.',
+        title: 'Senior platform engineer · Example Labs',
+        vacancyTitle: 'Senior platform engineer',
+      },
+    ],
+  })
+  await expect(
+    desktopApi.tailoredApplication.getTailoredApplicationPreview('tailored-application-123'),
+  ).resolves.toEqual({
+    createdAt: '2026-04-09T09:30:00.000Z',
+    employer: 'Example Labs',
+    id: 'tailored-application-123',
+    pageCount: 4,
+    pageWarning: 'This adapted CV runs to 4 pages. Export is still available.',
+    pdfBytes: new Uint8Array([37, 80, 68, 70]),
+    title: 'Senior platform engineer · Example Labs',
+    vacancyTitle: 'Senior platform engineer',
+  })
+  await expect(
+    desktopApi.tailoredApplication.exportAdaptedCvPdf('tailored-application-123'),
+  ).resolves.toEqual({
+    filePath: '/exports/Ada Lovelace - Senior platform engineer - adapted-cv (2).pdf',
+    overwriteAvoided: true,
+    pageWarning: 'This adapted CV runs to 4 pages. Export is still available.',
+  })
 
   expect(invoke).toHaveBeenNthCalledWith(1, TAILORED_APPLICATION_IPC_CHANNELS.getPendingGeneration)
   expect(invoke).toHaveBeenNthCalledWith(
@@ -589,4 +651,11 @@ test('preload exposes tailored-application repair and resume commands over typed
     5,
     TAILORED_APPLICATION_IPC_CHANNELS.abandonPendingGeneration,
   )
+  expect(invoke).toHaveBeenNthCalledWith(6, TAILORED_APPLICATION_IPC_CHANNELS.getWorkspaceState)
+  expect(invoke).toHaveBeenNthCalledWith(7, TAILORED_APPLICATION_IPC_CHANNELS.getPreview, {
+    tailoredApplicationId: 'tailored-application-123',
+  })
+  expect(invoke).toHaveBeenNthCalledWith(8, TAILORED_APPLICATION_IPC_CHANNELS.exportAdaptedCvPdf, {
+    tailoredApplicationId: 'tailored-application-123',
+  })
 })

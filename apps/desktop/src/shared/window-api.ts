@@ -12,6 +12,11 @@ import type {
 } from './pending-generation.js'
 import type { StartupDestination } from './startup-destination.js'
 import type {
+  TailoredApplicationExportResult,
+  TailoredApplicationPreview,
+  TailoredApplicationWorkspaceState,
+} from './tailored-application.js'
+import type {
   PastedVacancyInput,
   VacancyIngestResult,
   VacancyUrlInput,
@@ -35,7 +40,14 @@ export interface CvMaxxingWindowApi {
     completePendingGeneration: (
       commandId: CompletePendingGenerationInput['commandId'],
     ) => Promise<void>
+    exportAdaptedCvPdf: (
+      tailoredApplicationId: string,
+    ) => Promise<TailoredApplicationExportResult | null>
     getPendingGenerationCommand: () => Promise<PendingGenerationCommand | null>
+    getTailoredApplicationPreview: (
+      tailoredApplicationId: string,
+    ) => Promise<TailoredApplicationPreview | null>
+    getWorkspaceState: () => Promise<TailoredApplicationWorkspaceState>
     resumePendingGeneration: () => Promise<ResumePendingGenerationResult>
     startPendingGeneration: (input: StartPendingGenerationInput) => Promise<AiWorkerPreflightResult>
   }

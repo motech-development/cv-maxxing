@@ -2,10 +2,8 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { spawn } from 'node:child_process'
 import path from 'node:path'
 
-import type {
-  TailoredApplicationGenerationResult,
-  TailoredApplicationGenerationWorker,
-} from './tailored-application-session-service.js'
+import type { TailoredApplicationGenerationResult } from '../shared/tailored-application.js'
+import type { TailoredApplicationGenerationWorker } from './tailored-application-session-service.js'
 
 export interface TailoredApplicationGenerationEnvironment {
   CV_MAXXING_AI_WORKER_CODEX_COMMAND?: string
