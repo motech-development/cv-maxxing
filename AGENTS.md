@@ -28,11 +28,15 @@ These rules always apply. Follow project-local rules first when they are more sp
 - Put package-specific build, dev, test, smoke, and type-check scripts in the owning workspace package. Keep root scripts limited to repo-wide tooling instead of delegating app-specific commands.
 - Use Node 24 as the project runtime version. The repository pins this in `.nvmrc`.
 - Use Conventional Commits for commit messages. Husky runs commitlint on `commit-msg` to enforce this.
+- Keep commit messages within the repository's commitlint line-length constraints. Wrap commit body lines conservatively and avoid overlong subjects.
+- When a commit fully resolves a tracked issue, include a closing footer such as `Closes #14`.
 - Use ESLint and Prettier as the repository linting and formatting baseline. Husky runs `lint-staged` on `pre-commit`.
 - Use Vitest for unit tests. Keep tests colocated in `__tests__` folders next to the source they cover.
+- Implement new behavior and bug fixes using TDD: start with a failing automated test, make it pass with the minimal change, then refactor while keeping the test suite green.
 - Use `CV_MAXXING_LOCAL_APP_DATA_ROOT` in desktop smoke/Electron tests when deterministic local encrypted storage paths are required; point it at a disposable temp directory instead of the user profile.
 - When building new functionality or making material refactors, consult `ARCHITECTURE.md` and align implementation with its current decisions unless a newer explicit decision supersedes it.
 - Treat `design/app.pen` as the authoritative reference for desktop app UI states and layout.
+- Keep the desktop UI aligned with `design/app.pen`. If the implementation must diverge, update `design/app.pen` first so the design and shipped UI remain in sync.
 - When the renderer owns a custom desktop shell header, configure the macOS Electron window to hide duplicate native title-bar chrome and do not render faux traffic-light controls inside the shell.
 - When editing `.pen` files through the Pencil editor, treat the editor state as authoritative until the user saves; disk reads and git diffs will not reflect unsaved Pencil changes.
 - Treat `design/cv.pen` as the authoritative reference for CV/PDF visual layout, with `design/cv.html` as the implementation reference for HTML-based rendering and PDF export.
