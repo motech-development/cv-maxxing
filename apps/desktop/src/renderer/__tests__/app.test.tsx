@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, expect, test, vi } from 'vitest'
 
@@ -242,7 +243,22 @@ function renderApp({
     vacancy,
   }
 
-  render(<App />)
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      mutations: {
+        retry: false,
+      },
+      queries: {
+        retry: false,
+      },
+    },
+  })
+
+  render(
+    <QueryClientProvider client={queryClient}>
+      <App />
+    </QueryClientProvider>,
+  )
 }
 
 test('renders the dedicated checking setup screen before workspace entry', async () => {
@@ -374,6 +390,23 @@ test('accepts an original CV dropped onto the first-launch import surface', asyn
 })
 
 test('imports the first original CV and transitions into the design-aligned workspace-empty screen', async () => {
+  const importedOriginalCv = {
+    fileType: 'pdf' as const,
+    headline: 'Principal Product Designer',
+    id: 'original-cv-123',
+    importedAt: '2026-04-08T14:30:00.000Z',
+    originalFilename: 'ada-lovelace.pdf',
+    pageCount: 1,
+    snapshotCount: 1,
+    summary: 'Design leader focused on complex workflow products.',
+    writingStyle: {
+      averageSentenceLength: 7,
+      clicheDetections: [],
+      firstPersonUsage: 'absent' as const,
+      formality: 'direct' as const,
+    },
+  }
+
   renderApp({
     aiWorker: createAiWorkerApi({
       getAiWorkerPreflight: vi.fn().mockResolvedValue({
@@ -381,6 +414,22 @@ test('imports the first original CV and transitions into the design-aligned work
         message: 'The local AI worker is ready.',
         provider: 'codex',
         status: 'ready',
+      }),
+    }),
+    originalCv: createOriginalCvApi({
+      getOriginalCvWorkspaceState: vi
+        .fn()
+        .mockResolvedValueOnce({
+          activeOriginalCv: null,
+          snapshotCount: 0,
+        })
+        .mockResolvedValueOnce({
+          activeOriginalCv: importedOriginalCv,
+          snapshotCount: 1,
+        }),
+      importOriginalCv: vi.fn().mockResolvedValue({
+        kind: 'imported',
+        originalCv: importedOriginalCv,
       }),
     }),
   })
@@ -528,28 +577,29 @@ test('loads a persisted vacancy preview and keeps Adapt CV enabled for a reviewa
 })
 
 test('replaces the active original CV from the workspace-empty screen and keeps the workspace open', async () => {
+  const revisedOriginalCv = {
+    fileType: 'docx' as const,
+    headline: 'Staff Product Designer',
+    id: 'original-cv-456',
+    importedAt: '2026-04-08T15:10:00.000Z',
+    originalFilename: 'ada-lovelace-revised.docx',
+    pageCount: 1,
+    snapshotCount: 2,
+    summary: 'Product designer adapting CVs for desktop AI tooling.',
+    writingStyle: {
+      averageSentenceLength: 8,
+      clicheDetections: [],
+      firstPersonUsage: 'absent' as const,
+      formality: 'direct' as const,
+    },
+  }
   const importOriginalCv = vi.fn(
     (input: OriginalCvImportInput): Promise<OriginalCvImportResult> => {
       void input
 
       return Promise.resolve({
         kind: 'imported',
-        originalCv: {
-          fileType: 'docx',
-          headline: 'Staff Product Designer',
-          id: 'original-cv-456',
-          importedAt: '2026-04-08T15:10:00.000Z',
-          originalFilename: 'ada-lovelace-revised.docx',
-          pageCount: 1,
-          snapshotCount: 2,
-          summary: 'Product designer adapting CVs for desktop AI tooling.',
-          writingStyle: {
-            averageSentenceLength: 8,
-            clicheDetections: [],
-            firstPersonUsage: 'absent',
-            formality: 'direct',
-          },
-        },
+        originalCv: revisedOriginalCv,
       })
     },
   )
@@ -565,25 +615,31 @@ test('replaces the active original CV from the workspace-empty screen and keeps 
       getStartupDestination: vi.fn().mockResolvedValue('workspace_empty'),
     }),
     originalCv: createOriginalCvApi({
-      getOriginalCvWorkspaceState: vi.fn().mockResolvedValue({
-        activeOriginalCv: {
-          fileType: 'pdf',
-          headline: 'Principal Product Designer',
-          id: 'original-cv-123',
-          importedAt: '2026-04-08T14:30:00.000Z',
-          originalFilename: 'ada-lovelace.pdf',
-          pageCount: 1,
-          snapshotCount: 1,
-          summary: 'Design leader focused on complex workflow products.',
-          writingStyle: {
-            averageSentenceLength: 7,
-            clicheDetections: [],
-            firstPersonUsage: 'absent',
-            formality: 'direct',
+      getOriginalCvWorkspaceState: vi
+        .fn()
+        .mockResolvedValueOnce({
+          activeOriginalCv: {
+            fileType: 'pdf',
+            headline: 'Principal Product Designer',
+            id: 'original-cv-123',
+            importedAt: '2026-04-08T14:30:00.000Z',
+            originalFilename: 'ada-lovelace.pdf',
+            pageCount: 1,
+            snapshotCount: 1,
+            summary: 'Design leader focused on complex workflow products.',
+            writingStyle: {
+              averageSentenceLength: 7,
+              clicheDetections: [],
+              firstPersonUsage: 'absent',
+              formality: 'direct',
+            },
           },
-        },
-        snapshotCount: 1,
-      }),
+          snapshotCount: 1,
+        })
+        .mockResolvedValueOnce({
+          activeOriginalCv: revisedOriginalCv,
+          snapshotCount: 2,
+        }),
       importOriginalCv,
     }),
   })
@@ -618,7 +674,47 @@ test('replaces the active original CV from the workspace-empty screen and keeps 
   expect(screen.queryByRole('heading', { name: 'Import your original CV' })).toBeNull()
 })
 
-test('replaces the active original CV from the workspace-active screen and keeps the tailored application open', async () => {
+test('refreshes the original CV workspace query after replacement instead of trusting the mutation payload', async () => {
+  const getOriginalCvWorkspaceState = vi
+    .fn()
+    .mockResolvedValueOnce({
+      activeOriginalCv: {
+        fileType: 'pdf',
+        headline: 'Principal Product Designer',
+        id: 'original-cv-123',
+        importedAt: '2026-04-08T14:30:00.000Z',
+        originalFilename: 'ada-lovelace.pdf',
+        pageCount: 1,
+        snapshotCount: 1,
+        summary: 'Design leader focused on complex workflow products.',
+        writingStyle: {
+          averageSentenceLength: 7,
+          clicheDetections: [],
+          firstPersonUsage: 'absent',
+          formality: 'direct',
+        },
+      },
+      snapshotCount: 1,
+    })
+    .mockResolvedValueOnce({
+      activeOriginalCv: {
+        fileType: 'docx',
+        headline: 'Query-backed Staff Product Designer',
+        id: 'original-cv-query',
+        importedAt: '2026-04-08T15:10:00.000Z',
+        originalFilename: 'ada-lovelace-query.docx',
+        pageCount: 1,
+        snapshotCount: 2,
+        summary: 'Loaded from the refetched original CV workspace query.',
+        writingStyle: {
+          averageSentenceLength: 8,
+          clicheDetections: [],
+          firstPersonUsage: 'absent',
+          formality: 'direct',
+        },
+      },
+      snapshotCount: 2,
+    })
   const importOriginalCv = vi.fn(
     (input: OriginalCvImportInput): Promise<OriginalCvImportResult> => {
       void input
@@ -627,13 +723,13 @@ test('replaces the active original CV from the workspace-active screen and keeps
         kind: 'imported',
         originalCv: {
           fileType: 'docx',
-          headline: 'Staff Product Designer',
-          id: 'original-cv-456',
+          headline: 'Mutation payload Staff Product Designer',
+          id: 'original-cv-mutation',
           importedAt: '2026-04-08T15:10:00.000Z',
-          originalFilename: 'ada-lovelace-revised.docx',
+          originalFilename: 'ada-lovelace-mutation.docx',
           pageCount: 1,
           snapshotCount: 2,
-          summary: 'Product designer adapting CVs for desktop AI tooling.',
+          summary: 'This value should be replaced by the refetched workspace query.',
           writingStyle: {
             averageSentenceLength: 8,
             clicheDetections: [],
@@ -653,28 +749,105 @@ test('replaces the active original CV from the workspace-active screen and keeps
         provider: 'codex',
         status: 'ready',
       }),
+      getStartupDestination: vi.fn().mockResolvedValue('workspace_empty'),
+    }),
+    originalCv: createOriginalCvApi({
+      getOriginalCvWorkspaceState,
+      importOriginalCv,
+    }),
+  })
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Create a tailored application' })).toBeDefined()
+  })
+
+  fireEvent.change(screen.getByLabelText('Replacement original CV file'), {
+    target: {
+      files: [
+        new File(['DOCX'], 'ada-lovelace-revised.docx', {
+          type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        }),
+      ],
+    },
+  })
+  fireEvent.click(screen.getByRole('button', { name: 'Replace original CV' }))
+
+  await waitFor(() => {
+    expect(importOriginalCv).toHaveBeenCalledTimes(1)
+    expect(getOriginalCvWorkspaceState).toHaveBeenCalledTimes(2)
+  })
+
+  await waitFor(() => {
+    expect(screen.getByText('ada-lovelace-query.docx')).toBeDefined()
+  })
+
+  expect(screen.queryByText('ada-lovelace-mutation.docx')).toBeNull()
+})
+
+test('replaces the active original CV from the workspace-active screen and keeps the tailored application open', async () => {
+  const revisedOriginalCv = {
+    fileType: 'docx' as const,
+    headline: 'Staff Product Designer',
+    id: 'original-cv-456',
+    importedAt: '2026-04-08T15:10:00.000Z',
+    originalFilename: 'ada-lovelace-revised.docx',
+    pageCount: 1,
+    snapshotCount: 2,
+    summary: 'Product designer adapting CVs for desktop AI tooling.',
+    writingStyle: {
+      averageSentenceLength: 8,
+      clicheDetections: [],
+      firstPersonUsage: 'absent' as const,
+      formality: 'direct' as const,
+    },
+  }
+  const importOriginalCv = vi.fn(
+    (input: OriginalCvImportInput): Promise<OriginalCvImportResult> => {
+      void input
+
+      return Promise.resolve({
+        kind: 'imported',
+        originalCv: revisedOriginalCv,
+      })
+    },
+  )
+
+  renderApp({
+    aiWorker: createAiWorkerApi({
+      getAiWorkerPreflight: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
       getStartupDestination: vi.fn().mockResolvedValue('workspace_active'),
     }),
     originalCv: createOriginalCvApi({
-      getOriginalCvWorkspaceState: vi.fn().mockResolvedValue({
-        activeOriginalCv: {
-          fileType: 'pdf',
-          headline: 'Principal Product Designer',
-          id: 'original-cv-123',
-          importedAt: '2026-04-08T14:30:00.000Z',
-          originalFilename: 'ada-lovelace.pdf',
-          pageCount: 1,
-          snapshotCount: 1,
-          summary: 'Design leader focused on complex workflow products.',
-          writingStyle: {
-            averageSentenceLength: 7,
-            clicheDetections: [],
-            firstPersonUsage: 'absent',
-            formality: 'direct',
+      getOriginalCvWorkspaceState: vi
+        .fn()
+        .mockResolvedValueOnce({
+          activeOriginalCv: {
+            fileType: 'pdf',
+            headline: 'Principal Product Designer',
+            id: 'original-cv-123',
+            importedAt: '2026-04-08T14:30:00.000Z',
+            originalFilename: 'ada-lovelace.pdf',
+            pageCount: 1,
+            snapshotCount: 1,
+            summary: 'Design leader focused on complex workflow products.',
+            writingStyle: {
+              averageSentenceLength: 7,
+              clicheDetections: [],
+              firstPersonUsage: 'absent',
+              formality: 'direct',
+            },
           },
-        },
-        snapshotCount: 1,
-      }),
+          snapshotCount: 1,
+        })
+        .mockResolvedValueOnce({
+          activeOriginalCv: revisedOriginalCv,
+          snapshotCount: 2,
+        }),
       importOriginalCv,
     }),
   })
@@ -820,6 +993,40 @@ test('reviews a ready vacancy URL and only starts tailoring after Adapt CV is cl
         snapshotCount: 1,
       }),
     }),
+    vacancy: createVacancyApi({
+      getVacancyWorkspaceState: vi
+        .fn()
+        .mockResolvedValueOnce({
+          draft: {
+            text: '',
+            url: '',
+          },
+          vacancy: null,
+        })
+        .mockResolvedValueOnce({
+          draft: {
+            text: '',
+            url: 'https://boards.greenhouse.io/example/jobs/123',
+          },
+          vacancy: {
+            blockingReason: null,
+            canGenerate: true,
+            employer: 'Example Labs',
+            fetchedAt: '2026-04-08T21:10:00.000Z',
+            id: 'vacancy-002',
+            inputType: 'url',
+            location: 'London, United Kingdom',
+            originalUrl: 'https://boards.greenhouse.io/example/jobs/123',
+            requirements: ['Experience shipping workflow software.'],
+            resolvedUrl: 'https://boards.greenhouse.io/example/jobs/123',
+            responsibilities: ['Lead product design for desktop workflows.'],
+            source: 'greenhouse',
+            status: 'ready',
+            textPreview: 'Lead product design for desktop workflows.',
+            title: 'Senior Product Designer',
+          },
+        }),
+    }),
     tailoredApplication: createTailoredApplicationApi({
       getPendingGenerationCommand: vi.fn().mockResolvedValue({
         commandId: 'command-123',
@@ -914,6 +1121,39 @@ test('preserves pasted vacancy context in a blocking preview and keeps Adapt CV 
       }),
     }),
     vacancy: createVacancyApi({
+      getVacancyWorkspaceState: vi
+        .fn()
+        .mockResolvedValueOnce({
+          draft: {
+            text: '',
+            url: '',
+          },
+          vacancy: null,
+        })
+        .mockResolvedValueOnce({
+          draft: {
+            text: 'Short pasted vacancy draft.',
+            url: 'https://jobs.example.com/senior-product-designer',
+          },
+          vacancy: {
+            blockingReason:
+              'Add the full job responsibilities or requirements before adapting this CV.',
+            canGenerate: false,
+            employer: 'Example Labs',
+            fetchedAt: '2026-04-08T21:00:00.000Z',
+            id: 'vacancy-001',
+            inputType: 'pasted_text',
+            location: 'London, United Kingdom',
+            originalUrl: 'https://jobs.example.com/senior-product-designer',
+            requirements: [],
+            resolvedUrl: 'https://jobs.example.com/senior-product-designer',
+            responsibilities: [],
+            source: 'generic',
+            status: 'incomplete',
+            textPreview: 'Short pasted vacancy draft.',
+            title: 'Senior Product Designer',
+          },
+        }),
       ingestPastedVacancy: vi.fn().mockResolvedValue({
         kind: 'incomplete',
         vacancy: {
@@ -1000,6 +1240,156 @@ test('preserves pasted vacancy context in a blocking preview and keeps Adapt CV 
   expect(screen.getByRole('button', { name: 'Adapt CV' })).toHaveProperty('disabled', true)
 })
 
+test('refreshes the vacancy workspace query after review instead of rendering the mutation payload', async () => {
+  const getVacancyWorkspaceState = vi
+    .fn()
+    .mockResolvedValueOnce({
+      draft: {
+        text: '',
+        url: '',
+      },
+      vacancy: null,
+    })
+    .mockResolvedValueOnce({
+      draft: {
+        text: 'Query-backed reviewed vacancy draft.',
+        url: 'https://jobs.example.com/query-reviewed-role',
+      },
+      vacancy: {
+        blockingReason: null,
+        canGenerate: true,
+        employer: 'Query Labs',
+        fetchedAt: '2026-04-08T21:00:00.000Z',
+        id: 'vacancy-query',
+        inputType: 'pasted_text',
+        location: 'London, United Kingdom',
+        originalUrl: 'https://jobs.example.com/query-reviewed-role',
+        requirements: ['Experience shipping workflow software.'],
+        resolvedUrl: 'https://jobs.example.com/query-reviewed-role',
+        responsibilities: ['Lead product design for query-driven renderer state.'],
+        source: 'generic',
+        status: 'ready',
+        textPreview: 'Lead product design for query-driven renderer state.',
+        title: 'Query-backed Senior Product Designer',
+      },
+    })
+  const ingestPastedVacancy = vi.fn().mockResolvedValue({
+    kind: 'ingested',
+    vacancy: {
+      blockingReason: null,
+      canGenerate: true,
+      employer: 'Mutation Labs',
+      fetchedAt: '2026-04-08T21:00:00.000Z',
+      id: 'vacancy-mutation',
+      inputType: 'pasted_text',
+      location: 'London, United Kingdom',
+      originalUrl: 'https://jobs.example.com/mutation-reviewed-role',
+      requirements: ['Strong written communication.'],
+      resolvedUrl: 'https://jobs.example.com/mutation-reviewed-role',
+      responsibilities: ['Lead product design for mutation payload renderer state.'],
+      source: 'generic',
+      status: 'ready',
+      textPreview: 'Lead product design for mutation payload renderer state.',
+      title: 'Mutation payload Senior Product Designer',
+    },
+    workspaceState: {
+      draft: {
+        text: 'Mutation payload reviewed vacancy draft.',
+        url: 'https://jobs.example.com/mutation-reviewed-role',
+      },
+      vacancy: {
+        blockingReason: null,
+        canGenerate: true,
+        employer: 'Mutation Labs',
+        fetchedAt: '2026-04-08T21:00:00.000Z',
+        id: 'vacancy-mutation',
+        inputType: 'pasted_text',
+        location: 'London, United Kingdom',
+        originalUrl: 'https://jobs.example.com/mutation-reviewed-role',
+        requirements: ['Strong written communication.'],
+        resolvedUrl: 'https://jobs.example.com/mutation-reviewed-role',
+        responsibilities: ['Lead product design for mutation payload renderer state.'],
+        source: 'generic',
+        status: 'ready',
+        textPreview: 'Lead product design for mutation payload renderer state.',
+        title: 'Mutation payload Senior Product Designer',
+      },
+    },
+  })
+
+  renderApp({
+    aiWorker: createAiWorkerApi({
+      getAiWorkerPreflight: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+      getStartupDestination: vi.fn().mockResolvedValue('workspace_empty'),
+    }),
+    originalCv: createOriginalCvApi({
+      getOriginalCvWorkspaceState: vi.fn().mockResolvedValue({
+        activeOriginalCv: {
+          fileType: 'pdf',
+          headline: 'Principal Product Designer',
+          id: 'original-cv-123',
+          importedAt: '2026-04-08T14:30:00.000Z',
+          originalFilename: 'ada-lovelace.pdf',
+          pageCount: 1,
+          snapshotCount: 1,
+          summary: 'Design leader focused on complex workflow products.',
+          writingStyle: {
+            averageSentenceLength: 7,
+            clicheDetections: [],
+            firstPersonUsage: 'absent',
+            formality: 'direct',
+          },
+        },
+        snapshotCount: 1,
+      }),
+    }),
+    vacancy: createVacancyApi({
+      getVacancyWorkspaceState,
+      ingestPastedVacancy,
+    }),
+  })
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Create a tailored application' })).toBeDefined()
+  })
+
+  fireEvent.change(screen.getByLabelText('Vacancy URL'), {
+    target: {
+      value: 'https://jobs.example.com/mutation-reviewed-role',
+    },
+  })
+  fireEvent.change(screen.getByLabelText('Job vacancy text'), {
+    target: {
+      value: 'Mutation payload reviewed vacancy draft.',
+    },
+  })
+  fireEvent.click(screen.getByRole('button', { name: 'Review pasted vacancy' }))
+
+  await waitFor(() => {
+    expect(ingestPastedVacancy).toHaveBeenCalledTimes(1)
+    expect(getVacancyWorkspaceState).toHaveBeenCalledTimes(2)
+  })
+
+  await waitFor(() => {
+    expect(screen.getByText('Query-backed Senior Product Designer')).toBeDefined()
+  })
+
+  expect(screen.getByLabelText('Vacancy URL')).toHaveProperty(
+    'value',
+    'https://jobs.example.com/query-reviewed-role',
+  )
+  expect(screen.getByLabelText('Job vacancy text')).toHaveProperty(
+    'value',
+    'Query-backed reviewed vacancy draft.',
+  )
+  expect(screen.queryByText('Mutation payload Senior Product Designer')).toBeNull()
+})
+
 test('restores the vacancy preview from the internal browser session and re-enables adaptation when browser-assisted extraction succeeds', async () => {
   const openVacancyBrowserSession = vi.fn().mockResolvedValue({
     kind: 'ingested',
@@ -1077,6 +1467,62 @@ test('restores the vacancy preview from the internal browser session and re-enab
       }),
     }),
     vacancy: createVacancyApi({
+      getVacancyWorkspaceState: vi
+        .fn()
+        .mockResolvedValueOnce({
+          draft: {
+            text: '',
+            url: '',
+          },
+          vacancy: null,
+        })
+        .mockResolvedValueOnce({
+          draft: {
+            text: '',
+            url: 'https://www.linkedin.com/jobs/view/123456',
+          },
+          vacancy: {
+            blockingReason:
+              'Open the internal browser session for authenticated pages, or paste the full job text instead.',
+            canGenerate: false,
+            employer: null,
+            fetchedAt: '2026-04-08T21:15:00.000Z',
+            id: 'vacancy-pending-browser',
+            inputType: 'url',
+            location: null,
+            originalUrl: 'https://www.linkedin.com/jobs/view/123456',
+            requirements: [],
+            resolvedUrl: null,
+            responsibilities: [],
+            source: 'linkedin',
+            status: 'incomplete',
+            textPreview: '',
+            title: null,
+          },
+        })
+        .mockResolvedValueOnce({
+          draft: {
+            text: '',
+            url: 'https://www.linkedin.com/jobs/view/123456',
+          },
+          vacancy: {
+            blockingReason: null,
+            canGenerate: true,
+            employer: 'Example Labs',
+            fetchedAt: '2026-04-08T21:18:00.000Z',
+            id: 'vacancy-006',
+            inputType: 'url',
+            location: 'London, United Kingdom',
+            originalUrl: 'https://www.linkedin.com/jobs/view/123456',
+            requirements: ['Experience shipping workflow software.'],
+            resolvedUrl: 'https://www.linkedin.com/jobs/view/123456',
+            responsibilities: ['Lead product design for authenticated desktop workflows.'],
+            source: 'linkedin',
+            status: 'ready',
+            textPreview: 'Lead product design for authenticated desktop workflows.',
+            title: 'Senior Product Designer',
+          },
+        }),
       ingestVacancyUrl: vi.fn().mockResolvedValue({
         kind: 'incomplete',
         vacancy: {
@@ -1159,14 +1605,22 @@ test('resumes the pending flow into the design-aligned loading screen after sign
 
   renderApp({
     aiWorker: createAiWorkerApi({
-      getAiWorkerPreflight: vi.fn().mockResolvedValue({
-        canResumeGeneration: false,
-        failureCode: 'auth_missing',
-        message:
-          'The local AI worker needs a valid sign-in before CV Maxxing can resume your tailored application.',
-        provider: 'codex',
-        status: 'sign_in_required',
-      }),
+      getAiWorkerPreflight: vi
+        .fn()
+        .mockResolvedValueOnce({
+          canResumeGeneration: false,
+          failureCode: 'auth_missing',
+          message:
+            'The local AI worker needs a valid sign-in before CV Maxxing can resume your tailored application.',
+          provider: 'codex',
+          status: 'sign_in_required',
+        })
+        .mockResolvedValue({
+          canResumeGeneration: true,
+          message: 'The local AI worker is ready.',
+          provider: 'codex',
+          status: 'ready',
+        }),
       getStartupDestination: vi.fn().mockResolvedValue('workspace_loading'),
       startAiWorkerSignIn: vi.fn().mockResolvedValue({
         canResumeGeneration: true,
@@ -1226,7 +1680,10 @@ test('resumes the pending flow into the design-aligned loading screen after sign
   expect(screen.getByText('Senior platform engineer')).toBeDefined()
   expect(screen.getByRole('button', { name: 'Open tailored application' })).toBeDefined()
   expect(screen.getByRole('button', { name: 'Abandon draft' })).toBeDefined()
-  expect(resumePendingGeneration).toHaveBeenCalledTimes(1)
+
+  await waitFor(() => {
+    expect(resumePendingGeneration).toHaveBeenCalledTimes(1)
+  })
 })
 
 test('renders the design-aligned loading screen when startup restores workspace loading', async () => {

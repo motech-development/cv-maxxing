@@ -1,3 +1,4 @@
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   useEffect,
   useEffectEvent,
@@ -8,16 +9,11 @@ import {
   type ReactElement,
 } from 'react'
 
-import { createReadinessRouteViewModel } from '../readiness/readiness-route.js'
 import type { ReadinessRouteViewModel } from '../readiness/readiness-route.js'
-import type { OriginalCvWorkspaceState } from '../shared/original-cv.js'
+import type { OriginalCvImportResult, OriginalCvWorkspaceState } from '../shared/original-cv.js'
 import type { PendingGenerationCommand } from '../shared/pending-generation.js'
-import type { SettingsSnapshot } from '../shared/settings.js'
-import type {
-  TailoredApplicationPreview,
-  TailoredApplicationWorkspaceState,
-} from '../shared/tailored-application.js'
-import type { VacancyDraft, VacancySummary } from '../shared/vacancy.js'
+import type { TailoredApplicationWorkspaceState } from '../shared/tailored-application.js'
+import type { VacancyDraft } from '../shared/vacancy.js'
 import { AiWorkerCheckingScreen } from './screens/ai-worker-checking-screen.js'
 import { AiWorkerSignInRequiredScreen } from './screens/ai-worker-sign-in-required-screen.js'
 import { AiWorkerUnavailableScreen } from './screens/ai-worker-unavailable-screen.js'
@@ -26,6 +22,16 @@ import { SettingsScreen, type SettingsSection } from './screens/settings-screen.
 import { WorkspaceActiveScreen } from './screens/workspace-active-screen.js'
 import { WorkspaceEmptyScreen } from './screens/workspace-empty-screen.js'
 import { WorkspaceLoadingScreen } from './screens/workspace-loading-screen.js'
+import {
+  getOriginalCvWorkspaceStateQueryOptions,
+  getPendingGenerationCommandQueryOptions,
+  getReadinessViewModelQueryOptions,
+  getSettingsSnapshotQueryOptions,
+  getTailoredApplicationPreviewQueryOptions,
+  getTailoredApplicationWorkspaceStateQueryOptions,
+  getVacancyWorkspaceStateQueryOptions,
+  rendererQueryKeys,
+} from './app-queries.js'
 import { resolveRendererScreen, type RendererScreenKind } from './routing/renderer-screen.js'
 
 const initialReadinessViewModel: ReadinessRouteViewModel = {
@@ -54,6 +60,11 @@ const initialVacancyDraft: VacancyDraft = {
   url: '',
 }
 
+const initialVacancyWorkspaceState = {
+  draft: initialVacancyDraft,
+  vacancy: null,
+}
+
 const readinessErrorMessage = 'Unable to complete the AI worker startup check.'
 const readinessErrorAction = 'Restart the app or verify the local AI worker setup.'
 const originalCvFileTypeErrorMessage = 'Choose a PDF or DOCX file.'
@@ -74,155 +85,466 @@ type PreviewDocumentKind = 'adapted_cv' | 'cover_letter'
 type WorkspaceSection = 'settings' | 'workspace'
 
 export function App() {
-  const [activeApplicationTitle, setActiveApplicationTitle] = useState<string | null>(null)
+  const queryClient = useQueryClient()
   const [activeWorkspaceSection, setActiveWorkspaceSection] =
     useState<WorkspaceSection>('workspace')
   const [isConfirmingDeleteTailoredApplication, setIsConfirmingDeleteTailoredApplication] =
     useState(false)
-  const [isClearingJobSiteBrowserData, setIsClearingJobSiteBrowserData] = useState(false)
   const [isCopyingCoverLetterText, setIsCopyingCoverLetterText] = useState(false)
   const [importError, setImportError] = useState<string | null>(null)
-  const [isImportingOriginalCv, setIsImportingOriginalCv] = useState(false)
-  const [isOpeningVacancyBrowser, setIsOpeningVacancyBrowser] = useState(false)
-  const [isPendingGenerationActionPending, setIsPendingGenerationActionPending] = useState(false)
-  const [isResettingLocalAppData, setIsResettingLocalAppData] = useState(false)
   const [isSecondaryActionPending, setIsSecondaryActionPending] = useState(false)
-  const [isSubmittingPrimaryAction, setIsSubmittingPrimaryAction] = useState(false)
-  const [isSubmittingVacancyReview, setIsSubmittingVacancyReview] = useState(false)
   const [originalCvFile, setOriginalCvFile] = useState<File | null>(null)
-  const [originalCvWorkspaceState, setOriginalCvWorkspaceState] = useState(
-    initialOriginalCvWorkspaceState,
-  )
-  const [pendingGenerationCommand, setPendingGenerationCommand] =
-    useState<PendingGenerationCommand | null>(null)
-  const [previewedVacancyDraft, setPreviewedVacancyDraft] = useState<VacancyDraft | null>(null)
   const [previewDocumentKind, setPreviewDocumentKind] = useState<PreviewDocumentKind>('adapted_cv')
   const [readinessError, setReadinessError] = useState<string | null>(null)
   const [resetConfirmationPhrase, setResetConfirmationPhrase] = useState('')
+  const [selectedTailoredApplicationId, setSelectedTailoredApplicationId] = useState<string | null>(
+    null,
+  )
   const [settingsMessage, setSettingsMessage] = useState<string | null>(null)
   const [settingsSection, setSettingsSection] = useState<SettingsSection>('ai_worker')
-  const [settingsSnapshot, setSettingsSnapshot] = useState<SettingsSnapshot | null>(null)
+  const [startupDestinationOverride, setStartupDestinationOverride] =
+    useState<OriginalCvImportDestination | null>(null)
   const [vacancyDraft, setVacancyDraft] = useState(initialVacancyDraft)
-  const [vacancyPreview, setVacancyPreview] = useState<VacancySummary | null>(null)
   const [vacancyReviewError, setVacancyReviewError] = useState<string | null>(null)
-  const [tailoredApplicationPreview, setTailoredApplicationPreview] =
-    useState<TailoredApplicationPreview | null>(null)
-  const [tailoredApplicationWorkspaceState, setTailoredApplicationWorkspaceState] = useState(
-    initialTailoredApplicationWorkspaceState,
-  )
-  const [viewModel, setViewModel] = useState(initialReadinessViewModel)
   const isResumingPendingGeneration = useRef(false)
   const lastResumedCommandId = useRef<string | null>(null)
 
-  const loadWorkspaceState = async (): Promise<void> => {
-    const [
-      nextOriginalCvWorkspaceState,
-      nextTailoredApplicationWorkspaceState,
-      nextVacancyWorkspaceState,
-    ] = await Promise.all([
-      globalThis.window.cvMaxxing.originalCv.getOriginalCvWorkspaceState(),
-      globalThis.window.cvMaxxing.tailoredApplication.getWorkspaceState(),
-      globalThis.window.cvMaxxing.vacancy.getVacancyWorkspaceState(),
+  const readinessQuery = useQuery({
+    ...getReadinessViewModelQueryOptions(),
+    placeholderData: initialReadinessViewModel,
+  })
+  const baseReadinessViewModel = readinessQuery.data ?? initialReadinessViewModel
+  const viewModel = applyStartupDestinationOverride({
+    readinessViewModel: baseReadinessViewModel,
+    startupDestinationOverride,
+  })
+  const settingsQuery = useQuery({
+    ...getSettingsSnapshotQueryOptions(),
+    enabled: viewModel.canEnterWorkspace,
+  })
+  const settingsSnapshot = settingsQuery.data ?? null
+  const originalCvWorkspaceQuery = useQuery({
+    ...getOriginalCvWorkspaceStateQueryOptions(),
+    enabled: viewModel.canEnterWorkspace,
+    placeholderData: initialOriginalCvWorkspaceState,
+  })
+  const originalCvWorkspaceState = originalCvWorkspaceQuery.data ?? initialOriginalCvWorkspaceState
+  const vacancyWorkspaceQuery = useQuery({
+    ...getVacancyWorkspaceStateQueryOptions(),
+    enabled: viewModel.canEnterWorkspace,
+    placeholderData: initialVacancyWorkspaceState,
+  })
+  const vacancyWorkspaceState = vacancyWorkspaceQuery.data ?? initialVacancyWorkspaceState
+  const tailoredApplicationWorkspaceQuery = useQuery({
+    ...getTailoredApplicationWorkspaceStateQueryOptions(),
+    enabled: viewModel.canEnterWorkspace,
+    placeholderData: initialTailoredApplicationWorkspaceState,
+  })
+  const tailoredApplicationWorkspaceState =
+    tailoredApplicationWorkspaceQuery.data ?? initialTailoredApplicationWorkspaceState
+  const resolvedTailoredApplicationId = resolveTailoredApplicationId({
+    preferredTailoredApplicationId: selectedTailoredApplicationId,
+    workspaceState: tailoredApplicationWorkspaceState,
+  })
+  const tailoredApplicationPreviewQuery = useQuery({
+    ...getTailoredApplicationPreviewQueryOptions(resolvedTailoredApplicationId ?? ''),
+    enabled:
+      viewModel.canEnterWorkspace &&
+      viewModel.startupDestination === 'workspace_active' &&
+      resolvedTailoredApplicationId !== null,
+  })
+  const tailoredApplicationPreview =
+    viewModel.startupDestination === 'workspace_active'
+      ? (tailoredApplicationPreviewQuery.data ?? null)
+      : null
+  const pendingGenerationQuery = useQuery({
+    ...getPendingGenerationCommandQueryOptions(),
+    enabled: viewModel.canEnterWorkspace && viewModel.startupDestination === 'workspace_loading',
+    placeholderData: null,
+  })
+  const pendingGenerationCommand =
+    viewModel.startupDestination === 'workspace_loading'
+      ? (pendingGenerationQuery.data ?? null)
+      : null
+
+  const invalidateReadinessQuery = async (): Promise<void> => {
+    await queryClient.invalidateQueries({
+      queryKey: rendererQueryKeys.readiness,
+    })
+  }
+
+  const invalidateWorkspaceQueries = async (): Promise<void> => {
+    await Promise.all([
+      queryClient.invalidateQueries({
+        queryKey: rendererQueryKeys.originalCvWorkspace,
+      }),
+      queryClient.invalidateQueries({
+        queryKey: rendererQueryKeys.pendingGeneration,
+      }),
+      queryClient.invalidateQueries({
+        queryKey: rendererQueryKeys.tailoredApplicationPreviewRoot,
+      }),
+      queryClient.invalidateQueries({
+        queryKey: rendererQueryKeys.tailoredApplicationWorkspace,
+      }),
+      queryClient.invalidateQueries({
+        queryKey: rendererQueryKeys.vacancyWorkspace,
+      }),
     ])
-    const nextTailoredApplicationId = resolveTailoredApplicationId({
-      preferredTailoredApplicationId: tailoredApplicationPreview?.id ?? null,
-      workspaceState: nextTailoredApplicationWorkspaceState,
-    })
-    const nextTailoredApplicationPreview =
-      nextTailoredApplicationId === null
-        ? null
-        : await globalThis.window.cvMaxxing.tailoredApplication.getTailoredApplicationPreview(
-            nextTailoredApplicationId,
-          )
-
-    setOriginalCvWorkspaceState(nextOriginalCvWorkspaceState)
-    setPreviewedVacancyDraft(
-      nextVacancyWorkspaceState.vacancy ? nextVacancyWorkspaceState.draft : null,
-    )
-    setTailoredApplicationPreview(nextTailoredApplicationPreview)
-    setTailoredApplicationWorkspaceState(nextTailoredApplicationWorkspaceState)
-    setIsConfirmingDeleteTailoredApplication(false)
-    setPreviewDocumentKind('adapted_cv')
-    setVacancyDraft(nextVacancyWorkspaceState.draft)
-    setVacancyPreview(nextVacancyWorkspaceState.vacancy)
-    setVacancyReviewError(null)
   }
 
-  const loadPendingGenerationCommand = async (): Promise<void> => {
-    const nextPendingGenerationCommand =
-      await globalThis.window.cvMaxxing.tailoredApplication.getPendingGenerationCommand()
-
-    setPendingGenerationCommand(nextPendingGenerationCommand)
-  }
-
-  const loadSettingsSnapshot = async (): Promise<void> => {
-    const nextSettingsSnapshot = await globalThis.window.cvMaxxing.settings.getSettingsSnapshot()
-
-    setSettingsSnapshot(nextSettingsSnapshot)
-  }
-
-  const loadReadinessState = async (
-    getAiWorkerPreflight: typeof globalThis.window.cvMaxxing.aiWorker.getAiWorkerPreflight,
-  ): Promise<void> => {
-    const nextViewModel = await createReadinessRouteViewModel({
-      getAiWorkerPreflight,
-      getStartupDestination: globalThis.window.cvMaxxing.aiWorker.getStartupDestination,
-    })
-
-    setReadinessError(null)
-    setViewModel(nextViewModel)
-
-    if (nextViewModel.canEnterWorkspace) {
-      await Promise.all([loadSettingsSnapshot(), loadWorkspaceState()])
-
-      if (nextViewModel.startupDestination !== 'workspace_active') {
-        setActiveApplicationTitle(null)
-        setTailoredApplicationPreview(null)
-        setTailoredApplicationWorkspaceState(initialTailoredApplicationWorkspaceState)
-      }
-
-      if (nextViewModel.startupDestination === 'workspace_loading') {
-        await loadPendingGenerationCommand()
+  const aiWorkerStatusMutation = useMutation({
+    mutationFn: async (action: 'retry' | 'sign_in'): Promise<void> => {
+      if (action === 'sign_in') {
+        await globalThis.window.cvMaxxing.aiWorker.startAiWorkerSignIn()
 
         return
       }
 
-      setPendingGenerationCommand(null)
-
-      return
-    }
-
-    setActiveWorkspaceSection('workspace')
-  }
-
-  const loadInitialState = useEffectEvent(async (): Promise<void> => {
-    await loadReadinessState(globalThis.window.cvMaxxing.aiWorker.getAiWorkerPreflight)
+      await globalThis.window.cvMaxxing.aiWorker.retryAiWorkerPreflight()
+    },
+    onSuccess: async (): Promise<void> => {
+      setReadinessError(null)
+      setStartupDestinationOverride(null)
+      await Promise.all([
+        invalidateReadinessQuery(),
+        queryClient.invalidateQueries({
+          queryKey: rendererQueryKeys.settings,
+        }),
+        invalidateWorkspaceQueries(),
+      ])
+    },
   })
+  const clearJobSiteBrowserDataMutation = useMutation({
+    mutationFn: async (): Promise<void> => {
+      await globalThis.window.cvMaxxing.settings.clearJobSiteBrowserData()
+    },
+  })
+  const resetLocalAppDataMutation = useMutation({
+    mutationFn: async (): Promise<void> => {
+      await globalThis.window.cvMaxxing.settings.resetLocalAppData({
+        confirmationPhrase: resetConfirmationPhrase,
+      })
+    },
+    onSuccess: async (): Promise<void> => {
+      setActiveWorkspaceSection('workspace')
+      setImportError(null)
+      setIsConfirmingDeleteTailoredApplication(false)
+      setOriginalCvFile(null)
+      setPreviewDocumentKind('adapted_cv')
+      setReadinessError(null)
+      setResetConfirmationPhrase('')
+      setSelectedTailoredApplicationId(null)
+      setSettingsMessage(null)
+      setStartupDestinationOverride(null)
+      setVacancyDraft(initialVacancyDraft)
+      setVacancyReviewError(null)
+      queryClient.setQueryData(rendererQueryKeys.readiness, initialReadinessViewModel)
+      queryClient.setQueryData(
+        rendererQueryKeys.originalCvWorkspace,
+        initialOriginalCvWorkspaceState,
+      )
+      queryClient.setQueryData(rendererQueryKeys.pendingGeneration, null)
+      queryClient.setQueryData(
+        rendererQueryKeys.tailoredApplicationWorkspace,
+        initialTailoredApplicationWorkspaceState,
+      )
+      queryClient.setQueryData(rendererQueryKeys.vacancyWorkspace, initialVacancyWorkspaceState)
+      queryClient.removeQueries({
+        queryKey: rendererQueryKeys.settings,
+      })
+      queryClient.removeQueries({
+        queryKey: rendererQueryKeys.tailoredApplicationPreviewRoot,
+      })
+      await Promise.all([
+        invalidateReadinessQuery(),
+        queryClient.invalidateQueries({
+          queryKey: rendererQueryKeys.settings,
+        }),
+        invalidateWorkspaceQueries(),
+      ])
+    },
+  })
+  const importOriginalCvMutation = useMutation({
+    mutationFn: async ({
+      file,
+    }: {
+      file: File
+      nextStartupDestination: OriginalCvImportDestination
+    }): Promise<OriginalCvImportResult> => {
+      return await globalThis.window.cvMaxxing.originalCv.importOriginalCv({
+        content: new Uint8Array(await file.arrayBuffer()),
+        filename: file.name,
+      })
+    },
+    onSuccess: async (importResult, { nextStartupDestination }): Promise<void> => {
+      if (importResult.kind === 'rejected') {
+        setImportError(importResult.error.message)
+
+        return
+      }
+
+      setImportError(null)
+      setOriginalCvFile(null)
+      setPreviewDocumentKind('adapted_cv')
+      setReadinessError(null)
+      setStartupDestinationOverride(nextStartupDestination)
+      setVacancyReviewError(null)
+      await globalThis.window.cvMaxxing.vacancy.clearVacancyWorkspaceState()
+      queryClient.setQueryData(rendererQueryKeys.vacancyWorkspace, initialVacancyWorkspaceState)
+      await Promise.all([
+        invalidateReadinessQuery(),
+        queryClient.invalidateQueries({
+          queryKey: rendererQueryKeys.originalCvWorkspace,
+        }),
+        queryClient.invalidateQueries({
+          queryKey: rendererQueryKeys.vacancyWorkspace,
+        }),
+      ])
+    },
+  })
+  const reviewVacancyUrlMutation = useMutation({
+    mutationFn: async (): Promise<void> => {
+      await globalThis.window.cvMaxxing.vacancy.ingestVacancyUrl({
+        url: vacancyDraft.url.trim(),
+      })
+    },
+    onSuccess: async (): Promise<void> => {
+      setReadinessError(null)
+      setVacancyReviewError(null)
+      await queryClient.invalidateQueries({
+        queryKey: rendererQueryKeys.vacancyWorkspace,
+      })
+    },
+  })
+  const reviewPastedVacancyMutation = useMutation({
+    mutationFn: async (): Promise<void> => {
+      await globalThis.window.cvMaxxing.vacancy.ingestPastedVacancy({
+        text: vacancyDraft.text.trim(),
+        url: vacancyDraft.url.trim() === '' ? undefined : vacancyDraft.url.trim(),
+      })
+    },
+    onSuccess: async (): Promise<void> => {
+      setReadinessError(null)
+      setVacancyReviewError(null)
+      await queryClient.invalidateQueries({
+        queryKey: rendererQueryKeys.vacancyWorkspace,
+      })
+    },
+  })
+  const openVacancyBrowserSessionMutation = useMutation({
+    mutationFn: async (url: string): Promise<void> => {
+      await globalThis.window.cvMaxxing.vacancy.openVacancyBrowserSession({
+        url,
+      })
+    },
+    onSuccess: async (): Promise<void> => {
+      setReadinessError(null)
+      setVacancyReviewError(null)
+      await queryClient.invalidateQueries({
+        queryKey: rendererQueryKeys.vacancyWorkspace,
+      })
+    },
+  })
+  const clearVacancyWorkspaceMutation = useMutation({
+    mutationFn: async (): Promise<void> => {
+      await globalThis.window.cvMaxxing.vacancy.clearVacancyWorkspaceState()
+    },
+    onSuccess: async (): Promise<void> => {
+      setReadinessError(null)
+      setVacancyReviewError(null)
+      await queryClient.invalidateQueries({
+        queryKey: rendererQueryKeys.vacancyWorkspace,
+      })
+    },
+  })
+  const startPendingGenerationMutation = useMutation({
+    mutationFn: async (
+      nextVacancyDraft: PendingGenerationCommand['vacancyDraft'],
+    ): Promise<void> => {
+      const activeOriginalCv = originalCvWorkspaceState.activeOriginalCv
+
+      if (activeOriginalCv === null) {
+        throw new Error('An active original CV is required before adaptation can begin.')
+      }
+
+      await globalThis.window.cvMaxxing.tailoredApplication.startPendingGeneration({
+        originalCvId: activeOriginalCv.id,
+        originalCvLabel: activeOriginalCv.originalFilename,
+        vacancyDraft: nextVacancyDraft,
+      })
+    },
+    onSuccess: async (): Promise<void> => {
+      setReadinessError(null)
+      setSelectedTailoredApplicationId(null)
+      setStartupDestinationOverride(null)
+      await Promise.all([
+        invalidateReadinessQuery(),
+        queryClient.invalidateQueries({
+          queryKey: rendererQueryKeys.pendingGeneration,
+        }),
+        queryClient.invalidateQueries({
+          queryKey: rendererQueryKeys.tailoredApplicationWorkspace,
+        }),
+      ])
+    },
+  })
+  const completePendingGenerationMutation = useMutation({
+    mutationFn: async (commandId: string): Promise<void> => {
+      await globalThis.window.cvMaxxing.tailoredApplication.completePendingGeneration(commandId)
+      await globalThis.window.cvMaxxing.vacancy.clearVacancyWorkspaceState()
+    },
+    onSuccess: async (): Promise<void> => {
+      setIsConfirmingDeleteTailoredApplication(false)
+      setPreviewDocumentKind('adapted_cv')
+      setReadinessError(null)
+      setSelectedTailoredApplicationId(null)
+      setStartupDestinationOverride(null)
+      await Promise.all([invalidateReadinessQuery(), invalidateWorkspaceQueries()])
+    },
+  })
+  const deleteTailoredApplicationMutation = useMutation({
+    mutationFn: async (tailoredApplicationId: string): Promise<void> => {
+      await globalThis.window.cvMaxxing.tailoredApplication.deleteTailoredApplication(
+        tailoredApplicationId,
+      )
+    },
+    onSuccess: async (_data, tailoredApplicationId): Promise<void> => {
+      if (selectedTailoredApplicationId === tailoredApplicationId) {
+        setSelectedTailoredApplicationId(null)
+      }
+
+      setIsConfirmingDeleteTailoredApplication(false)
+      setPreviewDocumentKind('adapted_cv')
+      setReadinessError(null)
+      await Promise.all([
+        invalidateReadinessQuery(),
+        queryClient.invalidateQueries({
+          queryKey: rendererQueryKeys.tailoredApplicationPreviewRoot,
+        }),
+        queryClient.invalidateQueries({
+          queryKey: rendererQueryKeys.tailoredApplicationWorkspace,
+        }),
+      ])
+    },
+  })
+  const exportPdfMutation = useMutation({
+    mutationFn: async (nextPreviewDocumentKind: PreviewDocumentKind): Promise<void> => {
+      if (tailoredApplicationPreview === null) {
+        throw new Error('A tailored application preview is required before exporting a PDF.')
+      }
+
+      if (nextPreviewDocumentKind === 'adapted_cv') {
+        await globalThis.window.cvMaxxing.tailoredApplication.exportAdaptedCvPdf(
+          tailoredApplicationPreview.id,
+        )
+
+        return
+      }
+
+      await globalThis.window.cvMaxxing.tailoredApplication.exportCoverLetterPdf(
+        tailoredApplicationPreview.id,
+      )
+    },
+  })
+  const abandonPendingGenerationMutation = useMutation({
+    mutationFn: async (): Promise<void> => {
+      await globalThis.window.cvMaxxing.tailoredApplication.abandonPendingGeneration()
+    },
+    onSuccess: async (): Promise<void> => {
+      setReadinessError(null)
+      setStartupDestinationOverride(null)
+      await Promise.all([
+        invalidateReadinessQuery(),
+        queryClient.invalidateQueries({
+          queryKey: rendererQueryKeys.pendingGeneration,
+        }),
+        queryClient.invalidateQueries({
+          queryKey: rendererQueryKeys.vacancyWorkspace,
+        }),
+      ])
+    },
+  })
+  const isClearingJobSiteBrowserData = clearJobSiteBrowserDataMutation.isPending
+  const isImportingOriginalCv = importOriginalCvMutation.isPending
+  const isOpeningVacancyBrowser = openVacancyBrowserSessionMutation.isPending
+  const isPendingGenerationActionPending =
+    abandonPendingGenerationMutation.isPending ||
+    completePendingGenerationMutation.isPending ||
+    deleteTailoredApplicationMutation.isPending ||
+    exportPdfMutation.isPending ||
+    startPendingGenerationMutation.isPending
+  const isResettingLocalAppData = resetLocalAppDataMutation.isPending
+  const isSubmittingPrimaryAction = aiWorkerStatusMutation.isPending
+  const isSubmittingVacancyReview =
+    reviewPastedVacancyMutation.isPending || reviewVacancyUrlMutation.isPending
+  const previewedVacancyDraft =
+    vacancyWorkspaceState.vacancy === null ? null : vacancyWorkspaceState.draft
+  const vacancyPreview = isVacancyDraftReviewed(vacancyDraft, previewedVacancyDraft)
+    ? vacancyWorkspaceState.vacancy
+    : null
+  const queriedVacancyDraft = vacancyWorkspaceState.draft
 
   useEffect(() => {
-    loadInitialState().catch(() => {
-      setReadinessError(`${readinessErrorMessage} ${readinessErrorAction}`)
-    })
-  }, [])
+    setVacancyDraft(queriedVacancyDraft)
+  }, [queriedVacancyDraft])
 
-  const handlePrimaryAction = async (): Promise<void> => {
-    if (viewModel.primaryActionLabel === undefined || isSubmittingPrimaryAction) {
+  useEffect(() => {
+    if (!viewModel.canEnterWorkspace) {
+      setActiveWorkspaceSection('workspace')
+    }
+  }, [viewModel.canEnterWorkspace])
+
+  useEffect(() => {
+    if (viewModel.startupDestination === 'workspace_active') {
       return
     }
 
-    const getAiWorkerPreflight =
-      viewModel.status === 'sign_in_required'
-        ? globalThis.window.cvMaxxing.aiWorker.startAiWorkerSignIn
-        : globalThis.window.cvMaxxing.aiWorker.retryAiWorkerPreflight
+    setIsConfirmingDeleteTailoredApplication(false)
+    setPreviewDocumentKind('adapted_cv')
+    setSelectedTailoredApplicationId(null)
+  }, [viewModel.startupDestination])
 
-    setIsSubmittingPrimaryAction(true)
+  useEffect(() => {
+    const nextError =
+      readinessQuery.error ??
+      settingsQuery.error ??
+      originalCvWorkspaceQuery.error ??
+      vacancyWorkspaceQuery.error ??
+      tailoredApplicationWorkspaceQuery.error ??
+      pendingGenerationQuery.error ??
+      tailoredApplicationPreviewQuery.error ??
+      null
+
+    if (nextError === null) {
+      return
+    }
+
+    setReadinessError(
+      resolveErrorMessage(nextError, `${readinessErrorMessage} ${readinessErrorAction}`),
+    )
+  }, [
+    originalCvWorkspaceQuery.error,
+    pendingGenerationQuery.error,
+    readinessQuery.error,
+    settingsQuery.error,
+    tailoredApplicationPreviewQuery.error,
+    tailoredApplicationWorkspaceQuery.error,
+    vacancyWorkspaceQuery.error,
+  ])
+
+  const handlePrimaryAction = async (): Promise<void> => {
+    if (viewModel.primaryActionLabel === undefined || aiWorkerStatusMutation.isPending) {
+      return
+    }
+
+    const action: 'retry' | 'sign_in' =
+      viewModel.status === 'sign_in_required' ? 'sign_in' : 'retry'
 
     try {
-      await loadReadinessState(getAiWorkerPreflight)
+      await aiWorkerStatusMutation.mutateAsync(action)
     } catch {
       setReadinessError(`${readinessErrorMessage} ${readinessErrorAction}`)
-    } finally {
-      setIsSubmittingPrimaryAction(false)
     }
   }
 
@@ -257,101 +579,49 @@ export function App() {
   }
 
   const handleClearJobSiteBrowserData = async (): Promise<void> => {
-    if (isClearingJobSiteBrowserData) {
+    if (clearJobSiteBrowserDataMutation.isPending) {
       return
     }
 
-    setIsClearingJobSiteBrowserData(true)
-
     try {
-      await globalThis.window.cvMaxxing.settings.clearJobSiteBrowserData()
+      await clearJobSiteBrowserDataMutation.mutateAsync()
       setSettingsMessage('Internal job-site browser data cleared.')
     } catch (error) {
       setSettingsMessage(resolveErrorMessage(error, 'Unable to clear the internal browser data.'))
-    } finally {
-      setIsClearingJobSiteBrowserData(false)
     }
   }
 
   const handleResetLocalAppData = async (): Promise<void> => {
-    if (isResettingLocalAppData) {
+    if (resetLocalAppDataMutation.isPending) {
       return
     }
 
-    setIsResettingLocalAppData(true)
-
     try {
-      await globalThis.window.cvMaxxing.settings.resetLocalAppData({
-        confirmationPhrase: resetConfirmationPhrase,
-      })
-
-      setActiveApplicationTitle(null)
-      setActiveWorkspaceSection('workspace')
-      setOriginalCvFile(null)
-      setOriginalCvWorkspaceState(initialOriginalCvWorkspaceState)
-      setPendingGenerationCommand(null)
-      setPreviewedVacancyDraft(null)
-      setPreviewDocumentKind('adapted_cv')
-      setReadinessError(null)
-      setResetConfirmationPhrase('')
-      setSettingsMessage(null)
-      setTailoredApplicationPreview(null)
-      setTailoredApplicationWorkspaceState(initialTailoredApplicationWorkspaceState)
-      setVacancyDraft(initialVacancyDraft)
-      setVacancyPreview(null)
-      setVacancyReviewError(null)
-      setViewModel(initialReadinessViewModel)
-      await loadReadinessState(globalThis.window.cvMaxxing.aiWorker.getAiWorkerPreflight)
+      await resetLocalAppDataMutation.mutateAsync()
     } catch (error) {
       setSettingsMessage(
         resolveErrorMessage(error, 'Unable to reset local app data on this machine.'),
       )
-    } finally {
-      setIsResettingLocalAppData(false)
     }
   }
 
   const handleOriginalCvImport = async (
     nextStartupDestination: OriginalCvImportDestination,
   ): Promise<void> => {
-    if (originalCvFile === null || isImportingOriginalCv) {
+    if (originalCvFile === null || importOriginalCvMutation.isPending) {
       return
     }
 
-    setIsImportingOriginalCv(true)
     setImportError(null)
     setReadinessError(null)
 
     try {
-      const importResult = await globalThis.window.cvMaxxing.originalCv.importOriginalCv({
-        content: new Uint8Array(await originalCvFile.arrayBuffer()),
-        filename: originalCvFile.name,
+      await importOriginalCvMutation.mutateAsync({
+        file: originalCvFile,
+        nextStartupDestination,
       })
-
-      if (importResult.kind === 'rejected') {
-        setImportError(importResult.error.message)
-
-        return
-      }
-
-      await globalThis.window.cvMaxxing.vacancy.clearVacancyWorkspaceState()
-      setOriginalCvFile(null)
-      setPreviewedVacancyDraft(null)
-      setVacancyDraft(initialVacancyDraft)
-      setVacancyPreview(null)
-      setVacancyReviewError(null)
-      setOriginalCvWorkspaceState({
-        activeOriginalCv: importResult.originalCv,
-        snapshotCount: importResult.originalCv.snapshotCount,
-      })
-      setViewModel((previousViewModel) => {
-        return {
-          ...previousViewModel,
-          startupDestination: nextStartupDestination,
-        }
-      })
-    } finally {
-      setIsImportingOriginalCv(false)
+    } catch {
+      setReadinessError(`${readinessErrorMessage} ${readinessErrorAction}`)
     }
   }
 
@@ -388,128 +658,64 @@ export function App() {
   ): Promise<void> => {
     const activeOriginalCv = originalCvWorkspaceState.activeOriginalCv
 
-    if (activeOriginalCv === null || isPendingGenerationActionPending) {
+    if (activeOriginalCv === null || startPendingGenerationMutation.isPending) {
       return
     }
 
-    setActiveApplicationTitle(null)
-    setIsPendingGenerationActionPending(true)
     setReadinessError(null)
 
     try {
-      await loadReadinessState(async () => {
-        return await globalThis.window.cvMaxxing.tailoredApplication.startPendingGeneration({
-          originalCvId: activeOriginalCv.id,
-          originalCvLabel: activeOriginalCv.originalFilename,
-          vacancyDraft,
-        })
-      })
+      await startPendingGenerationMutation.mutateAsync(vacancyDraft)
     } catch {
       setReadinessError(`${readinessErrorMessage} ${readinessErrorAction}`)
-    } finally {
-      setIsPendingGenerationActionPending(false)
     }
-  }
-
-  const completePendingGenerationFlow = async (
-    nextPendingGenerationCommand: PendingGenerationCommand,
-  ): Promise<void> => {
-    await globalThis.window.cvMaxxing.tailoredApplication.completePendingGeneration(
-      nextPendingGenerationCommand.commandId,
-    )
-    await globalThis.window.cvMaxxing.vacancy.clearVacancyWorkspaceState()
-    setActiveApplicationTitle(null)
-    await loadWorkspaceState()
-    setPendingGenerationCommand(null)
-    setReadinessError(null)
-    setViewModel(createWorkspaceActiveViewModel())
   }
 
   const handleOpenTailoredApplication = async (): Promise<void> => {
-    if (pendingGenerationCommand === null || isPendingGenerationActionPending) {
+    if (pendingGenerationCommand === null || completePendingGenerationMutation.isPending) {
       return
     }
 
-    setIsPendingGenerationActionPending(true)
-
     try {
-      await completePendingGenerationFlow(pendingGenerationCommand)
+      await completePendingGenerationMutation.mutateAsync(pendingGenerationCommand.commandId)
     } catch {
       setReadinessError(`${readinessErrorMessage} ${readinessErrorAction}`)
-    } finally {
-      setIsPendingGenerationActionPending(false)
     }
   }
 
   const handleExportAdaptedCvPdf = async (): Promise<void> => {
-    if (tailoredApplicationPreview === null || isPendingGenerationActionPending) {
+    if (tailoredApplicationPreview === null || exportPdfMutation.isPending) {
       return
     }
 
-    setIsPendingGenerationActionPending(true)
-
     try {
-      const exportPdf =
-        previewDocumentKind === 'adapted_cv'
-          ? globalThis.window.cvMaxxing.tailoredApplication.exportAdaptedCvPdf
-          : globalThis.window.cvMaxxing.tailoredApplication.exportCoverLetterPdf
-
-      await exportPdf(tailoredApplicationPreview.id)
+      await exportPdfMutation.mutateAsync(previewDocumentKind)
     } catch {
       setReadinessError(`${readinessErrorMessage} ${readinessErrorAction}`)
-    } finally {
-      setIsPendingGenerationActionPending(false)
     }
   }
 
-  const handleSelectTailoredApplication = async (tailoredApplicationId: string): Promise<void> => {
-    if (
-      tailoredApplicationPreview?.id === tailoredApplicationId ||
-      isPendingGenerationActionPending
-    ) {
+  const handleSelectTailoredApplication = (tailoredApplicationId: string): void => {
+    if (tailoredApplicationPreview?.id === tailoredApplicationId || exportPdfMutation.isPending) {
       return
     }
 
-    setIsPendingGenerationActionPending(true)
-
-    try {
-      const nextTailoredApplicationPreview =
-        await globalThis.window.cvMaxxing.tailoredApplication.getTailoredApplicationPreview(
-          tailoredApplicationId,
-        )
-
-      setIsConfirmingDeleteTailoredApplication(false)
-      setTailoredApplicationPreview(nextTailoredApplicationPreview)
-      setPreviewDocumentKind('adapted_cv')
-      setReadinessError(null)
-    } catch {
-      setReadinessError(`${readinessErrorMessage} ${readinessErrorAction}`)
-    } finally {
-      setIsPendingGenerationActionPending(false)
-    }
+    setIsConfirmingDeleteTailoredApplication(false)
+    setPreviewDocumentKind('adapted_cv')
+    setReadinessError(null)
+    setSelectedTailoredApplicationId(tailoredApplicationId)
   }
 
   const handleDeleteTailoredApplication = async (): Promise<void> => {
-    if (tailoredApplicationPreview === null || isPendingGenerationActionPending) {
+    if (tailoredApplicationPreview === null || deleteTailoredApplicationMutation.isPending) {
       return
     }
 
     if (isConfirmingDeleteTailoredApplication) {
-      setIsPendingGenerationActionPending(true)
-
       try {
-        await globalThis.window.cvMaxxing.tailoredApplication.deleteTailoredApplication(
-          tailoredApplicationPreview.id,
-        )
-        setActiveApplicationTitle(null)
-        setIsConfirmingDeleteTailoredApplication(false)
-        setTailoredApplicationPreview(null)
-        await loadWorkspaceState()
-        setReadinessError(null)
+        await deleteTailoredApplicationMutation.mutateAsync(tailoredApplicationPreview.id)
       } catch {
         setReadinessError(`${readinessErrorMessage} ${readinessErrorAction}`)
-      } finally {
-        setIsPendingGenerationActionPending(false)
       }
 
       return
@@ -538,19 +744,14 @@ export function App() {
   }
 
   const handleAbandonDraft = async (): Promise<void> => {
-    if (isPendingGenerationActionPending) {
+    if (abandonPendingGenerationMutation.isPending) {
       return
     }
 
-    setIsPendingGenerationActionPending(true)
-
     try {
-      await globalThis.window.cvMaxxing.tailoredApplication.abandonPendingGeneration()
-      await loadReadinessState(globalThis.window.cvMaxxing.aiWorker.getAiWorkerPreflight)
+      await abandonPendingGenerationMutation.mutateAsync()
     } catch {
       setReadinessError(`${readinessErrorMessage} ${readinessErrorAction}`)
-    } finally {
-      setIsPendingGenerationActionPending(false)
     }
   }
 
@@ -569,10 +770,10 @@ export function App() {
 
     try {
       await globalThis.window.cvMaxxing.tailoredApplication.resumePendingGeneration()
-      await completePendingGenerationFlow(pendingGenerationCommand)
+      await completePendingGenerationMutation.mutateAsync(pendingGenerationCommand.commandId)
     } catch (error) {
       try {
-        await loadReadinessState(globalThis.window.cvMaxxing.aiWorker.getAiWorkerPreflight)
+        await invalidateReadinessQuery()
       } catch {
         // Preserve the original generation failure message even if the reload also fails.
       }
@@ -670,7 +871,7 @@ export function App() {
       return (
         <WorkspaceActiveScreen
           activeOriginalCv={originalCvWorkspaceState.activeOriginalCv}
-          applicationTitle={tailoredApplicationPreview?.title ?? activeApplicationTitle}
+          applicationTitle={null}
           applications={tailoredApplicationWorkspaceState.applications}
           importError={importError}
           isConfirmingDeleteTailoredApplication={isConfirmingDeleteTailoredApplication}
@@ -692,7 +893,7 @@ export function App() {
           }}
           onSelectRailItem={handleSelectRailItem}
           onSelectApplication={(tailoredApplicationId) => {
-            handleSelectTailoredApplication(tailoredApplicationId).catch(() => null)
+            handleSelectTailoredApplication(tailoredApplicationId)
           }}
           onSelectPreviewDocument={setPreviewDocumentKind}
           preview={tailoredApplicationPreview}
@@ -725,30 +926,17 @@ export function App() {
               return
             }
 
-            setIsOpeningVacancyBrowser(true)
             setReadinessError(null)
             setVacancyReviewError(null)
 
-            globalThis.window.cvMaxxing.vacancy
-              .openVacancyBrowserSession({
-                url: originalUrl,
-              })
-              .then((result) => {
-                setPreviewedVacancyDraft(result.workspaceState.draft)
-                setVacancyDraft(result.workspaceState.draft)
-                setVacancyPreview(result.vacancy)
-              })
-              .catch((error: unknown) => {
-                setVacancyReviewError(
-                  resolveErrorMessage(
-                    error,
-                    'Unable to open the internal browser session for this vacancy.',
-                  ),
-                )
-              })
-              .finally(() => {
-                setIsOpeningVacancyBrowser(false)
-              })
+            openVacancyBrowserSessionMutation.mutateAsync(originalUrl).catch((error: unknown) => {
+              setVacancyReviewError(
+                resolveErrorMessage(
+                  error,
+                  'Unable to open the internal browser session for this vacancy.',
+                ),
+              )
+            })
           }}
           onOriginalCvFileSelection={handleOriginalCvSelection}
           onReplaceOriginalCv={() => {
@@ -756,13 +944,10 @@ export function App() {
           }}
           onSelectRailItem={handleSelectRailItem}
           onResetDrafts={() => {
-            globalThis.window.cvMaxxing.vacancy
-              .clearVacancyWorkspaceState()
+            clearVacancyWorkspaceMutation
+              .mutateAsync()
               .then(() => {
-                setPreviewedVacancyDraft(null)
                 setVacancyDraft(initialVacancyDraft)
-                setVacancyPreview(null)
-                setVacancyReviewError(null)
               })
               .catch((error: unknown) => {
                 setVacancyReviewError(
@@ -775,59 +960,28 @@ export function App() {
               return
             }
 
-            setIsSubmittingVacancyReview(true)
             setReadinessError(null)
             setVacancyReviewError(null)
 
-            globalThis.window.cvMaxxing.vacancy
-              .ingestPastedVacancy({
-                text: vacancyDraft.text.trim(),
-                url: vacancyDraft.url.trim() === '' ? undefined : vacancyDraft.url.trim(),
-              })
-              .then((result) => {
-                setPreviewedVacancyDraft(result.workspaceState.draft)
-                setVacancyDraft(result.workspaceState.draft)
-                setVacancyPreview(result.vacancy)
-              })
-              .catch((error: unknown) => {
-                setPreviewedVacancyDraft(null)
-                setVacancyPreview(null)
-                setVacancyReviewError(
-                  resolveErrorMessage(error, 'Unable to review the pasted vacancy text.'),
-                )
-              })
-              .finally(() => {
-                setIsSubmittingVacancyReview(false)
-              })
+            reviewPastedVacancyMutation.mutateAsync().catch((error: unknown) => {
+              setVacancyReviewError(
+                resolveErrorMessage(error, 'Unable to review the pasted vacancy text.'),
+              )
+            })
           }}
           onReviewVacancyUrl={() => {
             if (isSubmittingVacancyReview) {
               return
             }
 
-            setIsSubmittingVacancyReview(true)
             setReadinessError(null)
             setVacancyReviewError(null)
 
-            globalThis.window.cvMaxxing.vacancy
-              .ingestVacancyUrl({
-                url: vacancyDraft.url.trim(),
-              })
-              .then((result) => {
-                setPreviewedVacancyDraft(result.workspaceState.draft)
-                setVacancyDraft(result.workspaceState.draft)
-                setVacancyPreview(result.vacancy)
-              })
-              .catch((error: unknown) => {
-                setPreviewedVacancyDraft(null)
-                setVacancyPreview(null)
-                setVacancyReviewError(
-                  resolveErrorMessage(error, 'Unable to review this vacancy URL.'),
-                )
-              })
-              .finally(() => {
-                setIsSubmittingVacancyReview(false)
-              })
+            reviewVacancyUrlMutation.mutateAsync().catch((error: unknown) => {
+              setVacancyReviewError(
+                resolveErrorMessage(error, 'Unable to review this vacancy URL.'),
+              )
+            })
           }}
           onTextDraftChange={(event) => {
             const nextDraft = {
@@ -838,11 +992,6 @@ export function App() {
             setVacancyDraft(nextDraft)
             setReadinessError(null)
             setVacancyReviewError(null)
-
-            if (!isVacancyDraftReviewed(nextDraft, previewedVacancyDraft)) {
-              setPreviewedVacancyDraft(null)
-              setVacancyPreview(null)
-            }
           }}
           onUrlDraftChange={(event) => {
             const nextDraft = {
@@ -853,11 +1002,6 @@ export function App() {
             setVacancyDraft(nextDraft)
             setReadinessError(null)
             setVacancyReviewError(null)
-
-            if (!isVacancyDraftReviewed(nextDraft, previewedVacancyDraft)) {
-              setPreviewedVacancyDraft(null)
-              setVacancyPreview(null)
-            }
           }}
           originalCvFile={originalCvFile}
           textDraft={vacancyDraft.text}
@@ -909,18 +1053,13 @@ export function App() {
           handleResetLocalAppData().catch(() => null)
         }}
         onRetryAiWorker={() => {
-          setIsSubmittingPrimaryAction(true)
           setSettingsMessage(null)
 
-          loadReadinessState(globalThis.window.cvMaxxing.aiWorker.retryAiWorkerPreflight)
-            .catch((error: unknown) => {
-              setSettingsMessage(
-                resolveErrorMessage(error, `${readinessErrorMessage} ${readinessErrorAction}`),
-              )
-            })
-            .finally(() => {
-              setIsSubmittingPrimaryAction(false)
-            })
+          aiWorkerStatusMutation.mutateAsync('retry').catch((error: unknown) => {
+            setSettingsMessage(
+              resolveErrorMessage(error, `${readinessErrorMessage} ${readinessErrorAction}`),
+            )
+          })
         }}
         onSelectRailItem={handleSelectRailItem}
         onSelectSection={(section) => {
@@ -939,6 +1078,23 @@ export function App() {
   const renderScreen = screenRegistry[screenKind]
 
   return renderScreen()
+}
+
+function applyStartupDestinationOverride({
+  readinessViewModel,
+  startupDestinationOverride,
+}: {
+  readinessViewModel: ReadinessRouteViewModel
+  startupDestinationOverride: OriginalCvImportDestination | null
+}): ReadinessRouteViewModel {
+  if (!readinessViewModel.canEnterWorkspace || startupDestinationOverride === null) {
+    return readinessViewModel
+  }
+
+  return {
+    ...readinessViewModel,
+    startupDestination: startupDestinationOverride,
+  }
 }
 
 function isVacancyDraftReviewed(
@@ -991,20 +1147,6 @@ function resolveTailoredApplicationId({
 
   return workspaceState.activeApplicationId
 }
-
-function createWorkspaceActiveViewModel(): ReadinessRouteViewModel {
-  return {
-    body: 'The local AI worker is ready. Restoring your last tailored application.',
-    canEnterWorkspace: true,
-    diagnostic: 'Startup route restored: workspace_active.',
-    heading: 'Workspace restored',
-    primaryActionLabel: undefined,
-    secondaryActionLabel: undefined,
-    startupDestination: 'workspace_active',
-    status: 'ready',
-  }
-}
-
 function resolveWorkerStatusLabel(status: ReadinessRouteViewModel['status']): string {
   if (status === 'ready') {
     return 'Local'
