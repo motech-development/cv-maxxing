@@ -153,6 +153,7 @@ interface RuntimeEnvironment {
   CV_MAXXING_AI_WORKER_VACANCY_NORMALIZATION_DELAY_MS?: string
   CV_MAXXING_AI_WORKER_VACANCY_NORMALIZATION_FAILURE?: string
   CV_MAXXING_AI_WORKER_VACANCY_NORMALIZATION_OUTPUT?: string
+  CV_MAXXING_AI_WORKER_VACANCY_NORMALIZATION_TIMEOUT_MS?: string
   CV_MAXXING_LOCAL_APP_DATA_ROOT?: string
   CV_MAXXING_AI_WORKER_RETRY_STATUS?: string
   CV_MAXXING_AI_WORKER_SIGN_IN_STATUS?: string
@@ -544,6 +545,9 @@ async function createRuntimeServices(electronRuntime: ElectronRuntimeModule): Pr
   })
   const vacancyNormalizationService = createVacancyNormalizationService({
     runWorkspaceRootPath: path.join(paths.rootDirectoryPath, 'runs', 'vacancy-normalization'),
+    timeoutMs: parseTimeoutOverride(
+      environment.CV_MAXXING_AI_WORKER_VACANCY_NORMALIZATION_TIMEOUT_MS,
+    ),
     worker: createVacancyNormalizationWorker({
       environment,
     }),
@@ -650,6 +654,20 @@ function parseStartupDestination(value: string | undefined): StartupDestination 
   }
 
   return null
+}
+
+function parseTimeoutOverride(value: string | undefined): number | undefined {
+  if (value === undefined || value.trim() === '') {
+    return undefined
+  }
+
+  const parsedValue = Number(value)
+
+  if (!Number.isFinite(parsedValue) || parsedValue <= 0) {
+    return undefined
+  }
+
+  return Math.trunc(parsedValue)
 }
 
 async function startDesktopAppRuntime(): Promise<void> {

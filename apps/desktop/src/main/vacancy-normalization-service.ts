@@ -5,7 +5,7 @@ import path from 'node:path'
 import type { VacancySource } from '../shared/vacancy.js'
 import { VacancyNormalizationError } from './vacancy-normalization-error.js'
 import { VACANCY_NORMALIZATION_EXAMPLES } from './vacancy-normalization-examples.js'
-import { extractTextFromHtml, sanitizeSnapshotHtml } from './vacancy-page-content.js'
+import { prepareVacancyNormalizationArtifacts } from './vacancy-page-content.js'
 import type { VacancyNormalizationWorker } from './vacancy-normalization-worker.js'
 
 export interface NormalizedVacancy {
@@ -38,7 +38,7 @@ export interface VacancyNormalizationService {
   normalizeVacancy: (input: VacancyNormalizationInput) => Promise<NormalizedVacancy>
 }
 
-const DEFAULT_VACANCY_NORMALIZATION_TIMEOUT_MS = 45_000
+const DEFAULT_VACANCY_NORMALIZATION_TIMEOUT_MS = 120_000
 const VACANCY_NORMALIZATION_TIMEOUT_REASON = Symbol('vacancy-normalization-timeout')
 
 const missingVacancyNormalizationWorker: VacancyNormalizationWorker = {
@@ -126,6 +126,10 @@ async function writeRunWorkspaceInput({
   input: VacancyNormalizationInput
   runDirectoryPath: string
 }): Promise<void> {
+  const normalizationArtifacts = prepareVacancyNormalizationArtifacts({
+    html: input.html,
+    source: input.source,
+  })
   const inputDirectoryPath = path.join(runDirectoryPath, 'input')
   const taskJson = JSON.stringify({
     constraints: {
@@ -158,8 +162,16 @@ async function writeRunWorkspaceInput({
       JSON.stringify(VACANCY_NORMALIZATION_EXAMPLES),
       'utf8',
     ),
-    writeFile(path.join(inputDirectoryPath, 'page.html'), sanitizeSnapshotHtml(input.html), 'utf8'),
-    writeFile(path.join(inputDirectoryPath, 'page.txt'), extractTextFromHtml(input.html), 'utf8'),
+    writeFile(
+      path.join(inputDirectoryPath, 'page.html'),
+      normalizationArtifacts.sanitizedHtml,
+      'utf8',
+    ),
+    writeFile(
+      path.join(inputDirectoryPath, 'page.txt'),
+      normalizationArtifacts.extractedText,
+      'utf8',
+    ),
     writeFile(path.join(inputDirectoryPath, 'task.json'), taskJson, 'utf8'),
   ])
 }

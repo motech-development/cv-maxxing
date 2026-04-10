@@ -1818,7 +1818,7 @@ test('refreshes the vacancy workspace query after review instead of rendering th
   expect(screen.queryByText('Mutation payload Senior Product Designer')).toBeNull()
 })
 
-test('restores the vacancy preview from the internal browser session and re-enables adaptation when browser-assisted extraction succeeds', async () => {
+test('submitting a LinkedIn vacancy URL automatically continues into the internal browser session and restores adaptation when extraction succeeds', async () => {
   const openVacancyBrowserSession = vi.fn().mockResolvedValue({
     kind: 'ingested',
     vacancy: {
@@ -1909,13 +1909,6 @@ test('restores the vacancy preview from the internal browser session and re-enab
             text: '',
             url: 'https://www.linkedin.com/jobs/view/123456',
           },
-          vacancy: null,
-        })
-        .mockResolvedValueOnce({
-          draft: {
-            text: '',
-            url: 'https://www.linkedin.com/jobs/view/123456',
-          },
           vacancy: {
             blockingReason: null,
             canGenerate: true,
@@ -1978,23 +1971,6 @@ test('restores the vacancy preview from the internal browser session and re-enab
   fireEvent.click(screen.getByRole('button', { name: 'Review vacancy from URL' }))
 
   await waitFor(() => {
-    expect(screen.getByText('Vacancy preview')).toBeDefined()
-  })
-
-  expect(
-    screen.getByText(
-      'Open the internal browser session for authenticated pages, or paste the full job text instead.',
-    ),
-  ).toBeDefined()
-  expect(screen.getByLabelText('Vacancy URL')).toHaveProperty(
-    'value',
-    'https://www.linkedin.com/jobs/view/123456',
-  )
-  expect(screen.getByRole('button', { name: 'Adapt CV' })).toHaveProperty('disabled', true)
-
-  fireEvent.click(screen.getByRole('button', { name: 'Open internal browser session' }))
-
-  await waitFor(() => {
     expect(openVacancyBrowserSession).toHaveBeenCalledWith({
       url: 'https://www.linkedin.com/jobs/view/123456',
     })
@@ -2004,6 +1980,10 @@ test('restores the vacancy preview from the internal browser session and re-enab
     expect(screen.getByText('Senior Product Designer')).toBeDefined()
   })
 
+  expect(screen.getByLabelText('Vacancy URL')).toHaveProperty(
+    'value',
+    'https://www.linkedin.com/jobs/view/123456',
+  )
   expect(screen.getByRole('button', { name: 'Adapt CV' })).toHaveProperty('disabled', false)
 })
 

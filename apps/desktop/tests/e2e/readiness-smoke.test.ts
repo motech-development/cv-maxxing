@@ -270,7 +270,20 @@ test('captures a LinkedIn vacancy through the internal browser session and resto
   const electronApp = await launchDesktopApp({
     CV_MAXXING_AI_WORKER_PREFLIGHT_STATUS: 'ready',
     CV_MAXXING_LOCAL_APP_DATA_ROOT: testPaths.appDataRoot,
+    CV_MAXXING_AI_WORKER_VACANCY_NORMALIZATION_OUTPUT: JSON.stringify({
+      kind: 'success',
+      normalizedVacancy: {
+        bodyText:
+          'Lead product design for authenticated desktop workflows. Partner with engineering and research.',
+        employer: 'Example Labs',
+        location: 'London, United Kingdom',
+        requirements: ['Experience shipping workflow software.'],
+        responsibilities: ['Lead product design for authenticated desktop workflows.'],
+        title: 'Senior Product Designer',
+      },
+    }),
     CV_MAXXING_STARTUP_DESTINATION: 'first_launch',
+    CV_MAXXING_VACANCY_BROWSER_SESSION_CLOSE_AFTER_LOAD: 'true',
     CV_MAXXING_VACANCY_BROWSER_SESSION_HTML: [
       '<html>',
       '<head><script>localStorage.setItem("sessionToken","top-secret-token")</script></head>',
@@ -297,8 +310,6 @@ test('captures a LinkedIn vacancy through the internal browser session and resto
   await expect(page.getByRole('heading', { name: 'Create a tailored application' })).toBeVisible()
   await page.getByLabel('Vacancy URL').fill('https://www.linkedin.com/jobs/view/123456')
   await page.getByRole('button', { name: 'Review vacancy from URL' }).click()
-  await expect(page.getByText('Browser sign-in required')).toBeVisible()
-  await page.getByRole('button', { name: 'Open internal browser session' }).click()
   await expect(page.getByText('Senior Product Designer')).toBeVisible()
   await expect(page.getByRole('button', { name: 'Adapt CV' })).toBeEnabled()
 
@@ -330,6 +341,17 @@ test('returns cleanly to the vacancy intake with blocking guidance when the inte
 
   const electronApp = await launchDesktopApp({
     CV_MAXXING_AI_WORKER_PREFLIGHT_STATUS: 'ready',
+    CV_MAXXING_AI_WORKER_VACANCY_NORMALIZATION_OUTPUT: JSON.stringify({
+      kind: 'success',
+      normalizedVacancy: {
+        bodyText: 'Only a partial vacancy summary is available.',
+        employer: null,
+        location: null,
+        requirements: [],
+        responsibilities: [],
+        title: 'Untitled vacancy',
+      },
+    }),
     CV_MAXXING_LOCAL_APP_DATA_ROOT: testPaths.appDataRoot,
     CV_MAXXING_STARTUP_DESTINATION: 'first_launch',
     CV_MAXXING_VACANCY_BROWSER_SESSION_CLOSE_AFTER_LOAD: 'true',
@@ -354,10 +376,8 @@ test('returns cleanly to the vacancy intake with blocking guidance when the inte
   await expect(page.getByRole('heading', { name: 'Create a tailored application' })).toBeVisible()
   await page.getByLabel('Vacancy URL').fill('https://www.linkedin.com/jobs/view/123456')
   await page.getByRole('button', { name: 'Review vacancy from URL' }).click()
-  await expect(page.getByText('Browser sign-in required')).toBeVisible()
-  await page.getByRole('button', { name: 'Open internal browser session' }).click()
   await expect(
-    page.getByText('This vacancy page looks incomplete because it only exposed a sign-in wall.'),
+    page.getByText('Add the full job responsibilities or requirements before adapting this CV.'),
   ).toBeVisible()
   await expect(page.getByRole('button', { name: 'Adapt CV' })).toBeDisabled()
   await expect(page.getByLabel('Vacancy URL')).toHaveValue(

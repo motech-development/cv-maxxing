@@ -261,3 +261,85 @@ test('rejects semantically invalid normalized vacancy output after deterministic
     }),
   )
 })
+
+test('focuses authenticated LinkedIn normalization input on the main vacancy content and bounds oversized artifacts', async () => {
+  const runWorkspaceRootPath = await mkdtemp(
+    path.join(tmpdir(), 'cv-maxxing-vacancy-normalization-service-linkedin-focus-'),
+  )
+
+  temporaryDirectories.push(runWorkspaceRootPath)
+
+  const worker = {
+    runNormalization: vi.fn(
+      async ({ runDirectoryPath }: { runDirectoryPath: string; signal: AbortSignal }) => {
+        const [pageHtml, pageText] = await Promise.all([
+          readFile(path.join(runDirectoryPath, 'input', 'page.html'), 'utf8'),
+          readFile(path.join(runDirectoryPath, 'input', 'page.txt'), 'utf8'),
+        ])
+
+        expect(pageHtml).toContain('<main>')
+        expect(pageHtml).toContain('Senior Product Designer')
+        expect(pageHtml).not.toContain('People you may know')
+        expect(pageHtml).not.toContain('Recommended jobs')
+        expect(pageHtml.length).toBeLessThan(60_001)
+        expect(pageText).toContain('Lead product design for authenticated desktop workflows.')
+        expect(pageText).not.toContain('People you may know')
+        expect(pageText).not.toContain('Recommended jobs')
+        expect(pageText.length).toBeLessThan(24_001)
+
+        return {
+          kind: 'success',
+          normalizedVacancy: {
+            bodyText:
+              'Lead product design for authenticated desktop workflows. Partner with engineering and research.',
+            employer: 'Example Labs',
+            location: 'London, United Kingdom',
+            requirements: ['Experience shipping workflow software.'],
+            responsibilities: ['Lead product design for authenticated desktop workflows.'],
+            title: 'Senior Product Designer',
+          },
+        } satisfies VacancyNormalizationWorkerResult
+      },
+    ),
+  }
+  const service = createVacancyNormalizationService({
+    generateId: vi.fn(() => 'vacancy-normalization-run-linkedin-focus'),
+    runWorkspaceRootPath,
+    worker,
+  })
+  const profileNoise = '<div>People you may know</div>'.repeat(4000)
+  const relatedJobNoise =
+    '<section><h2>Recommended jobs</h2><p>More jobs for you.</p></section>'.repeat(2000)
+
+  await expect(
+    service.normalizeVacancy({
+      html: [
+        '<html>',
+        '<body>',
+        `<aside>${profileNoise}</aside>`,
+        '<main>',
+        '<h1>Senior Product Designer</h1>',
+        '<p>Example Labs</p>',
+        '<p>London, United Kingdom</p>',
+        '<section><h2>Responsibilities</h2><ul><li>Lead product design for authenticated desktop workflows.</li><li>Partner with engineering and research.</li></ul></section>',
+        '<section><h2>Requirements</h2><ul><li>Experience shipping workflow software.</li><li>Excellent written communication.</li></ul></section>',
+        relatedJobNoise,
+        '</main>',
+        '</body>',
+        '</html>',
+      ].join(''),
+      originalUrl: 'https://www.linkedin.com/jobs/view/123456',
+      pageTitle: 'Senior Product Designer | LinkedIn',
+      resolvedUrl: 'https://www.linkedin.com/jobs/view/123456',
+      source: 'linkedin',
+    }),
+  ).resolves.toEqual({
+    bodyText:
+      'Lead product design for authenticated desktop workflows. Partner with engineering and research.',
+    employer: 'Example Labs',
+    location: 'London, United Kingdom',
+    requirements: ['Experience shipping workflow software.'],
+    responsibilities: ['Lead product design for authenticated desktop workflows.'],
+    title: 'Senior Product Designer',
+  } satisfies NormalizedVacancy)
+})
