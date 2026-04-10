@@ -1,4 +1,4 @@
-export type OriginalCvNormalizationErrorCode = 'invalid_normalization'
+export type OriginalCvNormalizationErrorCode = 'invalid_normalization' | 'timeout'
 
 export class OriginalCvNormalizationError extends Error {
   readonly code: OriginalCvNormalizationErrorCode

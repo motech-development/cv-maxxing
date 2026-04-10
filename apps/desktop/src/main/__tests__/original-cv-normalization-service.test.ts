@@ -4,7 +4,12 @@ import path from 'node:path'
 
 import { afterEach, expect, test, vi } from 'vitest'
 
-import { createOriginalCvNormalizationService } from '../original-cv-normalization-service.js'
+import { OriginalCvNormalizationError } from '../original-cv-normalization-error.js'
+import type { OriginalCvNormalizationWorker } from '../original-cv-normalization-worker.js'
+import {
+  createOriginalCvNormalizationService,
+  type OriginalCvNormalizationResult,
+} from '../original-cv-normalization-service.js'
 
 const temporaryDirectories: string[] = []
 
@@ -137,5 +142,58 @@ test('writes a dedicated normalization run workspace with derived-field examples
 
   expect(firstCall?.runDirectoryPath).toBe(path.join(runWorkspaceRootPath, 'normalization-run-001'))
   expect(firstCall?.signal).toBeInstanceOf(AbortSignal)
+  await expect(readdir(runWorkspaceRootPath)).resolves.toEqual([])
+})
+
+test('aborts a stalled normalization run after the dedicated timeout and removes the transient workspace', async () => {
+  const runWorkspaceRootPath = await mkdtemp(
+    path.join(tmpdir(), 'cv-maxxing-original-cv-normalization-service-timeout-'),
+  )
+
+  temporaryDirectories.push(runWorkspaceRootPath)
+
+  let didAbort = false
+
+  const worker: OriginalCvNormalizationWorker = {
+    runNormalization: vi.fn(
+      async ({ signal }: { runDirectoryPath: string; signal: AbortSignal }) => {
+        return await new Promise<OriginalCvNormalizationResult>((_, reject) => {
+          signal.addEventListener(
+            'abort',
+            () => {
+              didAbort = true
+              reject(new Error('Original CV normalization cancelled.'))
+            },
+            {
+              once: true,
+            },
+          )
+        })
+      },
+    ),
+  }
+  const service = createOriginalCvNormalizationService({
+    generateId: vi.fn(() => 'normalization-run-timeout'),
+    runWorkspaceRootPath,
+    timeoutMs: 5,
+    worker,
+  })
+
+  await expect(
+    service.normalizeOriginalCv({
+      extractedText: 'Ada Lovelace\nPrincipal Product Designer',
+      fileType: 'pdf',
+      originalFilename: 'ada-lovelace.pdf',
+      pageCount: 2,
+    }),
+  ).rejects.toEqual(
+    new OriginalCvNormalizationError({
+      code: 'timeout',
+      message: 'Original CV normalization timed out.',
+    }),
+  )
+
+  expect(worker.runNormalization).toHaveBeenCalledTimes(1)
+  expect(didAbort).toBe(true)
   await expect(readdir(runWorkspaceRootPath)).resolves.toEqual([])
 })

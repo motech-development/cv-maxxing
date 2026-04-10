@@ -6,6 +6,7 @@ import { afterEach, expect, test, vi } from 'vitest'
 
 import { createLocalAppDataPaths, openLocalAppData } from '../local-app-data-service.js'
 import { OriginalCvNormalizationError } from '../original-cv-normalization-error.js'
+import { createOriginalCvNormalizationService } from '../original-cv-normalization-service.js'
 import { OriginalCvImportError, createOriginalCvService } from '../original-cv-service.js'
 import type { KeychainBoundary, LocalAppDataPaths } from '../local-app-data-service.js'
 import type {
@@ -881,6 +882,151 @@ test('rejects invalid normalization output and leaves encrypted storage unchange
     snapshotCount: 0,
   })
   await expect(localAppData.metadata.list('original-cvs')).resolves.toEqual([])
+
+  await localAppData.close()
+})
+
+test('maps a stalled normalization run through the import rejection path and keeps the current snapshot active', async () => {
+  const paths = await createTestPaths()
+  const localAppData = await openLocalAppData({
+    keychain: createKeychainBoundary(),
+    paths,
+  })
+  const runWorkspaceRootPath = await mkdtemp(
+    path.join(tmpdir(), 'cv-maxxing-original-cv-import-timeout-runs-'),
+  )
+
+  temporaryDirectories.push(runWorkspaceRootPath)
+
+  const pdfExtractor = vi
+    .fn()
+    .mockResolvedValueOnce({
+      pageCount: 1,
+      text: [
+        'Ada Lovelace',
+        'Principal Product Designer',
+        '',
+        'Summary',
+        'Design leader focused on complex workflow products for technical users.',
+        '',
+        'Experience',
+        'Principal Product Designer | Analytical Engines Ltd',
+        'Led product design for AI-assisted desktop tooling.',
+        '',
+        'Skills',
+        'Product strategy, UX research, prototyping',
+      ].join('\n'),
+    })
+    .mockResolvedValueOnce({
+      pageCount: 1,
+      text: [
+        'Ada Lovelace',
+        'Staff Product Designer',
+        '',
+        'Summary',
+        'Product designer adapting CVs for desktop AI tooling.',
+        '',
+        'Experience',
+        'Staff Product Designer | Analytical Engines Ltd',
+        'Refined import and adaptation workflows for complex authoring tools.',
+        '',
+        'Skills',
+        'Design systems, desktop UX, content strategy',
+      ].join('\n'),
+    })
+  const normalizationWorker = {
+    runNormalization: vi
+      .fn()
+      .mockResolvedValueOnce(
+        normalizeExtractedTextForTest(
+          [
+            'Ada Lovelace',
+            'Principal Product Designer',
+            '',
+            'Summary',
+            'Design leader focused on complex workflow products for technical users.',
+            '',
+            'Experience',
+            'Principal Product Designer | Analytical Engines Ltd',
+            'Led product design for AI-assisted desktop tooling.',
+            '',
+            'Skills',
+            'Product strategy, UX research, prototyping',
+          ].join('\n'),
+        ),
+      )
+      .mockImplementationOnce(async ({ signal }: { signal: AbortSignal }) => {
+        return await new Promise((_resolve, reject) => {
+          signal.addEventListener(
+            'abort',
+            () => {
+              reject(new Error('Original CV normalization cancelled.'))
+            },
+            {
+              once: true,
+            },
+          )
+        })
+      }),
+  }
+  const normalizationService = createOriginalCvNormalizationService({
+    generateId: vi
+      .fn()
+      .mockReturnValueOnce('normalization-run-001')
+      .mockReturnValueOnce('normalization-run-002'),
+    runWorkspaceRootPath,
+    timeoutMs: 5,
+    worker: normalizationWorker,
+  })
+  const originalCvService = createOriginalCvService({
+    extractTextFromDocx: vi.fn(),
+    extractTextFromPdf: pdfExtractor,
+    generateId: vi
+      .fn()
+      .mockReturnValueOnce('original-cv-001')
+      .mockReturnValueOnce('original-cv-002'),
+    getCurrentTimestamp: vi
+      .fn()
+      .mockReturnValueOnce('2026-04-08T14:30:00.000Z')
+      .mockReturnValueOnce('2026-04-08T14:45:00.000Z'),
+    localAppData,
+    normalizationService,
+  })
+
+  await originalCvService.importOriginalCv({
+    content: Buffer.from('%PDF-1.7 first', 'utf8'),
+    filename: 'ada-lovelace.pdf',
+  })
+
+  await expect(
+    originalCvService.importOriginalCv({
+      content: Buffer.from('%PDF-1.7 stalled', 'utf8'),
+      filename: 'ada-lovelace-stalled.pdf',
+    }),
+  ).rejects.toEqual(
+    new OriginalCvImportError({
+      code: 'invalid_normalization',
+      message: 'This original CV could not be organised reliably. Try a clearer PDF or DOCX.',
+    }),
+  )
+
+  const workspaceState = await originalCvService.getWorkspaceState()
+
+  expect(workspaceState.snapshotCount).toBe(1)
+  expect(workspaceState.activeOriginalCv).not.toBeNull()
+  expect(workspaceState.activeOriginalCv?.id).toBe('original-cv-001')
+  expect(workspaceState.activeOriginalCv?.originalFilename).toBe('ada-lovelace.pdf')
+  expect(workspaceState.activeOriginalCv?.snapshotCount).toBe(1)
+  await expect(localAppData.metadata.list('original-cvs')).resolves.toHaveLength(1)
+  await expect(
+    localAppData.artifacts.read({
+      id: 'original-cv-002',
+      name: 'source.pdf',
+      scope: 'original-cvs',
+    }),
+  ).resolves.toBeNull()
+  await expect(readFile(paths.databasePath)).resolves.not.toContain('ada-lovelace-stalled.pdf')
+  await expect(readFile(paths.databasePath)).resolves.not.toContain('Staff Product Designer')
 
   await localAppData.close()
 })

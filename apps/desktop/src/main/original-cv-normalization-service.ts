@@ -3,6 +3,7 @@ import { mkdir, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 
 import type { OriginalCvFileType, OriginalCvWritingStyle } from '../shared/original-cv.js'
+import { OriginalCvNormalizationError } from './original-cv-normalization-error.js'
 import type { OriginalCvNormalizationWorker } from './original-cv-normalization-worker.js'
 
 export interface NormalizedOriginalCv {
@@ -66,30 +67,52 @@ const missingOriginalCvNormalizationWorker: OriginalCvNormalizationWorker = {
   },
 }
 
+const DEFAULT_ORIGINAL_CV_NORMALIZATION_TIMEOUT_MS = 45_000
+const ORIGINAL_CV_NORMALIZATION_TIMEOUT_REASON = Symbol('original-cv-normalization-timeout')
+
 export function createOriginalCvNormalizationService({
   generateId = randomUUID,
   runWorkspaceRootPath,
+  timeoutMs = DEFAULT_ORIGINAL_CV_NORMALIZATION_TIMEOUT_MS,
   worker = missingOriginalCvNormalizationWorker,
 }: {
   generateId?: () => string
   runWorkspaceRootPath: string
+  timeoutMs?: number
   worker?: OriginalCvNormalizationWorker
 }): OriginalCvNormalizationService {
+  const resolvedTimeoutMs = resolveTimeoutMs(timeoutMs)
+
   return {
     normalizeOriginalCv: async (input): Promise<OriginalCvNormalizationResult> => {
       const runDirectoryPath = path.join(runWorkspaceRootPath, generateId())
+      const abortController = new AbortController()
 
       await writeRunWorkspaceInput({
         input,
         runDirectoryPath,
       })
 
+      const timeoutId = setTimeout(() => {
+        abortController.abort(ORIGINAL_CV_NORMALIZATION_TIMEOUT_REASON)
+      }, resolvedTimeoutMs)
+
       try {
         return await worker.runNormalization({
           runDirectoryPath,
-          signal: new AbortController().signal,
+          signal: abortController.signal,
         })
+      } catch (error) {
+        if (abortController.signal.reason === ORIGINAL_CV_NORMALIZATION_TIMEOUT_REASON) {
+          throw new OriginalCvNormalizationError({
+            code: 'timeout',
+            message: 'Original CV normalization timed out.',
+          })
+        }
+
+        throw error
       } finally {
+        clearTimeout(timeoutId)
         await rm(runDirectoryPath, {
           force: true,
           recursive: true,
@@ -140,4 +163,12 @@ async function writeRunWorkspaceInput({
     writeFile(path.join(inputDirectoryPath, 'original-cv.txt'), input.extractedText, 'utf8'),
     writeFile(path.join(inputDirectoryPath, 'task.json'), taskJson, 'utf8'),
   ])
+}
+
+function resolveTimeoutMs(timeoutMs: number): number {
+  if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
+    return DEFAULT_ORIGINAL_CV_NORMALIZATION_TIMEOUT_MS
+  }
+
+  return Math.trunc(timeoutMs)
 }
