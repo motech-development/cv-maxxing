@@ -5,7 +5,10 @@ import path from 'node:path'
 import { expect, test } from '@playwright/test'
 import { _electron as electron } from 'playwright'
 
+import { createOriginalCvNormalizationFixtureOutput } from './original-cv-normalization-fixture.js'
+
 const temporaryDirectories: string[] = []
+const defaultOriginalCvNormalizationOutput = createOriginalCvNormalizationFixtureOutput()
 
 const visualScreenshotBudgets = {
   'ai-worker-repair-screen.png': 2000,
@@ -19,8 +22,13 @@ async function launchDesktopApp(environment: NodeJS.ProcessEnv = {}) {
     Object.entries({
       ...process.env,
       ...environment,
-    }).filter(([, value]) => value !== undefined),
-  ) as Record<string, string>
+      CV_MAXXING_AI_WORKER_ORIGINAL_CV_NORMALIZATION_OUTPUT:
+        environment.CV_MAXXING_AI_WORKER_ORIGINAL_CV_NORMALIZATION_OUTPUT ??
+        defaultOriginalCvNormalizationOutput,
+    }).filter((entry): entry is [string, string] => {
+      return typeof entry[1] === 'string'
+    }),
+  )
 
   return await electron.launch({
     args: ['dist/main/main.js'],

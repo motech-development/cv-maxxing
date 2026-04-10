@@ -350,6 +350,10 @@ export function App() {
       setStartupDestinationOverride(nextStartupDestination)
       setVacancyReviewError(null)
       setVacancyPreviewOverride(null)
+      queryClient.setQueryData(rendererQueryKeys.originalCvWorkspace, {
+        activeOriginalCv: result.originalCv,
+        snapshotCount: result.originalCv.snapshotCount,
+      })
       await globalThis.window.cvMaxxing.vacancy.clearVacancyWorkspaceState()
       queryClient.setQueryData(rendererQueryKeys.vacancyWorkspace, initialVacancyWorkspaceState)
       await Promise.all([

@@ -220,7 +220,7 @@ export function createDesktopAppBootstrap({
     })
     ipcMain.handle(ORIGINAL_CV_IPC_CHANNELS.importOriginalCv, async (_event, payload) => {
       const input = parseOriginalCvImportInput(payload)
-      const preflightResult = await aiWorker.retryAiWorkerPreflight()
+      const preflightResult = await aiWorker.getAiWorkerPreflight()
 
       if (preflightResult.status !== 'ready') {
         return {

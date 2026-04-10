@@ -7,15 +7,23 @@ import { strToU8, zipSync } from 'fflate'
 import { _electron as electron } from 'playwright'
 import { getDocument } from 'pdfjs-dist/legacy/build/pdf.mjs'
 
+import { createOriginalCvNormalizationFixtureOutput } from './original-cv-normalization-fixture.js'
+
 const temporaryDirectories: string[] = []
+const defaultOriginalCvNormalizationOutput = createOriginalCvNormalizationFixtureOutput()
 
 async function launchDesktopApp(environment: NodeJS.ProcessEnv = {}) {
   const combinedEnvironment = Object.fromEntries(
     Object.entries({
       ...process.env,
       ...environment,
-    }).filter(([, value]) => value !== undefined),
-  ) as Record<string, string>
+      CV_MAXXING_AI_WORKER_ORIGINAL_CV_NORMALIZATION_OUTPUT:
+        environment.CV_MAXXING_AI_WORKER_ORIGINAL_CV_NORMALIZATION_OUTPUT ??
+        defaultOriginalCvNormalizationOutput,
+    }).filter((entry): entry is [string, string] => {
+      return typeof entry[1] === 'string'
+    }),
+  )
 
   return await electron.launch({
     args: ['dist/main/main.js'],

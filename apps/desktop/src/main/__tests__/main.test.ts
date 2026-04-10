@@ -174,12 +174,20 @@ test('bootstrap registers the full AI worker onboarding IPC surface and opens th
     },
   )
   const aiWorker = {
-    getAiWorkerPreflight: vi.fn().mockResolvedValue({
-      canResumeGeneration: false,
-      message: 'Checking the local AI worker before opening your workspace.',
-      provider: 'codex',
-      status: 'checking',
-    }),
+    getAiWorkerPreflight: vi
+      .fn()
+      .mockResolvedValueOnce({
+        canResumeGeneration: false,
+        message: 'Checking the local AI worker before opening your workspace.',
+        provider: 'codex',
+        status: 'checking',
+      })
+      .mockResolvedValueOnce({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
     getStartupDestination: vi.fn().mockResolvedValue('workspace_active'),
     openAiWorkerSetupGuide: vi.fn().mockImplementation(() => Promise.resolve()),
     retryAiWorkerPreflight: vi
@@ -771,7 +779,14 @@ test('original CV import IPC returns the shared readiness model when the AI work
     },
   )
   const aiWorker = {
-    getAiWorkerPreflight: vi.fn(),
+    getAiWorkerPreflight: vi.fn().mockResolvedValue({
+      canResumeGeneration: true,
+      failureCode: 'auth_expired',
+      message:
+        'The local AI worker sign-in has expired. Sign in again before the workspace can open.',
+      provider: 'codex',
+      status: 'sign_in_required',
+    }),
     getStartupDestination: vi.fn(),
     openAiWorkerSetupGuide: vi.fn(),
     retryAiWorkerPreflight: vi.fn().mockResolvedValue({
@@ -826,9 +841,110 @@ test('original CV import IPC returns the shared readiness model when the AI work
     },
   })
 
-  expect(aiWorker.retryAiWorkerPreflight).toHaveBeenCalledTimes(1)
+  expect(aiWorker.getAiWorkerPreflight).toHaveBeenCalledTimes(1)
+  expect(aiWorker.retryAiWorkerPreflight).not.toHaveBeenCalled()
   expect(originalCv.importOriginalCv).not.toHaveBeenCalled()
   expect(onOriginalCvImported).not.toHaveBeenCalled()
+})
+
+test('bootstrap imports the original CV using the startup preflight instead of the retry probe', async () => {
+  const handle = vi.fn()
+  const registeredHandlers = new Map<string, (...arguments_: unknown[]) => unknown>()
+
+  handle.mockImplementation((channel: string, callback: (...arguments_: unknown[]) => unknown) => {
+    registeredHandlers.set(channel, callback)
+  })
+
+  const aiWorker = {
+    getAiWorkerPreflight: vi.fn().mockResolvedValue({
+      canResumeGeneration: true,
+      message: 'The local AI worker is ready.',
+      provider: 'codex',
+      status: 'ready',
+    }),
+    getStartupDestination: vi.fn().mockResolvedValue('first_launch'),
+    openAiWorkerSetupGuide: vi.fn(),
+    retryAiWorkerPreflight: vi.fn().mockResolvedValue({
+      canResumeGeneration: false,
+      failureCode: 'auth_missing',
+      message: 'The local AI worker needs a valid sign-in before the workspace can open.',
+      provider: 'codex',
+      status: 'sign_in_required',
+    }),
+    startAiWorkerSignIn: vi.fn(),
+  }
+  const onOriginalCvImported = vi.fn()
+  const originalCv = {
+    getWorkspaceState: vi.fn(),
+    importOriginalCv: vi.fn().mockResolvedValue({
+      fileType: 'docx',
+      headline: 'Staff Product Designer',
+      id: 'original-cv-456',
+      importedAt: '2026-04-08T15:10:00.000Z',
+      originalFilename: 'ada-lovelace-revised.docx',
+      pageCount: 1,
+      snapshotCount: 2,
+      summary: 'Product designer adapting CVs for desktop AI tooling.',
+      writingStyle: {
+        averageSentenceLength: 8,
+        clicheDetections: [],
+        firstPersonUsage: 'absent',
+        formality: 'direct',
+      },
+    }),
+  }
+
+  const bootstrap = createDesktopAppBootstrap({
+    aiWorker,
+    app: createAppDouble().app,
+    browserWindow: createBrowserWindowDouble().browserWindow,
+    ipcMain: {
+      handle,
+    },
+    onOriginalCvImported,
+    originalCv,
+    platform: 'darwin',
+    preloadPath: '/preload.js',
+    rendererIndexPath: '/renderer/index.html',
+    settings: createSettingsDouble(),
+    tailoredApplication: createTailoredApplicationDouble(),
+    vacancy: createVacancyDouble(),
+  })
+
+  await bootstrap.start()
+
+  await expect(
+    registeredHandlers.get(ORIGINAL_CV_IPC_CHANNELS.importOriginalCv)?.(undefined, {
+      content: new Uint8Array([68, 79, 67, 88]),
+      filename: 'ada-lovelace-revised.docx',
+    }),
+  ).resolves.toEqual({
+    kind: 'imported',
+    originalCv: {
+      fileType: 'docx',
+      headline: 'Staff Product Designer',
+      id: 'original-cv-456',
+      importedAt: '2026-04-08T15:10:00.000Z',
+      originalFilename: 'ada-lovelace-revised.docx',
+      pageCount: 1,
+      snapshotCount: 2,
+      summary: 'Product designer adapting CVs for desktop AI tooling.',
+      writingStyle: {
+        averageSentenceLength: 8,
+        clicheDetections: [],
+        firstPersonUsage: 'absent',
+        formality: 'direct',
+      },
+    },
+  })
+
+  expect(aiWorker.getAiWorkerPreflight).toHaveBeenCalledTimes(1)
+  expect(aiWorker.retryAiWorkerPreflight).not.toHaveBeenCalled()
+  expect(originalCv.importOriginalCv).toHaveBeenCalledWith({
+    content: Buffer.from([68, 79, 67, 88]),
+    filename: 'ada-lovelace-revised.docx',
+  })
+  expect(onOriginalCvImported).toHaveBeenCalledTimes(1)
 })
 
 test('bootstrap recreates the window on activate and quits on window-all-closed outside macOS', async () => {
