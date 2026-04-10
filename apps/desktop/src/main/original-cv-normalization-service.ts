@@ -31,6 +31,35 @@ export interface OriginalCvNormalizationService {
   ) => Promise<OriginalCvNormalizationResult>
 }
 
+const ORIGINAL_CV_NORMALIZATION_EXAMPLES = [
+  {
+    normalizedCv: {
+      experience: [
+        'Principal Product Designer | Analytical Engines Ltd',
+        'Led product design for AI-assisted desktop tooling across import and export flows.',
+      ],
+      fullName: 'Ada Lovelace',
+      headline: 'Principal Product Designer',
+      skills: ['Workflow design', 'UX research', 'Content systems'],
+      summary: 'Design leader focused on complex workflow products for technical users.',
+    },
+    title: 'Heading variants and faithful summary recovery',
+  },
+  {
+    normalizedCv: {
+      experience: [
+        'Senior Content Strategist | Difference Engines Ltd',
+        'Built content systems and UX research practices for complex workflow products.',
+      ],
+      fullName: 'Ada Lovelace',
+      headline: 'Senior Content Strategist',
+      skills: ['Content systems', 'Editorial strategy', 'UX research'],
+      summary: 'Content strategist shaping truthful workflow tools for technical job seekers.',
+    },
+    title: 'Fragmented experience regrouping and conservative skills recovery',
+  },
+] as const
+
 const missingOriginalCvNormalizationWorker: OriginalCvNormalizationWorker = {
   runNormalization: () => {
     return Promise.reject(new Error('No original-CV normalization worker is configured.'))
@@ -80,11 +109,13 @@ async function writeRunWorkspaceInput({
   const inputDirectoryPath = path.join(runDirectoryPath, 'input')
   const taskJson = JSON.stringify({
     constraints: {
+      deriveFaithfulFieldsWhenNeeded: true,
       keepMissingFieldsEmpty: true,
       outputLanguage: 'British English',
       preserveSourceMeaning: true,
       remainVacancyAware: false,
     },
+    examplesPath: 'input/examples.json',
     originalCv: {
       extractedTextPath: 'input/original-cv.txt',
       fileType: input.fileType,
@@ -101,6 +132,11 @@ async function writeRunWorkspaceInput({
     recursive: true,
   })
   await Promise.all([
+    writeFile(
+      path.join(inputDirectoryPath, 'examples.json'),
+      JSON.stringify(ORIGINAL_CV_NORMALIZATION_EXAMPLES),
+      'utf8',
+    ),
     writeFile(path.join(inputDirectoryPath, 'original-cv.txt'), input.extractedText, 'utf8'),
     writeFile(path.join(inputDirectoryPath, 'task.json'), taskJson, 'utf8'),
   ])

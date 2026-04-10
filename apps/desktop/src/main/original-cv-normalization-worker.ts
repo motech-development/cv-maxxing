@@ -136,11 +136,14 @@ async function runCodexCliNormalization({
   await writeFile(schemaFilePath, JSON.stringify(OUTPUT_SCHEMA), 'utf8')
 
   const prompt = [
-    'Read input/task.json and the referenced original CV text.',
+    'Read input/task.json, input/examples.json, and the referenced original CV text.',
     'Return JSON only.',
     'Use British English.',
     'Preserve source meaning.',
     'Remain non-vacancy-aware.',
+    'Handle heading variants such as Profile, Core Skills, and Career Highlights.',
+    'Derive a faithful summary, headline, skills, and regrouped experience entries when needed.',
+    'Keep names, headlines, skills, and experience grounded in the source text.',
     'Leave fields empty instead of guessing unsupported facts.',
   ].join(' ')
 

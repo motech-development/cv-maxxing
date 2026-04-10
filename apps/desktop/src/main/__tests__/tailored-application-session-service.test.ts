@@ -185,6 +185,137 @@ test('assembles structured worker inputs and persists immutable tailored-applica
   ).rejects.toThrow()
 })
 
+test('passes derived original-CV normalization artifacts through to the tailored-application worker unchanged', async () => {
+  const harness = await createHarness()
+
+  await seedOriginalCvAndVacancy(harness)
+  await harness.localAppData.metadata.put({
+    id: 'original-cv-123',
+    scope: 'original-cvs',
+    value: {
+      checksum: 'checksum-123',
+      extractedText: [
+        'Ada Lovelace',
+        'London, United Kingdom',
+        'Profile',
+        'Product design leader for technical workflow tooling and regulated content systems.',
+        'Career Highlights',
+        'Analytical Engines Ltd',
+        'Led product design for AI-assisted desktop tooling across import and export flows.',
+        'Difference Engines Ltd',
+        'Built content systems and UX research practices for complex workflow products.',
+        'Core Skills',
+        'Workflow design, UX research, content systems',
+      ].join('\n'),
+      fileType: 'pdf',
+      fullName: 'Ada Lovelace',
+      headline: 'Principal Product Designer',
+      id: 'original-cv-123',
+      importedAt: '2026-04-08T14:30:00.000Z',
+      isActive: true,
+      originalFilename: 'ada-lovelace-variant.pdf',
+      pageCount: 1,
+      summary:
+        'Design leader shaping truthful workflow products for technical users and regulated content teams.',
+      writingStyle: {
+        averageSentenceLength: 14,
+        clicheDetections: [],
+        firstPersonUsage: 'absent',
+        formality: 'formal',
+      },
+    },
+  })
+  await harness.localAppData.artifacts.write({
+    content: Buffer.from(
+      JSON.stringify({
+        experience: [
+          'Principal Product Designer | Analytical Engines Ltd',
+          'Led product design for AI-assisted desktop tooling across import and export flows.',
+          'Senior Content Strategist | Difference Engines Ltd',
+          'Built content systems and UX research practices for complex workflow products.',
+        ],
+        fullName: 'Ada Lovelace',
+        headline: 'Principal Product Designer',
+        skills: ['Workflow design', 'UX research', 'Content systems'],
+        summary:
+          'Design leader shaping truthful workflow products for technical users and regulated content teams.',
+      }),
+      'utf8',
+    ),
+    id: 'original-cv-123',
+    name: 'normalized.json',
+    scope: 'original-cvs',
+  })
+
+  const capturedOriginalCvJson: string[] = []
+  const service = createTailoredApplicationSessionService({
+    adaptedCvRenderer: {
+      renderAdaptedCvPdf: vi.fn().mockResolvedValue({
+        pageCount: 1,
+        pageWarning: null,
+        pdfBytes: Buffer.from('%PDF-1.7 adapted cv', 'utf8'),
+      }),
+    },
+    aiWorker: {
+      retryAiWorkerPreflight: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+    },
+    coverLetterRenderer: {
+      renderCoverLetterPdf: vi.fn().mockResolvedValue({
+        pageCount: 1,
+        pageWarning: null,
+        pdfBytes: Buffer.from('%PDF-1.7 cover letter', 'utf8'),
+      }),
+    },
+    generateId: createIdGenerator(['command-123', 'run-123', 'tailored-application-123']),
+    getCurrentTimestamp: () => {
+      return '2026-04-09T09:30:00.000Z'
+    },
+    localAppData: harness.localAppData,
+    readinessStore: harness.readinessStore,
+    runWorkspaceRootPath: path.join(harness.paths.rootDirectoryPath, 'runs'),
+    worker: {
+      runGeneration: async ({ runDirectoryPath }) => {
+        capturedOriginalCvJson.push(
+          await readFile(path.join(runDirectoryPath, 'input', 'original-cv.json'), 'utf8'),
+        )
+
+        return createValidGenerationResult()
+      },
+    },
+  })
+
+  await service.startPendingGeneration({
+    originalCvId: 'original-cv-123',
+    originalCvLabel: 'ada-lovelace-variant.pdf',
+    vacancyDraft: {
+      text: 'Senior platform engineer',
+      url: 'https://jobs.example.com/roles/123',
+    },
+  })
+  await service.resumePendingGeneration()
+
+  expect(capturedOriginalCvJson).toEqual([
+    JSON.stringify({
+      experience: [
+        'Principal Product Designer | Analytical Engines Ltd',
+        'Led product design for AI-assisted desktop tooling across import and export flows.',
+        'Senior Content Strategist | Difference Engines Ltd',
+        'Built content systems and UX research practices for complex workflow products.',
+      ],
+      fullName: 'Ada Lovelace',
+      headline: 'Principal Product Designer',
+      skills: ['Workflow design', 'UX research', 'Content systems'],
+      summary:
+        'Design leader shaping truthful workflow products for technical users and regulated content teams.',
+    }),
+  ])
+})
+
 test('returns both PDF artifacts in the preview payload and exports the cover-letter PDF with overwrite avoidance', async () => {
   const harness = await createHarness()
 

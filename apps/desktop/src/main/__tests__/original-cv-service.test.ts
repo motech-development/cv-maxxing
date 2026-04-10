@@ -411,6 +411,121 @@ test('imports a DOCX original CV through the same AI-backed normalization path a
   await localAppData.close()
 })
 
+test('imports a heading-variant original CV with derived summary, headline, skills, and regrouped experience while preserving the stored shape', async () => {
+  const paths = await createTestPaths()
+  const localAppData = await openLocalAppData({
+    keychain: createKeychainBoundary(),
+    paths,
+  })
+  const normalizationService = createNormalizationServiceMock(
+    vi.fn((): Promise<OriginalCvNormalizationResult> => {
+      return Promise.resolve({
+        normalizedCv: {
+          experience: [
+            'Principal Product Designer | Analytical Engines Ltd',
+            'Led product design for AI-assisted desktop tooling across import and export flows.',
+            'Senior Content Strategist | Difference Engines Ltd',
+            'Built content systems and UX research practices for complex workflow products.',
+          ],
+          fullName: 'Ada Lovelace',
+          headline: 'Principal Product Designer',
+          skills: ['Workflow design', 'UX research', 'Content systems'],
+          summary:
+            'Design leader shaping truthful workflow products for technical users and regulated content teams.',
+        },
+        writingStyle: {
+          averageSentenceLength: 14,
+          clicheDetections: [],
+          firstPersonUsage: 'absent',
+          formality: 'formal',
+        },
+      })
+    }),
+  )
+  const extractedText = [
+    'Ada Lovelace',
+    'London, United Kingdom',
+    '',
+    'Profile',
+    'Product design leader for technical workflow tooling and regulated content systems.',
+    '',
+    'Career Highlights',
+    'Analytical Engines Ltd',
+    'Led product design for AI-assisted desktop tooling across import and export flows.',
+    'Difference Engines Ltd',
+    'Built content systems and UX research practices for complex workflow products.',
+    '',
+    'Core Skills',
+    'Workflow design, UX research, content systems',
+  ].join('\n')
+  const originalCvService = createOriginalCvService({
+    extractTextFromDocx: vi.fn(),
+    extractTextFromPdf: vi.fn(() => {
+      return Promise.resolve({
+        pageCount: 1,
+        text: extractedText,
+      })
+    }),
+    generateId: vi.fn(() => 'original-cv-003'),
+    getCurrentTimestamp: vi.fn(() => '2026-04-08T15:15:00.000Z'),
+    localAppData,
+    normalizationService,
+  })
+
+  const importedCv = await originalCvService.importOriginalCv({
+    content: Buffer.from('%PDF-1.7 derived', 'utf8'),
+    filename: 'ada-lovelace-variant.pdf',
+  })
+
+  expect(importedCv).toEqual({
+    fileType: 'pdf',
+    headline: 'Principal Product Designer',
+    id: 'original-cv-003',
+    importedAt: '2026-04-08T15:15:00.000Z',
+    originalFilename: 'ada-lovelace-variant.pdf',
+    pageCount: 1,
+    snapshotCount: 1,
+    summary:
+      'Design leader shaping truthful workflow products for technical users and regulated content teams.',
+    writingStyle: {
+      averageSentenceLength: 14,
+      clicheDetections: [],
+      firstPersonUsage: 'absent',
+      formality: 'formal',
+    },
+  })
+  expect(normalizationService.normalizeOriginalCv).toHaveBeenCalledWith({
+    extractedText,
+    fileType: 'pdf',
+    originalFilename: 'ada-lovelace-variant.pdf',
+    pageCount: 1,
+  })
+
+  const normalizedArtifact = await localAppData.artifacts.read({
+    id: 'original-cv-003',
+    name: 'normalized.json',
+    scope: 'original-cvs',
+  })
+
+  expect(normalizedArtifact?.toString('utf8')).toBe(
+    JSON.stringify({
+      experience: [
+        'Principal Product Designer | Analytical Engines Ltd',
+        'Led product design for AI-assisted desktop tooling across import and export flows.',
+        'Senior Content Strategist | Difference Engines Ltd',
+        'Built content systems and UX research practices for complex workflow products.',
+      ],
+      fullName: 'Ada Lovelace',
+      headline: 'Principal Product Designer',
+      skills: ['Workflow design', 'UX research', 'Content systems'],
+      summary:
+        'Design leader shaping truthful workflow products for technical users and regulated content teams.',
+    }),
+  )
+
+  await localAppData.close()
+})
+
 test('replaces the active original CV by creating a new snapshot and leaves existing tailored applications pinned to the earlier snapshot', async () => {
   const paths = await createTestPaths()
   const localAppData = await openLocalAppData({
