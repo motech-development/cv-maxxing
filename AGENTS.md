@@ -30,6 +30,7 @@ These rules always apply. Follow project-local rules first when they are more sp
 - Use Conventional Commits for commit messages. Husky runs commitlint on `commit-msg` to enforce this.
 - Keep commit messages within the repository's commitlint line-length constraints. Wrap commit body lines conservatively and avoid overlong subjects.
 - When a commit fully resolves a tracked issue, include a closing footer such as `Closes #14`.
+- Do not change GitHub issue state directly through the API or CLI to mark work complete. Let commit footers and the normal push or merge workflow close issues unless the user explicitly requests a manual issue-state change.
 - Use ESLint and Prettier as the repository linting and formatting baseline. Husky runs `lint-staged` on `pre-commit`.
 - Use Vitest for unit tests. Keep tests colocated in `__tests__` folders next to the source they cover.
 - Implement new behavior and bug fixes using TDD: start with a failing automated test, make it pass with the minimal change, then refactor while keeping the test suite green.
