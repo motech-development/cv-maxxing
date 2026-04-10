@@ -13,12 +13,17 @@ import {
   assessEnglishLanguageSupport,
 } from '../shared/language-support.js'
 import type { JsonValue, LocalAppDataStore } from './local-app-data-service.js'
+import { OriginalCvNormalizationError } from './original-cv-normalization-error.js'
 import type {
   NormalizedOriginalCv,
   OriginalCvNormalizationService,
 } from './original-cv-normalization-service.js'
 
 const ORIGINAL_CV_SCOPE = 'original-cvs'
+const INVALID_NORMALIZATION_MESSAGE =
+  'This original CV could not be organised reliably. Try a clearer PDF or DOCX.'
+const UNREADABLE_EXTRACTION_MESSAGE =
+  'This original CV could not be read reliably. Use a text-based PDF or DOCX.'
 
 interface ExtractedDocumentText {
   pageCount: number
@@ -114,6 +119,13 @@ export function createOriginalCvService({
       const extractedDocument =
         fileType === 'pdf' ? await extractTextFromPdf(content) : await extractTextFromDocx(content)
 
+      if (!isReadableExtraction(extractedDocument.text)) {
+        throw new OriginalCvImportError({
+          code: 'unreadable_extraction',
+          message: UNREADABLE_EXTRACTION_MESSAGE,
+        })
+      }
+
       if (assessEnglishLanguageSupport(extractedDocument.text).status === 'blocked') {
         throw new OriginalCvImportError({
           code: 'unsupported_language',
@@ -121,15 +133,31 @@ export function createOriginalCvService({
         })
       }
 
-      const { normalizedCv, writingStyle } = await normalizationService.normalizeOriginalCv({
-        extractedText: extractedDocument.text,
-        fileType,
-        originalFilename: filename,
-        pageCount: extractedDocument.pageCount,
-      })
+      let normalizedCv: NormalizedOriginalCv
+      let writingStyle: OriginalCvWritingStyle
 
-      validateExtractedOriginalCv({
-        extractedText: extractedDocument.text,
+      try {
+        const normalizationResult = await normalizationService.normalizeOriginalCv({
+          extractedText: extractedDocument.text,
+          fileType,
+          originalFilename: filename,
+          pageCount: extractedDocument.pageCount,
+        })
+
+        normalizedCv = normalizationResult.normalizedCv
+        writingStyle = normalizationResult.writingStyle
+      } catch (error) {
+        if (error instanceof OriginalCvNormalizationError) {
+          throw new OriginalCvImportError({
+            code: 'invalid_normalization',
+            message: INVALID_NORMALIZATION_MESSAGE,
+          })
+        }
+
+        throw error
+      }
+
+      validateNormalizedOriginalCv({
         normalizedCv,
       })
       const importedAt = getCurrentTimestamp()
@@ -335,16 +363,19 @@ function getOriginalCvFileType(filename: string): OriginalCvFileType {
   })
 }
 
-function validateExtractedOriginalCv({
-  extractedText,
-  normalizedCv,
-}: {
-  extractedText: string
-  normalizedCv: NormalizedOriginalCv
-}): void {
+function isReadableExtraction(extractedText: string): boolean {
   const trimmedText = extractedText.trim()
   const letters = trimmedText.match(/[a-z]/giu)?.length ?? 0
   const alphaRatio = trimmedText.length === 0 ? 0 : letters / trimmedText.length
+
+  return trimmedText.length >= 80 && alphaRatio >= 0.45
+}
+
+function validateNormalizedOriginalCv({
+  normalizedCv,
+}: {
+  normalizedCv: NormalizedOriginalCv
+}): void {
   const hasReadableIdentity =
     countWords(normalizedCv.fullName) >= 2 || countWords(normalizedCv.headline) >= 2
   const hasSubstantiveExperience = normalizedCv.experience.some((entry) => {
@@ -353,16 +384,10 @@ function validateExtractedOriginalCv({
   const hasSubstantiveSkills = normalizedCv.skills.length >= 3
   const hasSummary = countWords(normalizedCv.summary) >= 6
 
-  if (
-    trimmedText.length < 80 ||
-    alphaRatio < 0.45 ||
-    !hasReadableIdentity ||
-    (!hasSubstantiveExperience && !hasSubstantiveSkills) ||
-    !hasSummary
-  ) {
+  if (!hasReadableIdentity || (!hasSubstantiveExperience && !hasSubstantiveSkills) || !hasSummary) {
     throw new OriginalCvImportError({
-      code: 'weak_extraction',
-      message: 'This original CV could not be read reliably. Use a text-based PDF or DOCX.',
+      code: 'weak_normalization',
+      message: INVALID_NORMALIZATION_MESSAGE,
     })
   }
 }

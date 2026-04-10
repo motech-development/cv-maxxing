@@ -5,6 +5,7 @@ import path from 'node:path'
 import { afterEach, expect, test, vi } from 'vitest'
 
 import { createLocalAppDataPaths, openLocalAppData } from '../local-app-data-service.js'
+import { OriginalCvNormalizationError } from '../original-cv-normalization-error.js'
 import { OriginalCvImportError, createOriginalCvService } from '../original-cv-service.js'
 import type { KeychainBoundary, LocalAppDataPaths } from '../local-app-data-service.js'
 import type {
@@ -671,7 +672,7 @@ test('replaces the active original CV by creating a new snapshot and leaves exis
   expect(databaseBytes.includes(Buffer.from('Staff Product Designer', 'utf8'))).toBe(false)
 })
 
-test('rejects an unreadable replacement and keeps the previous original CV snapshot active', async () => {
+test('rejects a replacement with weak normalization output and keeps the previous original CV snapshot active', async () => {
   const paths = await createTestPaths()
   const localAppData = await openLocalAppData({
     keychain: createKeychainBoundary(),
@@ -698,8 +699,37 @@ test('rejects an unreadable replacement and keeps the previous original CV snaps
     })
     .mockResolvedValueOnce({
       pageCount: 1,
-      text: '%%%% 12345 ###',
+      text: [
+        'Ada Lovelace',
+        'Profile',
+        'Product design leader for technical workflow tooling and regulated content systems.',
+        'Career Highlights',
+        'Analytical Engines Ltd',
+        'Led product design for AI-assisted desktop tooling across import and export flows.',
+      ].join('\n'),
     })
+  const normalizationService = createNormalizationServiceMock(
+    vi
+      .fn()
+      .mockImplementationOnce((input: OriginalCvNormalizationInput) => {
+        return Promise.resolve(normalizeExtractedTextForTest(input.extractedText))
+      })
+      .mockResolvedValueOnce({
+        normalizedCv: {
+          experience: [],
+          fullName: 'Ada Lovelace',
+          headline: 'Principal Product Designer',
+          skills: ['Workflow design'],
+          summary: 'Design leader',
+        },
+        writingStyle: {
+          averageSentenceLength: 12,
+          clicheDetections: [],
+          firstPersonUsage: 'absent',
+          formality: 'formal',
+        },
+      }),
+  )
   const originalCvService = createOriginalCvService({
     extractTextFromDocx: vi.fn(),
     extractTextFromPdf: pdfExtractor,
@@ -712,7 +742,7 @@ test('rejects an unreadable replacement and keeps the previous original CV snaps
       .mockReturnValueOnce('2026-04-08T14:30:00.000Z')
       .mockReturnValueOnce('2026-04-08T14:45:00.000Z'),
     localAppData,
-    normalizationService: createNormalizationServiceMock(),
+    normalizationService,
   })
 
   await originalCvService.importOriginalCv({
@@ -727,8 +757,8 @@ test('rejects an unreadable replacement and keeps the previous original CV snaps
     }),
   ).rejects.toEqual(
     new OriginalCvImportError({
-      code: 'weak_extraction',
-      message: 'This original CV could not be read reliably. Use a text-based PDF or DOCX.',
+      code: 'weak_normalization',
+      message: 'This original CV could not be organised reliably. Try a clearer PDF or DOCX.',
     }),
   )
 
@@ -748,15 +778,18 @@ test('rejects an unreadable replacement and keeps the previous original CV snaps
     }),
   ).resolves.toBeNull()
 
+  expect(normalizationService.normalizeOriginalCv).toHaveBeenCalledTimes(2)
+
   await localAppData.close()
 })
 
-test('rejects weakly extracted original CV content and leaves encrypted storage unchanged', async () => {
+test('rejects unreadable extracted original CV content before normalization starts and leaves encrypted storage unchanged', async () => {
   const paths = await createTestPaths()
   const localAppData = await openLocalAppData({
     keychain: createKeychainBoundary(),
     paths,
   })
+  const normalizationService = createNormalizationServiceMock()
   const originalCvService = createOriginalCvService({
     extractTextFromDocx: vi.fn(),
     extractTextFromPdf: vi.fn(() => {
@@ -768,7 +801,7 @@ test('rejects weakly extracted original CV content and leaves encrypted storage 
     generateId: vi.fn(() => 'original-cv-001'),
     getCurrentTimestamp: vi.fn(() => '2026-04-08T14:30:00.000Z'),
     localAppData,
-    normalizationService: createNormalizationServiceMock(),
+    normalizationService,
   })
 
   await expect(
@@ -778,8 +811,136 @@ test('rejects weakly extracted original CV content and leaves encrypted storage 
     }),
   ).rejects.toEqual(
     new OriginalCvImportError({
-      code: 'weak_extraction',
+      code: 'unreadable_extraction',
       message: 'This original CV could not be read reliably. Use a text-based PDF or DOCX.',
+    }),
+  )
+  await expect(originalCvService.getWorkspaceState()).resolves.toEqual({
+    activeOriginalCv: null,
+    snapshotCount: 0,
+  })
+  await expect(localAppData.metadata.list('original-cvs')).resolves.toEqual([])
+  expect(normalizationService.normalizeOriginalCv).not.toHaveBeenCalled()
+
+  await localAppData.close()
+})
+
+test('rejects invalid normalization output and leaves encrypted storage unchanged', async () => {
+  const paths = await createTestPaths()
+  const localAppData = await openLocalAppData({
+    keychain: createKeychainBoundary(),
+    paths,
+  })
+  const normalizationService = createNormalizationServiceMock(
+    vi.fn(() => {
+      return Promise.reject(
+        new OriginalCvNormalizationError({
+          code: 'invalid_normalization',
+          message: 'Malformed normalization output.',
+        }),
+      )
+    }),
+  )
+  const originalCvService = createOriginalCvService({
+    extractTextFromDocx: vi.fn(),
+    extractTextFromPdf: vi.fn(() => {
+      return Promise.resolve({
+        pageCount: 1,
+        text: [
+          'Ada Lovelace',
+          'Profile',
+          'Product design leader for technical workflow tooling and regulated content systems.',
+          'Career Highlights',
+          'Analytical Engines Ltd',
+          'Led product design for AI-assisted desktop tooling across import and export flows.',
+          'Core Skills',
+          'Workflow design, UX research, content systems',
+        ].join('\n'),
+      })
+    }),
+    generateId: vi.fn(() => 'original-cv-001'),
+    getCurrentTimestamp: vi.fn(() => '2026-04-08T14:30:00.000Z'),
+    localAppData,
+    normalizationService,
+  })
+
+  await expect(
+    originalCvService.importOriginalCv({
+      content: Buffer.from('%PDF-1.7 malformed', 'utf8'),
+      filename: 'malformed.pdf',
+    }),
+  ).rejects.toEqual(
+    new OriginalCvImportError({
+      code: 'invalid_normalization',
+      message: 'This original CV could not be organised reliably. Try a clearer PDF or DOCX.',
+    }),
+  )
+  await expect(originalCvService.getWorkspaceState()).resolves.toEqual({
+    activeOriginalCv: null,
+    snapshotCount: 0,
+  })
+  await expect(localAppData.metadata.list('original-cvs')).resolves.toEqual([])
+
+  await localAppData.close()
+})
+
+test('rejects weak normalization output and leaves encrypted storage unchanged', async () => {
+  const paths = await createTestPaths()
+  const localAppData = await openLocalAppData({
+    keychain: createKeychainBoundary(),
+    paths,
+  })
+  const normalizationService = createNormalizationServiceMock(
+    vi.fn((): Promise<OriginalCvNormalizationResult> => {
+      return Promise.resolve({
+        normalizedCv: {
+          experience: [],
+          fullName: 'Ada Lovelace',
+          headline: 'Principal Product Designer',
+          skills: ['Workflow design'],
+          summary: 'Design leader',
+        },
+        writingStyle: {
+          averageSentenceLength: 12,
+          clicheDetections: [],
+          firstPersonUsage: 'absent',
+          formality: 'formal',
+        },
+      })
+    }),
+  )
+  const originalCvService = createOriginalCvService({
+    extractTextFromDocx: vi.fn(),
+    extractTextFromPdf: vi.fn(() => {
+      return Promise.resolve({
+        pageCount: 1,
+        text: [
+          'Ada Lovelace',
+          'Profile',
+          'Product design leader for technical workflow tooling and regulated content systems.',
+          'Career Highlights',
+          'Analytical Engines Ltd',
+          'Led product design for AI-assisted desktop tooling across import and export flows.',
+          'Core Skills',
+          'Workflow design, UX research, content systems',
+        ].join('\n'),
+      })
+    }),
+    generateId: vi.fn(() => 'original-cv-001'),
+    getCurrentTimestamp: vi.fn(() => '2026-04-08T14:30:00.000Z'),
+    localAppData,
+    normalizationService,
+  })
+
+  await expect(
+    originalCvService.importOriginalCv({
+      content: Buffer.from('%PDF-1.7 weak', 'utf8'),
+      filename: 'weak.pdf',
+    }),
+  ).rejects.toEqual(
+    new OriginalCvImportError({
+      code: 'weak_normalization',
+      message: 'This original CV could not be organised reliably. Try a clearer PDF or DOCX.',
     }),
   )
   await expect(originalCvService.getWorkspaceState()).resolves.toEqual({

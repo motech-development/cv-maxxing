@@ -2,7 +2,9 @@ export type OriginalCvFileType = 'docx' | 'pdf'
 export type OriginalCvImportErrorCode =
   | 'unsupported_file_type'
   | 'unsupported_language'
-  | 'weak_extraction'
+  | 'invalid_normalization'
+  | 'unreadable_extraction'
+  | 'weak_normalization'
 export type WritingStyleFirstPersonUsage = 'absent' | 'mixed' | 'present'
 export type WritingStyleFormality = 'conversational' | 'direct' | 'formal'
 

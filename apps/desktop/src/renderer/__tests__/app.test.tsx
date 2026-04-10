@@ -914,7 +914,7 @@ test('keeps the existing active original CV visible when a workspace replacement
       }),
       importOriginalCv: vi.fn().mockResolvedValue({
         error: {
-          code: 'weak_extraction',
+          code: 'unreadable_extraction',
           message: 'This original CV could not be read reliably. Use a text-based PDF or DOCX.',
         },
         kind: 'rejected',
@@ -937,6 +937,70 @@ test('keeps the existing active original CV visible when a workspace replacement
     expect(
       screen.getByText(
         'This original CV could not be read reliably. Use a text-based PDF or DOCX.',
+      ),
+    ).toBeDefined()
+  })
+
+  expect(screen.getByText('ada-lovelace.pdf')).toBeDefined()
+  expect(screen.getByRole('heading', { name: 'Create a tailored application' })).toBeDefined()
+})
+
+test('shows the normalization failure message while keeping the existing active original CV visible', async () => {
+  renderApp({
+    aiWorker: createAiWorkerApi({
+      getAiWorkerPreflight: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+      getStartupDestination: vi.fn().mockResolvedValue('workspace_empty'),
+    }),
+    originalCv: createOriginalCvApi({
+      getOriginalCvWorkspaceState: vi.fn().mockResolvedValue({
+        activeOriginalCv: {
+          fileType: 'pdf',
+          headline: 'Principal Product Designer',
+          id: 'original-cv-123',
+          importedAt: '2026-04-08T14:30:00.000Z',
+          originalFilename: 'ada-lovelace.pdf',
+          pageCount: 1,
+          snapshotCount: 1,
+          summary: 'Design leader focused on complex workflow products.',
+          writingStyle: {
+            averageSentenceLength: 7,
+            clicheDetections: [],
+            firstPersonUsage: 'absent',
+            formality: 'direct',
+          },
+        },
+        snapshotCount: 1,
+      }),
+      importOriginalCv: vi.fn().mockResolvedValue({
+        error: {
+          code: 'weak_normalization',
+          message: 'This original CV could not be organised reliably. Try a clearer PDF or DOCX.',
+        },
+        kind: 'rejected',
+      }),
+    }),
+  })
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Create a tailored application' })).toBeDefined()
+  })
+
+  fireEvent.change(screen.getByLabelText('Replacement original CV file'), {
+    target: {
+      files: [new File(['weak'], 'weak.pdf', { type: 'application/pdf' })],
+    },
+  })
+  fireEvent.click(screen.getByRole('button', { name: 'Replace original CV' }))
+
+  await waitFor(() => {
+    expect(
+      screen.getByText(
+        'This original CV could not be organised reliably. Try a clearer PDF or DOCX.',
       ),
     ).toBeDefined()
   })

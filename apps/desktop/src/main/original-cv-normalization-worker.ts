@@ -3,6 +3,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 
 import type { OriginalCvWritingStyle } from '../shared/original-cv.js'
+import { OriginalCvNormalizationError } from './original-cv-normalization-error.js'
 import type {
   NormalizedOriginalCv,
   OriginalCvNormalizationResult,
@@ -230,13 +231,19 @@ function parseNormalizationResultJson({
     const preview = buildOutputPreview(outputText)
     const reason = error instanceof Error ? error.message : 'Unknown parse error.'
 
-    throw new Error(`${context} produced invalid JSON: ${reason}. Preview: ${preview}`)
+    throw new OriginalCvNormalizationError({
+      code: 'invalid_normalization',
+      message: `${context} produced invalid JSON: ${reason}. Preview: ${preview}`,
+    })
   }
 
   if (!isOriginalCvNormalizationResult(parsedOutput)) {
-    throw new Error(
-      `${context} produced invalid normalization output. Preview: ${buildOutputPreview(outputText)}`,
-    )
+    throw new OriginalCvNormalizationError({
+      code: 'invalid_normalization',
+      message: `${context} produced invalid normalization output. Preview: ${buildOutputPreview(
+        outputText,
+      )}`,
+    })
   }
 
   return parsedOutput
