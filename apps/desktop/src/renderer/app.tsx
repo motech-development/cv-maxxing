@@ -90,15 +90,7 @@ type OriginalCvImportDestination = 'workspace_active' | 'workspace_empty'
 type RendererStartupDestinationOverride = OriginalCvImportDestination | 'workspace_loading'
 type PreviewDocumentKind = 'adapted_cv' | 'cover_letter'
 type WorkspaceSection = 'settings' | 'workspace'
-type ImportOriginalCvMutationResult =
-  | {
-      importResult: OriginalCvImportResult
-      kind: 'import_result'
-    }
-  | {
-      kind: 'preflight_result'
-      preflightResult: AiWorkerPreflightResult
-    }
+type ImportOriginalCvMutationResult = OriginalCvImportResult
 
 export function App() {
   const queryClient = useQueryClient()
@@ -329,41 +321,24 @@ export function App() {
       file: File
       nextStartupDestination: OriginalCvImportDestination
     }): Promise<ImportOriginalCvMutationResult> => {
-      const preflightResult = await globalThis.window.cvMaxxing.aiWorker.retryAiWorkerPreflight()
-
-      await seedReadinessQuery({
-        preflightResult,
-      })
-
-      if (preflightResult.status !== 'ready') {
-        return {
-          kind: 'preflight_result',
-          preflightResult,
-        }
-      }
-
-      const importResult = await globalThis.window.cvMaxxing.originalCv.importOriginalCv({
+      return await globalThis.window.cvMaxxing.originalCv.importOriginalCv({
         content: new Uint8Array(await file.arrayBuffer()),
         filename: file.name,
       })
-
-      return {
-        importResult,
-        kind: 'import_result',
-      }
     },
     onSuccess: async (result, { nextStartupDestination }): Promise<void> => {
-      if (result.kind === 'preflight_result') {
+      if (result.kind === 'ai_worker_not_ready') {
         setImportError(null)
         setReadinessError(null)
+        await seedReadinessQuery({
+          preflightResult: result.preflight,
+        })
 
         return
       }
 
-      const { importResult } = result
-
-      if (importResult.kind === 'rejected') {
-        setImportError(importResult.error.message)
+      if (result.kind === 'rejected') {
+        setImportError(result.error.message)
 
         return
       }

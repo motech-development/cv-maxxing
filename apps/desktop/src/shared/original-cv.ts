@@ -1,3 +1,5 @@
+import type { AiWorkerPreflightResult } from './ai-worker-preflight.js'
+
 export type OriginalCvFileType = 'docx' | 'pdf'
 export type OriginalCvImportErrorCode =
   | 'unsupported_file_type'
@@ -42,10 +44,16 @@ export interface OriginalCvImportFailure {
   message: string
 }
 
+export type OriginalCvImportBlockedPreflight = Exclude<AiWorkerPreflightResult, { status: 'ready' }>
+
 export type OriginalCvImportResult =
   | {
       kind: 'imported'
       originalCv: OriginalCvSummary
+    }
+  | {
+      kind: 'ai_worker_not_ready'
+      preflight: OriginalCvImportBlockedPreflight
     }
   | {
       error: OriginalCvImportFailure

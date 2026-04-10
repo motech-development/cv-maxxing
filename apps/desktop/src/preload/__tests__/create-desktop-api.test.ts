@@ -799,3 +799,42 @@ test('preload exposes tailored-application repair and resume commands over typed
     },
   )
 })
+
+test('preload forwards import-boundary readiness failures without remapping them', async () => {
+  const invoke = vi.fn().mockResolvedValue({
+    kind: 'ai_worker_not_ready',
+    preflight: {
+      canResumeGeneration: true,
+      failureCode: 'auth_expired',
+      message:
+        'The local AI worker sign-in has expired. Sign in again before the workspace can open.',
+      provider: 'codex',
+      status: 'sign_in_required',
+    },
+  })
+  const desktopApi = createDesktopApi({
+    invoke,
+  })
+
+  await expect(
+    desktopApi.originalCv.importOriginalCv({
+      content: new Uint8Array([80, 68, 70]),
+      filename: 'ada-lovelace.pdf',
+    }),
+  ).resolves.toEqual({
+    kind: 'ai_worker_not_ready',
+    preflight: {
+      canResumeGeneration: true,
+      failureCode: 'auth_expired',
+      message:
+        'The local AI worker sign-in has expired. Sign in again before the workspace can open.',
+      provider: 'codex',
+      status: 'sign_in_required',
+    },
+  })
+
+  expect(invoke).toHaveBeenCalledWith(ORIGINAL_CV_IPC_CHANNELS.importOriginalCv, {
+    content: new Uint8Array([80, 68, 70]),
+    filename: 'ada-lovelace.pdf',
+  })
+})

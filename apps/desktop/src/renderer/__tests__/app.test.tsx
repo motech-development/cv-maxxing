@@ -390,12 +390,7 @@ test('accepts an original CV dropped onto the first-launch import surface', asyn
 })
 
 test('imports the first original CV and transitions into the design-aligned workspace-empty screen', async () => {
-  const retryAiWorkerPreflight = vi.fn().mockResolvedValue({
-    canResumeGeneration: true,
-    message: 'The local AI worker is ready.',
-    provider: 'codex',
-    status: 'ready',
-  })
+  const retryAiWorkerPreflight = vi.fn()
   const importedOriginalCv = {
     fileType: 'pdf' as const,
     headline: 'Principal Product Designer',
@@ -457,11 +452,8 @@ test('imports the first original CV and transitions into the design-aligned work
     expect(screen.getByRole('heading', { name: 'Create a tailored application' })).toBeDefined()
   })
 
-  expect(retryAiWorkerPreflight).toHaveBeenCalledTimes(1)
+  expect(retryAiWorkerPreflight).not.toHaveBeenCalled()
   expect(importOriginalCv).toHaveBeenCalledTimes(1)
-  expect(retryAiWorkerPreflight.mock.invocationCallOrder[0]).toBeLessThan(
-    importOriginalCv.mock.invocationCallOrder[0] ?? Number.POSITIVE_INFINITY,
-  )
   expect(screen.getByText('Job vacancies')).toBeDefined()
   expect(screen.getByText('No tailored applications yet')).toBeDefined()
   expect(screen.getByRole('button', { name: 'New vacancy' })).toBeDefined()
@@ -473,15 +465,18 @@ test('imports the first original CV and transitions into the design-aligned work
   expect(screen.getByText('Review a vacancy before adapting')).toBeDefined()
 })
 
-test('routes first-launch import into the AI worker sign-in flow when retry preflight is not ready', async () => {
-  const retryAiWorkerPreflight = vi.fn().mockResolvedValue({
-    canResumeGeneration: false,
-    failureCode: 'auth_missing',
-    message: 'The local AI worker needs a valid sign-in before the workspace can open.',
-    provider: 'codex',
-    status: 'sign_in_required',
+test('routes first-launch import into the AI worker sign-in flow when the import boundary reports sign-in required', async () => {
+  const retryAiWorkerPreflight = vi.fn()
+  const importOriginalCv = vi.fn().mockResolvedValue({
+    kind: 'ai_worker_not_ready',
+    preflight: {
+      canResumeGeneration: false,
+      failureCode: 'auth_missing',
+      message: 'The local AI worker needs a valid sign-in before the workspace can open.',
+      provider: 'codex',
+      status: 'sign_in_required',
+    },
   })
-  const importOriginalCv = vi.fn()
 
   renderApp({
     aiWorker: createAiWorkerApi({
@@ -510,10 +505,10 @@ test('routes first-launch import into the AI worker sign-in flow when retry pref
   fireEvent.click(screen.getByRole('button', { name: 'Import original CV' }))
 
   await waitFor(() => {
-    expect(retryAiWorkerPreflight).toHaveBeenCalledTimes(1)
+    expect(importOriginalCv).toHaveBeenCalledTimes(1)
   })
 
-  expect(importOriginalCv).not.toHaveBeenCalled()
+  expect(retryAiWorkerPreflight).not.toHaveBeenCalled()
 
   await waitFor(() => {
     expect(screen.getByRole('heading', { name: 'Connect the local AI worker' })).toBeDefined()
@@ -1005,15 +1000,18 @@ test('keeps the existing active original CV visible when a workspace replacement
   expect(screen.getByRole('heading', { name: 'Create a tailored application' })).toBeDefined()
 })
 
-test('routes original CV replacement into the AI worker repair flow when retry preflight is unavailable', async () => {
-  const retryAiWorkerPreflight = vi.fn().mockResolvedValue({
-    canResumeGeneration: false,
-    failureCode: 'runtime_missing',
-    message: 'The local AI worker is unavailable. Check setup, then retry.',
-    provider: 'codex',
-    status: 'unavailable',
+test('routes original CV replacement into the AI worker repair flow when the import boundary reports the worker unavailable', async () => {
+  const retryAiWorkerPreflight = vi.fn()
+  const importOriginalCv = vi.fn().mockResolvedValue({
+    kind: 'ai_worker_not_ready',
+    preflight: {
+      canResumeGeneration: false,
+      failureCode: 'runtime_missing',
+      message: 'The local AI worker is unavailable. Check setup, then retry.',
+      provider: 'codex',
+      status: 'unavailable',
+    },
   })
-  const importOriginalCv = vi.fn()
 
   renderApp({
     aiWorker: createAiWorkerApi({
@@ -1062,10 +1060,10 @@ test('routes original CV replacement into the AI worker repair flow when retry p
   fireEvent.click(screen.getByRole('button', { name: 'Replace original CV' }))
 
   await waitFor(() => {
-    expect(retryAiWorkerPreflight).toHaveBeenCalledTimes(1)
+    expect(importOriginalCv).toHaveBeenCalledTimes(1)
   })
 
-  expect(importOriginalCv).not.toHaveBeenCalled()
+  expect(retryAiWorkerPreflight).not.toHaveBeenCalled()
 
   await waitFor(() => {
     expect(screen.getByRole('heading', { name: 'Repair the local AI worker' })).toBeDefined()

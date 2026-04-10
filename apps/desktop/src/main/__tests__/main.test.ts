@@ -182,13 +182,21 @@ test('bootstrap registers the full AI worker onboarding IPC surface and opens th
     }),
     getStartupDestination: vi.fn().mockResolvedValue('workspace_active'),
     openAiWorkerSetupGuide: vi.fn().mockImplementation(() => Promise.resolve()),
-    retryAiWorkerPreflight: vi.fn().mockResolvedValue({
-      canResumeGeneration: false,
-      failureCode: 'runtime_missing',
-      message: 'The local AI worker is unavailable. Check setup, then retry.',
-      provider: 'codex',
-      status: 'unavailable',
-    }),
+    retryAiWorkerPreflight: vi
+      .fn()
+      .mockResolvedValueOnce({
+        canResumeGeneration: false,
+        failureCode: 'runtime_missing',
+        message: 'The local AI worker is unavailable. Check setup, then retry.',
+        provider: 'codex',
+        status: 'unavailable',
+      })
+      .mockResolvedValueOnce({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
     startAiWorkerSignIn: vi.fn().mockResolvedValue({
       canResumeGeneration: true,
       message: 'The local AI worker is ready.',
@@ -748,6 +756,79 @@ test('bootstrap registers the full AI worker onboarding IPC surface and opens th
   expect(loadURL).not.toHaveBeenCalled()
   expect(eventHandlers.has('activate')).toBe(true)
   expect(eventHandlers.has('window-all-closed')).toBe(true)
+})
+
+test('original CV import IPC returns the shared readiness model when the AI worker sign-in has expired', async () => {
+  const { app } = createAppDouble()
+  const { browserWindow } = createBrowserWindowDouble()
+  const registeredHandlers = new Map<
+    string,
+    (_event?: unknown, payload?: unknown) => Promise<unknown>
+  >()
+  const handle = vi.fn(
+    (channel: string, handler: (_event: unknown, payload?: unknown) => Promise<unknown>) => {
+      registeredHandlers.set(channel, handler)
+    },
+  )
+  const aiWorker = {
+    getAiWorkerPreflight: vi.fn(),
+    getStartupDestination: vi.fn(),
+    openAiWorkerSetupGuide: vi.fn(),
+    retryAiWorkerPreflight: vi.fn().mockResolvedValue({
+      canResumeGeneration: true,
+      failureCode: 'auth_expired',
+      message:
+        'The local AI worker sign-in has expired. Sign in again before the workspace can open.',
+      provider: 'codex',
+      status: 'sign_in_required',
+    }),
+    startAiWorkerSignIn: vi.fn(),
+  }
+  const onOriginalCvImported = vi.fn()
+  const originalCv = {
+    getWorkspaceState: vi.fn(),
+    importOriginalCv: vi.fn(),
+  }
+
+  const bootstrap = createDesktopAppBootstrap({
+    aiWorker,
+    app,
+    browserWindow,
+    ipcMain: {
+      handle,
+    },
+    onOriginalCvImported,
+    originalCv,
+    platform: 'darwin',
+    preloadPath: '/preload.js',
+    rendererIndexPath: '/renderer/index.html',
+    settings: createSettingsDouble(),
+    tailoredApplication: createTailoredApplicationDouble(),
+    vacancy: createVacancyDouble(),
+  })
+
+  await bootstrap.start()
+
+  await expect(
+    registeredHandlers.get(ORIGINAL_CV_IPC_CHANNELS.importOriginalCv)?.(undefined, {
+      content: new Uint8Array([68, 79, 67, 88]),
+      filename: 'ada-lovelace-revised.docx',
+    }),
+  ).resolves.toEqual({
+    kind: 'ai_worker_not_ready',
+    preflight: {
+      canResumeGeneration: true,
+      failureCode: 'auth_expired',
+      message:
+        'The local AI worker sign-in has expired. Sign in again before the workspace can open.',
+      provider: 'codex',
+      status: 'sign_in_required',
+    },
+  })
+
+  expect(aiWorker.retryAiWorkerPreflight).toHaveBeenCalledTimes(1)
+  expect(originalCv.importOriginalCv).not.toHaveBeenCalled()
+  expect(onOriginalCvImported).not.toHaveBeenCalled()
 })
 
 test('bootstrap recreates the window on activate and quits on window-all-closed outside macOS', async () => {
