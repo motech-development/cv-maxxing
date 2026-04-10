@@ -158,6 +158,7 @@ export function createOriginalCvService({
       }
 
       validateNormalizedOriginalCv({
+        extractedText: extractedDocument.text,
         normalizedCv,
       })
       const importedAt = getCurrentTimestamp()
@@ -372,8 +373,10 @@ function isReadableExtraction(extractedText: string): boolean {
 }
 
 function validateNormalizedOriginalCv({
+  extractedText,
   normalizedCv,
 }: {
+  extractedText: string
   normalizedCv: NormalizedOriginalCv
 }): void {
   const hasReadableIdentity =
@@ -390,6 +393,60 @@ function validateNormalizedOriginalCv({
       message: INVALID_NORMALIZATION_MESSAGE,
     })
   }
+
+  validateGroundedHighRiskFields({
+    extractedText,
+    normalizedCv,
+  })
+}
+
+function validateGroundedHighRiskFields({
+  extractedText,
+  normalizedCv,
+}: {
+  extractedText: string
+  normalizedCv: NormalizedOriginalCv
+}): void {
+  if (!isGroundedInSource(normalizedCv.fullName, extractedText)) {
+    throwUnsupportedGroundingError()
+  }
+
+  if (!isGroundedInSource(normalizedCv.headline, extractedText)) {
+    throwUnsupportedGroundingError()
+  }
+
+  for (const skill of normalizedCv.skills) {
+    if (!isGroundedInSource(skill, extractedText)) {
+      throwUnsupportedGroundingError()
+    }
+  }
+}
+
+function isGroundedInSource(value: string, extractedText: string): boolean {
+  const normalizedValue = normalizeGroundingText(value)
+
+  if (normalizedValue === '') {
+    return true
+  }
+
+  const normalizedSource = normalizeGroundingText(extractedText)
+
+  return normalizedSource.includes(normalizedValue)
+}
+
+function normalizeGroundingText(value: string): string {
+  return value
+    .toLowerCase()
+    .replaceAll(/[^\p{L}\p{N}#+]+/gu, ' ')
+    .trim()
+    .replaceAll(/\s+/gu, ' ')
+}
+
+function throwUnsupportedGroundingError(): never {
+  throw new OriginalCvImportError({
+    code: 'weak_normalization',
+    message: INVALID_NORMALIZATION_MESSAGE,
+  })
 }
 
 function countWords(value: string): number {
