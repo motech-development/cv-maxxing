@@ -13,6 +13,16 @@ import {
 } from '../shared/language-support.js'
 import type { JsonValue, LocalAppDataStore } from './local-app-data-service.js'
 import type { VacancyBrowserPageSnapshot } from './vacancy-browser-session-service.js'
+import {
+  extractTextFromHtml,
+  inferPageTitle,
+  inferTitleFromPageTitle,
+  sanitizeSnapshotHtml,
+} from './vacancy-page-content.js'
+import type {
+  NormalizedVacancy,
+  VacancyNormalizationService,
+} from './vacancy-normalization-service.js'
 
 const VACANCY_DRAFT_SCOPE = 'vacancy-workspace'
 const VACANCY_FETCH_TIMEOUT_MS = 15_000
@@ -28,6 +38,7 @@ interface VacancyServiceDependencies {
   generateId?: () => string
   getCurrentTimestamp?: () => string
   localAppData: Pick<LocalAppDataStore, 'artifacts' | 'metadata'>
+  normalizationService: VacancyNormalizationService
   openVacancyBrowserSession: (input: {
     shouldCapturePage: (snapshot: VacancyBrowserPageSnapshot) => boolean
     url: string
@@ -65,15 +76,6 @@ export interface VacancyService {
   openBrowserSession: (input: { url: string }) => Promise<VacancyIngestResult>
 }
 
-interface NormalizedVacancy {
-  bodyText: string
-  employer: string | null
-  location: string | null
-  requirements: string[]
-  responsibilities: string[]
-  title: string | null
-}
-
 export function createVacancyService({
   fetchVacancyPage = fetchVacancyPageFromNetwork,
   generateId = randomUUID,
@@ -81,6 +83,7 @@ export function createVacancyService({
     return new Date().toISOString()
   },
   localAppData,
+  normalizationService,
   openVacancyBrowserSession,
 }: VacancyServiceDependencies): VacancyService {
   return {
@@ -241,6 +244,7 @@ export function createVacancyService({
         generateId,
         getCurrentTimestamp,
         localAppData,
+        normalizationService,
         originalUrl: normalizedUrl,
         source,
       })
@@ -310,6 +314,7 @@ export function createVacancyService({
         generateId,
         getCurrentTimestamp,
         localAppData,
+        normalizationService,
         originalUrl: normalizedUrl,
         source,
       })
@@ -322,6 +327,7 @@ async function persistFetchedVacancyPage({
   generateId,
   getCurrentTimestamp,
   localAppData,
+  normalizationService,
   originalUrl,
   source,
 }: {
@@ -333,13 +339,20 @@ async function persistFetchedVacancyPage({
   generateId: () => string
   getCurrentTimestamp: () => string
   localAppData: Pick<LocalAppDataStore, 'artifacts' | 'metadata'>
+  normalizationService: VacancyNormalizationService
   originalUrl: string
   source: VacancySource
 }): Promise<VacancyIngestResult> {
-  const extractedText = extractTextFromHtml(fetchedPage.html)
-  const normalizedVacancy = normalizeVacancyText(extractedText)
+  const normalizedVacancy = await normalizationService.normalizeVacancy({
+    html: fetchedPage.html,
+    originalUrl,
+    pageTitle: fetchedPage.pageTitle,
+    resolvedUrl: fetchedPage.resolvedUrl,
+    source,
+  })
   const vacancyId = generateId()
   const fetchedAt = getCurrentTimestamp()
+  const extractedText = normalizedVacancy.bodyText.trim()
   const isLanguageBlocked = assessEnglishLanguageSupport(extractedText).status === 'blocked'
   const canGenerate = !isLanguageBlocked && isVacancyReady(normalizedVacancy)
   let blockingReason: string | null = null
@@ -347,51 +360,26 @@ async function persistFetchedVacancyPage({
   if (isLanguageBlocked) {
     blockingReason = VACANCY_LANGUAGE_BLOCK_MESSAGE
   } else if (!canGenerate) {
-    blockingReason = detectIncompleteVacancyReason(extractedText)
-  }
-
-  let incompletePreview: ReturnType<typeof createIncompleteExtractedPreview> | null = null
-
-  if (!isLanguageBlocked && blockingReason !== null) {
-    incompletePreview = createIncompleteExtractedPreview({
-      blockingReason,
-      extractedText,
-      pageTitle: fetchedPage.pageTitle,
-    })
+    blockingReason = 'Add the full job responsibilities or requirements before adapting this CV.'
   }
 
   const vacancy = toVacancySummary({
     id: vacancyId,
     metadata: {
-      blockingReason:
-        incompletePreview === null ? blockingReason : incompletePreview.blockingReason,
+      blockingReason,
       canGenerate,
-      employer:
-        incompletePreview === null ? normalizedVacancy.employer : incompletePreview.employer,
+      employer: normalizedVacancy.employer,
       fetchedAt,
       inputType: 'url',
-      location:
-        incompletePreview === null ? normalizedVacancy.location : incompletePreview.location,
+      location: normalizedVacancy.location,
       originalUrl,
-      requirements:
-        incompletePreview === null
-          ? normalizedVacancy.requirements
-          : incompletePreview.requirements,
+      requirements: normalizedVacancy.requirements,
       resolvedUrl: fetchedPage.resolvedUrl,
-      responsibilities:
-        incompletePreview === null
-          ? normalizedVacancy.responsibilities
-          : incompletePreview.responsibilities,
+      responsibilities: normalizedVacancy.responsibilities,
       source,
       status: canGenerate ? 'ready' : 'incomplete',
-      textPreview:
-        incompletePreview === null
-          ? normalizedVacancy.bodyText.slice(0, 280)
-          : incompletePreview.textPreview,
-      title:
-        incompletePreview === null
-          ? (normalizedVacancy.title ?? inferTitleFromPageTitle(fetchedPage.pageTitle))
-          : incompletePreview.title,
+      textPreview: normalizedVacancy.bodyText.slice(0, 280),
+      title: normalizedVacancy.title ?? inferTitleFromPageTitle(fetchedPage.pageTitle),
     },
   })
 
@@ -784,128 +772,4 @@ function isVacancyReady(vacancy: NormalizedVacancy): boolean {
   }
 
   return vacancy.bodyText.length >= 180
-}
-
-function detectIncompleteVacancyReason(extractedText: string): string {
-  const normalizedText = extractedText.toLowerCase()
-
-  if (
-    normalizedText.includes('cookie') &&
-    (normalizedText.includes('accept') || normalizedText.includes('consent'))
-  ) {
-    return 'This vacancy page looks incomplete because it only exposed a cookie banner or placeholder content.'
-  }
-
-  if (
-    normalizedText.includes('sign in') ||
-    normalizedText.includes('log in') ||
-    normalizedText.includes('join linkedin')
-  ) {
-    return 'This vacancy page looks incomplete because it only exposed a sign-in wall.'
-  }
-
-  if (normalizedText.trim() === '') {
-    return 'This vacancy page looked empty after extraction.'
-  }
-
-  return 'This vacancy page did not include enough responsibilities or requirements to continue.'
-}
-
-function createIncompleteExtractedPreview({
-  blockingReason,
-  extractedText,
-  pageTitle,
-}: {
-  blockingReason: string
-  extractedText: string
-  pageTitle: string | null
-}): {
-  blockingReason: string
-  employer: string | null
-  location: string | null
-  requirements: string[]
-  responsibilities: string[]
-  textPreview: string
-  title: string | null
-} {
-  const trimmedText = extractedText.trim()
-
-  return {
-    blockingReason,
-    employer: null,
-    location: null,
-    requirements: [],
-    responsibilities: [],
-    textPreview: trimmedText.replaceAll(/\s+/g, ' ').slice(0, 280),
-    title: pageTitle,
-  }
-}
-
-function extractTextFromHtml(html: string): string {
-  const strippedHtml = html
-    .replaceAll(/<head[\s\S]*?<\/head>/gi, ' ')
-    .replaceAll(/<script[\s\S]*?<\/script>/gi, ' ')
-    .replaceAll(/<style[\s\S]*?<\/style>/gi, ' ')
-    .replaceAll(/<\/(p|div|section|article|li|ul|ol|h1|h2|h3|h4|br)>/gi, '\n')
-    .replaceAll(/<[^>]+>/g, ' ')
-    .replaceAll(/&nbsp;/gi, ' ')
-    .replaceAll(/&amp;/gi, '&')
-    .replaceAll(/&quot;/gi, '"')
-    .replaceAll(/&#39;/gi, "'")
-    .replaceAll(/\s+\n/g, '\n')
-    .replaceAll(/\n{2,}/g, '\n')
-
-  return strippedHtml.trim()
-}
-
-function sanitizeSnapshotHtml(html: string): string {
-  return html
-    .replaceAll(/<head[\s\S]*?<\/head>/gi, ' ')
-    .replaceAll(/<script[\s\S]*?<\/script>/gi, ' ')
-    .replaceAll(/<style[\s\S]*?<\/style>/gi, ' ')
-    .replaceAll(/<noscript[\s\S]*?<\/noscript>/gi, ' ')
-    .replaceAll(/<iframe[\s\S]*?<\/iframe>/gi, ' ')
-    .replaceAll(/<form[\s\S]*?<\/form>/gi, ' ')
-    .replaceAll(/<input[^>]*>/gi, ' ')
-    .replaceAll(/<textarea[\s\S]*?<\/textarea>/gi, ' ')
-    .replaceAll(/<select[\s\S]*?<\/select>/gi, ' ')
-    .replaceAll(
-      /localStorage|sessionStorage|document\.cookie|sessionToken|accessToken|refreshToken/gi,
-      '',
-    )
-    .replaceAll(/\b(?:authorization|set-cookie|cookie)\b/gi, '')
-}
-
-function inferPageTitle(html: string): string | null {
-  const titleMatch = /<title>([^<]+)<\/title>/i.exec(html)
-
-  if (titleMatch === null) {
-    return null
-  }
-
-  const [, title] = titleMatch
-
-  if (title === undefined) {
-    return null
-  }
-
-  return title.trim()
-}
-
-function inferTitleFromPageTitle(pageTitle: string | null): string | null {
-  if (pageTitle === null) {
-    return null
-  }
-
-  const normalizedTitle = pageTitle
-    .replace(/\s+-\s+Greenhouse$/i, '')
-    .replace(/\s+\|\s+Indeed$/i, '')
-    .replace(/\s+\|\s+LinkedIn$/i, '')
-    .split(/\s+(?:at|\|)\s+/i)[0]
-
-  if (normalizedTitle === undefined) {
-    return null
-  }
-
-  return normalizedTitle.trim()
 }

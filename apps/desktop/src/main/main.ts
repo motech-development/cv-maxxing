@@ -40,6 +40,8 @@ import {
 } from './tailored-application-session-service.js'
 import { createSettingsService, type SettingsService } from './settings-service.js'
 import { createVacancyBrowserSessionService } from './vacancy-browser-session-service.js'
+import { createVacancyNormalizationService } from './vacancy-normalization-service.js'
+import { createVacancyNormalizationWorker } from './vacancy-normalization-worker.js'
 import { createVacancyService, type VacancyService } from './vacancy-service.js'
 
 const CODEX_SETUP_GUIDE_URL = 'https://developers.openai.com/codex/app/'
@@ -148,6 +150,9 @@ interface RuntimeEnvironment {
   CV_MAXXING_AI_WORKER_ORIGINAL_CV_NORMALIZATION_DELAY_MS?: string
   CV_MAXXING_AI_WORKER_ORIGINAL_CV_NORMALIZATION_FAILURE?: string
   CV_MAXXING_AI_WORKER_ORIGINAL_CV_NORMALIZATION_OUTPUT?: string
+  CV_MAXXING_AI_WORKER_VACANCY_NORMALIZATION_DELAY_MS?: string
+  CV_MAXXING_AI_WORKER_VACANCY_NORMALIZATION_FAILURE?: string
+  CV_MAXXING_AI_WORKER_VACANCY_NORMALIZATION_OUTPUT?: string
   CV_MAXXING_LOCAL_APP_DATA_ROOT?: string
   CV_MAXXING_AI_WORKER_RETRY_STATUS?: string
   CV_MAXXING_AI_WORKER_SIGN_IN_STATUS?: string
@@ -537,6 +542,12 @@ async function createRuntimeServices(electronRuntime: ElectronRuntimeModule): Pr
       environment,
     }),
   })
+  const vacancyNormalizationService = createVacancyNormalizationService({
+    runWorkspaceRootPath: path.join(paths.rootDirectoryPath, 'runs', 'vacancy-normalization'),
+    worker: createVacancyNormalizationWorker({
+      environment,
+    }),
+  })
 
   await tailoredApplication.recoverInterruptedGeneration()
 
@@ -575,6 +586,7 @@ async function createRuntimeServices(electronRuntime: ElectronRuntimeModule): Pr
     tailoredApplication,
     vacancy: createVacancyService({
       localAppData,
+      normalizationService: vacancyNormalizationService,
       openVacancyBrowserSession: async ({ shouldCapturePage, url }) => {
         return await vacancyBrowserSession.openSession({
           shouldCapturePage,

@@ -7,6 +7,10 @@ import { afterEach, expect, test, vi } from 'vitest'
 import { createLocalAppDataPaths, openLocalAppData } from '../local-app-data-service.js'
 import { createVacancyService } from '../vacancy-service.js'
 import type { KeychainBoundary, LocalAppDataPaths } from '../local-app-data-service.js'
+import type {
+  VacancyNormalizationInput,
+  VacancyNormalizationService,
+} from '../vacancy-normalization-service.js'
 
 const temporaryDirectories: string[] = []
 
@@ -36,6 +40,22 @@ function createKeychainBoundary(secret = Buffer.alloc(32, 7)): KeychainBoundary 
   }
 }
 
+function createVacancyNormalizationServiceDouble(): VacancyNormalizationService {
+  return {
+    normalizeVacancy: vi.fn(() => {
+      return Promise.resolve({
+        bodyText:
+          'Lead product design for desktop workflows. Partner with engineering and research.',
+        employer: 'Example Labs',
+        location: 'London, United Kingdom',
+        requirements: ['Experience shipping workflow software.'],
+        responsibilities: ['Lead product design for desktop workflows.'],
+        title: 'Senior Product Designer',
+      })
+    }),
+  }
+}
+
 test('ingests pasted vacancy text into a ready preview and persists encrypted vacancy artifacts', async () => {
   const paths = await createTestPaths()
   const localAppData = await openLocalAppData({
@@ -46,6 +66,7 @@ test('ingests pasted vacancy text into a ready preview and persists encrypted va
     generateId: vi.fn(() => 'vacancy-001'),
     getCurrentTimestamp: vi.fn(() => '2026-04-08T21:00:00.000Z'),
     localAppData,
+    normalizationService: createVacancyNormalizationServiceDouble(),
     openVacancyBrowserSession: vi.fn(() => Promise.resolve(null)),
   })
 
@@ -138,6 +159,19 @@ test('classifies a Greenhouse vacancy URL, fetches it deterministically, and per
     keychain: createKeychainBoundary(),
     paths,
   })
+  const normalizationService = {
+    normalizeVacancy: vi.fn(() => {
+      return Promise.resolve({
+        bodyText:
+          'Lead product design for desktop workflows. Partner with engineering and research.',
+        employer: 'Example Labs',
+        location: 'London, United Kingdom',
+        requirements: ['Experience shipping workflow software.'],
+        responsibilities: ['Lead product design for desktop workflows.'],
+        title: 'Senior Product Designer',
+      })
+    }),
+  } satisfies VacancyNormalizationService
   const vacancyService = createVacancyService({
     fetchVacancyPage: vi.fn(() => {
       return Promise.resolve({
@@ -162,6 +196,7 @@ test('classifies a Greenhouse vacancy URL, fetches it deterministically, and per
     generateId: vi.fn(() => 'vacancy-002'),
     getCurrentTimestamp: vi.fn(() => '2026-04-08T21:10:00.000Z'),
     localAppData,
+    normalizationService,
     openVacancyBrowserSession: vi.fn(() => Promise.resolve(null)),
   })
 
@@ -176,13 +211,45 @@ test('classifies a Greenhouse vacancy URL, fetches it deterministically, and per
   expect(result.vacancy.employer).toBe('Example Labs')
   expect(result.vacancy.location).toBe('London, United Kingdom')
   expect(result.vacancy.canGenerate).toBe(true)
+  const normalizationCall = vi.mocked(normalizationService.normalizeVacancy).mock.calls[0]?.[0] as
+    | VacancyNormalizationInput
+    | undefined
 
+  expect(normalizationCall?.html).toContain('<h1>Senior Product Designer</h1>')
+  expect(normalizationCall?.originalUrl).toBe('https://boards.greenhouse.io/example/jobs/123')
+  expect(normalizationCall?.pageTitle).toBe('Senior Product Designer at Example Labs - Greenhouse')
+  expect(normalizationCall?.resolvedUrl).toBe('https://boards.greenhouse.io/example/jobs/123')
+  expect(normalizationCall?.source).toBe('greenhouse')
+
+  const extractedArtifact = await localAppData.artifacts.read({
+    id: 'vacancy-002',
+    name: 'extracted.txt',
+    scope: 'vacancies',
+  })
   const snapshotArtifact = await localAppData.artifacts.read({
     id: 'vacancy-002',
     name: 'snapshot.html',
     scope: 'vacancies',
   })
+  const normalizedArtifact = await localAppData.artifacts.read({
+    id: 'vacancy-002',
+    name: 'normalized.json',
+    scope: 'vacancies',
+  })
 
+  expect(extractedArtifact?.toString('utf8')).toBe(
+    'Lead product design for desktop workflows. Partner with engineering and research.',
+  )
+  expect(normalizedArtifact?.toString('utf8')).toBe(
+    JSON.stringify({
+      bodyText: 'Lead product design for desktop workflows. Partner with engineering and research.',
+      employer: 'Example Labs',
+      location: 'London, United Kingdom',
+      requirements: ['Experience shipping workflow software.'],
+      responsibilities: ['Lead product design for desktop workflows.'],
+      title: 'Senior Product Designer',
+    }),
+  )
   expect(snapshotArtifact?.toString('utf8')).toContain('<h1>Senior Product Designer</h1>')
   expect(snapshotArtifact?.toString('utf8')).not.toContain('localStorage')
 
@@ -201,6 +268,7 @@ test('preserves a LinkedIn vacancy URL and blocks generation until the browser-a
     generateId: vi.fn(() => 'vacancy-003'),
     getCurrentTimestamp: vi.fn(() => '2026-04-08T21:15:00.000Z'),
     localAppData,
+    normalizationService: createVacancyNormalizationServiceDouble(),
     openVacancyBrowserSession: vi.fn(() => Promise.resolve(null)),
   })
 
@@ -234,6 +302,7 @@ test('ingests a browser-assisted LinkedIn vacancy into a ready preview and persi
     generateId: vi.fn(() => 'vacancy-006'),
     getCurrentTimestamp: vi.fn(() => '2026-04-08T21:18:00.000Z'),
     localAppData,
+    normalizationService: createVacancyNormalizationServiceDouble(),
     openVacancyBrowserSession: vi.fn(() => {
       return Promise.resolve({
         html: [
@@ -333,6 +402,7 @@ test('keeps the internal browser session blocked when LinkedIn redirects away fr
     generateId: vi.fn(() => 'vacancy-006b'),
     getCurrentTimestamp: vi.fn(() => '2026-04-08T21:18:30.000Z'),
     localAppData,
+    normalizationService: createVacancyNormalizationServiceDouble(),
     openVacancyBrowserSession,
   })
 
@@ -365,6 +435,7 @@ test('does not persist a browser snapshot when the session closes on a different
     generateId: vi.fn(() => 'vacancy-006c'),
     getCurrentTimestamp: vi.fn(() => '2026-04-08T21:18:45.000Z'),
     localAppData,
+    normalizationService: createVacancyNormalizationServiceDouble(),
     openVacancyBrowserSession: vi.fn(() => {
       return Promise.resolve({
         html: [
@@ -416,6 +487,7 @@ test('returns an incomplete browser-assisted preview, preserves the vacancy draf
     generateId: vi.fn(() => 'vacancy-007'),
     getCurrentTimestamp: vi.fn(() => '2026-04-08T21:19:00.000Z'),
     localAppData,
+    normalizationService: createVacancyNormalizationServiceDouble(),
     openVacancyBrowserSession: vi.fn(() => {
       return Promise.resolve({
         html: [
@@ -461,12 +533,25 @@ test('returns an incomplete browser-assisted preview, preserves the vacancy draf
   await localAppData.close()
 })
 
-test('blocks a generic vacancy preview when the fetched page only contains a cookie banner and preserves the entered URL', async () => {
+test('derives generic URL review readiness from the normalized vacancy object and keeps the external workspace contract intact', async () => {
   const paths = await createTestPaths()
   const localAppData = await openLocalAppData({
     keychain: createKeychainBoundary(),
     paths,
   })
+  const normalizationService = {
+    normalizeVacancy: vi.fn(() => {
+      return Promise.resolve({
+        bodyText:
+          'Design the workflow surface for authenticated job-vacancy review. Partner with engineering to ship desktop product improvements and document system behaviour for operators.',
+        employer: null,
+        location: null,
+        requirements: [],
+        responsibilities: [],
+        title: 'Senior Product Designer',
+      })
+    }),
+  } satisfies VacancyNormalizationService
   const vacancyService = createVacancyService({
     fetchVacancyPage: vi.fn(() => {
       return Promise.resolve({
@@ -487,6 +572,7 @@ test('blocks a generic vacancy preview when the fetched page only contains a coo
     generateId: vi.fn(() => 'vacancy-004'),
     getCurrentTimestamp: vi.fn(() => '2026-04-08T21:20:00.000Z'),
     localAppData,
+    normalizationService,
     openVacancyBrowserSession: vi.fn(() => Promise.resolve(null)),
   })
 
@@ -494,19 +580,20 @@ test('blocks a generic vacancy preview when the fetched page only contains a coo
     url: 'https://careers.example.com/product-designer',
   })
 
-  expect(result.kind).toBe('incomplete')
+  expect(result.kind).toBe('ingested')
   expect(result.vacancy.source).toBe('generic')
-  expect(result.vacancy.canGenerate).toBe(false)
-  expect(result.vacancy.blockingReason).toContain('cookie banner')
+  expect(result.vacancy.canGenerate).toBe(true)
+  expect(result.vacancy.blockingReason).toBeNull()
+  expect(result.vacancy.title).toBe('Senior Product Designer')
+  expect(result.vacancy.textPreview).toContain('Design the workflow surface')
   await expect(vacancyService.getWorkspaceState()).resolves.toEqual({
     draft: {
       text: '',
       url: 'https://careers.example.com/product-designer',
     },
     vacancy: {
-      blockingReason:
-        'This vacancy page looks incomplete because it only exposed a cookie banner or placeholder content.',
-      canGenerate: false,
+      blockingReason: null,
+      canGenerate: true,
       employer: null,
       fetchedAt: '2026-04-08T21:20:00.000Z',
       id: 'vacancy-004',
@@ -517,9 +604,10 @@ test('blocks a generic vacancy preview when the fetched page only contains a coo
       resolvedUrl: 'https://careers.example.com/product-designer',
       responsibilities: [],
       source: 'generic',
-      status: 'incomplete',
-      textPreview: 'Accept cookies to continue Accept all cookies',
-      title: 'Cookie banner',
+      status: 'ready',
+      textPreview:
+        'Design the workflow surface for authenticated job-vacancy review. Partner with engineering to ship desktop product improvements and document system behaviour for operators.',
+      title: 'Senior Product Designer',
     },
   })
 
@@ -536,6 +624,7 @@ test('clears the persisted vacancy workspace draft without deleting the stored v
     generateId: vi.fn(() => 'vacancy-005'),
     getCurrentTimestamp: vi.fn(() => '2026-04-08T21:30:00.000Z'),
     localAppData,
+    normalizationService: createVacancyNormalizationServiceDouble(),
     openVacancyBrowserSession: vi.fn(() => Promise.resolve(null)),
   })
 
@@ -590,6 +679,7 @@ test('blocks a non-English pasted vacancy while preserving the entered draft', a
     generateId: vi.fn(() => 'vacancy-008'),
     getCurrentTimestamp: vi.fn(() => '2026-04-08T21:40:00.000Z'),
     localAppData,
+    normalizationService: createVacancyNormalizationServiceDouble(),
     openVacancyBrowserSession: vi.fn(() => Promise.resolve(null)),
   })
 
@@ -641,6 +731,19 @@ test('blocks a non-English fetched vacancy page while preserving the entered URL
     keychain: createKeychainBoundary(),
     paths,
   })
+  const normalizationService = {
+    normalizeVacancy: vi.fn(() => {
+      return Promise.resolve({
+        bodyText:
+          'Ingeniero de plataforma Diseñar productos para usuarios técnicos. Colaborar con ingeniería e investigación.',
+        employer: 'Example Labs',
+        location: 'Madrid, España',
+        requirements: ['Experiencia enviando software de flujo de trabajo.'],
+        responsibilities: ['Diseñar productos para usuarios técnicos.'],
+        title: 'Ingeniero de plataforma',
+      })
+    }),
+  } satisfies VacancyNormalizationService
   const vacancyService = createVacancyService({
     fetchVacancyPage: vi.fn(() => {
       return Promise.resolve({
@@ -665,6 +768,7 @@ test('blocks a non-English fetched vacancy page while preserving the entered URL
     generateId: vi.fn(() => 'vacancy-009'),
     getCurrentTimestamp: vi.fn(() => '2026-04-08T21:45:00.000Z'),
     localAppData,
+    normalizationService,
     openVacancyBrowserSession: vi.fn(() => Promise.resolve(null)),
   })
 
@@ -705,6 +809,7 @@ test('blocks a non-English browser-captured vacancy while preserving the entered
     generateId: vi.fn(() => 'vacancy-010'),
     getCurrentTimestamp: vi.fn(() => '2026-04-08T21:50:00.000Z'),
     localAppData,
+    normalizationService: createVacancyNormalizationServiceDouble(),
     openVacancyBrowserSession: vi.fn(() => {
       return Promise.resolve({
         html: [
