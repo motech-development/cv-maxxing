@@ -291,6 +291,121 @@ test('ingests a browser-assisted LinkedIn vacancy into a ready preview and persi
   await localAppData.close()
 })
 
+test('keeps the internal browser session blocked when LinkedIn redirects away from the requested vacancy after sign-in', async () => {
+  const paths = await createTestPaths()
+  const localAppData = await openLocalAppData({
+    keychain: createKeychainBoundary(),
+    paths,
+  })
+  const openVacancyBrowserSession = vi.fn(
+    ({
+      shouldCapturePage,
+    }: {
+      shouldCapturePage: (snapshot: {
+        html: string
+        pageTitle: string | null
+        resolvedUrl: string
+      }) => boolean
+    }) => {
+      const redirectedSnapshot = {
+        html: [
+          '<html>',
+          '<body>',
+          '<main>',
+          '<h1>LinkedIn Feed</h1>',
+          '<p>Welcome back.</p>',
+          '<section><h2>Responsibilities</h2><ul><li>Catch up on product design posts from your network.</li><li>Review updates from people you follow.</li></ul></section>',
+          '<section><h2>Requirements</h2><ul><li>Stay signed in to continue browsing LinkedIn.</li><li>Explore more jobs after authentication.</li></ul></section>',
+          '</main>',
+          '</body>',
+          '</html>',
+        ].join(''),
+        pageTitle: 'Feed | LinkedIn',
+        resolvedUrl: 'https://www.linkedin.com/feed/',
+      }
+
+      expect(shouldCapturePage(redirectedSnapshot)).toBe(false)
+
+      return Promise.resolve(null)
+    },
+  )
+  const vacancyService = createVacancyService({
+    generateId: vi.fn(() => 'vacancy-006b'),
+    getCurrentTimestamp: vi.fn(() => '2026-04-08T21:18:30.000Z'),
+    localAppData,
+    openVacancyBrowserSession,
+  })
+
+  await vacancyService.ingestVacancyUrl({
+    url: 'https://www.linkedin.com/jobs/view/123456',
+  })
+
+  const result = await vacancyService.openBrowserSession({
+    url: 'https://www.linkedin.com/jobs/view/123456',
+  })
+
+  expect(result.kind).toBe('incomplete')
+  expect(result.vacancy.canGenerate).toBe(false)
+  expect(result.vacancy.blockingReason).toContain('Close the internal browser session')
+  expect(result.workspaceState.draft).toEqual({
+    text: '',
+    url: 'https://www.linkedin.com/jobs/view/123456',
+  })
+
+  await localAppData.close()
+})
+
+test('does not persist a browser snapshot when the session closes on a different LinkedIn page than the requested vacancy', async () => {
+  const paths = await createTestPaths()
+  const localAppData = await openLocalAppData({
+    keychain: createKeychainBoundary(),
+    paths,
+  })
+  const vacancyService = createVacancyService({
+    generateId: vi.fn(() => 'vacancy-006c'),
+    getCurrentTimestamp: vi.fn(() => '2026-04-08T21:18:45.000Z'),
+    localAppData,
+    openVacancyBrowserSession: vi.fn(() => {
+      return Promise.resolve({
+        html: [
+          '<html>',
+          '<body>',
+          '<main>',
+          '<h1>LinkedIn Feed</h1>',
+          '<p>Welcome back.</p>',
+          '<section><h2>Responsibilities</h2><ul><li>Catch up on product design posts from your network.</li><li>Review updates from people you follow.</li></ul></section>',
+          '<section><h2>Requirements</h2><ul><li>Stay signed in to continue browsing LinkedIn.</li><li>Explore more jobs after authentication.</li></ul></section>',
+          '</main>',
+          '</body>',
+          '</html>',
+        ].join(''),
+        pageTitle: 'Feed | LinkedIn',
+        resolvedUrl: 'https://www.linkedin.com/feed/',
+      })
+    }),
+  })
+
+  await vacancyService.ingestVacancyUrl({
+    url: 'https://www.linkedin.com/jobs/view/123456',
+  })
+
+  const result = await vacancyService.openBrowserSession({
+    url: 'https://www.linkedin.com/jobs/view/123456',
+  })
+
+  expect(result.kind).toBe('incomplete')
+  expect(result.vacancy.canGenerate).toBe(false)
+  expect(result.workspaceState.vacancy).toBeNull()
+  await expect(
+    localAppData.metadata.get({
+      id: 'vacancy-006c',
+      scope: 'vacancies',
+    }),
+  ).resolves.toBeNull()
+
+  await localAppData.close()
+})
+
 test('returns an incomplete browser-assisted preview, preserves the vacancy draft, and keeps adaptation blocked when the authenticated page is still incomplete', async () => {
   const paths = await createTestPaths()
   const localAppData = await openLocalAppData({

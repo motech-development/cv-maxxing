@@ -116,14 +116,58 @@ test('returns the latest observed page when the browser window closes before ext
     profileRootPath: '/tmp/cv-maxxing/browser-sessions',
   })
 
-  const result = await vacancyBrowserSession.openSession({
+  const resultPromise = vacancyBrowserSession.openSession({
     shouldCapturePage: () => false,
     url: 'https://www.linkedin.com/jobs/view/123456',
   })
+
+  await vi.waitFor(() => {
+    expect(constructor).toHaveBeenCalledTimes(1)
+  })
+
+  const createdWindow = constructor.mock.results[0]?.value as BrowserWindowDouble | undefined
+
+  expect(createdWindow).toBeDefined()
+  expect(createdWindow?.isDestroyed()).toBe(false)
+
+  createdWindow?.close()
+
+  const result = await resultPromise
 
   expect(result).toEqual({
     html: '<main><h1>Sign in to view this job</h1></main>',
     pageTitle: 'Sign in to view this job | LinkedIn',
     resolvedUrl: 'https://www.linkedin.com/jobs/view/123456',
+  })
+})
+
+test('auto-closes an incomplete first observation only for synthetic browser-session fixtures', async () => {
+  const constructor = vi.fn(function BrowserWindowConstructor(options: Record<string, unknown>) {
+    return new BrowserWindowDouble(options, {
+      html: '<main><h1>Sign in to view this job</h1></main>',
+      pageTitle: 'Sign in to view this job | LinkedIn',
+      resolvedUrl: 'data:text/html,fixture',
+    })
+  })
+  const vacancyBrowserSession = createVacancyBrowserSessionService({
+    autoCloseAfterFirstObservation: true,
+    browserWindowConstructor: constructor as never,
+    createSession: vi.fn(() => Promise.resolve({} as Session)),
+    profileRootPath: '/tmp/cv-maxxing/browser-sessions',
+    testSnapshotHtml: '<main><h1>Fixture</h1></main>',
+  })
+
+  const result = await vacancyBrowserSession.openSession({
+    shouldCapturePage: () => false,
+    url: 'https://www.linkedin.com/jobs/view/123456',
+  })
+  const createdWindow = constructor.mock.results[0]?.value as BrowserWindowDouble | undefined
+
+  expect(createdWindow).toBeDefined()
+  expect(createdWindow?.isDestroyed()).toBe(true)
+  expect(result).toEqual({
+    html: '<main><h1>Sign in to view this job</h1></main>',
+    pageTitle: 'Sign in to view this job | LinkedIn',
+    resolvedUrl: 'data:text/html,fixture',
   })
 })

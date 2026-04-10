@@ -34,6 +34,7 @@ These rules always apply. Follow project-local rules first when they are more sp
 - Use Vitest for unit tests. Keep tests colocated in `__tests__` folders next to the source they cover.
 - Implement new behavior and bug fixes using TDD: start with a failing automated test, make it pass with the minimal change, then refactor while keeping the test suite green.
 - Use `CV_MAXXING_LOCAL_APP_DATA_ROOT` in desktop smoke/Electron tests when deterministic local encrypted storage paths are required; point it at a disposable temp directory instead of the user profile.
+- Treat `CV_MAXXING_VACANCY_BROWSER_SESSION_CLOSE_AFTER_LOAD` as a synthetic browser-session fixture aid only; it should only auto-close sessions when paired with `CV_MAXXING_VACANCY_BROWSER_SESSION_HTML`, never for real interactive auth windows.
 - Run required desktop CI on `macos-15-intel` so Electron smoke, visual baselines, and packaged build verification stay aligned with the v1 macOS Intel target.
 - When building new functionality or making material refactors, consult `ARCHITECTURE.md` and align implementation with its current decisions unless a newer explicit decision supersedes it.
 - Treat `design/app.pen` as the authoritative reference for desktop app UI states and layout.

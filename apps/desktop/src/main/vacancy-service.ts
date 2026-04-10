@@ -250,6 +250,16 @@ export function createVacancyService({
       const source = classifyVacancyUrl(normalizedUrl)
       const browserSnapshot = await openVacancyBrowserSession({
         shouldCapturePage: (snapshot) => {
+          if (
+            !isExpectedBrowserSessionVacancyPage({
+              originalUrl: normalizedUrl,
+              resolvedUrl: snapshot.resolvedUrl,
+              source,
+            })
+          ) {
+            return false
+          }
+
           const extractedText = extractTextFromHtml(snapshot.html)
           const normalizedVacancy = normalizeVacancyText(extractedText)
 
@@ -261,7 +271,14 @@ export function createVacancyService({
         url: normalizedUrl,
       })
 
-      if (browserSnapshot === null) {
+      if (
+        browserSnapshot === null ||
+        !isExpectedBrowserSessionVacancyPage({
+          originalUrl: normalizedUrl,
+          resolvedUrl: browserSnapshot.resolvedUrl,
+          source,
+        })
+      ) {
         const incompleteVacancy = createBlockedVacancySummary({
           blockingReason:
             'Close the internal browser session after the vacancy page loads, or paste the full job text instead.',
@@ -548,6 +565,59 @@ function classifyVacancyUrl(url: string): VacancySource {
   }
 
   return 'generic'
+}
+
+function isExpectedBrowserSessionVacancyPage({
+  originalUrl,
+  resolvedUrl,
+  source,
+}: {
+  originalUrl: string
+  resolvedUrl: string
+  source: VacancySource
+}): boolean {
+  if (source !== 'linkedin' && source !== 'indeed') {
+    return true
+  }
+
+  try {
+    const requestedUrl = new URL(originalUrl)
+    const currentUrl = new URL(resolvedUrl)
+
+    if (source === 'linkedin') {
+      return extractLinkedInJobId(currentUrl) === extractLinkedInJobId(requestedUrl)
+    }
+
+    return extractIndeedJobKey(currentUrl) === extractIndeedJobKey(requestedUrl)
+  } catch {
+    return false
+  }
+}
+
+function extractLinkedInJobId(url: URL): string | null {
+  const pathMatch = /^\/jobs\/view\/(\d+)/.exec(url.pathname)
+
+  if (pathMatch?.[1] !== undefined) {
+    return pathMatch[1]
+  }
+
+  const currentJobId = url.searchParams.get('currentJobId')
+
+  if (currentJobId === null || currentJobId.trim() === '') {
+    return null
+  }
+
+  return currentJobId
+}
+
+function extractIndeedJobKey(url: URL): string | null {
+  const jobKey = url.searchParams.get('jk')
+
+  if (jobKey === null || jobKey.trim() === '') {
+    return null
+  }
+
+  return jobKey
 }
 
 function normalizeUrl(url: string | undefined): string | null {

@@ -71,6 +71,8 @@ export function createVacancyBrowserSessionService({
     ((profilePath: string) => {
       return loadElectronRuntime().session.fromPath(profilePath)
     })
+  const shouldAutoCloseAfterObservation =
+    autoCloseAfterFirstObservation && testSnapshotHtml !== undefined
 
   return {
     openSession: async ({
@@ -140,7 +142,7 @@ export function createVacancyBrowserSessionService({
             return
           }
 
-          if (autoCloseAfterFirstObservation) {
+          if (shouldAutoCloseAfterObservation) {
             closeWindow()
           }
         }
