@@ -24,6 +24,7 @@ interface WorkspaceActiveScreenProperties {
   isExportingPdf: boolean
   isImportingOriginalCv: boolean
   onCopyCoverLetterText: () => void
+  onCreateVacancy: () => void
   onDeleteTailoredApplication: () => void
   onExportPdf: () => void
   onOriginalCvFileSelection: (event: ChangeEvent<HTMLInputElement>) => void
@@ -47,6 +48,7 @@ export function WorkspaceActiveScreen({
   isExportingPdf,
   isImportingOriginalCv,
   onCopyCoverLetterText,
+  onCreateVacancy,
   onDeleteTailoredApplication,
   onExportPdf,
   onOriginalCvFileSelection,
@@ -88,7 +90,9 @@ export function WorkspaceActiveScreen({
       sidebar={
         <>
           <SectionLabel>Job vacancies</SectionLabel>
-          <Button tone="primary">New vacancy</Button>
+          <Button onClick={onCreateVacancy} tone="primary">
+            New vacancy
+          </Button>
           <div className="flex flex-col gap-[10px]">
             {applications.map((application, index) => {
               const isActiveApplication =

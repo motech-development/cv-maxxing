@@ -1,6 +1,7 @@
 import type { ChangeEvent } from 'react'
 
 import type { OriginalCvSummary } from '../../shared/original-cv.js'
+import type { TailoredApplicationListItem } from '../../shared/tailored-application.js'
 import type { VacancySummary } from '../../shared/vacancy.js'
 import { DesktopShell, type RailItemId } from '../shell/desktop-shell.js'
 import { Button } from '../ui/button.js'
@@ -11,6 +12,7 @@ import { VacancyPreviewCard } from '../ui/vacancy-preview-card.js'
 
 interface WorkspaceEmptyScreenProperties {
   activeOriginalCv: OriginalCvSummary | null
+  applications: TailoredApplicationListItem[]
   importError: string | null
   isImportingOriginalCv: boolean
   isAdaptingCv: boolean
@@ -21,6 +23,7 @@ interface WorkspaceEmptyScreenProperties {
   onOriginalCvFileSelection: (event: ChangeEvent<HTMLInputElement>) => void
   onReplaceOriginalCv: () => void
   onResetDrafts: () => void
+  onSelectApplication: (tailoredApplicationId: string) => void
   onReviewPastedVacancy: () => void
   onReviewVacancyUrl: () => void
   onSelectRailItem?: (item: RailItemId) => void
@@ -39,6 +42,7 @@ const fieldClassName =
 
 export function WorkspaceEmptyScreen({
   activeOriginalCv,
+  applications,
   importError,
   isImportingOriginalCv,
   isAdaptingCv,
@@ -49,6 +53,7 @@ export function WorkspaceEmptyScreen({
   onOriginalCvFileSelection,
   onReplaceOriginalCv,
   onResetDrafts,
+  onSelectApplication,
   onReviewPastedVacancy,
   onReviewVacancyUrl,
   onSelectRailItem,
@@ -61,6 +66,7 @@ export function WorkspaceEmptyScreen({
   vacancyReviewError,
   workspaceError,
 }: WorkspaceEmptyScreenProperties) {
+  const hasSavedApplications = applications.length > 0
   const isUrlSubmissionDisabled = isReviewingVacancy || isAdaptingCv || urlDraft.trim() === ''
   const isTextSubmissionDisabled = isReviewingVacancy || isAdaptingCv || textDraft.trim() === ''
 
@@ -72,15 +78,42 @@ export function WorkspaceEmptyScreen({
         <>
           <SectionLabel>Job vacancies</SectionLabel>
           <h2 className="m-0 text-2xl font-extrabold tracking-[-0.02em] text-[var(--color-copy-strong)]">
-            No tailored applications yet
+            {hasSavedApplications ? 'Saved tailored applications' : 'No tailored applications yet'}
           </h2>
           <p className="m-0 text-sm leading-6 text-[var(--color-copy-muted)]">
-            Start with a job vacancy URL or paste the vacancy text. Saved tailored applications will
-            appear here.
+            {hasSavedApplications
+              ? 'Start a fresh vacancy draft or reopen one of your saved tailored applications.'
+              : 'Start with a job vacancy URL or paste the vacancy text. Saved tailored applications will appear here.'}
           </p>
           <Button onClick={onResetDrafts} tone="primary">
             New vacancy
           </Button>
+          {hasSavedApplications ? (
+            <div className="flex flex-col gap-[10px]">
+              {applications.map((application) => {
+                return (
+                  <PanelCard className="bg-white p-3" key={application.id}>
+                    <button
+                      aria-label={`Open tailored application ${application.vacancyTitle ?? application.title}`}
+                      className="w-full text-left"
+                      onClick={() => {
+                        onSelectApplication(application.id)
+                      }}
+                      type="button"
+                    >
+                      <p className="m-0 text-sm font-extrabold text-[var(--color-copy-strong)]">
+                        {application.vacancyTitle ?? application.title}
+                      </p>
+                      <p className="mt-1 text-xs leading-5 text-[var(--color-copy-muted)]">
+                        {application.employer ? `${application.employer} · ` : ''}immutable PDF
+                        outputs
+                      </p>
+                    </button>
+                  </PanelCard>
+                )
+              })}
+            </div>
+          ) : null}
           <div className="flex-1" />
           {activeOriginalCv ? (
             <OriginalCvReplacementCard

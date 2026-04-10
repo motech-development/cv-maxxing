@@ -842,6 +842,28 @@ export function App() {
     setIsConfirmingDeleteTailoredApplication(true)
   }
 
+  const handleCreateVacancy = async (): Promise<void> => {
+    if (clearVacancyWorkspaceMutation.isPending) {
+      return
+    }
+
+    try {
+      await clearVacancyWorkspaceMutation.mutateAsync()
+
+      setIsConfirmingDeleteTailoredApplication(false)
+      setPreviewDocumentKind('adapted_cv')
+      setReadinessError(null)
+      setSelectedTailoredApplicationId(null)
+      setStartupDestinationOverride('workspace_empty')
+      setVacancyDraft(initialVacancyDraft)
+      setVacancyPreviewOverride(null)
+    } catch (error) {
+      setVacancyReviewError(
+        resolveErrorMessage(error, 'Unable to clear the current vacancy draft.'),
+      )
+    }
+  }
+
   const handleCopyCoverLetterText = async (): Promise<void> => {
     if (tailoredApplicationPreview === null || isCopyingCoverLetterText) {
       return
@@ -1018,6 +1040,9 @@ export function App() {
           onCopyCoverLetterText={() => {
             handleCopyCoverLetterText().catch(() => null)
           }}
+          onCreateVacancy={() => {
+            handleCreateVacancy().catch(() => null)
+          }}
           onExportPdf={() => {
             handleExportAdaptedCvPdf().catch(() => null)
           }}
@@ -1044,6 +1069,7 @@ export function App() {
       return (
         <WorkspaceEmptyScreen
           activeOriginalCv={originalCvWorkspaceState.activeOriginalCv}
+          applications={tailoredApplicationWorkspaceState.applications}
           importError={importError}
           isAdaptingCv={isPendingGenerationActionPending}
           isImportingOriginalCv={isImportingOriginalCv}
@@ -1080,6 +1106,10 @@ export function App() {
             handleOriginalCvImport('workspace_empty').catch(() => null)
           }}
           onSelectRailItem={handleSelectRailItem}
+          onSelectApplication={(tailoredApplicationId) => {
+            setStartupDestinationOverride('workspace_active')
+            handleSelectTailoredApplication(tailoredApplicationId)
+          }}
           onResetDrafts={() => {
             clearVacancyWorkspaceMutation
               .mutateAsync()
