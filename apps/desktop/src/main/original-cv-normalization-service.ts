@@ -67,7 +67,7 @@ const missingOriginalCvNormalizationWorker: OriginalCvNormalizationWorker = {
   },
 }
 
-const DEFAULT_ORIGINAL_CV_NORMALIZATION_TIMEOUT_MS = 45_000
+const DEFAULT_ORIGINAL_CV_NORMALIZATION_TIMEOUT_MS = 120_000
 const ORIGINAL_CV_NORMALIZATION_TIMEOUT_REASON = Symbol('original-cv-normalization-timeout')
 
 export function createOriginalCvNormalizationService({

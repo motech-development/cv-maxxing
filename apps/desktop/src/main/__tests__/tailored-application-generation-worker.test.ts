@@ -110,4 +110,22 @@ test('reports invalid Codex CLI output JSON with the output file path', async ()
       signal: new AbortController().signal,
     }),
   ).rejects.toThrow(/Codex CLI output at .*result\.json produced invalid JSON/u)
+
+  expect(spawnMock).toHaveBeenCalledWith(
+    'codex',
+    expect.arrayContaining([
+      'exec',
+      '-m',
+      'gpt-5.4',
+      '-c',
+      'model_reasoning_effort="low"',
+      '--skip-git-repo-check',
+      '--sandbox',
+      'workspace-write',
+    ]),
+    expect.objectContaining({
+      cwd: runDirectoryPath,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    }),
+  )
 })

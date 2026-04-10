@@ -80,6 +80,8 @@ const OUTPUT_SCHEMA = {
   required: ['normalizedCv', 'writingStyle'],
   type: 'object',
 } as const
+const ORIGINAL_CV_NORMALIZATION_MODEL = 'gpt-5.4'
+const ORIGINAL_CV_NORMALIZATION_REASONING_EFFORT = 'low'
 
 export function createOriginalCvNormalizationWorker({
   environment = process.env,
@@ -155,6 +157,10 @@ async function runCodexCliNormalization({
       command,
       [
         'exec',
+        '-m',
+        ORIGINAL_CV_NORMALIZATION_MODEL,
+        '-c',
+        `model_reasoning_effort="${ORIGINAL_CV_NORMALIZATION_REASONING_EFFORT}"`,
         '--skip-git-repo-check',
         '--sandbox',
         'workspace-write',
@@ -166,6 +172,7 @@ async function runCodexCliNormalization({
       ],
       {
         cwd: runDirectoryPath,
+        stdio: ['ignore', 'pipe', 'pipe'],
       },
     )
 

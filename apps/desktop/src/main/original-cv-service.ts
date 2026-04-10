@@ -22,6 +22,8 @@ import type {
 const ORIGINAL_CV_SCOPE = 'original-cvs'
 const INVALID_NORMALIZATION_MESSAGE =
   'This original CV could not be organised reliably. Try a clearer PDF or DOCX.'
+const NORMALIZATION_TIMEOUT_MESSAGE =
+  'The local AI worker timed out while organising this original CV. Retry the import.'
 const UNREADABLE_EXTRACTION_MESSAGE =
   'This original CV could not be read reliably. Use a text-based PDF or DOCX.'
 const SKILL_GROUNDING_STOP_WORDS = new Set([
@@ -162,7 +164,10 @@ export function createOriginalCvService({
         if (error instanceof OriginalCvNormalizationError) {
           throw new OriginalCvImportError({
             code: 'invalid_normalization',
-            message: INVALID_NORMALIZATION_MESSAGE,
+            message:
+              error.code === 'timeout'
+                ? NORMALIZATION_TIMEOUT_MESSAGE
+                : INVALID_NORMALIZATION_MESSAGE,
           })
         }
 
@@ -397,9 +402,8 @@ function validateNormalizedOriginalCv({
     return countWords(entry) >= 4
   })
   const hasSubstantiveSkills = normalizedCv.skills.length >= 3
-  const hasSummary = countWords(normalizedCv.summary) >= 6
 
-  if (!hasReadableIdentity || (!hasSubstantiveExperience && !hasSubstantiveSkills) || !hasSummary) {
+  if (!hasReadableIdentity || (!hasSubstantiveExperience && !hasSubstantiveSkills)) {
     throw new OriginalCvImportError({
       code: 'weak_normalization',
       message: INVALID_NORMALIZATION_MESSAGE,

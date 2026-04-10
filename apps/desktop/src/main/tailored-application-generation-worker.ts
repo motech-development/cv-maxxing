@@ -120,6 +120,8 @@ const OUTPUT_SCHEMA = {
   required: ['adaptationSummary', 'adaptedCv', 'coverLetter', 'coverLetterPlainText', 'trace'],
   type: 'object',
 } as const
+const TAILORED_APPLICATION_GENERATION_MODEL = 'gpt-5.4'
+const TAILORED_APPLICATION_GENERATION_REASONING_EFFORT = 'low'
 
 export function createTailoredApplicationGenerationWorker({
   environment = process.env,
@@ -190,6 +192,10 @@ async function runCodexCliGeneration({
       command,
       [
         'exec',
+        '-m',
+        TAILORED_APPLICATION_GENERATION_MODEL,
+        '-c',
+        `model_reasoning_effort="${TAILORED_APPLICATION_GENERATION_REASONING_EFFORT}"`,
         '--skip-git-repo-check',
         '--sandbox',
         'workspace-write',
@@ -201,6 +207,7 @@ async function runCodexCliGeneration({
       ],
       {
         cwd: runDirectoryPath,
+        stdio: ['ignore', 'pipe', 'pipe'],
       },
     )
 

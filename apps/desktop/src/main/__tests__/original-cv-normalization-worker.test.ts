@@ -178,6 +178,24 @@ test('kills the Codex CLI subprocess when normalization is aborted', async () =>
     expect(spawnMock).toHaveBeenCalledTimes(1)
   })
 
+  expect(spawnMock).toHaveBeenCalledWith(
+    'codex',
+    expect.arrayContaining([
+      'exec',
+      '-m',
+      'gpt-5.4',
+      '-c',
+      'model_reasoning_effort="low"',
+      '--skip-git-repo-check',
+      '--sandbox',
+      'workspace-write',
+    ]),
+    expect.objectContaining({
+      cwd: runDirectoryPath,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    }),
+  )
+
   abortController.abort()
 
   await expect(runPromise).rejects.toThrow('Original CV normalization cancelled.')
