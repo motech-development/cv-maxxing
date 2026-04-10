@@ -316,6 +316,79 @@ test('passes derived original-CV normalization artifacts through to the tailored
   ])
 })
 
+test('keeps existing original CV snapshots unavailable when required artifacts are missing instead of repairing them', async () => {
+  const harness = await createHarness()
+
+  await seedOriginalCvAndVacancy(harness)
+  await harness.localAppData.deleteScopedData({
+    id: 'original-cv-123',
+    scope: 'original-cvs',
+  })
+  await harness.localAppData.artifacts.write({
+    content: Buffer.from(
+      [
+        'Ada Lovelace',
+        'Principal Product Designer',
+        'Summary',
+        'Design leader focused on complex workflow products for technical users.',
+      ].join('\n'),
+      'utf8',
+    ),
+    id: 'original-cv-123',
+    name: 'extracted.txt',
+    scope: 'original-cvs',
+  })
+
+  const runGeneration = vi.fn()
+  const service = createTailoredApplicationSessionService({
+    adaptedCvRenderer: {
+      renderAdaptedCvPdf: vi.fn(),
+    },
+    aiWorker: {
+      retryAiWorkerPreflight: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+    },
+    coverLetterRenderer: {
+      renderCoverLetterPdf: vi.fn(),
+    },
+    generateId: createIdGenerator(['command-123', 'run-123', 'tailored-application-123']),
+    getCurrentTimestamp: () => {
+      return '2026-04-09T09:30:00.000Z'
+    },
+    localAppData: harness.localAppData,
+    readinessStore: harness.readinessStore,
+    runWorkspaceRootPath: path.join(harness.paths.rootDirectoryPath, 'runs'),
+    worker: {
+      runGeneration,
+    },
+  })
+
+  await service.startPendingGeneration({
+    originalCvId: 'original-cv-123',
+    originalCvLabel: 'ada-lovelace.pdf',
+    vacancyDraft: {
+      text: 'Senior platform engineer',
+      url: 'https://jobs.example.com/roles/123',
+    },
+  })
+
+  await expect(service.resumePendingGeneration()).rejects.toThrow(
+    'The selected original CV is incomplete or unavailable.',
+  )
+  await expect(
+    harness.localAppData.artifacts.read({
+      id: 'original-cv-123',
+      name: 'normalized.json',
+      scope: 'original-cvs',
+    }),
+  ).resolves.toBeNull()
+  expect(runGeneration).not.toHaveBeenCalled()
+})
+
 test('returns both PDF artifacts in the preview payload and exports the cover-letter PDF with overwrite avoidance', async () => {
   const harness = await createHarness()
 

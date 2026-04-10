@@ -545,56 +545,61 @@ Scanned/image-only PDFs are not supported in v1. Detect likely image-only or gar
 ### 9.2 Import pipeline
 
 ```text
-1. Copy original file into app storage
-2. Extract text and metadata
-3. Normalize into canonical CV JSON
-4. Compute style fingerprint
-5. Persist original CV record
+1. Extract deterministic PDF or DOCX text and page metadata
+2. Reject unreadable or garbled extraction before AI normalization
+3. Submit extracted text plus import metadata to the provider-neutral original-CV normalization service
+4. Receive the minimal canonical CV JSON plus writing-style profile from the configured AI worker
+5. Deterministically validate normalization output into approved failure modes
+6. Persist the source file, extracted text, normalized CV JSON, writing-style profile JSON, and active snapshot metadata
 ```
 
-Require successful text extraction with enough usable content to identify at least a name or role-like heading plus one substantive experience or skills section before adaptation is allowed. Do not rely on the AI worker to reconstruct a broken CV.
+Future imports use the AI-backed normalization path exclusively. The app does not keep a deterministic heading parser or deterministic writing-style heuristic as a fallback import path.
+
+Require successful text extraction with enough usable content to justify AI normalization. Do not rely on the AI worker to reconstruct a broken or image-only CV.
+
+Deterministic validation maps failures into three internal import codes:
+
+- `unreadable_extraction`
+- `invalid_normalization`
+- `weak_normalization`
+
+The visible UI treatment stays the same, but the user-facing copy distinguishes unreadable extraction from normalization that could not organise the CV reliably.
 
 DOCX import should extract and normalize content only. The app renderer owns output layout and formatting.
 
 ### 9.3 Canonical CV model
 
-Use a structured JSON model as the authoritative model for generation and rendering.
+Use the stored normalized original-CV JSON as the authoritative import output consumed by later tailored-application generation.
 
-Core sections:
+The shipped v1 import model is intentionally minimal and unchanged by the AI rollout:
 
-- identity
-- contact
-- summary
-- experience
-- selected work
-- impact highlights
-- skills
-- tools
-- education
-- certifications
-- languages
-- focus
-- references
+- `fullName`
+- `headline`
+- `summary`
+- `experience`
+- `skills`
 
-The app uses its fixed section model for adapted CV output and hides empty optional sections. Mandatory sections are identity/contact, profile/summary, experience, and skills when present in the original CV. Education, certifications, languages, focus, selected work, impact highlights, and references render only when grounded in original CV evidence.
+Missing-value conventions remain unchanged:
+
+- blank strings for missing scalar fields
+- empty arrays for missing list fields
+
+Existing imported snapshots are not migrated. Old and new snapshots remain generation-compatible as long as the expected stored artifacts are present. Missing artifacts remain `incomplete or unavailable`; the app does not repair them automatically.
 
 Imported original CVs should be English. v1 output is always British English. Contact details should remain exactly as imported, while prose and confident date rendering should follow British English conventions.
 
 ### 9.4 Style fingerprint
 
-Because cover letters must match the original CV style, every imported CV should also generate a `WritingStyleProfile`.
+Because cover letters must match the original CV style, every imported CV also stores a `WritingStyleProfile` alongside the normalized original-CV JSON.
 
-This profile should capture:
+The shipped v1 profile shape is:
 
-- sentence length tendencies
-- tone formality
-- preferred vocabulary
-- first-person vs third-person tendency
-- punctuation patterns
-- cliché blacklist
-- banned AI phrases
+- `averageSentenceLength`
+- `clicheDetections`
+- `firstPersonUsage`
+- `formality`
 
-This becomes a hard constraint in cover-letter generation.
+The AI worker now produces this profile during original-CV normalization. Tailored-application generation consumes the stored profile unchanged.
 
 ## 10. Canonical Domain Model
 
@@ -741,8 +746,7 @@ Do not ask fact-collection questions in v1. If a match is weak, generate from or
 ### 12.2 Pipeline stages
 
 ```text
-1. Normalize original CV
-2. Compute writing-style profile
+1. Normalize original CV and writing-style profile through the original-CV import worker contract
 3. Fetch and normalize vacancy
 4. Extract vacancy priority signals
 5. Map original CV evidence to vacancy priorities
@@ -1309,9 +1313,10 @@ Baseline packaging requirements:
 
 - import PDF and DOCX
 - store originals as encrypted artifacts
-- extract text
-- normalize into canonical CV JSON
-- compute writing-style profile
+- extract text deterministically
+- normalize into canonical CV JSON through the AI-backed original-CV normalization service
+- deterministically validate unreadable, invalid, and weak normalization failures
+- store the returned writing-style profile without changing its persisted shape
 - build one-active-original-CV UI with replace behavior
 
 ### Phase 3. Vacancy ingestion
