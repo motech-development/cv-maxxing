@@ -4,10 +4,12 @@ import path from 'node:path'
 
 import { afterEach, expect, test, vi } from 'vitest'
 
+import { VacancyNormalizationError } from '../vacancy-normalization-error.js'
 import type { VacancyNormalizationWorker } from '../vacancy-normalization-worker.js'
 import {
   createVacancyNormalizationService,
   type NormalizedVacancy,
+  type VacancyNormalizationWorkerResult,
 } from '../vacancy-normalization-service.js'
 
 const temporaryDirectories: string[] = []
@@ -68,14 +70,21 @@ test('writes a dedicated vacancy-normalization run workspace and removes it afte
         expect(pageText).toContain('Senior Product Designer')
 
         return {
-          bodyText:
-            'Lead product design for desktop workflows. Partner with engineering and research.',
-          employer: 'Example Labs',
-          location: 'London, United Kingdom',
-          requirements: ['Experience shipping workflow software.'],
-          responsibilities: ['Lead product design for desktop workflows.'],
-          title: 'Senior Product Designer',
-        }
+          kind: 'success',
+          normalizedVacancy: {
+            bodyText:
+              ' Lead product design for desktop workflows. Partner with engineering and research. ',
+            employer: 'Example Labs',
+            location: 'London, United Kingdom',
+            requirements: [
+              'Experience shipping workflow software.',
+              'Experience shipping workflow software.',
+              '',
+            ],
+            responsibilities: ['Lead product design for desktop workflows.'],
+            title: 'Senior Product Designer',
+          },
+        } satisfies VacancyNormalizationWorkerResult
       },
     ),
   }
@@ -133,7 +142,7 @@ test('aborts a stalled vacancy-normalization run after the timeout and removes t
   const worker: VacancyNormalizationWorker = {
     runNormalization: vi.fn(
       async ({ signal }: { runDirectoryPath: string; signal: AbortSignal }) => {
-        return await new Promise<NormalizedVacancy>((_, reject) => {
+        return await new Promise<VacancyNormalizationWorkerResult>((_, reject) => {
           signal.addEventListener(
             'abort',
             () => {
@@ -163,9 +172,92 @@ test('aborts a stalled vacancy-normalization run after the timeout and removes t
       resolvedUrl: 'https://jobs.example.com/roles/123',
       source: 'generic',
     }),
-  ).rejects.toThrow('Vacancy normalization timed out.')
+  ).rejects.toEqual(
+    new VacancyNormalizationError({
+      code: 'timeout',
+      message: 'Vacancy normalization timed out.',
+    }),
+  )
 
   expect(worker.runNormalization).toHaveBeenCalledTimes(1)
   expect(didAbort).toBe(true)
   await expect(readdir(runWorkspaceRootPath)).resolves.toEqual([])
+})
+
+test('maps a no-job-content worker result to a typed vacancy-normalization failure', async () => {
+  const runWorkspaceRootPath = await mkdtemp(
+    path.join(tmpdir(), 'cv-maxxing-vacancy-normalization-service-no-job-content-'),
+  )
+
+  temporaryDirectories.push(runWorkspaceRootPath)
+
+  const service = createVacancyNormalizationService({
+    generateId: vi.fn(() => 'vacancy-normalization-run-no-job-content'),
+    runWorkspaceRootPath,
+    worker: {
+      runNormalization: vi.fn(() => {
+        return Promise.resolve({
+          kind: 'no_job_content',
+        } satisfies VacancyNormalizationWorkerResult)
+      }),
+    },
+  })
+
+  await expect(
+    service.normalizeVacancy({
+      html: '<main><h1>Apply now</h1></main>',
+      originalUrl: 'https://jobs.example.com/roles/123',
+      pageTitle: 'Apply now',
+      resolvedUrl: 'https://jobs.example.com/roles/123',
+      source: 'generic',
+    }),
+  ).rejects.toEqual(
+    new VacancyNormalizationError({
+      code: 'no_job_content',
+      message: 'Vacancy normalization found no job content to persist.',
+    }),
+  )
+})
+
+test('rejects semantically invalid normalized vacancy output after deterministic post-validation', async () => {
+  const runWorkspaceRootPath = await mkdtemp(
+    path.join(tmpdir(), 'cv-maxxing-vacancy-normalization-service-semantic-'),
+  )
+
+  temporaryDirectories.push(runWorkspaceRootPath)
+
+  const service = createVacancyNormalizationService({
+    generateId: vi.fn(() => 'vacancy-normalization-run-semantic'),
+    runWorkspaceRootPath,
+    worker: {
+      runNormalization: vi.fn(() => {
+        return Promise.resolve({
+          kind: 'success',
+          normalizedVacancy: {
+            bodyText: 'Join LinkedIn or sign in to continue.',
+            employer: null,
+            location: null,
+            requirements: [],
+            responsibilities: [],
+            title: 'Sign in to view this job',
+          },
+        } satisfies VacancyNormalizationWorkerResult)
+      }),
+    },
+  })
+
+  await expect(
+    service.normalizeVacancy({
+      html: '<main><h1>Sign in to view this job</h1></main>',
+      originalUrl: 'https://www.linkedin.com/jobs/view/123456',
+      pageTitle: 'Sign in to view this job | LinkedIn',
+      resolvedUrl: 'https://www.linkedin.com/jobs/view/123456',
+      source: 'linkedin',
+    }),
+  ).rejects.toEqual(
+    new VacancyNormalizationError({
+      code: 'semantic_rejection',
+      message: 'Vacancy normalization produced semantically invalid vacancy content.',
+    }),
+  )
 })

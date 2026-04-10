@@ -5,6 +5,7 @@ import path from 'node:path'
 import { afterEach, expect, test, vi } from 'vitest'
 
 import { createLocalAppDataPaths, openLocalAppData } from '../local-app-data-service.js'
+import { VacancyNormalizationError } from '../vacancy-normalization-error.js'
 import { createVacancyService } from '../vacancy-service.js'
 import type { KeychainBoundary, LocalAppDataPaths } from '../local-app-data-service.js'
 import type {
@@ -962,30 +963,83 @@ test('blocks a non-English fetched vacancy page while preserving the entered URL
   await localAppData.close()
 })
 
-test('blocks a non-English browser-captured vacancy while preserving the entered URL', async () => {
+test('preserves the entered URL draft and throws when generic URL review is semantically rejected', async () => {
   const paths = await createTestPaths()
   const localAppData = await openLocalAppData({
     keychain: createKeychainBoundary(),
     paths,
   })
-  const normalizationService = {
-    normalizeVacancy: vi.fn(() => {
+  const vacancyService = createVacancyService({
+    fetchVacancyPage: vi.fn(() => {
       return Promise.resolve({
-        bodyText:
-          'Ingeniero de plataforma Diseñar productos para usuarios técnicos. Colaborar con ingeniería e investigación.',
-        employer: 'Example Labs',
-        location: 'Madrid, España',
-        requirements: ['Experiencia enviando software de flujo de trabajo.'],
-        responsibilities: ['Diseñar productos para usuarios técnicos.'],
-        title: 'Ingeniero de plataforma',
+        html: '<main><h1>Accept cookies to continue</h1></main>',
+        pageTitle: 'Cookie banner',
+        resolvedUrl: 'https://careers.example.com/product-designer',
       })
     }),
-  } satisfies VacancyNormalizationService
+    generateId: vi.fn(() => 'vacancy-009b'),
+    getCurrentTimestamp: vi.fn(() => '2026-04-08T21:47:00.000Z'),
+    localAppData,
+    normalizationService: {
+      normalizeVacancy: vi.fn(() => {
+        return Promise.reject(
+          new VacancyNormalizationError({
+            code: 'semantic_rejection',
+            message: 'Vacancy normalization produced semantically invalid vacancy content.',
+          }),
+        )
+      }),
+    },
+    openVacancyBrowserSession: vi.fn(() => Promise.resolve(null)),
+  })
+
+  await expect(
+    vacancyService.ingestVacancyUrl({
+      url: 'https://careers.example.com/product-designer',
+    }),
+  ).rejects.toEqual(
+    new VacancyNormalizationError({
+      code: 'semantic_rejection',
+      message: 'Vacancy normalization produced semantically invalid vacancy content.',
+    }),
+  )
+  await expect(vacancyService.getWorkspaceState()).resolves.toEqual({
+    draft: {
+      text: '',
+      url: 'https://careers.example.com/product-designer',
+    },
+    vacancy: null,
+  })
+  await expect(
+    localAppData.metadata.get({
+      id: 'vacancy-009b',
+      scope: 'vacancies',
+    }),
+  ).resolves.toBeNull()
+
+  await localAppData.close()
+})
+
+test('preserves the entered URL draft and throws when browser-assisted review fails AI normalization', async () => {
+  const paths = await createTestPaths()
+  const localAppData = await openLocalAppData({
+    keychain: createKeychainBoundary(),
+    paths,
+  })
   const vacancyService = createVacancyService({
     generateId: vi.fn(() => 'vacancy-010'),
     getCurrentTimestamp: vi.fn(() => '2026-04-08T21:50:00.000Z'),
     localAppData,
-    normalizationService,
+    normalizationService: {
+      normalizeVacancy: vi.fn(() => {
+        return Promise.reject(
+          new VacancyNormalizationError({
+            code: 'invalid_normalization',
+            message: 'Codex CLI output at /tmp/result.json produced invalid normalization output.',
+          }),
+        )
+      }),
+    },
     openVacancyBrowserSession: vi.fn(() => {
       return Promise.resolve({
         html: [
@@ -1011,19 +1065,29 @@ test('blocks a non-English browser-captured vacancy while preserving the entered
     url: 'https://www.linkedin.com/jobs/view/654321',
   })
 
-  const result = await vacancyService.openBrowserSession({
-    url: 'https://www.linkedin.com/jobs/view/654321',
-  })
-
-  expect(result.kind).toBe('incomplete')
-  expect(result.vacancy.canGenerate).toBe(false)
-  expect(result.vacancy.blockingReason).toBe(
-    'CV Maxxing v1 supports British English only. Review an English job vacancy before adapting this CV.',
+  await expect(
+    vacancyService.openBrowserSession({
+      url: 'https://www.linkedin.com/jobs/view/654321',
+    }),
+  ).rejects.toEqual(
+    new VacancyNormalizationError({
+      code: 'invalid_normalization',
+      message: 'Codex CLI output at /tmp/result.json produced invalid normalization output.',
+    }),
   )
-  expect(result.workspaceState.draft).toEqual({
-    text: '',
-    url: 'https://www.linkedin.com/jobs/view/654321',
+  await expect(vacancyService.getWorkspaceState()).resolves.toEqual({
+    draft: {
+      text: '',
+      url: 'https://www.linkedin.com/jobs/view/654321',
+    },
+    vacancy: null,
   })
+  await expect(
+    localAppData.metadata.get({
+      id: 'vacancy-010',
+      scope: 'vacancies',
+    }),
+  ).resolves.toBeNull()
 
   await localAppData.close()
 })

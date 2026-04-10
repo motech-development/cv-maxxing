@@ -66,8 +66,11 @@ test('rejects fixture output that does not match the vacancy-normalization contr
   const worker = createVacancyNormalizationWorker({
     environment: {
       CV_MAXXING_AI_WORKER_VACANCY_NORMALIZATION_OUTPUT: JSON.stringify({
-        employer: 'Example Labs',
-        title: 'Senior Product Designer',
+        kind: 'success',
+        normalizedVacancy: {
+          employer: 'Example Labs',
+          title: 'Senior Product Designer',
+        },
       }),
     },
   })
@@ -84,13 +87,16 @@ test('returns parsed normalization results from fixture output', async () => {
   const worker = createVacancyNormalizationWorker({
     environment: {
       CV_MAXXING_AI_WORKER_VACANCY_NORMALIZATION_OUTPUT: JSON.stringify({
-        bodyText:
-          'Lead product design for desktop workflows. Partner with engineering and research.',
-        employer: 'Example Labs',
-        location: 'London, United Kingdom',
-        requirements: ['Experience shipping workflow software.'],
-        responsibilities: ['Lead product design for desktop workflows.'],
-        title: 'Senior Product Designer',
+        kind: 'success',
+        normalizedVacancy: {
+          bodyText:
+            'Lead product design for desktop workflows. Partner with engineering and research.',
+          employer: 'Example Labs',
+          location: 'London, United Kingdom',
+          requirements: ['Experience shipping workflow software.'],
+          responsibilities: ['Lead product design for desktop workflows.'],
+          title: 'Senior Product Designer',
+        },
       }),
     },
   })
@@ -101,12 +107,34 @@ test('returns parsed normalization results from fixture output', async () => {
       signal: new AbortController().signal,
     }),
   ).resolves.toEqual({
-    bodyText: 'Lead product design for desktop workflows. Partner with engineering and research.',
-    employer: 'Example Labs',
-    location: 'London, United Kingdom',
-    requirements: ['Experience shipping workflow software.'],
-    responsibilities: ['Lead product design for desktop workflows.'],
-    title: 'Senior Product Designer',
+    kind: 'success',
+    normalizedVacancy: {
+      bodyText: 'Lead product design for desktop workflows. Partner with engineering and research.',
+      employer: 'Example Labs',
+      location: 'London, United Kingdom',
+      requirements: ['Experience shipping workflow software.'],
+      responsibilities: ['Lead product design for desktop workflows.'],
+      title: 'Senior Product Designer',
+    },
+  })
+})
+
+test('returns the no-job-content tagged union from fixture output', async () => {
+  const worker = createVacancyNormalizationWorker({
+    environment: {
+      CV_MAXXING_AI_WORKER_VACANCY_NORMALIZATION_OUTPUT: JSON.stringify({
+        kind: 'no_job_content',
+      }),
+    },
+  })
+
+  await expect(
+    worker.runNormalization({
+      runDirectoryPath: '/tmp/unused',
+      signal: new AbortController().signal,
+    }),
+  ).resolves.toEqual({
+    kind: 'no_job_content',
   })
 })
 

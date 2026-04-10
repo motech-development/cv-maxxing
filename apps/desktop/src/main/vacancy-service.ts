@@ -219,14 +219,9 @@ export function createVacancyService({
           source,
         })
 
-        await localAppData.metadata.put({
-          id: VACANCY_WORKSPACE_RECORD_ID,
-          scope: VACANCY_DRAFT_SCOPE,
-          value: {
-            text: '',
-            url: normalizedUrl,
-            vacancyId: null,
-          } satisfies VacancyDraftMetadataValue,
+        await persistVacancyWorkspaceDraft({
+          localAppData,
+          url: normalizedUrl,
         })
 
         return {
@@ -235,6 +230,11 @@ export function createVacancyService({
           workspaceState: await thisGetWorkspaceState(localAppData),
         }
       }
+
+      await persistVacancyWorkspaceDraft({
+        localAppData,
+        url: normalizedUrl,
+      })
 
       const fetchedPage = await fetchVacancyPage(normalizedUrl)
 
@@ -279,14 +279,9 @@ export function createVacancyService({
           source,
         })
 
-        await localAppData.metadata.put({
-          id: VACANCY_WORKSPACE_RECORD_ID,
-          scope: VACANCY_DRAFT_SCOPE,
-          value: {
-            text: '',
-            url: normalizedUrl,
-            vacancyId: null,
-          } satisfies VacancyDraftMetadataValue,
+        await persistVacancyWorkspaceDraft({
+          localAppData,
+          url: normalizedUrl,
         })
 
         return {
@@ -477,6 +472,24 @@ async function thisGetWorkspaceState(
         })
       : null,
   }
+}
+
+async function persistVacancyWorkspaceDraft({
+  localAppData,
+  url,
+}: {
+  localAppData: Pick<LocalAppDataStore, 'metadata'>
+  url: string
+}): Promise<void> {
+  await localAppData.metadata.put({
+    id: VACANCY_WORKSPACE_RECORD_ID,
+    scope: VACANCY_DRAFT_SCOPE,
+    value: {
+      text: '',
+      url,
+      vacancyId: null,
+    } satisfies VacancyDraftMetadataValue,
+  })
 }
 
 function toVacancyMetadataValue(vacancy: VacancySummary): VacancyMetadataValue {

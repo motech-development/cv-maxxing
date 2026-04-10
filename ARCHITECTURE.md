@@ -167,7 +167,7 @@ Electron Desktop App
 | Package manager     | `pnpm`                                                                                                           |
 | Persistence         | SQLCipher-backed SQLite + encrypted local filesystem artifacts                                                   |
 | AI runtime          | Provider-neutral local AI worker port; v1 ships Codex CLI adapter only                                           |
-| Vacancy fetch       | deterministic fetchers first, browser-assisted internal session second, pasted text fallback                     |
+| Vacancy fetch       | app-owned fetch/browser capture plus AI-backed URL normalization; pasted text review stays deterministic         |
 | CV rendering        | dynamic shared HTML renderer derived from `design/cv.html`                                                       |
 | PDF export          | Chromium `printToPDF()` from hidden render surface                                                               |
 | PDF preview         | preview the actual generated PDF artifact in-app                                                                 |
@@ -502,15 +502,20 @@ Use:
 - standard HTTP fetch
 - readability / article extraction
 - DOM text extraction
-- AI-worker-assisted field normalization
+- AI-worker-assisted field normalization for every successful URL review
+- deterministic pasted-text review without the AI normalization worker
 
 ### 8.5 Failure and cancellation behavior
 
-If live URL extraction yields only cookie banners, sign-in walls, or otherwise incomplete content, do not proceed to generation. Mark ingestion as incomplete, show a concise reason, and offer internal browser sign-in for LinkedIn/Indeed or pasted job text fallback.
+If URL review fails because fetch, browser capture, AI normalization, or semantic validation cannot produce a trustworthy vacancy, do not proceed to generation. Keep the entered URL in the intake draft, do not persist reviewed vacancy artifacts, throw through the existing review-failure path, and offer internal browser sign-in for LinkedIn/Indeed or pasted job text fallback.
+
+Browser-navigation failures such as never reaching the requested LinkedIn/Indeed vacancy URL or closing off-target remain incomplete-review states instead of thrown errors. The browser session only decides whether the requested vacancy page was actually observed; AI normalization owns field extraction.
 
 Generation requires a minimum useful vacancy model: substantive responsibilities or requirements text, plus title/employer/location when available.
 
 The user should review a compact normalized vacancy preview before `Adapt CV` is enabled. Do not allow editing normalized vacancy fields in v1; if extraction is wrong, the fallback is pasted job text.
+
+URL normalization persists only semantically validated vacancy output. The app trims whitespace, removes trivial empties, deduplicates exact duplicate bullets, rejects obvious cookie/sign-in/feed junk, and derives language checks from the canonical normalized `bodyText`.
 
 Browser vacancy fetch jobs should run one at a time in v1. Cancelling an active fetch should stop the page/fetch job, keep the URL in the intake field, discard incomplete vacancy artifacts, and return to the vacancy intake state.
 
@@ -524,7 +529,7 @@ Always persist:
 - fetch timestamp
 - page title when available
 - raw HTML or sanitized browser DOM snapshot
-- extracted text
+- extracted text derived from the canonical normalized vacancy `bodyText`
 - normalized vacancy JSON
 
 Do not persist cookies, localStorage, session tokens, or screenshots in vacancy records. Keep the authenticated browser profile separately under app-managed storage.

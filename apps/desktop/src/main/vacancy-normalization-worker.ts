@@ -3,13 +3,16 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 
 import { VacancyNormalizationError } from './vacancy-normalization-error.js'
-import type { NormalizedVacancy } from './vacancy-normalization-service.js'
+import type {
+  NormalizedVacancy,
+  VacancyNormalizationWorkerResult,
+} from './vacancy-normalization-service.js'
 
 export interface VacancyNormalizationWorker {
   runNormalization: (input: {
     runDirectoryPath: string
     signal: AbortSignal
-  }) => Promise<NormalizedVacancy>
+  }) => Promise<VacancyNormalizationWorkerResult>
 }
 
 export interface VacancyNormalizationWorkerEnvironment {
@@ -20,35 +23,66 @@ export interface VacancyNormalizationWorkerEnvironment {
 }
 
 const OUTPUT_SCHEMA = {
-  additionalProperties: false,
-  properties: {
-    bodyText: {
-      type: 'string',
-    },
-    employer: {
-      type: ['string', 'null'],
-    },
-    location: {
-      type: ['string', 'null'],
-    },
-    requirements: {
-      items: {
-        type: 'string',
+  oneOf: [
+    {
+      additionalProperties: false,
+      properties: {
+        kind: {
+          const: 'no_job_content',
+        },
       },
-      type: 'array',
+      required: ['kind'],
+      type: 'object',
     },
-    responsibilities: {
-      items: {
-        type: 'string',
+    {
+      additionalProperties: false,
+      properties: {
+        kind: {
+          const: 'success',
+        },
+        normalizedVacancy: {
+          additionalProperties: false,
+          properties: {
+            bodyText: {
+              type: 'string',
+            },
+            employer: {
+              type: ['string', 'null'],
+            },
+            location: {
+              type: ['string', 'null'],
+            },
+            requirements: {
+              items: {
+                type: 'string',
+              },
+              type: 'array',
+            },
+            responsibilities: {
+              items: {
+                type: 'string',
+              },
+              type: 'array',
+            },
+            title: {
+              type: ['string', 'null'],
+            },
+          },
+          required: [
+            'bodyText',
+            'employer',
+            'location',
+            'requirements',
+            'responsibilities',
+            'title',
+          ],
+          type: 'object',
+        },
       },
-      type: 'array',
+      required: ['kind', 'normalizedVacancy'],
+      type: 'object',
     },
-    title: {
-      type: ['string', 'null'],
-    },
-  },
-  required: ['bodyText', 'employer', 'location', 'requirements', 'responsibilities', 'title'],
-  type: 'object',
+  ],
 } as const
 
 export function createVacancyNormalizationWorker({
@@ -94,7 +128,7 @@ async function runCodexCliNormalization({
   command: string
   runDirectoryPath: string
   signal: AbortSignal
-}): Promise<NormalizedVacancy> {
+}): Promise<VacancyNormalizationWorkerResult> {
   const outputDirectoryPath = path.join(runDirectoryPath, 'output')
   const outputFilePath = path.join(outputDirectoryPath, 'result.json')
   const schemaFilePath = path.join(runDirectoryPath, 'output-schema.json')
@@ -188,7 +222,7 @@ function parseNormalizationResultJson({
 }: {
   context: string
   outputText: string
-}): NormalizedVacancy {
+}): VacancyNormalizationWorkerResult {
   let parsedOutput: unknown
 
   try {
@@ -203,7 +237,7 @@ function parseNormalizationResultJson({
     })
   }
 
-  if (!isNormalizedVacancy(parsedOutput)) {
+  if (!isVacancyNormalizationWorkerResult(parsedOutput)) {
     throw new VacancyNormalizationError({
       code: 'invalid_normalization',
       message: `${context} produced invalid normalization output. Preview: ${buildOutputPreview(
@@ -215,25 +249,24 @@ function parseNormalizationResultJson({
   return parsedOutput
 }
 
-function isNormalizedVacancy(value: unknown): value is NormalizedVacancy {
+function isVacancyNormalizationWorkerResult(
+  value: unknown,
+): value is VacancyNormalizationWorkerResult {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) {
     return false
   }
 
   const candidate = value as Record<string, unknown>
 
-  return (
-    typeof candidate.bodyText === 'string' &&
-    isNullableString(candidate.employer) &&
-    isNullableString(candidate.location) &&
-    isStringArray(candidate.requirements) &&
-    isStringArray(candidate.responsibilities) &&
-    isNullableString(candidate.title)
-  )
-}
+  if (candidate.kind === 'no_job_content') {
+    return true
+  }
 
-function isNullableString(value: unknown): value is string | null {
-  return typeof value === 'string' || value === null
+  if (candidate.kind !== 'success') {
+    return false
+  }
+
+  return isNormalizedVacancy(candidate.normalizedVacancy)
 }
 
 function isStringArray(value: unknown): value is string[] {
@@ -277,4 +310,25 @@ function waitForDelay(delayMs: number, signal: AbortSignal): Promise<void> {
       once: true,
     })
   })
+}
+
+function isNormalizedVacancy(value: unknown): value is NormalizedVacancy {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    return false
+  }
+
+  const candidate = value as Record<string, unknown>
+
+  return (
+    typeof candidate.bodyText === 'string' &&
+    isNullableString(candidate.employer) &&
+    isNullableString(candidate.location) &&
+    isStringArray(candidate.requirements) &&
+    isStringArray(candidate.responsibilities) &&
+    isNullableString(candidate.title)
+  )
+}
+
+function isNullableString(value: unknown): value is string | null {
+  return typeof value === 'string' || value === null
 }

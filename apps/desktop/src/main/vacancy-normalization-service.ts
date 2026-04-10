@@ -25,6 +25,15 @@ export interface VacancyNormalizationInput {
   source: VacancySource
 }
 
+export type VacancyNormalizationWorkerResult =
+  | {
+      kind: 'no_job_content'
+    }
+  | {
+      kind: 'success'
+      normalizedVacancy: NormalizedVacancy
+    }
+
 export interface VacancyNormalizationService {
   normalizeVacancy: (input: VacancyNormalizationInput) => Promise<NormalizedVacancy>
 }
@@ -66,15 +75,35 @@ export function createVacancyNormalizationService({
       }, resolvedTimeoutMs)
 
       try {
-        return await worker.runNormalization({
+        const workerResult = await worker.runNormalization({
           runDirectoryPath,
           signal: abortController.signal,
         })
+
+        if (workerResult.kind === 'no_job_content') {
+          throw new VacancyNormalizationError({
+            code: 'no_job_content',
+            message: 'Vacancy normalization found no job content to persist.',
+          })
+        }
+
+        return sanitizeNormalizedVacancy(workerResult.normalizedVacancy)
       } catch (error) {
         if (abortController.signal.reason === VACANCY_NORMALIZATION_TIMEOUT_REASON) {
           throw new VacancyNormalizationError({
             code: 'timeout',
             message: 'Vacancy normalization timed out.',
+          })
+        }
+
+        if (error instanceof VacancyNormalizationError) {
+          throw error
+        }
+
+        if (isCancellationError(error)) {
+          throw new VacancyNormalizationError({
+            code: 'cancelled',
+            message: 'Vacancy normalization was cancelled.',
           })
         }
 
@@ -141,4 +170,92 @@ function resolveTimeoutMs(timeoutMs: number): number {
   }
 
   return Math.trunc(timeoutMs)
+}
+
+function sanitizeNormalizedVacancy(normalizedVacancy: NormalizedVacancy): NormalizedVacancy {
+  const bodyText = normalizeBodyText(normalizedVacancy.bodyText)
+  const employer = normalizeNullableText(normalizedVacancy.employer)
+  const location = normalizeNullableText(normalizedVacancy.location)
+  const requirements = normalizeList(normalizedVacancy.requirements)
+  const responsibilities = normalizeList(normalizedVacancy.responsibilities)
+  const title = normalizeNullableText(normalizedVacancy.title)
+  const semanticText = [title, employer, location, bodyText, ...requirements, ...responsibilities]
+    .filter((value): value is string => {
+      return value !== null
+    })
+    .join(' ')
+
+  if (looksLikeSemanticJunk(semanticText)) {
+    throw new VacancyNormalizationError({
+      code: 'semantic_rejection',
+      message: 'Vacancy normalization produced semantically invalid vacancy content.',
+    })
+  }
+
+  return {
+    bodyText,
+    employer,
+    location,
+    requirements,
+    responsibilities,
+    title,
+  }
+}
+
+function normalizeBodyText(value: string): string {
+  return value.replaceAll(/\s+/g, ' ').trim()
+}
+
+function normalizeNullableText(value: string | null): string | null {
+  if (value === null) {
+    return null
+  }
+
+  const normalizedValue = value.replaceAll(/\s+/g, ' ').trim()
+
+  return normalizedValue === '' ? null : normalizedValue
+}
+
+function normalizeList(values: string[]): string[] {
+  const normalizedValues = values
+    .map((value) => {
+      return value.replaceAll(/\s+/g, ' ').trim()
+    })
+    .filter((value) => {
+      return value !== ''
+    })
+
+  return [...new Set(normalizedValues)]
+}
+
+function looksLikeSemanticJunk(value: string): boolean {
+  const normalizedValue = value.toLowerCase()
+
+  if (
+    normalizedValue.includes('cookie') &&
+    (normalizedValue.includes('accept') || normalizedValue.includes('consent'))
+  ) {
+    return true
+  }
+
+  if (
+    normalizedValue.includes('sign in') ||
+    normalizedValue.includes('log in') ||
+    normalizedValue.includes('join linkedin')
+  ) {
+    return true
+  }
+
+  if (
+    normalizedValue.includes('feed') &&
+    (normalizedValue.includes('welcome back') || normalizedValue.includes('people you follow'))
+  ) {
+    return true
+  }
+
+  return false
+}
+
+function isCancellationError(error: unknown): boolean {
+  return error instanceof Error && error.message === 'Vacancy normalization cancelled.'
 }

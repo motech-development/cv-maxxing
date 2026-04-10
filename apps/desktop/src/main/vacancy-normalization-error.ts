@@ -1,4 +1,9 @@
-export type VacancyNormalizationErrorCode = 'invalid_normalization' | 'timeout'
+export type VacancyNormalizationErrorCode =
+  | 'cancelled'
+  | 'invalid_normalization'
+  | 'no_job_content'
+  | 'semantic_rejection'
+  | 'timeout'
 
 export class VacancyNormalizationError extends Error {
   readonly code: VacancyNormalizationErrorCode
