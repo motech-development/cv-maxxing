@@ -529,6 +529,97 @@ test('imports a heading-variant original CV with grounded high-risk fields plus 
   await localAppData.close()
 })
 
+test('imports a CV without an explicit skills section when recovered skills stay grounded in the experience evidence', async () => {
+  const paths = await createTestPaths()
+  const localAppData = await openLocalAppData({
+    keychain: createKeychainBoundary(),
+    paths,
+  })
+  const normalizationService = createNormalizationServiceMock(
+    vi.fn((): Promise<OriginalCvNormalizationResult> => {
+      return Promise.resolve({
+        normalizedCv: {
+          experience: [
+            'Principal Product Designer | Analytical Engines Ltd',
+            'Designed workflow systems for AI-assisted desktop tooling and ran UX research across import and export journeys.',
+          ],
+          fullName: 'Ada Lovelace',
+          headline: 'Principal Product Designer',
+          skills: ['Workflow design', 'UX research', 'Desktop tooling'],
+          summary: 'Design leader focused on complex workflow products for technical users.',
+        },
+        writingStyle: {
+          averageSentenceLength: 13,
+          clicheDetections: [],
+          firstPersonUsage: 'absent',
+          formality: 'formal',
+        },
+      })
+    }),
+  )
+  const originalCvService = createOriginalCvService({
+    extractTextFromDocx: vi.fn(),
+    extractTextFromPdf: vi.fn(() => {
+      return Promise.resolve({
+        pageCount: 1,
+        text: [
+          'Ada Lovelace',
+          'Principal Product Designer',
+          '',
+          'Summary',
+          'Design leader focused on complex workflow products for technical users.',
+          '',
+          'Experience',
+          'Principal Product Designer | Analytical Engines Ltd',
+          'Designed workflow systems for AI-assisted desktop tooling and ran UX research across import and export journeys.',
+        ].join('\n'),
+      })
+    }),
+    generateId: vi.fn(() => 'original-cv-004'),
+    getCurrentTimestamp: vi.fn(() => '2026-04-08T15:30:00.000Z'),
+    localAppData,
+    normalizationService,
+  })
+
+  const importedCv = await originalCvService.importOriginalCv({
+    content: Buffer.from('%PDF-1.7 recovered-skills', 'utf8'),
+    filename: 'ada-lovelace-no-skills-section.pdf',
+  })
+
+  expect(importedCv).toEqual({
+    fileType: 'pdf',
+    headline: 'Principal Product Designer',
+    id: 'original-cv-004',
+    importedAt: '2026-04-08T15:30:00.000Z',
+    originalFilename: 'ada-lovelace-no-skills-section.pdf',
+    pageCount: 1,
+    snapshotCount: 1,
+    summary: 'Design leader focused on complex workflow products for technical users.',
+    writingStyle: {
+      averageSentenceLength: 13,
+      clicheDetections: [],
+      firstPersonUsage: 'absent',
+      formality: 'formal',
+    },
+  })
+  await expect(originalCvService.getWorkspaceState()).resolves.toEqual({
+    activeOriginalCv: importedCv,
+    snapshotCount: 1,
+  })
+
+  const normalizedArtifact = await localAppData.artifacts.read({
+    id: 'original-cv-004',
+    name: 'normalized.json',
+    scope: 'original-cvs',
+  })
+
+  expect(normalizedArtifact?.toString('utf8')).toContain(
+    '"skills":["Workflow design","UX research","Desktop tooling"]',
+  )
+
+  await localAppData.close()
+})
+
 test('replaces the active original CV by creating a new snapshot and leaves existing tailored applications pinned to the earlier snapshot', async () => {
   const paths = await createTestPaths()
   const localAppData = await openLocalAppData({
@@ -1091,6 +1182,85 @@ test('rejects normalization that invents unsupported identity or skill content a
     originalCvService.importOriginalCv({
       content: Buffer.from('%PDF-1.7 invented', 'utf8'),
       filename: 'invented.pdf',
+    }),
+  ).rejects.toEqual(
+    new OriginalCvImportError({
+      code: 'weak_normalization',
+      message: 'This original CV could not be organised reliably. Try a clearer PDF or DOCX.',
+    }),
+  )
+  await expect(originalCvService.getWorkspaceState()).resolves.toEqual({
+    activeOriginalCv: null,
+    snapshotCount: 0,
+  })
+  await expect(localAppData.metadata.list('original-cvs')).resolves.toEqual([])
+  await expect(
+    localAppData.artifacts.read({
+      id: 'original-cv-001',
+      name: 'normalized.json',
+      scope: 'original-cvs',
+    }),
+  ).resolves.toBeNull()
+
+  await localAppData.close()
+})
+
+test('rejects a recovered skill that is not supported by the experience evidence and leaves encrypted storage unchanged', async () => {
+  const paths = await createTestPaths()
+  const localAppData = await openLocalAppData({
+    keychain: createKeychainBoundary(),
+    paths,
+  })
+  const normalizationService = createNormalizationServiceMock(
+    vi.fn((): Promise<OriginalCvNormalizationResult> => {
+      return Promise.resolve({
+        normalizedCv: {
+          experience: [
+            'Principal Product Designer | Analytical Engines Ltd',
+            'Designed workflow systems for AI-assisted desktop tooling and ran UX research across import and export journeys.',
+          ],
+          fullName: 'Ada Lovelace',
+          headline: 'Principal Product Designer',
+          skills: ['Workflow design', 'UX research', 'Revenue operations'],
+          summary: 'Design leader focused on complex workflow products for technical users.',
+        },
+        writingStyle: {
+          averageSentenceLength: 13,
+          clicheDetections: [],
+          firstPersonUsage: 'absent',
+          formality: 'formal',
+        },
+      })
+    }),
+  )
+  const originalCvService = createOriginalCvService({
+    extractTextFromDocx: vi.fn(),
+    extractTextFromPdf: vi.fn(() => {
+      return Promise.resolve({
+        pageCount: 1,
+        text: [
+          'Ada Lovelace',
+          'Principal Product Designer',
+          '',
+          'Summary',
+          'Design leader focused on complex workflow products for technical users.',
+          '',
+          'Experience',
+          'Principal Product Designer | Analytical Engines Ltd',
+          'Designed workflow systems for AI-assisted desktop tooling and ran UX research across import and export journeys.',
+        ].join('\n'),
+      })
+    }),
+    generateId: vi.fn(() => 'original-cv-001'),
+    getCurrentTimestamp: vi.fn(() => '2026-04-08T14:30:00.000Z'),
+    localAppData,
+    normalizationService,
+  })
+
+  await expect(
+    originalCvService.importOriginalCv({
+      content: Buffer.from('%PDF-1.7 invented-skill', 'utf8'),
+      filename: 'invented-skill.pdf',
     }),
   ).rejects.toEqual(
     new OriginalCvImportError({

@@ -24,6 +24,18 @@ const INVALID_NORMALIZATION_MESSAGE =
   'This original CV could not be organised reliably. Try a clearer PDF or DOCX.'
 const UNREADABLE_EXTRACTION_MESSAGE =
   'This original CV could not be read reliably. Use a text-based PDF or DOCX.'
+const SKILL_GROUNDING_STOP_WORDS = new Set([
+  'a',
+  'an',
+  'and',
+  'for',
+  'in',
+  'of',
+  'on',
+  'the',
+  'to',
+  'with',
+])
 
 interface ExtractedDocumentText {
   pageCount: number
@@ -407,22 +419,22 @@ function validateGroundedHighRiskFields({
   extractedText: string
   normalizedCv: NormalizedOriginalCv
 }): void {
-  if (!isGroundedInSource(normalizedCv.fullName, extractedText)) {
+  if (!isGroundedIdentityFieldInSource(normalizedCv.fullName, extractedText)) {
     throwUnsupportedGroundingError()
   }
 
-  if (!isGroundedInSource(normalizedCv.headline, extractedText)) {
+  if (!isGroundedIdentityFieldInSource(normalizedCv.headline, extractedText)) {
     throwUnsupportedGroundingError()
   }
 
   for (const skill of normalizedCv.skills) {
-    if (!isGroundedInSource(skill, extractedText)) {
+    if (!isGroundedSkillInSource(skill, extractedText)) {
       throwUnsupportedGroundingError()
     }
   }
 }
 
-function isGroundedInSource(value: string, extractedText: string): boolean {
+function isGroundedIdentityFieldInSource(value: string, extractedText: string): boolean {
   const normalizedValue = normalizeGroundingText(value)
 
   if (normalizedValue === '') {
@@ -432,6 +444,82 @@ function isGroundedInSource(value: string, extractedText: string): boolean {
   const normalizedSource = normalizeGroundingText(extractedText)
 
   return normalizedSource.includes(normalizedValue)
+}
+
+function isGroundedSkillInSource(skill: string, extractedText: string): boolean {
+  const normalizedSkill = normalizeGroundingText(skill)
+
+  if (normalizedSkill === '') {
+    return true
+  }
+
+  const evidenceCandidates = createSkillEvidenceCandidates(extractedText)
+
+  if (
+    evidenceCandidates.some((candidate) => {
+      return candidate.includes(normalizedSkill)
+    })
+  ) {
+    return true
+  }
+
+  const skillTokens = getMeaningfulSkillTokens(normalizedSkill)
+
+  if (skillTokens.length === 0) {
+    return true
+  }
+
+  return evidenceCandidates.some((candidate) => {
+    const candidateTokens = candidate.split(' ').filter((token) => {
+      return token !== ''
+    })
+
+    return skillTokens.every((skillToken) => {
+      return candidateTokens.some((candidateToken) => {
+        return groundingTokensMatch(skillToken, candidateToken)
+      })
+    })
+  })
+}
+
+function createSkillEvidenceCandidates(extractedText: string): string[] {
+  const normalizedLines = extractedText
+    .split(/\r?\n/u)
+    .map((line) => {
+      return normalizeGroundingText(line)
+    })
+    .filter((line) => {
+      return line !== ''
+    })
+
+  const adjacentLinePairs = normalizedLines.slice(0, -1).map((line, index) => {
+    return `${line} ${normalizedLines[index + 1] ?? ''}`.trim()
+  })
+
+  return [...new Set([...normalizedLines, ...adjacentLinePairs])]
+}
+
+function getMeaningfulSkillTokens(skill: string): string[] {
+  return skill.split(' ').filter((token) => {
+    return token !== '' && !SKILL_GROUNDING_STOP_WORDS.has(token)
+  })
+}
+
+function groundingTokensMatch(skillToken: string, candidateToken: string): boolean {
+  if (skillToken === candidateToken) {
+    return true
+  }
+
+  const [shorterToken, longerToken] =
+    skillToken.length <= candidateToken.length
+      ? [skillToken, candidateToken]
+      : [candidateToken, skillToken]
+
+  if (shorterToken.length < 5) {
+    return false
+  }
+
+  return longerToken.startsWith(shorterToken)
 }
 
 function normalizeGroundingText(value: string): string {
