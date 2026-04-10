@@ -25,6 +25,8 @@ import {
 } from './ai-worker-preflight-service.js'
 import { createLocalAppDataPaths, openLocalAppData } from './local-app-data-service.js'
 import { extractTextFromDocx, extractTextFromPdf } from './original-cv-document-extractor.js'
+import { createOriginalCvNormalizationService } from './original-cv-normalization-service.js'
+import { createOriginalCvNormalizationWorker } from './original-cv-normalization-worker.js'
 import {
   OriginalCvImportError,
   createOriginalCvService,
@@ -143,6 +145,9 @@ interface RuntimeEnvironment {
   CV_MAXXING_AI_WORKER_GENERATION_DELAY_MS?: string
   CV_MAXXING_AI_WORKER_GENERATION_FAILURE?: string
   CV_MAXXING_AI_WORKER_GENERATION_OUTPUT?: string
+  CV_MAXXING_AI_WORKER_ORIGINAL_CV_NORMALIZATION_DELAY_MS?: string
+  CV_MAXXING_AI_WORKER_ORIGINAL_CV_NORMALIZATION_FAILURE?: string
+  CV_MAXXING_AI_WORKER_ORIGINAL_CV_NORMALIZATION_OUTPUT?: string
   CV_MAXXING_LOCAL_APP_DATA_ROOT?: string
   CV_MAXXING_AI_WORKER_RETRY_STATUS?: string
   CV_MAXXING_AI_WORKER_SIGN_IN_STATUS?: string
@@ -518,6 +523,12 @@ async function createRuntimeServices(electronRuntime: ElectronRuntimeModule): Pr
       environment,
     }),
   })
+  const originalCvNormalizationService = createOriginalCvNormalizationService({
+    runWorkspaceRootPath: path.join(paths.rootDirectoryPath, 'runs', 'original-cv-normalization'),
+    worker: createOriginalCvNormalizationWorker({
+      environment,
+    }),
+  })
 
   await tailoredApplication.recoverInterruptedGeneration()
 
@@ -530,6 +541,7 @@ async function createRuntimeServices(electronRuntime: ElectronRuntimeModule): Pr
       extractTextFromDocx,
       extractTextFromPdf,
       localAppData,
+      normalizationService: originalCvNormalizationService,
     }),
     settings: createSettingsService({
       browserSessionRootPath: path.join(paths.rootDirectoryPath, 'browser-sessions'),

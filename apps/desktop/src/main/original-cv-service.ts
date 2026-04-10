@@ -5,6 +5,7 @@ import type {
   OriginalCvFileType,
   OriginalCvImportErrorCode,
   OriginalCvSummary,
+  OriginalCvWritingStyle,
   OriginalCvWorkspaceState,
 } from '../shared/original-cv.js'
 import {
@@ -12,18 +13,12 @@ import {
   assessEnglishLanguageSupport,
 } from '../shared/language-support.js'
 import type { JsonValue, LocalAppDataStore } from './local-app-data-service.js'
+import type {
+  NormalizedOriginalCv,
+  OriginalCvNormalizationService,
+} from './original-cv-normalization-service.js'
 
 const ORIGINAL_CV_SCOPE = 'original-cvs'
-
-type WritingStyleFormality = 'conversational' | 'direct' | 'formal'
-type WritingStyleFirstPersonUsage = 'absent' | 'mixed' | 'present'
-
-interface OriginalCvWritingStyle {
-  averageSentenceLength: number
-  clicheDetections: string[]
-  firstPersonUsage: WritingStyleFirstPersonUsage
-  formality: WritingStyleFormality
-}
 
 interface ExtractedDocumentText {
   pageCount: number
@@ -43,6 +38,7 @@ interface OriginalCvServiceDependencies {
   generateId?: () => string
   getCurrentTimestamp?: () => string
   localAppData: Pick<LocalAppDataStore, 'artifacts' | 'metadata'>
+  normalizationService: OriginalCvNormalizationService
 }
 
 export interface ImportOriginalCvInput {
@@ -53,14 +49,6 @@ export interface ImportOriginalCvInput {
 export interface OriginalCvService {
   getWorkspaceState: () => Promise<OriginalCvWorkspaceState>
   importOriginalCv: (input: ImportOriginalCvInput) => Promise<OriginalCvSummary>
-}
-
-interface NormalizedOriginalCv {
-  experience: string[]
-  fullName: string
-  headline: string
-  skills: string[]
-  summary: string
 }
 
 interface OriginalCvMetadataValue extends Record<string, JsonValue> {
@@ -78,8 +66,8 @@ interface OriginalCvMetadataValue extends Record<string, JsonValue> {
   writingStyle: {
     averageSentenceLength: number
     clicheDetections: string[]
-    firstPersonUsage: WritingStyleFirstPersonUsage
-    formality: WritingStyleFormality
+    firstPersonUsage: OriginalCvWritingStyle['firstPersonUsage']
+    formality: OriginalCvWritingStyle['formality']
   }
 }
 
@@ -102,6 +90,7 @@ export function createOriginalCvService({
     return new Date().toISOString()
   },
   localAppData,
+  normalizationService,
 }: OriginalCvServiceDependencies): OriginalCvService {
   return {
     getWorkspaceState: async (): Promise<OriginalCvWorkspaceState> => {
@@ -132,12 +121,17 @@ export function createOriginalCvService({
         })
       }
 
-      const normalizedCv = normalizeOriginalCv(extractedDocument.text)
+      const { normalizedCv, writingStyle } = await normalizationService.normalizeOriginalCv({
+        extractedText: extractedDocument.text,
+        fileType,
+        originalFilename: filename,
+        pageCount: extractedDocument.pageCount,
+      })
+
       validateExtractedOriginalCv({
         extractedText: extractedDocument.text,
         normalizedCv,
       })
-      const writingStyle = createWritingStyleProfile(extractedDocument.text)
       const importedAt = getCurrentTimestamp()
       const id = generateId()
       const checksum = createHash('sha256').update(content).digest('hex')
@@ -339,137 +333,6 @@ function getOriginalCvFileType(filename: string): OriginalCvFileType {
     code: 'unsupported_file_type',
     message: 'Original CV import supports PDF and DOCX files only.',
   })
-}
-
-function normalizeOriginalCv(extractedText: string): NormalizedOriginalCv {
-  const lines = extractedText
-    .split(/\r?\n/u)
-    .map((line) => {
-      return line.trim()
-    })
-    .filter((line) => {
-      return line !== ''
-    })
-
-  const summaryIndex = lines.findIndex((line) => {
-    return line.toLowerCase() === 'summary'
-  })
-  const experienceIndex = lines.findIndex((line) => {
-    return line.toLowerCase() === 'experience'
-  })
-  const skillsIndex = lines.findIndex((line) => {
-    return line.toLowerCase() === 'skills'
-  })
-  const experienceSectionEndIndex = findNextSectionIndex({
-    currentSectionIndex: experienceIndex,
-    sectionIndexes: [skillsIndex],
-  })
-
-  return {
-    experience:
-      experienceIndex === -1 ? [] : lines.slice(experienceIndex + 1, experienceSectionEndIndex),
-    fullName: lines[0] ?? '',
-    headline: lines[1] ?? '',
-    skills:
-      skillsIndex === -1
-        ? []
-        : lines.slice(skillsIndex + 1).flatMap((line) => {
-            return line
-              .split(',')
-              .map((entry) => {
-                return entry.trim()
-              })
-              .filter((entry) => {
-                return entry !== ''
-              })
-          }),
-    summary: summaryIndex === -1 ? '' : (lines[summaryIndex + 1] ?? ''),
-  }
-}
-
-function findNextSectionIndex({
-  currentSectionIndex,
-  sectionIndexes,
-}: {
-  currentSectionIndex: number
-  sectionIndexes: number[]
-}): number | undefined {
-  const nextSectionIndex = sectionIndexes
-    .filter((sectionIndex) => {
-      return sectionIndex > currentSectionIndex
-    })
-    .toSorted((leftIndex, rightIndex) => {
-      return leftIndex - rightIndex
-    })[0]
-
-  return nextSectionIndex
-}
-
-function createWritingStyleProfile(extractedText: string): OriginalCvWritingStyle {
-  const proseLines = extractedText
-    .split(/\r?\n/u)
-    .map((line) => {
-      return line.trim()
-    })
-    .filter((line) => {
-      return /\s/u.test(line) && !/^(summary|experience|skills)$/iu.test(line)
-    })
-  const sentenceLengths = proseLines
-    .flatMap((line) => {
-      return line
-        .split(/[.!?]+/u)
-        .map((sentence) => {
-          return sentence.trim()
-        })
-        .filter((sentence) => {
-          return sentence !== ''
-        })
-    })
-    .map((sentence) => {
-      return sentence.split(/\s+/u).filter((word) => {
-        return word !== ''
-      }).length
-    })
-  const pronounUsageBySentence = proseLines
-    .flatMap((line) => {
-      return line
-        .split(/[.!?]+/u)
-        .map((sentence) => {
-          return sentence.trim()
-        })
-        .filter((sentence) => {
-          return sentence !== ''
-        })
-    })
-    .map((sentence) => {
-      return /\b(i|me|my|mine|we|our|ours)\b/iu.test(sentence)
-    })
-  const averageSentenceLength =
-    sentenceLengths.length === 0
-      ? 0
-      : Math.round(
-          sentenceLengths.reduce((total, sentenceLength) => {
-            return total + sentenceLength
-          }, 0) / sentenceLengths.length,
-        )
-  const lowerCaseText = extractedText.toLowerCase()
-  const sentencesWithPronouns = pronounUsageBySentence.filter(Boolean).length
-  let firstPersonUsage: WritingStyleFirstPersonUsage = 'absent'
-
-  if (sentencesWithPronouns === pronounUsageBySentence.length && sentencesWithPronouns > 0) {
-    firstPersonUsage = 'present'
-  } else if (sentencesWithPronouns > 0) {
-    firstPersonUsage = 'mixed'
-  }
-
-  return {
-    averageSentenceLength,
-    clicheDetections: ['results-driven', 'team player', 'hard-working'].filter((phrase) => {
-      return lowerCaseText.includes(phrase)
-    }),
-    firstPersonUsage,
-    formality: averageSentenceLength >= 10 ? 'formal' : 'direct',
-  }
 }
 
 function validateExtractedOriginalCv({

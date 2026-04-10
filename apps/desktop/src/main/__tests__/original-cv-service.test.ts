@@ -7,6 +7,11 @@ import { afterEach, expect, test, vi } from 'vitest'
 import { createLocalAppDataPaths, openLocalAppData } from '../local-app-data-service.js'
 import { OriginalCvImportError, createOriginalCvService } from '../original-cv-service.js'
 import type { KeychainBoundary, LocalAppDataPaths } from '../local-app-data-service.js'
+import type {
+  OriginalCvNormalizationInput,
+  OriginalCvNormalizationResult,
+  OriginalCvNormalizationService,
+} from '../original-cv-normalization-service.js'
 
 const temporaryDirectories: string[] = []
 
@@ -36,12 +41,125 @@ function createKeychainBoundary(secret = Buffer.alloc(32, 7)): KeychainBoundary 
   }
 }
 
+function createNormalizationServiceMock(
+  implementation?: OriginalCvNormalizationService['normalizeOriginalCv'],
+): OriginalCvNormalizationService {
+  return {
+    normalizeOriginalCv:
+      implementation ??
+      vi.fn((input: OriginalCvNormalizationInput) => {
+        return Promise.resolve(normalizeExtractedTextForTest(input.extractedText))
+      }),
+  }
+}
+
+function normalizeExtractedTextForTest(extractedText: string) {
+  const lines = extractedText
+    .split(/\r?\n/u)
+    .map((line) => {
+      return line.trim()
+    })
+    .filter((line) => {
+      return line !== ''
+    })
+
+  const summaryIndex = lines.findIndex((line) => {
+    return line.toLowerCase() === 'summary'
+  })
+  const experienceIndex = lines.findIndex((line) => {
+    return line.toLowerCase() === 'experience'
+  })
+  const skillsIndex = lines.findIndex((line) => {
+    return line.toLowerCase() === 'skills'
+  })
+  const experienceSectionEndIndex = skillsIndex === -1 ? undefined : skillsIndex
+  const proseLines = lines.filter((line) => {
+    return /\s/u.test(line) && !/^(summary|experience|skills)$/iu.test(line)
+  })
+  const sentenceLengths = proseLines.flatMap((line) => {
+    return line
+      .split(/[.!?]+/u)
+      .map((sentence) => {
+        return sentence.trim()
+      })
+      .filter((sentence) => {
+        return sentence !== ''
+      })
+      .map((sentence) => {
+        return sentence.split(/\s+/u).filter((word) => {
+          return word !== ''
+        }).length
+      })
+  })
+  const averageSentenceLength =
+    sentenceLengths.length === 0
+      ? 0
+      : Math.round(
+          sentenceLengths.reduce((total, sentenceLength) => {
+            return total + sentenceLength
+          }, 0) / sentenceLengths.length,
+        )
+
+  return {
+    normalizedCv: {
+      experience:
+        experienceIndex === -1 ? [] : lines.slice(experienceIndex + 1, experienceSectionEndIndex),
+      fullName: lines[0] ?? '',
+      headline: lines[1] ?? '',
+      skills:
+        skillsIndex === -1
+          ? []
+          : lines.slice(skillsIndex + 1).flatMap((line) => {
+              return line
+                .split(',')
+                .map((entry) => {
+                  return entry.trim()
+                })
+                .filter((entry) => {
+                  return entry !== ''
+                })
+            }),
+      summary: summaryIndex === -1 ? '' : (lines[summaryIndex + 1] ?? ''),
+    },
+    writingStyle: {
+      averageSentenceLength,
+      clicheDetections: ['results-driven', 'team player', 'hard-working'].filter((phrase) => {
+        return extractedText.toLowerCase().includes(phrase)
+      }),
+      firstPersonUsage: /\b(i|me|my|mine|we|our|ours)\b/iu.test(extractedText) ? 'mixed' : 'absent',
+      formality: averageSentenceLength >= 10 ? 'formal' : 'direct',
+    } as const,
+  } satisfies OriginalCvNormalizationResult
+}
+
 test('imports the first original CV snapshot and persists encrypted source, text, normalized JSON, and writing style artifacts', async () => {
   const paths = await createTestPaths()
   const localAppData = await openLocalAppData({
     keychain: createKeychainBoundary(),
     paths,
   })
+  const normalizationService = createNormalizationServiceMock(
+    vi.fn((): Promise<OriginalCvNormalizationResult> => {
+      return Promise.resolve({
+        normalizedCv: {
+          experience: [
+            'Principal Product Designer | Analytical Engines Ltd',
+            'Led product design for AI-assisted desktop tooling.',
+          ],
+          fullName: 'Ada Lovelace',
+          headline: 'Principal Product Designer',
+          skills: ['Product strategy', 'UX research', 'Prototyping'],
+          summary: 'Design leader focused on complex workflow products for technical users.',
+        },
+        writingStyle: {
+          averageSentenceLength: 13,
+          clicheDetections: ['results-driven'],
+          firstPersonUsage: 'mixed',
+          formality: 'formal',
+        },
+      })
+    }),
+  )
   const originalCvService = createOriginalCvService({
     extractTextFromDocx: vi.fn(),
     extractTextFromPdf: vi.fn(() => {
@@ -66,6 +184,7 @@ test('imports the first original CV snapshot and persists encrypted source, text
     generateId: vi.fn(() => 'original-cv-001'),
     getCurrentTimestamp: vi.fn(() => '2026-04-08T14:30:00.000Z'),
     localAppData,
+    normalizationService,
   })
 
   const importedCv = await originalCvService.importOriginalCv({
@@ -83,14 +202,36 @@ test('imports the first original CV snapshot and persists encrypted source, text
   expect(importedCv.summary).toBe(
     'Design leader focused on complex workflow products for technical users.',
   )
-  expect(importedCv.writingStyle.clicheDetections).toEqual([])
-  expect(importedCv.writingStyle.firstPersonUsage).toBe('absent')
-
-  expect(importedCv.writingStyle.averageSentenceLength).toBeGreaterThan(0)
+  expect(importedCv.writingStyle).toEqual({
+    averageSentenceLength: 13,
+    clicheDetections: ['results-driven'],
+    firstPersonUsage: 'mixed',
+    formality: 'formal',
+  })
 
   await expect(originalCvService.getWorkspaceState()).resolves.toEqual({
     activeOriginalCv: importedCv,
     snapshotCount: 1,
+  })
+
+  expect(normalizationService.normalizeOriginalCv).toHaveBeenCalledWith({
+    extractedText: [
+      'Ada Lovelace',
+      'Principal Product Designer',
+      '',
+      'Summary',
+      'Design leader focused on complex workflow products for technical users.',
+      '',
+      'Experience',
+      'Principal Product Designer | Analytical Engines Ltd',
+      'Led product design for AI-assisted desktop tooling.',
+      '',
+      'Skills',
+      'Product strategy, UX research, prototyping',
+    ].join('\n'),
+    fileType: 'pdf',
+    originalFilename: 'ada-lovelace.pdf',
+    pageCount: 2,
   })
 
   await expect(
@@ -141,7 +282,131 @@ test('imports the first original CV snapshot and persists encrypted source, text
     scope: 'original-cvs',
   })
 
-  expect(styleArtifact?.toString('utf8')).toContain('"firstPersonUsage":"absent"')
+  expect(styleArtifact?.toString('utf8')).toContain('"firstPersonUsage":"mixed"')
+
+  await localAppData.close()
+})
+
+test('imports a DOCX original CV through the same AI-backed normalization path and preserves existing artifact names', async () => {
+  const paths = await createTestPaths()
+  const localAppData = await openLocalAppData({
+    keychain: createKeychainBoundary(),
+    paths,
+  })
+  const normalizationService = createNormalizationServiceMock(
+    vi.fn((): Promise<OriginalCvNormalizationResult> => {
+      return Promise.resolve({
+        normalizedCv: {
+          experience: [
+            'Senior Content Strategist | Difference Engines Ltd',
+            'Built truthful CV adaptation workflows for complex desktop software.',
+          ],
+          fullName: 'Ada Lovelace',
+          headline: 'Senior Content Strategist',
+          skills: ['Content strategy', 'Information architecture', 'Editorial systems'],
+          summary:
+            'Content strategist shaping trustworthy workflow tools for technical job seekers.',
+        },
+        writingStyle: {
+          averageSentenceLength: 11,
+          clicheDetections: [],
+          firstPersonUsage: 'absent',
+          formality: 'direct',
+        },
+      })
+    }),
+  )
+  const originalCvService = createOriginalCvService({
+    extractTextFromDocx: vi.fn(() => {
+      return Promise.resolve({
+        pageCount: 1,
+        text: [
+          'Ada Lovelace',
+          'Senior Content Strategist',
+          '',
+          'Summary',
+          'Content strategist shaping trustworthy workflow tools for technical job seekers.',
+          '',
+          'Experience',
+          'Senior Content Strategist | Difference Engines Ltd',
+          'Built truthful CV adaptation workflows for complex desktop software.',
+          '',
+          'Skills',
+          'Content strategy, information architecture, editorial systems',
+        ].join('\n'),
+      })
+    }),
+    extractTextFromPdf: vi.fn(),
+    generateId: vi.fn(() => 'original-cv-002'),
+    getCurrentTimestamp: vi.fn(() => '2026-04-08T15:00:00.000Z'),
+    localAppData,
+    normalizationService,
+  })
+
+  const importedCv = await originalCvService.importOriginalCv({
+    content: Buffer.from('PK docx bytes', 'utf8'),
+    filename: 'ada-lovelace.docx',
+  })
+
+  expect(importedCv).toEqual({
+    fileType: 'docx',
+    headline: 'Senior Content Strategist',
+    id: 'original-cv-002',
+    importedAt: '2026-04-08T15:00:00.000Z',
+    originalFilename: 'ada-lovelace.docx',
+    pageCount: 1,
+    snapshotCount: 1,
+    summary: 'Content strategist shaping trustworthy workflow tools for technical job seekers.',
+    writingStyle: {
+      averageSentenceLength: 11,
+      clicheDetections: [],
+      firstPersonUsage: 'absent',
+      formality: 'direct',
+    },
+  })
+  expect(normalizationService.normalizeOriginalCv).toHaveBeenCalledWith({
+    extractedText: [
+      'Ada Lovelace',
+      'Senior Content Strategist',
+      '',
+      'Summary',
+      'Content strategist shaping trustworthy workflow tools for technical job seekers.',
+      '',
+      'Experience',
+      'Senior Content Strategist | Difference Engines Ltd',
+      'Built truthful CV adaptation workflows for complex desktop software.',
+      '',
+      'Skills',
+      'Content strategy, information architecture, editorial systems',
+    ].join('\n'),
+    fileType: 'docx',
+    originalFilename: 'ada-lovelace.docx',
+    pageCount: 1,
+  })
+
+  await expect(
+    localAppData.artifacts.read({
+      id: 'original-cv-002',
+      name: 'source.docx',
+      scope: 'original-cvs',
+    }),
+  ).resolves.toEqual(Buffer.from('PK docx bytes', 'utf8'))
+
+  const normalizedArtifact = await localAppData.artifacts.read({
+    id: 'original-cv-002',
+    name: 'normalized.json',
+    scope: 'original-cvs',
+  })
+
+  expect(normalizedArtifact?.toString('utf8')).toContain('"headline":"Senior Content Strategist"')
+
+  const writingStyleArtifact = await localAppData.artifacts.read({
+    id: 'original-cv-002',
+    name: 'writing-style-profile.json',
+    scope: 'original-cvs',
+  })
+
+  expect(writingStyleArtifact?.toString('utf8')).toContain('"formality":"direct"')
 
   await localAppData.close()
 })
@@ -200,6 +465,7 @@ test('replaces the active original CV by creating a new snapshot and leaves exis
       .mockReturnValueOnce('2026-04-08T14:30:00.000Z')
       .mockReturnValueOnce('2026-04-08T14:45:00.000Z'),
     localAppData,
+    normalizationService: createNormalizationServiceMock(),
   })
 
   const firstImport = await originalCvService.importOriginalCv({
@@ -331,6 +597,7 @@ test('rejects an unreadable replacement and keeps the previous original CV snaps
       .mockReturnValueOnce('2026-04-08T14:30:00.000Z')
       .mockReturnValueOnce('2026-04-08T14:45:00.000Z'),
     localAppData,
+    normalizationService: createNormalizationServiceMock(),
   })
 
   await originalCvService.importOriginalCv({
@@ -386,6 +653,7 @@ test('rejects weakly extracted original CV content and leaves encrypted storage 
     generateId: vi.fn(() => 'original-cv-001'),
     getCurrentTimestamp: vi.fn(() => '2026-04-08T14:30:00.000Z'),
     localAppData,
+    normalizationService: createNormalizationServiceMock(),
   })
 
   await expect(
@@ -438,6 +706,7 @@ test('rejects a non-English original CV before it becomes the active snapshot', 
     generateId: vi.fn(() => 'original-cv-001'),
     getCurrentTimestamp: vi.fn(() => '2026-04-08T14:30:00.000Z'),
     localAppData,
+    normalizationService: createNormalizationServiceMock(),
   })
 
   await expect(
@@ -473,6 +742,7 @@ test('rejects unsupported original CV file types before extraction starts', asyn
     extractTextFromDocx,
     extractTextFromPdf,
     localAppData,
+    normalizationService: createNormalizationServiceMock(),
   })
 
   await expect(
