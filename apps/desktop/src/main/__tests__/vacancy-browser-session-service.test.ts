@@ -3,6 +3,11 @@ import { expect, test, vi } from 'vitest'
 
 import { createVacancyBrowserSessionService } from '../vacancy-browser-session-service.js'
 
+async function flushObservation(): Promise<void> {
+  await Promise.resolve()
+  await Promise.resolve()
+}
+
 interface Snapshot {
   html: string
   pageTitle: string | null
@@ -10,12 +15,21 @@ interface Snapshot {
 }
 
 class WebContentsDouble extends EventTarget {
-  constructor(private readonly snapshot: Snapshot) {
+  private currentSnapshot: Snapshot
+
+  constructor(snapshot: Snapshot) {
     super()
+
+    this.currentSnapshot = snapshot
   }
 
   executeJavaScript(): Promise<Snapshot> {
-    return Promise.resolve(this.snapshot)
+    return Promise.resolve(this.currentSnapshot)
+  }
+
+  finishLoad(snapshot: Snapshot): void {
+    this.currentSnapshot = snapshot
+    this.dispatchEvent(new Event('did-finish-load'))
   }
 
   on(eventName: string, listener: () => void): void {
@@ -46,9 +60,11 @@ class BrowserWindowDouble extends EventTarget {
   }
 
   loadURL(): Promise<void> {
-    this.webContents.dispatchEvent(new Event('did-finish-load'))
-
     return Promise.resolve()
+  }
+
+  finishLoad(snapshot: Snapshot): void {
+    this.webContents.finishLoad(snapshot)
   }
 
   once(eventName: string, listener: () => void): void {
@@ -77,10 +93,26 @@ test('uses an app-managed browser session path instead of a shared partition and
     profileRootPath: '/tmp/cv-maxxing/browser-sessions',
   })
 
-  const result = await vacancyBrowserSession.openSession({
+  const resultPromise = vacancyBrowserSession.openSession({
     shouldCapturePage: () => true,
     url: 'https://www.linkedin.com/jobs/view/123456',
   })
+
+  await vi.waitFor(() => {
+    expect(constructor).toHaveBeenCalledTimes(1)
+  })
+
+  const createdWindow = constructor.mock.results[0]?.value as BrowserWindowDouble | undefined
+
+  createdWindow?.finishLoad({
+    html: '<main><h1>Senior Product Designer</h1></main>',
+    pageTitle: 'Senior Product Designer | LinkedIn',
+    resolvedUrl: 'https://www.linkedin.com/jobs/view/123456',
+  })
+  await flushObservation()
+  createdWindow?.close()
+
+  const result = await resultPromise
   const firstConstructorCall = constructor.mock.calls[0] as [Record<string, unknown>] | undefined
 
   expect(createSession).toHaveBeenCalledWith(
@@ -101,23 +133,24 @@ test('uses an app-managed browser session path instead of a shared partition and
   })
 })
 
-test('returns the latest observed page when the browser window closes before extraction becomes complete', async () => {
+test('tracks the latest valid on-target snapshot across later page loads and returns it when the window closes', async () => {
   const constructor = vi.fn(function BrowserWindowConstructor(options: Record<string, unknown>) {
     return new BrowserWindowDouble(options, {
-      html: '<main><h1>Sign in to view this job</h1></main>',
-      pageTitle: 'Sign in to view this job | LinkedIn',
+      html: '<main><h1>Loading…</h1></main>',
+      pageTitle: 'Loading | LinkedIn',
       resolvedUrl: 'https://www.linkedin.com/jobs/view/123456',
     })
   })
   const vacancyBrowserSession = createVacancyBrowserSessionService({
-    autoCloseAfterFirstObservation: true,
     browserWindowConstructor: constructor as never,
     createSession: vi.fn(() => Promise.resolve({} as Session)),
     profileRootPath: '/tmp/cv-maxxing/browser-sessions',
   })
 
   const resultPromise = vacancyBrowserSession.openSession({
-    shouldCapturePage: () => false,
+    shouldCapturePage: (snapshot) => {
+      return snapshot.resolvedUrl === 'https://www.linkedin.com/jobs/view/123456'
+    },
     url: 'https://www.linkedin.com/jobs/view/123456',
   })
 
@@ -130,18 +163,80 @@ test('returns the latest observed page when the browser window closes before ext
   expect(createdWindow).toBeDefined()
   expect(createdWindow?.isDestroyed()).toBe(false)
 
+  createdWindow?.finishLoad({
+    html: '<main><h1>LinkedIn Feed</h1></main>',
+    pageTitle: 'Feed | LinkedIn',
+    resolvedUrl: 'https://www.linkedin.com/feed/',
+  })
+  await flushObservation()
+  createdWindow?.finishLoad({
+    html: '<main><h1>Senior Product Designer</h1></main>',
+    pageTitle: 'Senior Product Designer | LinkedIn',
+    resolvedUrl: 'https://www.linkedin.com/jobs/view/123456',
+  })
+  await flushObservation()
+  createdWindow?.finishLoad({
+    html: '<main><h1>Senior Product Designer Updated</h1></main>',
+    pageTitle: 'Senior Product Designer | LinkedIn',
+    resolvedUrl: 'https://www.linkedin.com/jobs/view/123456',
+  })
+  await flushObservation()
   createdWindow?.close()
 
   const result = await resultPromise
 
   expect(result).toEqual({
-    html: '<main><h1>Sign in to view this job</h1></main>',
-    pageTitle: 'Sign in to view this job | LinkedIn',
+    html: '<main><h1>Senior Product Designer Updated</h1></main>',
+    pageTitle: 'Senior Product Designer | LinkedIn',
     resolvedUrl: 'https://www.linkedin.com/jobs/view/123456',
   })
 })
 
-test('auto-closes an incomplete first observation only for synthetic browser-session fixtures', async () => {
+test('discards a previously valid snapshot if the user later navigates off-target before closing', async () => {
+  const constructor = vi.fn(function BrowserWindowConstructor(options: Record<string, unknown>) {
+    return new BrowserWindowDouble(options, {
+      html: '<main><h1>Loading…</h1></main>',
+      pageTitle: 'Loading | LinkedIn',
+      resolvedUrl: 'https://www.linkedin.com/jobs/view/123456',
+    })
+  })
+  const vacancyBrowserSession = createVacancyBrowserSessionService({
+    browserWindowConstructor: constructor as never,
+    createSession: vi.fn(() => Promise.resolve({} as Session)),
+    profileRootPath: '/tmp/cv-maxxing/browser-sessions',
+  })
+
+  const resultPromise = vacancyBrowserSession.openSession({
+    shouldCapturePage: (snapshot) => {
+      return snapshot.resolvedUrl === 'https://www.linkedin.com/jobs/view/123456'
+    },
+    url: 'https://www.linkedin.com/jobs/view/123456',
+  })
+
+  await vi.waitFor(() => {
+    expect(constructor).toHaveBeenCalledTimes(1)
+  })
+
+  const createdWindow = constructor.mock.results[0]?.value as BrowserWindowDouble | undefined
+
+  createdWindow?.finishLoad({
+    html: '<main><h1>Senior Product Designer</h1></main>',
+    pageTitle: 'Senior Product Designer | LinkedIn',
+    resolvedUrl: 'https://www.linkedin.com/jobs/view/123456',
+  })
+  await flushObservation()
+  createdWindow?.finishLoad({
+    html: '<main><h1>LinkedIn Feed</h1></main>',
+    pageTitle: 'Feed | LinkedIn',
+    resolvedUrl: 'https://www.linkedin.com/feed/',
+  })
+  await flushObservation()
+  createdWindow?.close()
+
+  await expect(resultPromise).resolves.toBeNull()
+})
+
+test('returns null when the browser window closes without any valid on-target snapshot', async () => {
   const constructor = vi.fn(function BrowserWindowConstructor(options: Record<string, unknown>) {
     return new BrowserWindowDouble(options, {
       html: '<main><h1>Sign in to view this job</h1></main>',
@@ -157,17 +252,26 @@ test('auto-closes an incomplete first observation only for synthetic browser-ses
     testSnapshotHtml: '<main><h1>Fixture</h1></main>',
   })
 
-  const result = await vacancyBrowserSession.openSession({
+  const resultPromise = vacancyBrowserSession.openSession({
     shouldCapturePage: () => false,
     url: 'https://www.linkedin.com/jobs/view/123456',
   })
+  await vi.waitFor(() => {
+    expect(constructor).toHaveBeenCalledTimes(1)
+  })
+
   const createdWindow = constructor.mock.results[0]?.value as BrowserWindowDouble | undefined
 
-  expect(createdWindow).toBeDefined()
-  expect(createdWindow?.isDestroyed()).toBe(true)
-  expect(result).toEqual({
+  createdWindow?.finishLoad({
     html: '<main><h1>Sign in to view this job</h1></main>',
     pageTitle: 'Sign in to view this job | LinkedIn',
     resolvedUrl: 'data:text/html,fixture',
   })
+  await flushObservation()
+
+  const result = await resultPromise
+
+  expect(createdWindow).toBeDefined()
+  expect(createdWindow?.isDestroyed()).toBe(true)
+  expect(result).toBeNull()
 })

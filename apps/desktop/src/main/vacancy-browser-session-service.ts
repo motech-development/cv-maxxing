@@ -99,7 +99,7 @@ export function createVacancyBrowserSessionService({
         width: 1280,
       })
       let hasSettled = false
-      let latestSnapshot: VacancyBrowserPageSnapshot | null = null
+      let latestValidSnapshot: VacancyBrowserPageSnapshot | null = null
 
       return await new Promise<VacancyBrowserPageSnapshot | null>((resolve) => {
         const settle = (snapshot: VacancyBrowserPageSnapshot | null): void => {
@@ -133,14 +133,7 @@ export function createVacancyBrowserSessionService({
             return
           }
 
-          latestSnapshot = snapshot
-
-          if (shouldCapturePage(snapshot)) {
-            settle(snapshot)
-            closeWindow()
-
-            return
-          }
+          latestValidSnapshot = shouldCapturePage(snapshot) ? snapshot : null
 
           if (shouldAutoCloseAfterObservation) {
             closeWindow()
@@ -148,11 +141,11 @@ export function createVacancyBrowserSessionService({
         }
 
         vacancyBrowserWindow.once('closed', () => {
-          settle(latestSnapshot)
+          settle(latestValidSnapshot)
         })
         vacancyBrowserWindow.webContents.on('did-finish-load', () => {
           observeCurrentPage().catch(() => {
-            settle(latestSnapshot)
+            settle(latestValidSnapshot)
           })
         })
 
@@ -164,7 +157,7 @@ export function createVacancyBrowserSessionService({
             }),
           )
           .catch(() => {
-            settle(latestSnapshot)
+            settle(latestValidSnapshot)
           })
       })
     },

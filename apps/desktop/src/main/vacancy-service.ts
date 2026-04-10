@@ -254,23 +254,11 @@ export function createVacancyService({
       const source = classifyVacancyUrl(normalizedUrl)
       const browserSnapshot = await openVacancyBrowserSession({
         shouldCapturePage: (snapshot) => {
-          if (
-            !isExpectedBrowserSessionVacancyPage({
-              originalUrl: normalizedUrl,
-              resolvedUrl: snapshot.resolvedUrl,
-              source,
-            })
-          ) {
-            return false
-          }
-
-          const extractedText = extractTextFromHtml(snapshot.html)
-          const normalizedVacancy = normalizeVacancyText(extractedText)
-
-          return (
-            assessEnglishLanguageSupport(extractedText).status === 'blocked' ||
-            isVacancyReady(normalizedVacancy)
-          )
+          return isExpectedBrowserSessionVacancyPage({
+            originalUrl: normalizedUrl,
+            resolvedUrl: snapshot.resolvedUrl,
+            source,
+          })
         },
         url: normalizedUrl,
       })
@@ -309,12 +297,11 @@ export function createVacancyService({
         }
       }
 
-      return await persistFetchedVacancyPage({
+      return await persistHeuristicVacancyPage({
         fetchedPage: browserSnapshot,
         generateId,
         getCurrentTimestamp,
         localAppData,
-        normalizationService,
         originalUrl: normalizedUrl,
         source,
       })
@@ -772,4 +759,177 @@ function isVacancyReady(vacancy: NormalizedVacancy): boolean {
   }
 
   return vacancy.bodyText.length >= 180
+}
+
+async function persistHeuristicVacancyPage({
+  fetchedPage,
+  generateId,
+  getCurrentTimestamp,
+  localAppData,
+  originalUrl,
+  source,
+}: {
+  fetchedPage: {
+    html: string
+    pageTitle: string | null
+    resolvedUrl: string
+  }
+  generateId: () => string
+  getCurrentTimestamp: () => string
+  localAppData: Pick<LocalAppDataStore, 'artifacts' | 'metadata'>
+  originalUrl: string
+  source: VacancySource
+}): Promise<VacancyIngestResult> {
+  const extractedText = extractTextFromHtml(fetchedPage.html)
+  const normalizedVacancy = normalizeVacancyText(extractedText)
+  const vacancyId = generateId()
+  const fetchedAt = getCurrentTimestamp()
+  const isLanguageBlocked = assessEnglishLanguageSupport(extractedText).status === 'blocked'
+  const canGenerate = !isLanguageBlocked && isVacancyReady(normalizedVacancy)
+  let blockingReason: string | null = null
+
+  if (isLanguageBlocked) {
+    blockingReason = VACANCY_LANGUAGE_BLOCK_MESSAGE
+  } else if (!canGenerate) {
+    blockingReason = detectIncompleteVacancyReason(extractedText)
+  }
+
+  let incompletePreview: ReturnType<typeof createIncompleteExtractedPreview> | null = null
+
+  if (!isLanguageBlocked && blockingReason !== null) {
+    incompletePreview = createIncompleteExtractedPreview({
+      blockingReason,
+      extractedText,
+      pageTitle: fetchedPage.pageTitle,
+    })
+  }
+
+  const vacancy = toVacancySummary({
+    id: vacancyId,
+    metadata: {
+      blockingReason:
+        incompletePreview === null ? blockingReason : incompletePreview.blockingReason,
+      canGenerate,
+      employer:
+        incompletePreview === null ? normalizedVacancy.employer : incompletePreview.employer,
+      fetchedAt,
+      inputType: 'url',
+      location:
+        incompletePreview === null ? normalizedVacancy.location : incompletePreview.location,
+      originalUrl,
+      requirements:
+        incompletePreview === null
+          ? normalizedVacancy.requirements
+          : incompletePreview.requirements,
+      resolvedUrl: fetchedPage.resolvedUrl,
+      responsibilities:
+        incompletePreview === null
+          ? normalizedVacancy.responsibilities
+          : incompletePreview.responsibilities,
+      source,
+      status: canGenerate ? 'ready' : 'incomplete',
+      textPreview:
+        incompletePreview === null
+          ? normalizedVacancy.bodyText.slice(0, 280)
+          : incompletePreview.textPreview,
+      title:
+        incompletePreview === null
+          ? (normalizedVacancy.title ?? inferTitleFromPageTitle(fetchedPage.pageTitle))
+          : incompletePreview.title,
+    },
+  })
+
+  await localAppData.metadata.put({
+    id: vacancyId,
+    scope: VACANCY_SCOPE,
+    value: toVacancyMetadataValue(vacancy),
+  })
+  await localAppData.artifacts.write({
+    content: Buffer.from(sanitizeSnapshotHtml(fetchedPage.html), 'utf8'),
+    id: vacancyId,
+    name: 'snapshot.html',
+    scope: VACANCY_SCOPE,
+  })
+  await localAppData.artifacts.write({
+    content: Buffer.from(extractedText, 'utf8'),
+    id: vacancyId,
+    name: 'extracted.txt',
+    scope: VACANCY_SCOPE,
+  })
+  await localAppData.artifacts.write({
+    content: Buffer.from(JSON.stringify(normalizedVacancy), 'utf8'),
+    id: vacancyId,
+    name: 'normalized.json',
+    scope: VACANCY_SCOPE,
+  })
+  await localAppData.metadata.put({
+    id: VACANCY_WORKSPACE_RECORD_ID,
+    scope: VACANCY_DRAFT_SCOPE,
+    value: {
+      text: '',
+      url: originalUrl,
+      vacancyId,
+    } satisfies VacancyDraftMetadataValue,
+  })
+
+  return {
+    kind: canGenerate ? 'ingested' : 'incomplete',
+    vacancy,
+    workspaceState: await thisGetWorkspaceState(localAppData),
+  }
+}
+
+function detectIncompleteVacancyReason(extractedText: string): string {
+  const normalizedText = extractedText.toLowerCase()
+
+  if (
+    normalizedText.includes('cookie') &&
+    (normalizedText.includes('accept') || normalizedText.includes('consent'))
+  ) {
+    return 'This vacancy page looks incomplete because it only exposed a cookie banner or placeholder content.'
+  }
+
+  if (
+    normalizedText.includes('sign in') ||
+    normalizedText.includes('log in') ||
+    normalizedText.includes('join linkedin')
+  ) {
+    return 'This vacancy page looks incomplete because it only exposed a sign-in wall.'
+  }
+
+  if (normalizedText.trim() === '') {
+    return 'This vacancy page looked empty after extraction.'
+  }
+
+  return 'This vacancy page did not include enough responsibilities or requirements to continue.'
+}
+
+function createIncompleteExtractedPreview({
+  blockingReason,
+  extractedText,
+  pageTitle,
+}: {
+  blockingReason: string
+  extractedText: string
+  pageTitle: string | null
+}): {
+  blockingReason: string
+  employer: string | null
+  location: string | null
+  requirements: string[]
+  responsibilities: string[]
+  textPreview: string
+  title: string | null
+} {
+  const trimmedText = extractedText.trim()
+
+  return {
+    blockingReason,
+    employer: null,
+    location: null,
+    requirements: [],
+    responsibilities: [],
+    textPreview: trimmedText.replaceAll(/\s+/g, ' ').slice(0, 280),
+    title: pageTitle,
+  }
 }

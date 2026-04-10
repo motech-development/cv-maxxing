@@ -159,8 +159,12 @@ test('classifies a Greenhouse vacancy URL, fetches it deterministically, and per
     keychain: createKeychainBoundary(),
     paths,
   })
+  const normalizationCalls: VacancyNormalizationInput[] = []
+
   const normalizationService = {
-    normalizeVacancy: vi.fn(() => {
+    normalizeVacancy: vi.fn((input: VacancyNormalizationInput) => {
+      normalizationCalls.push(input)
+
       return Promise.resolve({
         bodyText:
           'Lead product design for desktop workflows. Partner with engineering and research.',
@@ -211,15 +215,19 @@ test('classifies a Greenhouse vacancy URL, fetches it deterministically, and per
   expect(result.vacancy.employer).toBe('Example Labs')
   expect(result.vacancy.location).toBe('London, United Kingdom')
   expect(result.vacancy.canGenerate).toBe(true)
-  const normalizationCall = vi.mocked(normalizationService.normalizeVacancy).mock.calls[0]?.[0] as
-    | VacancyNormalizationInput
-    | undefined
+  const normalizationCall = normalizationCalls[0]
 
-  expect(normalizationCall?.html).toContain('<h1>Senior Product Designer</h1>')
-  expect(normalizationCall?.originalUrl).toBe('https://boards.greenhouse.io/example/jobs/123')
-  expect(normalizationCall?.pageTitle).toBe('Senior Product Designer at Example Labs - Greenhouse')
-  expect(normalizationCall?.resolvedUrl).toBe('https://boards.greenhouse.io/example/jobs/123')
-  expect(normalizationCall?.source).toBe('greenhouse')
+  expect(normalizationCall).toBeDefined()
+
+  if (normalizationCall === undefined) {
+    throw new Error('Expected vacancy normalization input to be captured.')
+  }
+
+  expect(normalizationCall.html).toContain('<h1>Senior Product Designer</h1>')
+  expect(normalizationCall.originalUrl).toBe('https://boards.greenhouse.io/example/jobs/123')
+  expect(normalizationCall.pageTitle).toBe('Senior Product Designer at Example Labs - Greenhouse')
+  expect(normalizationCall.resolvedUrl).toBe('https://boards.greenhouse.io/example/jobs/123')
+  expect(normalizationCall.source).toBe('greenhouse')
 
   const extractedArtifact = await localAppData.artifacts.read({
     id: 'vacancy-002',
@@ -543,7 +551,7 @@ test('derives generic URL review readiness from the normalized vacancy object an
     normalizeVacancy: vi.fn(() => {
       return Promise.resolve({
         bodyText:
-          'Design the workflow surface for authenticated job-vacancy review. Partner with engineering to ship desktop product improvements and document system behaviour for operators.',
+          'Design the workflow surface for authenticated job-vacancy review. Partner with engineering to ship desktop product improvements and document system behaviour for operators across desktop import, preview, and export flows without dropping factual vacancy detail.',
         employer: null,
         location: null,
         requirements: [],
@@ -606,7 +614,7 @@ test('derives generic URL review readiness from the normalized vacancy object an
       source: 'generic',
       status: 'ready',
       textPreview:
-        'Design the workflow surface for authenticated job-vacancy review. Partner with engineering to ship desktop product improvements and document system behaviour for operators.',
+        'Design the workflow surface for authenticated job-vacancy review. Partner with engineering to ship desktop product improvements and document system behaviour for operators across desktop import, preview, and export flows without dropping factual vacancy detail.',
       title: 'Senior Product Designer',
     },
   })
