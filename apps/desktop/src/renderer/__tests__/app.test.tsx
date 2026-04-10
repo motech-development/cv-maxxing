@@ -390,6 +390,12 @@ test('accepts an original CV dropped onto the first-launch import surface', asyn
 })
 
 test('imports the first original CV and transitions into the design-aligned workspace-empty screen', async () => {
+  const retryAiWorkerPreflight = vi.fn().mockResolvedValue({
+    canResumeGeneration: true,
+    message: 'The local AI worker is ready.',
+    provider: 'codex',
+    status: 'ready',
+  })
   const importedOriginalCv = {
     fileType: 'pdf' as const,
     headline: 'Principal Product Designer',
@@ -406,6 +412,10 @@ test('imports the first original CV and transitions into the design-aligned work
       formality: 'direct' as const,
     },
   }
+  const importOriginalCv = vi.fn().mockResolvedValue({
+    kind: 'imported',
+    originalCv: importedOriginalCv,
+  })
 
   renderApp({
     aiWorker: createAiWorkerApi({
@@ -415,6 +425,7 @@ test('imports the first original CV and transitions into the design-aligned work
         provider: 'codex',
         status: 'ready',
       }),
+      retryAiWorkerPreflight,
     }),
     originalCv: createOriginalCvApi({
       getOriginalCvWorkspaceState: vi
@@ -427,10 +438,7 @@ test('imports the first original CV and transitions into the design-aligned work
           activeOriginalCv: importedOriginalCv,
           snapshotCount: 1,
         }),
-      importOriginalCv: vi.fn().mockResolvedValue({
-        kind: 'imported',
-        originalCv: importedOriginalCv,
-      }),
+      importOriginalCv,
     }),
   })
 
@@ -449,6 +457,11 @@ test('imports the first original CV and transitions into the design-aligned work
     expect(screen.getByRole('heading', { name: 'Create a tailored application' })).toBeDefined()
   })
 
+  expect(retryAiWorkerPreflight).toHaveBeenCalledTimes(1)
+  expect(importOriginalCv).toHaveBeenCalledTimes(1)
+  expect(retryAiWorkerPreflight.mock.invocationCallOrder[0]).toBeLessThan(
+    importOriginalCv.mock.invocationCallOrder[0] ?? Number.POSITIVE_INFINITY,
+  )
   expect(screen.getByText('Job vacancies')).toBeDefined()
   expect(screen.getByText('No tailored applications yet')).toBeDefined()
   expect(screen.getByRole('button', { name: 'New vacancy' })).toBeDefined()
@@ -458,6 +471,53 @@ test('imports the first original CV and transitions into the design-aligned work
   expect(screen.getByRole('button', { name: 'Review pasted vacancy' })).toBeDefined()
   expect(screen.getByRole('button', { name: 'Replace original CV' })).toBeDefined()
   expect(screen.getByText('Review a vacancy before adapting')).toBeDefined()
+})
+
+test('routes first-launch import into the AI worker sign-in flow when retry preflight is not ready', async () => {
+  const retryAiWorkerPreflight = vi.fn().mockResolvedValue({
+    canResumeGeneration: false,
+    failureCode: 'auth_missing',
+    message: 'The local AI worker needs a valid sign-in before the workspace can open.',
+    provider: 'codex',
+    status: 'sign_in_required',
+  })
+  const importOriginalCv = vi.fn()
+
+  renderApp({
+    aiWorker: createAiWorkerApi({
+      getAiWorkerPreflight: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+      retryAiWorkerPreflight,
+    }),
+    originalCv: createOriginalCvApi({
+      importOriginalCv,
+    }),
+  })
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Import your original CV' })).toBeDefined()
+  })
+
+  fireEvent.change(screen.getByLabelText('Original CV file'), {
+    target: {
+      files: [new File(['%PDF-1.7'], 'ada-lovelace.pdf', { type: 'application/pdf' })],
+    },
+  })
+  fireEvent.click(screen.getByRole('button', { name: 'Import original CV' }))
+
+  await waitFor(() => {
+    expect(retryAiWorkerPreflight).toHaveBeenCalledTimes(1)
+  })
+
+  expect(importOriginalCv).not.toHaveBeenCalled()
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Connect the local AI worker' })).toBeDefined()
+  })
 })
 
 test('renders the design-aligned workspace-empty screen when an original CV already exists', async () => {
@@ -943,6 +1003,73 @@ test('keeps the existing active original CV visible when a workspace replacement
 
   expect(screen.getByText('ada-lovelace.pdf')).toBeDefined()
   expect(screen.getByRole('heading', { name: 'Create a tailored application' })).toBeDefined()
+})
+
+test('routes original CV replacement into the AI worker repair flow when retry preflight is unavailable', async () => {
+  const retryAiWorkerPreflight = vi.fn().mockResolvedValue({
+    canResumeGeneration: false,
+    failureCode: 'runtime_missing',
+    message: 'The local AI worker is unavailable. Check setup, then retry.',
+    provider: 'codex',
+    status: 'unavailable',
+  })
+  const importOriginalCv = vi.fn()
+
+  renderApp({
+    aiWorker: createAiWorkerApi({
+      getAiWorkerPreflight: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+      getStartupDestination: vi.fn().mockResolvedValue('workspace_empty'),
+      retryAiWorkerPreflight,
+    }),
+    originalCv: createOriginalCvApi({
+      getOriginalCvWorkspaceState: vi.fn().mockResolvedValue({
+        activeOriginalCv: {
+          fileType: 'pdf',
+          headline: 'Principal Product Designer',
+          id: 'original-cv-123',
+          importedAt: '2026-04-08T14:30:00.000Z',
+          originalFilename: 'ada-lovelace.pdf',
+          pageCount: 1,
+          snapshotCount: 1,
+          summary: 'Design leader focused on complex workflow products.',
+          writingStyle: {
+            averageSentenceLength: 7,
+            clicheDetections: [],
+            firstPersonUsage: 'absent',
+            formality: 'direct',
+          },
+        },
+        snapshotCount: 1,
+      }),
+      importOriginalCv,
+    }),
+  })
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Create a tailored application' })).toBeDefined()
+  })
+
+  fireEvent.change(screen.getByLabelText('Replacement original CV file'), {
+    target: {
+      files: [new File(['broken'], 'broken.pdf', { type: 'application/pdf' })],
+    },
+  })
+  fireEvent.click(screen.getByRole('button', { name: 'Replace original CV' }))
+
+  await waitFor(() => {
+    expect(retryAiWorkerPreflight).toHaveBeenCalledTimes(1)
+  })
+
+  expect(importOriginalCv).not.toHaveBeenCalled()
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Repair the local AI worker' })).toBeDefined()
+  })
 })
 
 test('shows the normalization failure message while keeping the existing active original CV visible', async () => {
