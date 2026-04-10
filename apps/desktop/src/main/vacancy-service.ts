@@ -13,6 +13,7 @@ import {
 } from '../shared/language-support.js'
 import type { JsonValue, LocalAppDataStore } from './local-app-data-service.js'
 import type { VacancyBrowserPageSnapshot } from './vacancy-browser-session-service.js'
+import { VacancyNormalizationError } from './vacancy-normalization-error.js'
 import {
   inferPageTitle,
   inferTitleFromPageTitle,
@@ -29,6 +30,10 @@ const VACANCY_SCOPE = 'vacancies'
 const VACANCY_WORKSPACE_RECORD_ID = 'current'
 
 interface VacancyServiceDependencies {
+  captureVacancyBrowserSessionPage?: (input: {
+    shouldCapturePage: (snapshot: VacancyBrowserPageSnapshot) => boolean
+    url: string
+  }) => Promise<VacancyBrowserPageSnapshot | null>
   fetchVacancyPage?: (url: string) => Promise<{
     html: string
     pageTitle: string | null
@@ -76,6 +81,7 @@ export interface VacancyService {
 }
 
 export function createVacancyService({
+  captureVacancyBrowserSessionPage = () => Promise.resolve(null),
   fetchVacancyPage = fetchVacancyPageFromNetwork,
   generateId = randomUUID,
   getCurrentTimestamp = () => {
@@ -210,25 +216,60 @@ export function createVacancyService({
       const source = classifyVacancyUrl(normalizedUrl)
 
       if (source === 'linkedin' || source === 'indeed') {
-        const incompleteVacancy = createBlockedVacancySummary({
-          blockingReason:
-            'Open the internal browser session for authenticated pages, or paste the full job text instead.',
-          fetchedAt: getCurrentTimestamp(),
-          inputType: 'url',
-          originalUrl: normalizedUrl,
-          source,
-        })
-
         await persistVacancyWorkspaceDraft({
           localAppData,
           url: normalizedUrl,
         })
 
-        return {
-          kind: 'incomplete',
-          vacancy: incompleteVacancy,
-          workspaceState: await thisGetWorkspaceState(localAppData),
+        const capturedBrowserSnapshot = await captureVacancyBrowserSessionPage({
+          shouldCapturePage: (snapshot) => {
+            return isExpectedBrowserSessionVacancyPage({
+              originalUrl: normalizedUrl,
+              resolvedUrl: snapshot.resolvedUrl,
+              source,
+            })
+          },
+          url: normalizedUrl,
+        })
+
+        if (
+          capturedBrowserSnapshot !== null &&
+          isExpectedBrowserSessionVacancyPage({
+            originalUrl: normalizedUrl,
+            resolvedUrl: capturedBrowserSnapshot.resolvedUrl,
+            source,
+          })
+        ) {
+          try {
+            return await persistFetchedVacancyPage({
+              fetchedPage: capturedBrowserSnapshot,
+              generateId,
+              getCurrentTimestamp,
+              localAppData,
+              normalizationService,
+              originalUrl: normalizedUrl,
+              source,
+            })
+          } catch (error) {
+            if (isSilentCaptureFallbackError(error)) {
+              return await createInteractiveBrowserFallbackResult({
+                getCurrentTimestamp,
+                localAppData,
+                originalUrl: normalizedUrl,
+                source,
+              })
+            }
+
+            throw error
+          }
         }
+
+        return await createInteractiveBrowserFallbackResult({
+          getCurrentTimestamp,
+          localAppData,
+          originalUrl: normalizedUrl,
+          source,
+        })
       }
 
       await persistVacancyWorkspaceDraft({
@@ -301,6 +342,33 @@ export function createVacancyService({
         source,
       })
     },
+  }
+}
+
+async function createInteractiveBrowserFallbackResult({
+  getCurrentTimestamp,
+  localAppData,
+  originalUrl,
+  source,
+}: {
+  getCurrentTimestamp: () => string
+  localAppData: Pick<LocalAppDataStore, 'artifacts' | 'metadata'>
+  originalUrl: string
+  source: VacancySource
+}): Promise<VacancyIngestResult> {
+  const incompleteVacancy = createBlockedVacancySummary({
+    blockingReason:
+      'Open the internal browser session for authenticated pages, or paste the full job text instead.',
+    fetchedAt: getCurrentTimestamp(),
+    inputType: 'url',
+    originalUrl,
+    source,
+  })
+
+  return {
+    kind: 'incomplete',
+    vacancy: incompleteVacancy,
+    workspaceState: await thisGetWorkspaceState(localAppData),
   }
 }
 
@@ -618,6 +686,10 @@ function normalizeUrl(url: string | undefined): string | null {
   } catch {
     return null
   }
+}
+
+function isSilentCaptureFallbackError(error: unknown): boolean {
+  return error instanceof VacancyNormalizationError && error.code === 'no_job_content'
 }
 
 function requireUrl(url: string): string {

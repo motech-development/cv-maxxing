@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 
@@ -32,6 +32,10 @@ class MockEventTarget extends EventTarget {
   emit(eventName: string, detail?: unknown): void {
     this.dispatchEvent(new CustomEvent(eventName, { detail }))
   }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
 }
 
 afterEach(async () => {
@@ -136,6 +140,91 @@ test('returns the no-job-content tagged union from fixture output', async () => 
   ).resolves.toEqual({
     kind: 'no_job_content',
   })
+})
+
+test('maps Codex no-job-content output with null normalized vacancy to the internal tagged union', async () => {
+  const worker = createVacancyNormalizationWorker({
+    environment: {
+      CV_MAXXING_AI_WORKER_VACANCY_NORMALIZATION_OUTPUT: JSON.stringify({
+        kind: 'no_job_content',
+        normalizedVacancy: null,
+      }),
+    },
+  })
+
+  await expect(
+    worker.runNormalization({
+      runDirectoryPath: '/tmp/unused',
+      signal: new AbortController().signal,
+    }),
+  ).resolves.toEqual({
+    kind: 'no_job_content',
+  })
+})
+
+test('writes a root object schema for Codex vacancy normalization', async () => {
+  const runDirectoryPath = await mkdtemp(
+    path.join(tmpdir(), 'cv-maxxing-vacancy-normalization-worker-schema-'),
+  )
+
+  temporaryDirectories.push(runDirectoryPath)
+
+  let observedSchema: unknown
+
+  spawnMock.mockImplementation((_command: string, args: string[]) => {
+    const child = new MockEventTarget() as MockEventTarget & {
+      stderr: MockEventTarget
+      stdout: MockEventTarget
+    }
+
+    child.stderr = new MockEventTarget()
+    child.stdout = new MockEventTarget()
+
+    const schemaFilePath = args[args.indexOf('--output-schema') + 1]
+    const outputFilePath = args[args.indexOf('--output-last-message') + 1]
+
+    if (schemaFilePath === undefined || outputFilePath === undefined) {
+      throw new Error('Expected Codex CLI schema and output file path arguments.')
+    }
+
+    void readFile(schemaFilePath, 'utf8').then(
+      async (schemaText) => {
+        observedSchema = JSON.parse(schemaText) as unknown
+        await writeFile(outputFilePath, JSON.stringify({ kind: 'no_job_content' }), 'utf8')
+        child.emit('close', 0)
+      },
+      (error: unknown) => {
+        child.emit('error', error)
+      },
+    )
+
+    return child
+  })
+
+  const worker = createVacancyNormalizationWorker({
+    environment: {
+      CV_MAXXING_AI_WORKER_CODEX_COMMAND: 'codex',
+    },
+  })
+
+  await expect(
+    worker.runNormalization({
+      runDirectoryPath,
+      signal: new AbortController().signal,
+    }),
+  ).resolves.toEqual({
+    kind: 'no_job_content',
+  })
+
+  expect(isRecord(observedSchema)).toBe(true)
+
+  if (!isRecord(observedSchema)) {
+    throw new Error('Expected the written schema to be an object.')
+  }
+
+  expect(observedSchema.type).toBe('object')
+  expect(Object.hasOwn(observedSchema, 'oneOf')).toBe(false)
+  expect(isRecord(observedSchema.properties)).toBe(true)
 })
 
 test('kills the Codex CLI subprocess when vacancy normalization is aborted', async () => {

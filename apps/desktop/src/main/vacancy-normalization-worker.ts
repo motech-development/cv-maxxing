@@ -8,6 +8,16 @@ import type {
   VacancyNormalizationWorkerResult,
 } from './vacancy-normalization-service.js'
 
+type RawVacancyNormalizationWorkerResult =
+  | {
+      kind: 'no_job_content'
+      normalizedVacancy?: null
+    }
+  | {
+      kind: 'success'
+      normalizedVacancy: NormalizedVacancy
+    }
+
 export interface VacancyNormalizationWorker {
   runNormalization: (input: {
     runDirectoryPath: string
@@ -23,66 +33,46 @@ export interface VacancyNormalizationWorkerEnvironment {
 }
 
 const OUTPUT_SCHEMA = {
-  oneOf: [
-    {
-      additionalProperties: false,
-      properties: {
-        kind: {
-          const: 'no_job_content',
-        },
-      },
-      required: ['kind'],
-      type: 'object',
+  additionalProperties: false,
+  properties: {
+    kind: {
+      enum: ['no_job_content', 'success'],
+      type: 'string',
     },
-    {
+    normalizedVacancy: {
       additionalProperties: false,
       properties: {
-        kind: {
-          const: 'success',
+        bodyText: {
+          type: 'string',
         },
-        normalizedVacancy: {
-          additionalProperties: false,
-          properties: {
-            bodyText: {
-              type: 'string',
-            },
-            employer: {
-              type: ['string', 'null'],
-            },
-            location: {
-              type: ['string', 'null'],
-            },
-            requirements: {
-              items: {
-                type: 'string',
-              },
-              type: 'array',
-            },
-            responsibilities: {
-              items: {
-                type: 'string',
-              },
-              type: 'array',
-            },
-            title: {
-              type: ['string', 'null'],
-            },
+        employer: {
+          type: ['string', 'null'],
+        },
+        location: {
+          type: ['string', 'null'],
+        },
+        requirements: {
+          items: {
+            type: 'string',
           },
-          required: [
-            'bodyText',
-            'employer',
-            'location',
-            'requirements',
-            'responsibilities',
-            'title',
-          ],
-          type: 'object',
+          type: 'array',
+        },
+        responsibilities: {
+          items: {
+            type: 'string',
+          },
+          type: 'array',
+        },
+        title: {
+          type: ['string', 'null'],
         },
       },
-      required: ['kind', 'normalizedVacancy'],
-      type: 'object',
+      required: ['bodyText', 'employer', 'location', 'requirements', 'responsibilities', 'title'],
+      type: ['object', 'null'],
     },
-  ],
+  },
+  required: ['kind', 'normalizedVacancy'],
+  type: 'object',
 } as const
 const VACANCY_NORMALIZATION_MODEL = 'gpt-5.4'
 const VACANCY_NORMALIZATION_REASONING_EFFORT = 'low'
@@ -148,6 +138,7 @@ async function runCodexCliNormalization({
     'Ignore navigation chrome, cookie banners, account UI, and related-job content.',
     'Prefer the main vacancy body over summary snippets.',
     'Leave missing fields empty instead of guessing.',
+    'If no real job content exists, return kind "no_job_content" with normalizedVacancy set to null.',
   ].join(' ')
 
   const stderrChunks: string[] = []
@@ -244,7 +235,7 @@ function parseNormalizationResultJson({
     })
   }
 
-  if (!isVacancyNormalizationWorkerResult(parsedOutput)) {
+  if (!isRawVacancyNormalizationWorkerResult(parsedOutput)) {
     throw new VacancyNormalizationError({
       code: 'invalid_normalization',
       message: `${context} produced invalid normalization output. Preview: ${buildOutputPreview(
@@ -253,12 +244,12 @@ function parseNormalizationResultJson({
     })
   }
 
-  return parsedOutput
+  return normalizeWorkerResult(parsedOutput)
 }
 
-function isVacancyNormalizationWorkerResult(
+function isRawVacancyNormalizationWorkerResult(
   value: unknown,
-): value is VacancyNormalizationWorkerResult {
+): value is RawVacancyNormalizationWorkerResult {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) {
     return false
   }
@@ -266,7 +257,7 @@ function isVacancyNormalizationWorkerResult(
   const candidate = value as Record<string, unknown>
 
   if (candidate.kind === 'no_job_content') {
-    return true
+    return candidate.normalizedVacancy === undefined || candidate.normalizedVacancy === null
   }
 
   if (candidate.kind !== 'success') {
@@ -274,6 +265,21 @@ function isVacancyNormalizationWorkerResult(
   }
 
   return isNormalizedVacancy(candidate.normalizedVacancy)
+}
+
+function normalizeWorkerResult(
+  value: RawVacancyNormalizationWorkerResult,
+): VacancyNormalizationWorkerResult {
+  if (value.kind === 'no_job_content') {
+    return {
+      kind: 'no_job_content',
+    }
+  }
+
+  return {
+    kind: 'success',
+    normalizedVacancy: value.normalizedVacancy,
+  }
 }
 
 function isStringArray(value: unknown): value is string[] {

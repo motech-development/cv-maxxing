@@ -265,19 +265,80 @@ test('classifies a Greenhouse vacancy URL, fetches it deterministically, and per
   await localAppData.close()
 })
 
-test('preserves a LinkedIn vacancy URL and blocks generation until the browser-assisted fallback is used', async () => {
+test('ingests an authenticated LinkedIn vacancy URL without opening the interactive browser when session-backed capture succeeds', async () => {
   const paths = await createTestPaths()
   const localAppData = await openLocalAppData({
     keychain: createKeychainBoundary(),
     paths,
   })
-  const fetchVacancyPage = vi.fn()
+
+  const captureVacancyBrowserSessionPage = vi.fn(() => {
+    return Promise.resolve({
+      html: [
+        '<html>',
+        '<body>',
+        '<main>',
+        '<h1>Senior Product Designer</h1>',
+        '<p>Example Labs</p>',
+        '<p>London, United Kingdom</p>',
+        '<section><h2>Responsibilities</h2><ul><li>Lead product design for authenticated desktop workflows.</li><li>Partner with engineering and research.</li></ul></section>',
+        '<section><h2>Requirements</h2><ul><li>Experience shipping workflow software.</li><li>Excellent written communication.</li></ul></section>',
+        '</main>',
+        '</body>',
+        '</html>',
+      ].join(''),
+      pageTitle: 'Senior Product Designer | LinkedIn',
+      resolvedUrl: 'https://www.linkedin.com/jobs/view/123456',
+    })
+  })
+  const openVacancyBrowserSession = vi.fn(() => Promise.resolve(null))
   const vacancyService = createVacancyService({
-    fetchVacancyPage,
     generateId: vi.fn(() => 'vacancy-003'),
     getCurrentTimestamp: vi.fn(() => '2026-04-08T21:15:00.000Z'),
     localAppData,
     normalizationService: createVacancyNormalizationServiceDouble(),
+    captureVacancyBrowserSessionPage,
+    openVacancyBrowserSession,
+  })
+
+  const result = await vacancyService.ingestVacancyUrl({
+    url: 'https://www.linkedin.com/jobs/view/123456',
+  })
+
+  expect(result.kind).toBe('ingested')
+  expect(result.vacancy.source).toBe('linkedin')
+  expect(result.vacancy.canGenerate).toBe(true)
+  expect(result.vacancy.blockingReason).toBeNull()
+  expect(captureVacancyBrowserSessionPage).toHaveBeenCalledTimes(1)
+  expect(openVacancyBrowserSession).not.toHaveBeenCalled()
+  const workspaceState = await vacancyService.getWorkspaceState()
+
+  expect(workspaceState.draft).toEqual({
+    text: '',
+    url: 'https://www.linkedin.com/jobs/view/123456',
+  })
+  expect(workspaceState.vacancy?.canGenerate).toBe(true)
+  expect(workspaceState.vacancy?.source).toBe('linkedin')
+  expect(workspaceState.vacancy?.title).toBe('Senior Product Designer')
+
+  await localAppData.close()
+})
+
+test('preserves a LinkedIn vacancy URL and falls back to the interactive browser when session-backed capture yields nothing usable', async () => {
+  const paths = await createTestPaths()
+  const localAppData = await openLocalAppData({
+    keychain: createKeychainBoundary(),
+    paths,
+  })
+  const captureVacancyBrowserSessionPage = vi.fn(() => Promise.resolve(null))
+  const fetchVacancyPage = vi.fn()
+  const vacancyService = createVacancyService({
+    fetchVacancyPage,
+    generateId: vi.fn(() => 'vacancy-003-fallback'),
+    getCurrentTimestamp: vi.fn(() => '2026-04-08T21:15:30.000Z'),
+    localAppData,
+    normalizationService: createVacancyNormalizationServiceDouble(),
+    captureVacancyBrowserSessionPage,
     openVacancyBrowserSession: vi.fn(() => Promise.resolve(null)),
   })
 
@@ -289,14 +350,8 @@ test('preserves a LinkedIn vacancy URL and blocks generation until the browser-a
   expect(result.vacancy.source).toBe('linkedin')
   expect(result.vacancy.canGenerate).toBe(false)
   expect(result.vacancy.blockingReason).toContain('Open the internal browser session')
+  expect(captureVacancyBrowserSessionPage).toHaveBeenCalledTimes(1)
   expect(fetchVacancyPage).not.toHaveBeenCalled()
-  await expect(vacancyService.getWorkspaceState()).resolves.toEqual({
-    draft: {
-      text: '',
-      url: 'https://www.linkedin.com/jobs/view/123456',
-    },
-    vacancy: null,
-  })
 
   await localAppData.close()
 })

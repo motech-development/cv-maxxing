@@ -9,6 +9,10 @@ export interface VacancyBrowserPageSnapshot {
 }
 
 export interface VacancyBrowserSessionService {
+  captureSessionPage: (input: {
+    shouldCapturePage: (snapshot: VacancyBrowserPageSnapshot) => boolean
+    url: string
+  }) => Promise<VacancyBrowserPageSnapshot | null>
   openSession: (input: {
     shouldCapturePage: (snapshot: VacancyBrowserPageSnapshot) => boolean
     url: string
@@ -55,6 +59,9 @@ const browserCaptureScript = `(() => {
     resolvedUrl: window.location.href,
   }
 })()`
+const INTERACTIVE_OBSERVATION_INTERVAL_MS = 500
+const SILENT_CAPTURE_OBSERVATION_INTERVAL_MS = 250
+const SILENT_CAPTURE_TIMEOUT_MS = 3000
 
 export function createVacancyBrowserSessionService({
   autoCloseAfterFirstObservation = false,
@@ -75,31 +82,23 @@ export function createVacancyBrowserSessionService({
     autoCloseAfterFirstObservation && testSnapshotHtml !== undefined
 
   return {
-    openSession: async ({
+    captureSessionPage: async ({
       shouldCapturePage,
       url,
     }: {
       shouldCapturePage: (snapshot: VacancyBrowserPageSnapshot) => boolean
       url: string
     }): Promise<VacancyBrowserPageSnapshot | null> => {
-      const profilePath = path.join(profileRootPath, 'vacancy-browser-session')
-      const managedSession = await resolvedCreateSession(profilePath)
-      const vacancyBrowserWindow = new resolvedBrowserWindowConstructor({
-        autoHideMenuBar: true,
-        backgroundColor: '#08141f',
-        height: 900,
-        show: true,
-        title: 'Vacancy Browser Session',
-        webPreferences: {
-          contextIsolation: true,
-          nodeIntegration: false,
-          sandbox: true,
-          session: managedSession,
-        },
-        width: 1280,
+      const vacancyBrowserWindow = await createVacancyBrowserWindow({
+        browserWindowConstructor: resolvedBrowserWindowConstructor,
+        createSession: resolvedCreateSession,
+        profileRootPath,
+        show: false,
       })
       let hasSettled = false
       let latestValidSnapshot: VacancyBrowserPageSnapshot | null = null
+      let observationIntervalId: ReturnType<typeof setInterval> | null = null
+      let observationTimeoutId: ReturnType<typeof setTimeout> | null = null
 
       return await new Promise<VacancyBrowserPageSnapshot | null>((resolve) => {
         const settle = (snapshot: VacancyBrowserPageSnapshot | null): void => {
@@ -108,6 +107,17 @@ export function createVacancyBrowserSessionService({
           }
 
           hasSettled = true
+
+          if (observationIntervalId !== null) {
+            clearInterval(observationIntervalId)
+            observationIntervalId = null
+          }
+
+          if (observationTimeoutId !== null) {
+            clearTimeout(observationTimeoutId)
+            observationTimeoutId = null
+          }
+
           resolve(snapshot)
         }
 
@@ -133,6 +143,106 @@ export function createVacancyBrowserSessionService({
             return
           }
 
+          // Drop stale vacancy snapshots when later observations go off-target.
+          latestValidSnapshot = shouldCapturePage(snapshot) ? snapshot : null
+        }
+
+        const startSilentObservation = (): void => {
+          if (observationIntervalId !== null) {
+            return
+          }
+
+          observeCurrentPage().catch(() => {
+            settle(latestValidSnapshot)
+          })
+
+          observationIntervalId = setInterval(() => {
+            observeCurrentPage().catch(() => {
+              settle(latestValidSnapshot)
+            })
+          }, SILENT_CAPTURE_OBSERVATION_INTERVAL_MS)
+
+          observationTimeoutId = setTimeout(() => {
+            closeWindow()
+            settle(latestValidSnapshot)
+          }, SILENT_CAPTURE_TIMEOUT_MS)
+        }
+
+        vacancyBrowserWindow.once('closed', () => {
+          settle(latestValidSnapshot)
+        })
+        vacancyBrowserWindow.webContents.on('did-finish-load', () => {
+          startSilentObservation()
+        })
+
+        vacancyBrowserWindow
+          .loadURL(
+            createBrowserSessionUrl({
+              testSnapshotHtml,
+              url,
+            }),
+          )
+          .catch(() => {
+            settle(latestValidSnapshot)
+          })
+      })
+    },
+    openSession: async ({
+      shouldCapturePage,
+      url,
+    }: {
+      shouldCapturePage: (snapshot: VacancyBrowserPageSnapshot) => boolean
+      url: string
+    }): Promise<VacancyBrowserPageSnapshot | null> => {
+      const vacancyBrowserWindow = await createVacancyBrowserWindow({
+        browserWindowConstructor: resolvedBrowserWindowConstructor,
+        createSession: resolvedCreateSession,
+        profileRootPath,
+        show: true,
+      })
+      let hasSettled = false
+      let latestValidSnapshot: VacancyBrowserPageSnapshot | null = null
+      let observationIntervalId: ReturnType<typeof setInterval> | null = null
+
+      return await new Promise<VacancyBrowserPageSnapshot | null>((resolve) => {
+        const settle = (snapshot: VacancyBrowserPageSnapshot | null): void => {
+          if (hasSettled) {
+            return
+          }
+
+          hasSettled = true
+
+          if (observationIntervalId !== null) {
+            clearInterval(observationIntervalId)
+            observationIntervalId = null
+          }
+
+          resolve(snapshot)
+        }
+
+        const closeWindow = (): void => {
+          if (vacancyBrowserWindow.isDestroyed()) {
+            return
+          }
+
+          vacancyBrowserWindow.close()
+        }
+
+        const observeCurrentPage = async (): Promise<void> => {
+          if (hasSettled || vacancyBrowserWindow.isDestroyed()) {
+            return
+          }
+
+          const snapshot = await captureCurrentPage({
+            fallbackResolvedUrl: testResolvedUrl,
+            webContents: vacancyBrowserWindow.webContents,
+          })
+
+          if (snapshot === null) {
+            return
+          }
+
+          // Drop stale vacancy snapshots when later observations go off-target.
           latestValidSnapshot = shouldCapturePage(snapshot) ? snapshot : null
 
           if (shouldAutoCloseAfterObservation) {
@@ -140,10 +250,28 @@ export function createVacancyBrowserSessionService({
           }
         }
 
+        const startInteractiveObservation = (): void => {
+          if (observationIntervalId !== null) {
+            return
+          }
+
+          observeCurrentPage().catch(() => {
+            settle(latestValidSnapshot)
+          })
+
+          observationIntervalId = setInterval(() => {
+            observeCurrentPage().catch(() => {
+              settle(latestValidSnapshot)
+            })
+          }, INTERACTIVE_OBSERVATION_INTERVAL_MS)
+        }
+
         vacancyBrowserWindow.once('closed', () => {
           settle(latestValidSnapshot)
         })
         vacancyBrowserWindow.webContents.on('did-finish-load', () => {
+          startInteractiveObservation()
+
           observeCurrentPage().catch(() => {
             settle(latestValidSnapshot)
           })
@@ -162,6 +290,36 @@ export function createVacancyBrowserSessionService({
       })
     },
   }
+}
+
+async function createVacancyBrowserWindow({
+  browserWindowConstructor,
+  createSession,
+  profileRootPath,
+  show,
+}: {
+  browserWindowConstructor: BrowserWindowConstructor
+  createSession: (profilePath: string) => Session | Promise<Session>
+  profileRootPath: string
+  show: boolean
+}): Promise<BrowserWindowLike> {
+  const profilePath = path.join(profileRootPath, 'vacancy-browser-session')
+  const managedSession = await createSession(profilePath)
+
+  return new browserWindowConstructor({
+    autoHideMenuBar: true,
+    backgroundColor: '#08141f',
+    height: 900,
+    show,
+    title: 'Vacancy Browser Session',
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+      session: managedSession,
+    },
+    width: 1280,
+  })
 }
 
 function loadElectronRuntime(): ElectronRuntime {

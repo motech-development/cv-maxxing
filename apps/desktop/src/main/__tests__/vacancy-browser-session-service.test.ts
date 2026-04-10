@@ -133,6 +133,54 @@ test('uses an app-managed browser session path instead of a shared partition and
   })
 })
 
+test('captures a vacancy page silently with the managed browser session before falling back to an interactive window', async () => {
+  const sessionDouble = {} as Session
+  const createSession = vi.fn(() => Promise.resolve(sessionDouble))
+  const constructor = vi.fn(function BrowserWindowConstructor(options: Record<string, unknown>) {
+    return new BrowserWindowDouble(options, {
+      html: '<main><h1>Senior Product Designer</h1></main>',
+      pageTitle: 'Senior Product Designer | LinkedIn',
+      resolvedUrl: 'https://www.linkedin.com/jobs/view/123456',
+    })
+  })
+  const vacancyBrowserSession = createVacancyBrowserSessionService({
+    browserWindowConstructor: constructor as never,
+    createSession,
+    profileRootPath: '/tmp/cv-maxxing/browser-sessions',
+  })
+
+  const resultPromise = vacancyBrowserSession.captureSessionPage({
+    shouldCapturePage: () => true,
+    url: 'https://www.linkedin.com/jobs/view/123456',
+  })
+
+  await vi.waitFor(() => {
+    expect(constructor).toHaveBeenCalledTimes(1)
+  })
+
+  const createdWindow = constructor.mock.results[0]?.value as BrowserWindowDouble | undefined
+
+  createdWindow?.finishLoad({
+    html: '<main><h1>Senior Product Designer</h1></main>',
+    pageTitle: 'Senior Product Designer | LinkedIn',
+    resolvedUrl: 'https://www.linkedin.com/jobs/view/123456',
+  })
+
+  const result = await resultPromise
+  const firstConstructorCall = constructor.mock.calls[0] as [Record<string, unknown>] | undefined
+
+  expect(createSession).toHaveBeenCalledWith(
+    '/tmp/cv-maxxing/browser-sessions/vacancy-browser-session',
+  )
+  expect(firstConstructorCall?.[0].show).toBe(false)
+  expect(result).toEqual({
+    html: '<main><h1>Senior Product Designer</h1></main>',
+    pageTitle: 'Senior Product Designer | LinkedIn',
+    resolvedUrl: 'https://www.linkedin.com/jobs/view/123456',
+  })
+  expect(createdWindow?.isDestroyed()).toBe(true)
+})
+
 test('tracks the latest valid on-target snapshot across later page loads and returns it when the window closes', async () => {
   const constructor = vi.fn(function BrowserWindowConstructor(options: Record<string, unknown>) {
     return new BrowserWindowDouble(options, {
