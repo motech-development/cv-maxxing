@@ -64,9 +64,9 @@ export function WorkspaceLoadingScreen({
           Local AI worker is adapting the CV
         </p>
         <p className="m-0 max-w-3xl text-sm leading-6 text-[var(--color-copy-muted)]">
-          Truthfulness checks, British English, and style preservation are applied before the PDF
-          previews are created. If setup repair interrupts the run, this screen restores the saved
-          vacancy draft.
+          The local AI worker is generating the adapted CV and cover letter now. Prompts enforce
+          British English and British-style cover-letter dates before the PDF previews are created.
+          If setup repair interrupts the run, this screen restores the saved vacancy draft.
         </p>
         <div className="h-2 overflow-hidden rounded-full bg-[var(--color-surface-2)]">
           <div className="h-full w-[58%] rounded-full bg-[var(--color-border)]" />

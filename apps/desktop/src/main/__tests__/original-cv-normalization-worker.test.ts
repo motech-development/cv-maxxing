@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 
@@ -130,6 +130,126 @@ test('returns parsed normalization results from fixture output', async () => {
       firstPersonUsage: 'absent',
       formality: 'formal',
     },
+  })
+})
+
+test('writes typed enum fields in the original-CV normalization output schema', async () => {
+  const runDirectoryPath = await mkdtemp(
+    path.join(tmpdir(), 'cv-maxxing-original-cv-normalization-worker-schema-'),
+  )
+
+  temporaryDirectories.push(runDirectoryPath)
+
+  let capturedSchema:
+    | {
+        properties?: {
+          writingStyle?: {
+            properties?: {
+              firstPersonUsage?: unknown
+              formality?: unknown
+            }
+          }
+        }
+      }
+    | undefined
+
+  spawnMock.mockImplementation((_command: string, args: string[]) => {
+    const child = new MockEventTarget() as MockEventTarget & {
+      stderr: MockEventTarget
+      stdout: MockEventTarget
+    }
+
+    child.stderr = new MockEventTarget()
+    child.stdout = new MockEventTarget()
+
+    const schemaFlagIndex = args.indexOf('--output-schema')
+    const outputFlagIndex = args.indexOf('--output-last-message')
+
+    if (
+      schemaFlagIndex === -1 ||
+      outputFlagIndex === -1 ||
+      schemaFlagIndex + 1 >= args.length ||
+      outputFlagIndex + 1 >= args.length
+    ) {
+      throw new Error('Expected Codex CLI schema and output file path arguments.')
+    }
+
+    const schemaFilePath = args[schemaFlagIndex + 1]
+    const outputFilePath = args[outputFlagIndex + 1]
+
+    if (schemaFilePath === undefined || outputFilePath === undefined) {
+      throw new Error('Expected Codex CLI schema and output file path arguments.')
+    }
+
+    void Promise.all([
+      readFile(schemaFilePath, 'utf8').then((schemaText) => {
+        capturedSchema = JSON.parse(schemaText) as typeof capturedSchema
+      }),
+      writeFile(
+        outputFilePath,
+        JSON.stringify({
+          normalizedCv: {
+            experience: ['Principal Product Designer | Analytical Engines Ltd'],
+            fullName: 'Ada Lovelace',
+            headline: 'Principal Product Designer',
+            skills: ['Product strategy', 'UX research', 'Prototyping'],
+            summary: 'Design leader focused on complex workflow products for technical users.',
+          },
+          writingStyle: {
+            averageSentenceLength: 12,
+            clicheDetections: [],
+            firstPersonUsage: 'absent',
+            formality: 'formal',
+          },
+        }),
+        'utf8',
+      ),
+    ]).then(
+      () => {
+        child.emit('close', 0)
+      },
+      (error: unknown) => {
+        child.emit('error', error)
+      },
+    )
+
+    return child
+  })
+
+  const worker = createOriginalCvNormalizationWorker({
+    environment: {
+      CV_MAXXING_AI_WORKER_CODEX_COMMAND: 'codex',
+    },
+  })
+
+  await expect(
+    worker.runNormalization({
+      runDirectoryPath,
+      signal: new AbortController().signal,
+    }),
+  ).resolves.toEqual({
+    normalizedCv: {
+      experience: ['Principal Product Designer | Analytical Engines Ltd'],
+      fullName: 'Ada Lovelace',
+      headline: 'Principal Product Designer',
+      skills: ['Product strategy', 'UX research', 'Prototyping'],
+      summary: 'Design leader focused on complex workflow products for technical users.',
+    },
+    writingStyle: {
+      averageSentenceLength: 12,
+      clicheDetections: [],
+      firstPersonUsage: 'absent',
+      formality: 'formal',
+    },
+  })
+
+  expect(capturedSchema?.properties?.writingStyle?.properties?.firstPersonUsage).toEqual({
+    enum: ['absent', 'mixed', 'present'],
+    type: 'string',
+  })
+  expect(capturedSchema?.properties?.writingStyle?.properties?.formality).toEqual({
+    enum: ['conversational', 'direct', 'formal'],
+    type: 'string',
   })
 })
 

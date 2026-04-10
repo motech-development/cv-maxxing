@@ -544,14 +544,12 @@ test('preload exposes tailored-application repair and resume commands over typed
       adaptationSummary: {
         emphasized: [
           {
-            sourceEvidence: ['Led product design for AI-assisted desktop workflows.'],
             text: 'Emphasises workflow-design leadership for the job vacancy.',
           },
         ],
         gaps: ['Add stronger evidence for direct workflow-shipping metrics.'],
         omitted: [
           {
-            sourceEvidence: ['Strong written communication.'],
             text: 'Compresses broader communication language to keep the tailored application focused.',
           },
         ],
@@ -680,14 +678,12 @@ test('preload exposes tailored-application repair and resume commands over typed
     adaptationSummary: {
       emphasized: [
         {
-          sourceEvidence: ['Led product design for AI-assisted desktop workflows.'],
           text: 'Emphasises workflow-design leadership for the job vacancy.',
         },
       ],
       gaps: ['Add stronger evidence for direct workflow-shipping metrics.'],
       omitted: [
         {
-          sourceEvidence: ['Strong written communication.'],
           text: 'Compresses broader communication language to keep the tailored application focused.',
         },
       ],

@@ -2,7 +2,6 @@ import type { OriginalCvSummary } from './original-cv.js'
 import type { VacancySummary } from './vacancy.js'
 
 export interface GroundedText {
-  sourceEvidence: string[]
   text: string
 }
 
@@ -12,7 +11,6 @@ export interface AdaptedCvExperienceHighlight {
 }
 
 export interface AdaptedCvSkill {
-  sourceEvidence: string[]
   text: string
 }
 
@@ -44,7 +42,6 @@ export interface TailoredApplicationGenerationResult {
   adaptationSummary: AdaptationSummaryModel
   adaptedCv: AdaptedCvModel
   coverLetter: CoverLetterModel
-  coverLetterPlainText: string
   trace: {
     model: string | null
     provider: 'codex'

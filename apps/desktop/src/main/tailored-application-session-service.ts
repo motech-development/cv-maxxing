@@ -31,10 +31,8 @@ import { buildAdaptedCvExportFilename, resolveUniqueExportFilePath } from './ada
 import { buildCoverLetterExportFilename } from './cover-letter-document.js'
 import type { JsonValue, LocalAppDataStore } from './local-app-data-service.js'
 import {
-  TAILORED_APPLICATION_STYLE_VALIDATION_ERROR_MESSAGE,
   parseWritingStyleProfileJson,
   type WritingStyleProfile,
-  validateTailoredApplicationWritingStyle,
 } from './tailored-application-style-validator.js'
 
 const ORIGINAL_CV_SCOPE = 'original-cvs'
@@ -47,43 +45,8 @@ const TAILORED_APPLICATION_SCOPE = 'tailored-applications'
 const GENERATION_RUN_SCOPE = 'generation-runs'
 const ADAPTED_CV_PDF_ARTIFACT_NAME = 'adapted-cv.pdf'
 const COVER_LETTER_PDF_ARTIFACT_NAME = 'cover-letter.pdf'
-
-const BRITISH_MONTH_NAMES = [
-  'January',
-  'February',
-  'March',
-  'April',
-  'May',
-  'June',
-  'July',
-  'August',
-  'September',
-  'October',
-  'November',
-  'December',
-] as const
-const AMERICAN_SPELLING_PATTERNS = [
-  /\bcolor\b/iu,
-  /\borganization\b/iu,
-  /\boptimize\b/iu,
-  /\bauthorize\b/iu,
-  /\bcenter\b/iu,
-  /\blicense\b/iu,
-] as const
-const ENGLISH_MARKERS = [
-  'the',
-  'and',
-  'with',
-  'for',
-  'experience',
-  'skills',
-  'role',
-  'summary',
-  'responsibilities',
-  'requirements',
-  'design',
-  'product',
-] as const
+const TAILORED_APPLICATION_CONTRACT_ERROR_MESSAGE =
+  'Generated tailored application failed contract validation.'
 
 export interface TailoredApplicationGenerationWorker {
   runGeneration: (input: {
@@ -256,10 +219,33 @@ interface VacancyContext {
   vacancyText: string
 }
 
-interface ValidationContext {
-  originalCvText: string
-  writingStyleProfile: WritingStyleProfile
-  vacancyText: string
+type TailoredApplicationContractErrorCode =
+  | 'adaptation_summary_invalid'
+  | 'adapted_cv_invalid'
+  | 'cover_letter_invalid'
+  | 'grounded_text_invalid'
+  | 'tailored_application_result_invalid'
+
+class TailoredApplicationContractValidationError extends Error {
+  readonly code: TailoredApplicationContractErrorCode
+  readonly detail?: string
+  readonly path: string
+
+  constructor({
+    code,
+    detail,
+    path,
+  }: {
+    code: TailoredApplicationContractErrorCode
+    detail?: string
+    path: string
+  }) {
+    super(TAILORED_APPLICATION_CONTRACT_ERROR_MESSAGE)
+    this.code = code
+    this.detail = detail
+    this.name = 'TailoredApplicationContractValidationError'
+    this.path = path
+  }
 }
 
 const missingGenerationWorker: TailoredApplicationGenerationWorker = {
@@ -482,7 +468,6 @@ export function createTailoredApplicationSessionService({
       outputContract: {
         adaptedCvArtifactName: 'adapted-cv.json',
         coverLetterArtifactName: 'cover-letter.json',
-        coverLetterPlainTextArtifactName: 'cover-letter.txt',
       },
       renderingContract: {
         workerMustNotGeneratePdf: true,
@@ -545,6 +530,8 @@ export function createTailoredApplicationSessionService({
     vacancyId: string
     vacancyTitle: string | null
   }): Promise<void> {
+    const coverLetterPlainText = buildCoverLetterPlainText(result.coverLetter)
+
     await localAppData.metadata.put<TailoredApplicationMetadataValue>({
       id: tailoredApplicationId,
       scope: TAILORED_APPLICATION_SCOPE,
@@ -587,7 +574,7 @@ export function createTailoredApplicationSessionService({
       scope: TAILORED_APPLICATION_SCOPE,
     })
     await localAppData.artifacts.write({
-      content: Buffer.from(result.coverLetterPlainText, 'utf8'),
+      content: Buffer.from(coverLetterPlainText, 'utf8'),
       id: tailoredApplicationId,
       name: 'cover-letter.txt',
       scope: TAILORED_APPLICATION_SCOPE,
@@ -835,11 +822,7 @@ export function createTailoredApplicationSessionService({
         signal: activeAbortController?.signal ?? new AbortController().signal,
       })
 
-      validateTailoredApplicationGenerationResult(result, {
-        originalCvText: originalCv.originalCvText,
-        writingStyleProfile: originalCv.writingStyleProfile,
-        vacancyText: vacancy.vacancyText,
-      })
+      validateTailoredApplicationGenerationResult(result)
       const [renderedAdaptedCv, renderedCoverLetter] = await Promise.all([
         adaptedCvRenderer.renderAdaptedCvPdf({
           adaptedCv: result.adaptedCv,
@@ -911,11 +894,7 @@ export function createTailoredApplicationSessionService({
         throw new Error('Generation cancelled.')
       }
 
-      if (
-        error instanceof Error &&
-        (error.message === 'Generated tailored application failed validation.' ||
-          error.message === TAILORED_APPLICATION_STYLE_VALIDATION_ERROR_MESSAGE)
-      ) {
+      if (error instanceof Error && error instanceof TailoredApplicationContractValidationError) {
         throw error
       }
 
@@ -964,6 +943,14 @@ export function createTailoredApplicationSessionService({
 
       await clearPendingGenerationSession()
       await readinessStore.clearPendingGenerationCommand()
+      try {
+        await localAppData.metadata.delete({
+          id: VACANCY_WORKSPACE_ENTRY_ID,
+          scope: VACANCY_WORKSPACE_SCOPE,
+        })
+      } catch {
+        // Best-effort cleanup. A completed tailored application should still open.
+      }
       await readinessStore.setStartupDestination('workspace_active')
     },
     deleteTailoredApplication: async (tailoredApplicationId) => {
@@ -1270,168 +1257,127 @@ async function getPendingCommandId(
 }
 
 function validateTailoredApplicationGenerationResult(
-  result: TailoredApplicationGenerationResult,
-  context: ValidationContext,
-): void {
-  const sourceText = `${context.originalCvText}\n${context.vacancyText}`
-  const outputText = collectOutputText(result)
-
-  if (!looksLikeEnglishText(context.originalCvText) || !looksLikeEnglishText(context.vacancyText)) {
-    throw new Error('Generated tailored application failed validation.')
+  result: unknown,
+): asserts result is TailoredApplicationGenerationResult {
+  if (result === null || typeof result !== 'object' || Array.isArray(result)) {
+    throwContractValidationError({
+      code: 'tailored_application_result_invalid',
+      detail: 'Expected an object.',
+      path: 'result',
+    })
   }
 
-  if (!looksLikeEnglishText(outputText)) {
-    throw new Error('Generated tailored application failed validation.')
+  const candidate = result as Record<string, unknown>
+
+  if (!isAdaptedCvModel(candidate.adaptedCv)) {
+    throwContractValidationError({
+      code: 'adapted_cv_invalid',
+      detail: 'Expected a valid adaptedCv object.',
+      path: 'adaptedCv',
+    })
   }
 
-  validateAdaptedCvModel(result.adaptedCv)
-  validateCoverLetterModel(result.coverLetter)
-  validateAdaptationSummary(result.adaptationSummary)
-
-  if (buildCoverLetterPlainText(result.coverLetter) !== result.coverLetterPlainText) {
-    throw new Error('Generated tailored application failed validation.')
+  if (!isCoverLetterModel(candidate.coverLetter)) {
+    throwContractValidationError({
+      code: 'cover_letter_invalid',
+      detail: 'Expected a valid coverLetter object.',
+      path: 'coverLetter',
+    })
   }
 
-  validateGroundedText(result.adaptedCv.headline, sourceText)
-  validateGroundedText(result.adaptedCv.summary, sourceText)
-
-  for (const experienceHighlight of result.adaptedCv.experienceHighlights) {
-    for (const bullet of experienceHighlight.bullets) {
-      validateGroundedText(bullet, sourceText)
-    }
+  if (!isAdaptationSummaryModel(candidate.adaptationSummary)) {
+    throwContractValidationError({
+      code: 'adaptation_summary_invalid',
+      detail: 'Expected a valid adaptationSummary object.',
+      path: 'adaptationSummary',
+    })
   }
 
-  for (const skill of result.adaptedCv.skills) {
-    validateGroundedText(skill, sourceText)
+  if (!isTraceMetadata(candidate.trace)) {
+    throwContractValidationError({
+      code: 'tailored_application_result_invalid',
+      detail: 'Expected a valid trace object.',
+      path: 'trace',
+    })
+  }
+}
+
+function isAdaptedCvModel(value: unknown): value is AdaptedCvModel {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    return false
   }
 
-  validateGroundedText(result.coverLetter.opening, sourceText)
+  const candidate = value as Record<string, unknown>
 
-  for (const paragraph of result.coverLetter.body) {
-    validateGroundedText(paragraph, sourceText)
-  }
-
-  validateGroundedText(result.coverLetter.closing, sourceText)
-
-  for (const item of result.adaptationSummary.emphasized) {
-    validateGroundedText(item, sourceText)
-  }
-
-  for (const item of result.adaptationSummary.omitted) {
-    validateGroundedText(item, sourceText)
-  }
-
-  if (!isBritishFormattedDate(result.coverLetter.date)) {
-    throw new Error('Generated tailored application failed validation.')
-  }
-
-  if (containsAmericanSpelling(outputText)) {
-    throw new Error('Generated tailored application failed validation.')
-  }
-
-  validateTailoredApplicationWritingStyle({
-    adaptedCvText: buildAdaptedCvValidationText(result.adaptedCv),
-    coverLetterText: buildCoverLetterValidationText(result.coverLetter),
-    profile: context.writingStyleProfile,
-  })
-
-  validateNumericClaims(
-    outputText,
-    sourceText,
-    new Set(outputTextTokenMatches(result.coverLetter.date, /\b\d[\d,.%]*\b/giu)),
+  return (
+    typeof candidate.candidateName === 'string' &&
+    Array.isArray(candidate.experienceHighlights) &&
+    candidate.experienceHighlights.every((experienceHighlight) => {
+      return isAdaptedCvExperienceHighlight(experienceHighlight)
+    }) &&
+    isGroundedText(candidate.headline) &&
+    Array.isArray(candidate.skills) &&
+    candidate.skills.every((skill) => {
+      return isAdaptedCvSkill(skill)
+    }) &&
+    isGroundedText(candidate.summary)
   )
 }
 
-function validateAdaptedCvModel(adaptedCv: AdaptedCvModel): void {
-  if (
-    adaptedCv.candidateName.trim() === '' ||
-    adaptedCv.experienceHighlights.length === 0 ||
-    adaptedCv.skills.length === 0
-  ) {
-    throw new Error('Generated tailored application failed validation.')
+function isAdaptedCvExperienceHighlight(
+  value: unknown,
+): value is AdaptedCvModel['experienceHighlights'][number] {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    return false
   }
+
+  const candidate = value as Record<string, unknown>
+
+  return (
+    typeof candidate.heading === 'string' &&
+    Array.isArray(candidate.bullets) &&
+    candidate.bullets.every((bullet) => {
+      return isGroundedText(bullet)
+    })
+  )
 }
 
-function validateCoverLetterModel(coverLetter: CoverLetterModel): void {
-  if (
-    coverLetter.greeting.trim() === '' ||
-    coverLetter.signature.trim() === '' ||
-    coverLetter.body.length === 0
-  ) {
-    throw new Error('Generated tailored application failed validation.')
-  }
+function isAdaptedCvSkill(value: unknown): value is AdaptedCvModel['skills'][number] {
+  return (
+    value !== null &&
+    typeof value === 'object' &&
+    !Array.isArray(value) &&
+    typeof (value as Record<string, unknown>).text === 'string'
+  )
 }
 
-function validateAdaptationSummary(adaptationSummary: AdaptationSummaryModel): void {
-  if (
-    adaptationSummary.emphasized.length === 0 ||
-    adaptationSummary.gaps.length === 0 ||
-    adaptationSummary.validationHints.length === 0
-  ) {
-    throw new Error('Generated tailored application failed validation.')
-  }
+function isGroundedText(value: unknown): value is GroundedText {
+  return (
+    value !== null &&
+    typeof value === 'object' &&
+    !Array.isArray(value) &&
+    typeof (value as Record<string, unknown>).text === 'string'
+  )
 }
 
-function validateGroundedText(groundedText: GroundedText, sourceText: string): void {
-  if (groundedText.text.trim() === '' || groundedText.sourceEvidence.length === 0) {
-    throw new Error('Generated tailored application failed validation.')
+function isCoverLetterModel(value: unknown): value is CoverLetterModel {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    return false
   }
 
-  for (const sourceEvidence of groundedText.sourceEvidence) {
-    if (sourceEvidence.trim() === '' || !sourceText.includes(sourceEvidence)) {
-      throw new Error('Generated tailored application failed validation.')
-    }
-  }
-}
+  const candidate = value as Record<string, unknown>
 
-function validateNumericClaims(
-  outputText: string,
-  sourceText: string,
-  allowedNumbers: Set<string>,
-): void {
-  const sourceNumbers = new Set(outputTextTokenMatches(sourceText, /\b\d[\d,.%]*\b/giu))
-
-  for (const token of outputTextTokenMatches(outputText, /\b\d[\d,.%]*\b/giu)) {
-    if (!sourceNumbers.has(token) && !allowedNumbers.has(token)) {
-      throw new Error('Generated tailored application failed validation.')
-    }
-  }
-}
-
-function collectOutputText(result: TailoredApplicationGenerationResult): string {
-  return [
-    result.adaptedCv.candidateName,
-    result.adaptedCv.headline.text,
-    result.adaptedCv.summary.text,
-    ...result.adaptedCv.experienceHighlights.flatMap((experienceHighlight) => {
-      return [
-        experienceHighlight.heading,
-        ...experienceHighlight.bullets.map((bullet) => {
-          return bullet.text
-        }),
-      ]
-    }),
-    ...result.adaptedCv.skills.map((skill) => {
-      return skill.text
-    }),
-    result.coverLetter.date,
-    result.coverLetter.greeting,
-    result.coverLetter.opening.text,
-    ...result.coverLetter.body.map((paragraph) => {
-      return paragraph.text
-    }),
-    result.coverLetter.closing.text,
-    result.coverLetter.signature,
-    result.coverLetterPlainText,
-    ...result.adaptationSummary.emphasized.map((item) => {
-      return item.text
-    }),
-    ...result.adaptationSummary.omitted.map((item) => {
-      return item.text
-    }),
-    ...result.adaptationSummary.gaps,
-    ...result.adaptationSummary.validationHints,
-  ].join('\n')
+  return (
+    Array.isArray(candidate.body) &&
+    candidate.body.every((paragraph) => {
+      return isGroundedText(paragraph)
+    }) &&
+    isGroundedText(candidate.closing) &&
+    typeof candidate.date === 'string' &&
+    typeof candidate.greeting === 'string' &&
+    isGroundedText(candidate.opening) &&
+    typeof candidate.signature === 'string'
+  )
 }
 
 function buildCoverLetterPlainText(coverLetter: CoverLetterModel): string {
@@ -1451,63 +1397,60 @@ function buildCoverLetterPlainText(coverLetter: CoverLetterModel): string {
   ].join('\n')
 }
 
-function buildAdaptedCvValidationText(adaptedCv: AdaptedCvModel): string {
-  return [
-    adaptedCv.candidateName,
-    adaptedCv.headline.text,
-    adaptedCv.summary.text,
-    ...adaptedCv.experienceHighlights.flatMap((experienceHighlight) => {
-      return experienceHighlight.bullets.map((bullet) => {
-        return bullet.text
-      })
-    }),
-    ...adaptedCv.skills.map((skill) => {
-      return skill.text
-    }),
-  ].join('\n')
-}
-
-function buildCoverLetterValidationText(coverLetter: CoverLetterModel): string {
-  return [
-    coverLetter.greeting,
-    coverLetter.opening.text,
-    ...coverLetter.body.map((paragraph) => {
-      return paragraph.text
-    }),
-    coverLetter.closing.text,
-    coverLetter.signature,
-  ].join('\n')
-}
-
-function looksLikeEnglishText(text: string): boolean {
-  const normalizedText = text.toLowerCase()
-  const markerMatches = ENGLISH_MARKERS.filter((marker) => {
-    return normalizedText.includes(marker)
-  })
-
-  return markerMatches.length >= 2
-}
-
-function isBritishFormattedDate(value: string): boolean {
-  const pattern = /^(\d{1,2}) ([A-Z][a-z]+) (\d{4})$/u
-  const match = pattern.exec(value)
-
-  if (match === null) {
+function isAdaptationSummaryModel(value: unknown): value is AdaptationSummaryModel {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
     return false
   }
 
-  return BRITISH_MONTH_NAMES.includes(match[2] as (typeof BRITISH_MONTH_NAMES)[number])
+  const candidate = value as Record<string, unknown>
+
+  return (
+    Array.isArray(candidate.emphasized) &&
+    candidate.emphasized.every((item) => {
+      return isGroundedText(item)
+    }) &&
+    Array.isArray(candidate.gaps) &&
+    candidate.gaps.every((item) => {
+      return typeof item === 'string'
+    }) &&
+    Array.isArray(candidate.omitted) &&
+    candidate.omitted.every((item) => {
+      return isGroundedText(item)
+    }) &&
+    Array.isArray(candidate.validationHints) &&
+    candidate.validationHints.every((item) => {
+      return typeof item === 'string'
+    })
+  )
 }
 
-function containsAmericanSpelling(text: string): boolean {
-  return AMERICAN_SPELLING_PATTERNS.some((pattern) => {
-    return pattern.test(text)
-  })
+function isTraceMetadata(value: unknown): value is TailoredApplicationGenerationResult['trace'] {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    return false
+  }
+
+  const candidate = value as Record<string, unknown>
+
+  return (
+    (candidate.model === null || typeof candidate.model === 'string') &&
+    candidate.provider === 'codex' &&
+    (candidate.sessionId === null || typeof candidate.sessionId === 'string')
+  )
 }
 
-function outputTextTokenMatches(text: string, pattern: RegExp): string[] {
-  return [...text.matchAll(pattern)].map((match) => {
-    return match[0]
+function throwContractValidationError({
+  code,
+  detail,
+  path,
+}: {
+  code: TailoredApplicationContractErrorCode
+  detail?: string
+  path: string
+}): never {
+  throw new TailoredApplicationContractValidationError({
+    code,
+    detail,
+    path,
   })
 }
 

@@ -68,9 +68,11 @@ const OUTPUT_SCHEMA = {
         },
         firstPersonUsage: {
           enum: ['absent', 'mixed', 'present'],
+          type: 'string',
         },
         formality: {
           enum: ['conversational', 'direct', 'formal'],
+          type: 'string',
         },
       },
       required: ['averageSentenceLength', 'clicheDetections', 'firstPersonUsage', 'formality'],

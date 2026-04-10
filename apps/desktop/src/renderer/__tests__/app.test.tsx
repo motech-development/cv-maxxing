@@ -2113,14 +2113,14 @@ test('renders the design-aligned loading screen when startup restores workspace 
   expect(screen.getByText('Local AI worker is adapting the CV')).toBeDefined()
   expect(
     screen.getByText(
-      'Truthfulness checks, British English, and style preservation are applied before the PDF previews are created. If setup repair interrupts the run, this screen restores the saved vacancy draft.',
+      'The local AI worker is generating the adapted CV and cover letter now. Prompts enforce British English and British-style cover-letter dates before the PDF previews are created. If setup repair interrupts the run, this screen restores the saved vacancy draft.',
     ),
   ).toBeDefined()
   expect(screen.getByRole('button', { name: 'Open tailored application' })).toBeDefined()
   expect(screen.getByRole('button', { name: 'Abandon draft' })).toBeDefined()
 })
 
-test('returns to the workspace with a visible error when generation fails style validation from the loading screen', async () => {
+test('returns to the workspace with a visible error when generation fails contract validation from the loading screen', async () => {
   const getStartupDestination = vi
     .fn()
     .mockResolvedValueOnce('workspace_loading')
@@ -2169,7 +2169,7 @@ test('returns to the workspace with a visible error when generation fails style 
         },
       }),
       resumePendingGeneration: vi.fn().mockRejectedValue({
-        message: 'Generated tailored application failed style validation.',
+        message: 'Generated tailored application failed contract validation.',
       }),
     }),
   })
@@ -2178,7 +2178,9 @@ test('returns to the workspace with a visible error when generation fails style 
     expect(screen.getByRole('heading', { name: 'Create a tailored application' })).toBeDefined()
   })
 
-  expect(screen.getByText('Generated tailored application failed style validation.')).toBeDefined()
+  expect(
+    screen.getByText('Generated tailored application failed contract validation.'),
+  ).toBeDefined()
   expect(screen.getByRole('button', { name: 'Review vacancy from URL' })).toBeDefined()
   expect(screen.getByRole('button', { name: 'Review pasted vacancy' })).toBeDefined()
 })
@@ -2209,14 +2211,12 @@ test('automatically opens the tailored application after generation completes fr
     adaptationSummary: {
       emphasized: [
         {
-          sourceEvidence: ['Led product design for AI-assisted desktop workflows.'],
           text: 'Emphasises desktop workflow leadership for the job vacancy.',
         },
       ],
       gaps: ['Add stronger quantified delivery evidence from the original CV.'],
       omitted: [
         {
-          sourceEvidence: ['Strong written communication.'],
           text: 'Compresses broader communication language so the adapted CV stays vacancy-specific.',
         },
       ],
@@ -2376,6 +2376,145 @@ test('automatically opens the tailored application after generation completes fr
   })
 })
 
+test('transitions to the tailored application even when vacancy cleanup is still pending', async () => {
+  const getStartupDestination = vi
+    .fn()
+    .mockResolvedValueOnce('workspace_loading')
+    .mockResolvedValueOnce('workspace_active')
+  const completePendingGeneration = vi.fn().mockImplementation(() => Promise.resolve())
+  const getTailoredApplicationPreview = vi.fn().mockResolvedValue({
+    adaptedCv: {
+      pageCount: 4,
+      pageWarning: 'This adapted CV runs to 4 pages. Export is still available.',
+      pdfBytes: new Uint8Array([37, 80, 68, 70]),
+    },
+    adaptationSummary: {
+      emphasized: [
+        {
+          text: 'Emphasises desktop workflow leadership for the job vacancy.',
+        },
+      ],
+      gaps: ['Add stronger quantified delivery evidence from the original CV.'],
+      omitted: [],
+      validationHints: ['Validate performance claims against the original CV snapshot.'],
+    },
+    coverLetter: {
+      pageCount: 2,
+      pageWarning: 'This cover letter runs to 2 pages. Export and copy remain available.',
+      pdfBytes: new Uint8Array([37, 80, 68, 70, 45, 67, 76]),
+      plainText: 'Dear Hiring Manager,\n\nAda Lovelace',
+    },
+    createdAt: '2026-04-09T09:30:00.000Z',
+    employer: 'Example Labs',
+    id: 'tailored-application-123',
+    originalCv: {
+      fileType: 'pdf',
+      headline: 'Principal Product Designer',
+      id: 'original-cv-123',
+      importedAt: '2026-04-08T14:30:00.000Z',
+      originalFilename: 'ada-lovelace.pdf',
+      pageCount: 1,
+      snapshotCount: 1,
+      summary: 'Design leader focused on complex workflow products.',
+      writingStyle: {
+        averageSentenceLength: 7,
+        clicheDetections: [],
+        firstPersonUsage: 'absent',
+        formality: 'direct',
+      },
+    },
+    title: 'Senior platform engineer · Example Labs',
+    vacancy: {
+      blockingReason: null,
+      canGenerate: true,
+      employer: 'Example Labs',
+      fetchedAt: '2026-04-09T08:30:00.000Z',
+      id: 'vacancy-123',
+      inputType: 'url',
+      location: 'London, United Kingdom',
+      originalUrl: 'https://jobs.example.com/roles/123',
+      requirements: ['Experience shipping workflow software.'],
+      resolvedUrl: 'https://jobs.example.com/roles/123',
+      responsibilities: ['Lead product design for authenticated desktop workflows.'],
+      source: 'generic',
+      status: 'ready',
+      textPreview: 'Lead product design for authenticated desktop workflows.',
+      title: 'Senior platform engineer',
+    },
+    vacancyTitle: 'Senior platform engineer',
+  })
+  const getWorkspaceState = vi.fn().mockResolvedValue({
+    activeApplicationId: 'tailored-application-123',
+    applications: [
+      {
+        createdAt: '2026-04-09T09:30:00.000Z',
+        employer: 'Example Labs',
+        id: 'tailored-application-123',
+        pageCount: 4,
+        pageWarning: 'This adapted CV runs to 4 pages. Export is still available.',
+        title: 'Senior platform engineer · Example Labs',
+        vacancyTitle: 'Senior platform engineer',
+      },
+    ],
+  })
+  const resumePendingGeneration = vi.fn().mockResolvedValue({
+    generationRunId: 'run-123',
+    tailoredApplicationId: 'tailored-application-123',
+  })
+
+  const clearVacancyWorkspaceState = vi.fn().mockImplementation(() => {
+    return new Promise<void>(() => null)
+  })
+
+  renderApp({
+    aiWorker: createAiWorkerApi({
+      getAiWorkerPreflight: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+      getStartupDestination,
+    }),
+    tailoredApplication: createTailoredApplicationApi({
+      completePendingGeneration,
+      getPendingGenerationCommand: vi.fn().mockResolvedValue({
+        commandId: 'command-123',
+        originalCvId: 'original-cv-123',
+        originalCvLabel: 'ada-lovelace.pdf',
+        vacancyId: 'vacancy-123',
+        vacancyDraft: {
+          text: 'Senior platform engineer',
+          url: 'https://jobs.example.com/roles/123',
+        },
+      }),
+      getTailoredApplicationPreview,
+      getWorkspaceState,
+      resumePendingGeneration,
+    }),
+    vacancy: createVacancyApi({
+      clearVacancyWorkspaceState,
+    }),
+  })
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Generating tailored application' })).toBeDefined()
+  })
+
+  await waitFor(() => {
+    expect(resumePendingGeneration).toHaveBeenCalledTimes(1)
+    expect(completePendingGeneration).toHaveBeenCalledWith('command-123')
+  })
+
+  await waitFor(() => {
+    expect(
+      screen.getByRole('heading', { name: 'Senior platform engineer · Example Labs' }),
+    ).toBeDefined()
+  })
+
+  expect(clearVacancyWorkspaceState).not.toHaveBeenCalled()
+})
+
 test('browses saved tailored applications, reopens an older detail view, and deletes it', async () => {
   const getTailoredApplicationPreview = vi.fn<
     (tailoredApplicationId: string) => Promise<TailoredApplicationPreview | null>
@@ -2390,7 +2529,6 @@ test('browses saved tailored applications, reopens an older detail view, and del
         adaptationSummary: {
           emphasized: [
             {
-              sourceEvidence: ['Platform product leadership'],
               text: 'Emphasises platform product leadership for this tailored application.',
             },
           ],
@@ -2454,7 +2592,6 @@ test('browses saved tailored applications, reopens an older detail view, and del
       adaptationSummary: {
         emphasized: [
           {
-            sourceEvidence: ['Lead product design for AI-assisted desktop workflows.'],
             text: 'Emphasises desktop workflow leadership for the job vacancy.',
           },
         ],

@@ -11,21 +11,15 @@ function createCoverLetterInput() {
     coverLetter: {
       body: [
         {
-          sourceEvidence: [
-            'Led product design for AI-assisted desktop tooling.',
-            'Build reliable desktop tooling for technical users.',
-          ],
           text: 'I have led product design for AI-assisted desktop tooling, which aligns with your focus on reliable tooling for technical users.',
         },
       ],
       closing: {
-        sourceEvidence: ['Design leader focused on complex workflow products for technical users.'],
         text: 'I would welcome the chance to discuss how that experience could support Example Labs.',
       },
       date: '9 April 2026',
       greeting: 'Dear Hiring Manager,',
       opening: {
-        sourceEvidence: ['Principal Product Designer', 'Senior platform engineer'],
         text: 'I am applying for the Senior platform engineer role at Example Labs.',
       },
       signature: 'Ada Lovelace',
@@ -55,10 +49,6 @@ test('adds a non-blocking warning when the cover letter spills to continued page
     const itemNumber = String(index + 1)
 
     return {
-      sourceEvidence: [
-        'Led product design for AI-assisted desktop tooling.',
-        'Build reliable desktop tooling for technical users.',
-      ],
       text:
         `Paragraph ${itemNumber} explains grounded desktop-tooling evidence in detail, ` +
         'preserving a truthful connection between the original CV and the vacancy requirements.',

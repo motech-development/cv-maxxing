@@ -178,7 +178,12 @@ test('assembles structured worker inputs and persists immutable tailored-applica
       name: 'cover-letter.txt',
       scope: 'tailored-applications',
     }),
-  ).resolves.toEqual(Buffer.from(createValidGenerationResult().coverLetterPlainText, 'utf8'))
+  ).resolves.toEqual(
+    Buffer.from(
+      buildExpectedCoverLetterPlainText(createValidGenerationResult().coverLetter),
+      'utf8',
+    ),
+  )
 
   await expect(
     stat(path.join(harness.paths.rootDirectoryPath, 'runs', 'run-123')),
@@ -465,7 +470,7 @@ test('returns both PDF artifacts in the preview payload and exports the cover-le
       pageCount: 2,
       pageWarning: 'This cover letter runs to 2 pages. Export and copy remain available.',
       pdfBytes: new Uint8Array(Buffer.from('%PDF-1.7 cover letter', 'utf8')),
-      plainText: createValidGenerationResult().coverLetterPlainText,
+      plainText: buildExpectedCoverLetterPlainText(createValidGenerationResult().coverLetter),
     },
     createdAt: '2026-04-09T09:30:00.000Z',
     employer: 'Example Labs',
@@ -677,17 +682,25 @@ test('returns null when a saved adaptation summary artifact is malformed', async
   ).resolves.toBeNull()
 })
 
-test('rejects fabricated output, clears partial artifacts, and resets the pending session', async () => {
+test('accepts adapted output without numeric truthfulness validation', async () => {
   const harness = await createHarness()
 
   await seedOriginalCvAndVacancy(harness)
 
   const service = createTailoredApplicationSessionService({
     adaptedCvRenderer: {
-      renderAdaptedCvPdf: vi.fn(),
+      renderAdaptedCvPdf: vi.fn().mockResolvedValue({
+        pageCount: 1,
+        pageWarning: null,
+        pdfBytes: new Uint8Array([37, 80, 68, 70]),
+      }),
     },
     coverLetterRenderer: {
-      renderCoverLetterPdf: vi.fn(),
+      renderCoverLetterPdf: vi.fn().mockResolvedValue({
+        pageCount: 1,
+        pageWarning: null,
+        pdfBytes: new Uint8Array([37, 80, 68, 70, 45, 67, 76]),
+      }),
     },
     aiWorker: {
       retryAiWorkerPreflight: vi.fn().mockResolvedValue({
@@ -711,9 +724,6 @@ test('rejects fabricated output, clears partial artifacts, and resets the pendin
           adaptedCv: {
             ...createValidGenerationResult().adaptedCv,
             summary: {
-              sourceEvidence: [
-                'Design leader focused on complex workflow products for technical users.',
-              ],
               text: 'Led a team that increased delivery by 300% using Kubernetes.',
             },
           },
@@ -731,20 +741,165 @@ test('rejects fabricated output, clears partial artifacts, and resets the pendin
     },
   })
 
-  await expect(service.resumePendingGeneration()).rejects.toThrow(
-    'Generated tailored application failed validation.',
-  )
-  await expect(service.getPendingGenerationCommand()).resolves.toBeNull()
-  await expect(harness.readinessStore.getStartupDestination()).resolves.toBe('workspace_empty')
+  const resumePromise = service.resumePendingGeneration()
+
+  await expect(resumePromise).resolves.toEqual({
+    generationRunId: 'run-123',
+    tailoredApplicationId: 'tailored-application-123',
+  })
   await expect(
     harness.localAppData.metadata.get({
       id: 'tailored-application-123',
       scope: 'tailored-applications',
     }),
-  ).resolves.toBeNull()
+  ).resolves.toMatchObject({
+    status: 'ready',
+  })
   await expect(
     stat(path.join(harness.paths.rootDirectoryPath, 'runs', 'run-123')),
   ).rejects.toThrow()
+})
+
+test('rejects generation output when the JSON contract shape is invalid', async () => {
+  const harness = await createHarness()
+
+  await seedOriginalCvAndVacancy(harness)
+
+  const service = createTailoredApplicationSessionService({
+    adaptedCvRenderer: {
+      renderAdaptedCvPdf: vi.fn().mockResolvedValue({
+        pageCount: 1,
+        pageWarning: null,
+        pdfBytes: new Uint8Array([37, 80, 68, 70]),
+      }),
+    },
+    coverLetterRenderer: {
+      renderCoverLetterPdf: vi.fn().mockResolvedValue({
+        pageCount: 1,
+        pageWarning: null,
+        pdfBytes: new Uint8Array([37, 80, 68, 70, 45, 67, 76]),
+      }),
+    },
+    aiWorker: {
+      retryAiWorkerPreflight: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+    },
+    generateId: createIdGenerator(['command-123', 'run-123', 'tailored-application-123']),
+    getCurrentTimestamp: () => {
+      return '2026-04-09T09:30:00.000Z'
+    },
+    localAppData: harness.localAppData,
+    readinessStore: harness.readinessStore,
+    runWorkspaceRootPath: path.join(harness.paths.rootDirectoryPath, 'runs'),
+    worker: {
+      runGeneration: () => {
+        const result = createValidGenerationResult()
+
+        return Promise.resolve({
+          ...result,
+          adaptedCv: {
+            ...result.adaptedCv,
+            headline: {} as never,
+          },
+        })
+      },
+    },
+  })
+
+  await service.startPendingGeneration({
+    originalCvId: 'original-cv-123',
+    originalCvLabel: 'ada-lovelace.pdf',
+    vacancyDraft: {
+      text: 'Senior platform engineer',
+      url: 'https://jobs.example.com/roles/123',
+    },
+  })
+
+  const resumePromise = service.resumePendingGeneration()
+
+  await expect(resumePromise).rejects.toMatchObject({
+    code: 'adapted_cv_invalid',
+    path: 'adaptedCv',
+  })
+  await expect(resumePromise).rejects.toThrow(
+    'Generated tailored application failed contract validation.',
+  )
+})
+
+test('derives the persisted cover-letter plain text from the canonical cover-letter model', async () => {
+  const harness = await createHarness()
+
+  await seedOriginalCvAndVacancy(harness)
+
+  const service = createTailoredApplicationSessionService({
+    adaptedCvRenderer: {
+      renderAdaptedCvPdf: vi.fn().mockResolvedValue({
+        pageCount: 1,
+        pageWarning: null,
+        pdfBytes: Buffer.from('%PDF-1.7 adapted cv', 'utf8'),
+      }),
+    },
+    coverLetterRenderer: {
+      renderCoverLetterPdf: vi.fn().mockResolvedValue({
+        pageCount: 1,
+        pageWarning: null,
+        pdfBytes: Buffer.from('%PDF-1.7 cover letter', 'utf8'),
+      }),
+    },
+    aiWorker: {
+      retryAiWorkerPreflight: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+    },
+    generateId: createIdGenerator(['command-123', 'run-123', 'tailored-application-123']),
+    getCurrentTimestamp: () => {
+      return '2026-04-09T09:30:00.000Z'
+    },
+    localAppData: harness.localAppData,
+    readinessStore: harness.readinessStore,
+    runWorkspaceRootPath: path.join(harness.paths.rootDirectoryPath, 'runs'),
+    worker: {
+      runGeneration: () => {
+        return Promise.resolve({
+          ...createValidGenerationResult(),
+          coverLetterPlainText: 'incorrect plain text from worker',
+        })
+      },
+    },
+  })
+
+  await service.startPendingGeneration({
+    originalCvId: 'original-cv-123',
+    originalCvLabel: 'ada-lovelace.pdf',
+    vacancyDraft: {
+      text: 'Senior platform engineer',
+      url: 'https://jobs.example.com/roles/123',
+    },
+  })
+
+  await expect(service.resumePendingGeneration()).resolves.toEqual({
+    generationRunId: 'run-123',
+    tailoredApplicationId: 'tailored-application-123',
+  })
+  await expect(
+    harness.localAppData.artifacts.read({
+      id: 'tailored-application-123',
+      name: 'cover-letter.txt',
+      scope: 'tailored-applications',
+    }),
+  ).resolves.toEqual(
+    Buffer.from(
+      buildExpectedCoverLetterPlainText(createValidGenerationResult().coverLetter),
+      'utf8',
+    ),
+  )
 })
 
 test('preserves the underlying generation failure as the thrown error cause', async () => {
@@ -755,10 +910,18 @@ test('preserves the underlying generation failure as the thrown error cause', as
 
   const service = createTailoredApplicationSessionService({
     adaptedCvRenderer: {
-      renderAdaptedCvPdf: vi.fn(),
+      renderAdaptedCvPdf: vi.fn().mockResolvedValue({
+        pageCount: 1,
+        pageWarning: null,
+        pdfBytes: new Uint8Array([37, 80, 68, 70]),
+      }),
     },
     coverLetterRenderer: {
-      renderCoverLetterPdf: vi.fn(),
+      renderCoverLetterPdf: vi.fn().mockResolvedValue({
+        pageCount: 1,
+        pageWarning: null,
+        pdfBytes: new Uint8Array([37, 80, 68, 70, 45, 67, 76]),
+      }),
     },
     aiWorker: {
       retryAiWorkerPreflight: vi.fn().mockResolvedValue({
@@ -797,17 +960,25 @@ test('preserves the underlying generation failure as the thrown error cause', as
   })
 })
 
-test('fails generation when the cover letter drifts into cliche language from the stored writing-style profile', async () => {
+test('accepts cover-letter prose when only the JSON contract is validated', async () => {
   const harness = await createHarness()
 
   await seedOriginalCvAndVacancy(harness)
 
   const service = createTailoredApplicationSessionService({
     adaptedCvRenderer: {
-      renderAdaptedCvPdf: vi.fn(),
+      renderAdaptedCvPdf: vi.fn().mockResolvedValue({
+        pageCount: 1,
+        pageWarning: null,
+        pdfBytes: new Uint8Array([37, 80, 68, 70]),
+      }),
     },
     coverLetterRenderer: {
-      renderCoverLetterPdf: vi.fn(),
+      renderCoverLetterPdf: vi.fn().mockResolvedValue({
+        pageCount: 1,
+        pageWarning: null,
+        pdfBytes: new Uint8Array([37, 80, 68, 70, 45, 67, 76]),
+      }),
     },
     aiWorker: {
       retryAiWorkerPreflight: vi.fn().mockResolvedValue({
@@ -831,10 +1002,6 @@ test('fails generation when the cover letter drifts into cliche language from th
           ...result.coverLetter,
           body: [
             {
-              sourceEvidence: [
-                'Led product design for AI-assisted desktop tooling.',
-                'Build reliable desktop tooling for technical users.',
-              ],
               text: 'I am passionate about joining your world-class team and bringing a results-driven approach to the role.',
             },
           ],
@@ -843,19 +1010,6 @@ test('fails generation when the cover letter drifts into cliche language from th
         return Promise.resolve({
           ...result,
           coverLetter,
-          coverLetterPlainText: [
-            coverLetter.date,
-            '',
-            coverLetter.greeting,
-            '',
-            coverLetter.opening.text,
-            '',
-            coverLetter.body[0]?.text ?? '',
-            '',
-            coverLetter.closing.text,
-            '',
-            coverLetter.signature,
-          ].join('\n'),
         })
       },
     },
@@ -870,20 +1024,18 @@ test('fails generation when the cover letter drifts into cliche language from th
     },
   })
 
-  await expect(service.resumePendingGeneration()).rejects.toThrow(
-    'Generated tailored application failed style validation.',
-  )
-  await expect(service.getPendingGenerationCommand()).resolves.toBeNull()
-  await expect(harness.readinessStore.getStartupDestination()).resolves.toBe('workspace_empty')
+  await expect(service.resumePendingGeneration()).resolves.toEqual({
+    generationRunId: 'run-123',
+    tailoredApplicationId: 'tailored-application-123',
+  })
   await expect(
     harness.localAppData.metadata.get({
       id: 'tailored-application-123',
       scope: 'tailored-applications',
     }),
-  ).resolves.toBeNull()
-  await expect(
-    stat(path.join(harness.paths.rootDirectoryPath, 'runs', 'run-123')),
-  ).rejects.toThrow()
+  ).resolves.toMatchObject({
+    status: 'ready',
+  })
 })
 
 test('blocks generation before queueing when the selected original CV is non-English', async () => {
@@ -1461,10 +1613,6 @@ function createValidGenerationResult(): TailoredApplicationGenerationResult {
     adaptationSummary: {
       emphasized: [
         {
-          sourceEvidence: [
-            'Led product design for AI-assisted desktop tooling.',
-            'Build reliable desktop tooling for technical users.',
-          ],
           text: 'Emphasises desktop workflow design for technical users.',
         },
       ],
@@ -1473,7 +1621,6 @@ function createValidGenerationResult(): TailoredApplicationGenerationResult {
       ],
       omitted: [
         {
-          sourceEvidence: ['Product strategy, UX research, prototyping'],
           text: 'Compresses broader research language so the vacancy-specific desktop tooling evidence stays primary.',
         },
       ],
@@ -1485,10 +1632,6 @@ function createValidGenerationResult(): TailoredApplicationGenerationResult {
         {
           bullets: [
             {
-              sourceEvidence: [
-                'Led product design for AI-assisted desktop tooling.',
-                'Build reliable desktop tooling for technical users.',
-              ],
               text: 'Led product design for AI-assisted desktop tooling used by technical teams.',
             },
           ],
@@ -1496,69 +1639,59 @@ function createValidGenerationResult(): TailoredApplicationGenerationResult {
         },
       ],
       headline: {
-        sourceEvidence: [
-          'Principal Product Designer',
-          'Build reliable desktop tooling for technical users.',
-        ],
         text: 'Principal Product Designer for desktop workflow products',
       },
       skills: [
         {
-          sourceEvidence: ['Product strategy, UX research, prototyping'],
           text: 'Product strategy',
         },
         {
-          sourceEvidence: ['Product strategy, UX research, prototyping'],
           text: 'UX research',
         },
       ],
       summary: {
-        sourceEvidence: [
-          'Design leader focused on complex workflow products for technical users.',
-          'Build reliable desktop tooling for technical users.',
-        ],
         text: 'Design leader adapting complex desktop workflow products for technical users.',
       },
     },
     coverLetter: {
       body: [
         {
-          sourceEvidence: [
-            'Led product design for AI-assisted desktop tooling.',
-            'Build reliable desktop tooling for technical users.',
-          ],
           text: 'I have led product design for AI-assisted desktop tooling, which aligns with your focus on reliable tooling for technical users.',
         },
       ],
       closing: {
-        sourceEvidence: ['Design leader focused on complex workflow products for technical users.'],
         text: 'I would welcome the chance to discuss how that experience could support Example Labs.',
       },
       date: '9 April 2026',
       greeting: 'Dear Hiring Manager,',
       opening: {
-        sourceEvidence: ['Principal Product Designer', 'Senior platform engineer'],
         text: 'I am applying for the Senior platform engineer role at Example Labs.',
       },
       signature: 'Ada Lovelace',
     },
-    coverLetterPlainText: [
-      '9 April 2026',
-      '',
-      'Dear Hiring Manager,',
-      '',
-      'I am applying for the Senior platform engineer role at Example Labs.',
-      '',
-      'I have led product design for AI-assisted desktop tooling, which aligns with your focus on reliable tooling for technical users.',
-      '',
-      'I would welcome the chance to discuss how that experience could support Example Labs.',
-      '',
-      'Ada Lovelace',
-    ].join('\n'),
     trace: {
       model: 'gpt-5.4-codex',
       provider: 'codex',
       sessionId: 'session-123',
     },
   }
+}
+
+function buildExpectedCoverLetterPlainText(
+  coverLetter: TailoredApplicationGenerationResult['coverLetter'],
+): string {
+  return [
+    coverLetter.date,
+    '',
+    coverLetter.greeting,
+    '',
+    coverLetter.opening.text,
+    '',
+    ...coverLetter.body.flatMap((paragraph) => {
+      return [paragraph.text, '']
+    }),
+    coverLetter.closing.text,
+    '',
+    coverLetter.signature,
+  ].join('\n')
 }

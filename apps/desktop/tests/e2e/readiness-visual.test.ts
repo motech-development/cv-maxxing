@@ -192,10 +192,6 @@ function createGenerationResultFixture() {
     adaptationSummary: {
       emphasized: [
         {
-          sourceEvidence: [
-            'Led product design for AI-assisted desktop tooling.',
-            'Build reliable desktop tooling for technical users.',
-          ],
           text: 'Emphasises desktop workflow design for technical users.',
         },
       ],
@@ -204,7 +200,6 @@ function createGenerationResultFixture() {
       ],
       omitted: [
         {
-          sourceEvidence: ['Product strategy, UX research, prototyping'],
           text: 'Compresses broader research language so the desktop-tooling evidence stays primary.',
         },
       ],
@@ -216,10 +211,6 @@ function createGenerationResultFixture() {
         {
           bullets: [
             {
-              sourceEvidence: [
-                'Led product design for AI-assisted desktop tooling.',
-                'Build reliable desktop tooling for technical users.',
-              ],
               text: 'Led product design for AI-assisted desktop tooling used by technical teams.',
             },
           ],
@@ -227,61 +218,33 @@ function createGenerationResultFixture() {
         },
       ],
       headline: {
-        sourceEvidence: [
-          'Principal Product Designer',
-          'Build reliable desktop tooling for technical users.',
-        ],
         text: 'Principal Product Designer for desktop workflow products',
       },
       skills: [
         {
-          sourceEvidence: ['Product strategy, UX research, prototyping'],
           text: 'Product strategy',
         },
       ],
       summary: {
-        sourceEvidence: [
-          'Design leader focused on complex workflow products for technical users.',
-          'Build reliable desktop tooling for technical users.',
-        ],
         text: 'Design leader adapting complex desktop workflow products for technical users.',
       },
     },
     coverLetter: {
       body: [
         {
-          sourceEvidence: [
-            'Led product design for AI-assisted desktop tooling.',
-            'Build reliable desktop tooling for technical users.',
-          ],
           text: 'I have led product design for AI-assisted desktop tooling, which aligns with your focus on reliable tooling for technical users.',
         },
       ],
       closing: {
-        sourceEvidence: ['Design leader focused on complex workflow products for technical users.'],
         text: 'I would welcome the chance to discuss how that experience could support Analytical Engines Ltd.',
       },
       date: '9 April 2026',
       greeting: 'Dear Hiring Manager,',
       opening: {
-        sourceEvidence: ['Principal Product Designer', 'Senior platform engineer'],
         text: 'I am applying for the Senior platform engineer role at Analytical Engines Ltd.',
       },
       signature: 'Ada Lovelace',
     },
-    coverLetterPlainText: [
-      '9 April 2026',
-      '',
-      'Dear Hiring Manager,',
-      '',
-      'I am applying for the Senior platform engineer role at Analytical Engines Ltd.',
-      '',
-      'I have led product design for AI-assisted desktop tooling, which aligns with your focus on reliable tooling for technical users.',
-      '',
-      'I would welcome the chance to discuss how that experience could support Analytical Engines Ltd.',
-      '',
-      'Ada Lovelace',
-    ].join('\n'),
     trace: {
       model: 'gpt-5.4-codex',
       provider: 'codex',

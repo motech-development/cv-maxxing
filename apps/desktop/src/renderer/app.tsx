@@ -474,23 +474,39 @@ export function App() {
       tailoredApplicationId: string | null
     }): Promise<void> => {
       await globalThis.window.cvMaxxing.tailoredApplication.completePendingGeneration(commandId)
-      await globalThis.window.cvMaxxing.vacancy.clearVacancyWorkspaceState()
     },
-    onSuccess: async (_data, { tailoredApplicationId }): Promise<void> => {
+    onSuccess: (_data, { tailoredApplicationId }): void => {
       setIsConfirmingDeleteTailoredApplication(false)
       setPreviewDocumentKind('adapted_cv')
       setReadinessError(null)
       setSelectedTailoredApplicationId(tailoredApplicationId)
       setStartupDestinationOverride('workspace_active')
       setVacancyPreviewOverride(null)
+      queryClient.setQueryData(rendererQueryKeys.pendingGeneration, null)
+      queryClient.setQueryData(rendererQueryKeys.vacancyWorkspace, initialVacancyWorkspaceState)
 
       if (tailoredApplicationId !== null) {
-        await queryClient.prefetchQuery(
-          getTailoredApplicationPreviewQueryOptions(tailoredApplicationId),
-        )
+        queryClient
+          .prefetchQuery(getTailoredApplicationPreviewQueryOptions(tailoredApplicationId))
+          .catch(() => null)
       }
 
-      await Promise.all([invalidateReadinessQuery(), invalidateWorkspaceQueries()])
+      Promise.all([
+        invalidateReadinessQuery(),
+        queryClient.invalidateQueries({
+          queryKey: rendererQueryKeys.pendingGeneration,
+        }),
+        queryClient.invalidateQueries({
+          queryKey: rendererQueryKeys.tailoredApplicationPreviewRoot,
+        }),
+        queryClient.invalidateQueries({
+          queryKey: rendererQueryKeys.tailoredApplicationWorkspace,
+        }),
+      ]).catch((error: unknown) => {
+        setReadinessError(
+          resolveErrorMessage(error, `${readinessErrorMessage} ${readinessErrorAction}`),
+        )
+      })
     },
   })
   const deleteTailoredApplicationMutation = useMutation({

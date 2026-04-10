@@ -203,7 +203,7 @@ The Electron app should:
 - decrypt only the required original CV and vacancy artifacts into a restricted transient run workspace
 - invoke the configured worker in a controlled subprocess from that workspace
 - request structured JSON output only
-- validate the result with schema and semantic validators
+- validate the result against the JSON contract
 - import accepted outputs into encrypted app storage
 - delete plaintext run workspace contents on success, failure, or cancellation
 
@@ -224,9 +224,8 @@ Each generation job should provide the worker with:
 - normalized vacancy JSON
 - fetched vacancy text and metadata
 - rendering contract
-- truthfulness rules
 - British English output rules
-- style-preservation rules
+- cover-letter date-format rules
 - output JSON schema
 
 The worker should not browse the internet or fetch extra context in v1. The app fetches and snapshots the vacancy first, then passes bounded input artifacts to the worker.
@@ -235,7 +234,7 @@ Each generation job should expect back:
 
 - adapted CV structured model
 - cover-letter structured model
-- cover-letter plain text derived from the same canonical cover-letter model
+- cover-letter plain text derived by the app from the same canonical cover-letter model
 - change summary
 - gap notes and validation hints
 - provider trace metadata safe to redact or discard
@@ -274,12 +273,11 @@ The worker must be treated as a structured worker with:
 - deterministic input artifacts
 - structured output artifacts
 - schema validation
-- semantic validation
 - bounded retry logic
 - cancellation
 - redacted failure capture
 
-Schema validity alone is not enough. Semantic validators must check factual consistency against original CV evidence, vacancy grounding, British English/style rules, unsupported claims, and render-model completeness.
+Schema validity is the required acceptance gate for generation output in v1. Truthfulness, spelling, and date-format expectations should be enforced through the prompt contract and final user review rather than post-generation text-comparison validators.
 
 ### 7.6 AI worker availability and onboarding
 
@@ -757,36 +755,17 @@ Do not ask fact-collection questions in v1. If a match is weak, generate from or
 5. Map original CV evidence to vacancy priorities
 6. Generate adapted CV JSON
 7. Generate cover-letter JSON
-8. Validate factual consistency
-9. Validate style consistency
-10. Render CV HTML
-11. Render cover-letter HTML
-12. Export CV PDF
-13. Export cover-letter PDF
-14. Persist immutable tailored application
+8. Validate JSON contract
+9. Render CV HTML
+10. Render cover-letter HTML
+11. Export CV PDF
+12. Export cover-letter PDF
+13. Persist immutable tailored application
 ```
 
 ### 12.3 Style-preserving cover-letter generation
 
-The cover-letter generator must not behave like a generic marketing writer.
-
-Use a dedicated style-control step:
-
-```text
-Original CV
--> WritingStyleProfile
--> CoverLetterPromptContract
--> AI worker generation
--> StyleSimilarityValidator
-```
-
-The validator should reject or retry outputs that show:
-
-- generic AI openings
-- inflated enthusiasm not present in the CV tone
-- repetitive transition phrases
-- overly polished corporate filler
-- vocabulary drift far outside the original CV style
+The cover-letter generator should be guided by prompt instructions rather than app-side prose validation.
 
 Cover-letter rules:
 
@@ -1342,8 +1321,7 @@ Baseline packaging requirements:
 - define task JSON schema
 - define output JSON schema
 - implement transient plaintext generation-run workspace
-- add factual and style validation
-- add bounded validator-feedback retry
+- add JSON-contract validation
 - add generation cancellation and interrupted-run cleanup
 
 ### Phase 5. Rendering and export
@@ -1358,7 +1336,6 @@ Baseline packaging requirements:
 ### Phase 6. Cover letters
 
 - add cover-letter generation contract
-- add style-similarity validation
 - implement dedicated cover-letter HTML renderer
 - surface in-app cover-letter PDF preview
 - export cover letters as PDF from inside the app
@@ -1381,8 +1358,7 @@ Baseline packaging requirements:
 - CV normalization
 - style profile generation
 - prompt/task assembly
-- factual validation
-- style validation
+- generation contract validation
 - render view-model pagination logic
 
 ### Integration tests

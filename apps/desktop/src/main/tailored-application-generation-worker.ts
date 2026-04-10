@@ -97,9 +97,6 @@ const OUTPUT_SCHEMA = {
       required: ['body', 'closing', 'date', 'greeting', 'opening', 'signature'],
       type: 'object',
     },
-    coverLetterPlainText: {
-      type: 'string',
-    },
     trace: {
       additionalProperties: false,
       properties: {
@@ -108,6 +105,7 @@ const OUTPUT_SCHEMA = {
         },
         provider: {
           const: 'codex',
+          type: 'string',
         },
         sessionId: {
           type: ['string', 'null'],
@@ -117,7 +115,7 @@ const OUTPUT_SCHEMA = {
       type: 'object',
     },
   },
-  required: ['adaptationSummary', 'adaptedCv', 'coverLetter', 'coverLetterPlainText', 'trace'],
+  required: ['adaptationSummary', 'adaptedCv', 'coverLetter', 'trace'],
   type: 'object',
 } as const
 const TAILORED_APPLICATION_GENERATION_MODEL = 'gpt-5.4'
@@ -180,7 +178,10 @@ async function runCodexCliGeneration({
     'Read input/task.json and the referenced structured input files.',
     'Return JSON only.',
     'Use British English.',
-    'Ground every generated claim in the provided evidence.',
+    'Follow the JSON schema exactly.',
+    'Keep the adapted CV and cover letter truthful to the provided CV and vacancy.',
+    'Use British English spelling.',
+    'Format cover-letter dates like "9 April 2026".',
     'Do not fetch any external context.',
     'Do not generate PDFs.',
   ].join(' ')
@@ -262,17 +263,11 @@ function groundedTextSchema() {
   return {
     additionalProperties: false,
     properties: {
-      sourceEvidence: {
-        items: {
-          type: 'string',
-        },
-        type: 'array',
-      },
       text: {
         type: 'string',
       },
     },
-    required: ['sourceEvidence', 'text'],
+    required: ['text'],
     type: 'object',
   }
 }

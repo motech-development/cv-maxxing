@@ -492,7 +492,7 @@ test('keeps workspace_loading explicit after sign-in repair for a pending genera
   await electronApp.close()
 })
 
-test('returns to the workspace with a visible error when generation fails style validation', async () => {
+test('returns to the workspace with a visible error when generation fails contract validation', async () => {
   const testPaths = await createOriginalCvTestPaths()
 
   await writeFile(
@@ -514,15 +514,7 @@ test('returns to the workspace with a visible error when generation fails style 
     CV_MAXXING_AI_WORKER_GENERATION_OUTPUT: JSON.stringify(
       createGenerationResultFixture({
         coverLetter: {
-          body: [
-            {
-              sourceEvidence: [
-                'Led product design for AI-assisted desktop tooling.',
-                'Build reliable desktop tooling for technical users.',
-              ],
-              text: 'I am passionate about joining your world-class team and bringing a results-driven approach to the role.',
-            },
-          ],
+          body: [{} as never],
         },
       }),
     ),
@@ -558,7 +550,7 @@ test('returns to the workspace with a visible error when generation fails style 
   await expect(page.getByText('Vacancy preview', { exact: true })).toBeVisible()
   await page.getByRole('button', { name: 'Adapt CV' }).click()
   await expect(
-    page.getByText('Generated tailored application failed style validation.'),
+    page.getByText('Generated tailored application failed contract validation.'),
   ).toBeVisible({
     timeout: 15_000,
   })
@@ -952,17 +944,14 @@ async function createOriginalCvTestPaths(): Promise<{
 function createGenerationResultFixture(overrides?: {
   coverLetter?: Partial<{
     body: {
-      sourceEvidence: string[]
       text: string
     }[]
     closing: {
-      sourceEvidence: string[]
       text: string
     }
     date: string
     greeting: string
     opening: {
-      sourceEvidence: string[]
       text: string
     }
     signature: string
@@ -972,10 +961,6 @@ function createGenerationResultFixture(overrides?: {
     adaptationSummary: {
       emphasized: [
         {
-          sourceEvidence: [
-            'Led product design for AI-assisted desktop tooling.',
-            'Build reliable desktop tooling for technical users.',
-          ],
           text: 'Emphasises desktop workflow design for technical users.',
         },
       ],
@@ -984,7 +969,6 @@ function createGenerationResultFixture(overrides?: {
       ],
       omitted: [
         {
-          sourceEvidence: ['Product strategy, UX research, prototyping'],
           text: 'Compresses broader research language so the desktop-tooling evidence stays primary.',
         },
       ],
@@ -996,10 +980,6 @@ function createGenerationResultFixture(overrides?: {
         {
           bullets: [
             {
-              sourceEvidence: [
-                'Led product design for AI-assisted desktop tooling.',
-                'Build reliable desktop tooling for technical users.',
-              ],
               text: 'Led product design for AI-assisted desktop tooling used by technical teams.',
             },
           ],
@@ -1007,61 +987,33 @@ function createGenerationResultFixture(overrides?: {
         },
       ],
       headline: {
-        sourceEvidence: [
-          'Principal Product Designer',
-          'Build reliable desktop tooling for technical users.',
-        ],
         text: 'Principal Product Designer for desktop workflow products',
       },
       skills: [
         {
-          sourceEvidence: ['Product strategy, UX research, prototyping'],
           text: 'Product strategy',
         },
       ],
       summary: {
-        sourceEvidence: [
-          'Design leader focused on complex workflow products for technical users.',
-          'Build reliable desktop tooling for technical users.',
-        ],
         text: 'Design leader adapting complex desktop workflow products for technical users.',
       },
     },
     coverLetter: {
       body: [
         {
-          sourceEvidence: [
-            'Led product design for AI-assisted desktop tooling.',
-            'Build reliable desktop tooling for technical users.',
-          ],
           text: 'I have led product design for AI-assisted desktop tooling, which aligns with your focus on reliable tooling for technical users.',
         },
       ],
       closing: {
-        sourceEvidence: ['Design leader focused on complex workflow products for technical users.'],
         text: 'I would welcome the chance to discuss how that experience could support Analytical Engines Ltd.',
       },
       date: '9 April 2026',
       greeting: 'Dear Hiring Manager,',
       opening: {
-        sourceEvidence: ['Principal Product Designer', 'Senior platform engineer'],
         text: 'I am applying for the Senior platform engineer role at Analytical Engines Ltd.',
       },
       signature: 'Ada Lovelace',
     },
-    coverLetterPlainText: [
-      '9 April 2026',
-      '',
-      'Dear Hiring Manager,',
-      '',
-      'I am applying for the Senior platform engineer role at Analytical Engines Ltd.',
-      '',
-      'I have led product design for AI-assisted desktop tooling, which aligns with your focus on reliable tooling for technical users.',
-      '',
-      'I would welcome the chance to discuss how that experience could support Analytical Engines Ltd.',
-      '',
-      'Ada Lovelace',
-    ].join('\n'),
     trace: {
       model: 'gpt-5.4-codex',
       provider: 'codex',
@@ -1077,20 +1029,6 @@ function createGenerationResultFixture(overrides?: {
   return {
     ...baseFixture,
     coverLetter,
-    coverLetterPlainText: [
-      coverLetter.date,
-      '',
-      coverLetter.greeting,
-      '',
-      coverLetter.opening.text,
-      '',
-      ...coverLetter.body.flatMap((paragraph) => {
-        return [paragraph.text, '']
-      }),
-      coverLetter.closing.text,
-      '',
-      coverLetter.signature,
-    ].join('\n'),
   }
 }
 

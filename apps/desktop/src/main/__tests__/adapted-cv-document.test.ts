@@ -14,7 +14,6 @@ function createAdaptedCvInput() {
         {
           bullets: [
             {
-              sourceEvidence: ['Led product design for AI-assisted desktop tooling.'],
               text: 'Led product design for AI-assisted desktop tooling used by technical teams.',
             },
           ],
@@ -23,7 +22,6 @@ function createAdaptedCvInput() {
         {
           bullets: [
             {
-              sourceEvidence: ['Partnered with engineering on complex workflow software.'],
               text: 'Partnered with engineering on complex workflow software for regulated users.',
             },
           ],
@@ -31,25 +29,20 @@ function createAdaptedCvInput() {
         },
       ],
       headline: {
-        sourceEvidence: ['Principal Product Designer'],
         text: 'Principal Product Designer for desktop workflow products',
       },
       skills: [
         {
-          sourceEvidence: ['Product strategy'],
           text: 'Product strategy',
         },
         {
-          sourceEvidence: ['UX research'],
           text: 'UX research',
         },
         {
-          sourceEvidence: ['Prototyping'],
           text: 'Prototyping',
         },
       ],
       summary: {
-        sourceEvidence: ['Design leader focused on complex workflow products for technical users.'],
         text: 'Design leader adapting complex desktop workflow products for technical users.',
       },
     },
@@ -81,13 +74,11 @@ test('creates continued headers and a non-blocking warning when pagination excee
     return {
       bullets: [
         {
-          sourceEvidence: ['Led product design for AI-assisted desktop tooling.'],
           text:
             `Owned complex desktop workflow redesign ${itemNumber}, improving clarity across ` +
             'multi-step technical onboarding, audit trails, and operator review tooling.',
         },
         {
-          sourceEvidence: ['Partnered with engineering on complex workflow software.'],
           text:
             `Shipped evidence-heavy workflow narrative ${itemNumber} for highly technical users ` +
             'without dropping source-grounded proof points.',
