@@ -48,6 +48,7 @@ These rules always apply. Follow project-local rules first when they are more sp
 - Use a provider-neutral local AI worker architecture for generation workflows; v1 ships a bring-your-own Codex CLI adapter only.
 - Treat local AI worker setup as a required startup readiness gate before the user can enter the workspace, import the first CV, or create vacancy drafts.
 - Use provider-neutral product language such as `AI worker` except in provider-specific Codex setup details.
+- Keep Codex CLI output schemas within the Codex-supported JSON Schema subset; avoid composition keywords such as `oneOf` and `allOf`, and enforce stricter tailored-application invariants in prompt text and runtime validation instead.
 - Support one dynamic CV template family in v1; the renderer must handle single-page and multi-page CVs with continued headers after page 1.
 - User-facing product language should describe adapting CVs for job vacancies; use terms like `original CV`, `adapted CV`, `job vacancy`, and `tailored application` instead of abstract terms like `source CV`, `version`, or `package`.
 - Generated CVs and cover letters are immutable outputs in v1; do not add a regeneration action or tailored-application comparison workflow.

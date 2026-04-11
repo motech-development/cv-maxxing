@@ -341,7 +341,7 @@ test('does not require cover-letter plain text in the Codex CLI output schema', 
   expect(capturedSchema?.required).not.toContain('coverLetterPlainText')
 })
 
-test('writes a Codex-compatible tailored-application schema without oneOf branches', async () => {
+test('writes a Codex-compatible tailored-application schema without unsupported composition branches', async () => {
   const runDirectoryPath = await mkdtemp(
     path.join(tmpdir(), 'cv-maxxing-generation-worker-output-schema-'),
   )
@@ -403,6 +403,121 @@ test('writes a Codex-compatible tailored-application schema without oneOf branch
 
   expect(capturedSchemaText).toContain('"adaptedCv"')
   expect(capturedSchemaText).not.toContain('"oneOf"')
+  expect(capturedSchemaText).not.toContain('"allOf"')
+})
+
+test('requires explicit adapted-CV section objects in the Codex output schema', async () => {
+  const runDirectoryPath = await mkdtemp(
+    path.join(tmpdir(), 'cv-maxxing-generation-worker-required-sections-schema-'),
+  )
+
+  temporaryDirectories.push(runDirectoryPath)
+  await createRunWorkspaceInput(runDirectoryPath)
+
+  let capturedSchema:
+    | {
+        properties?: {
+          adaptedCv?: {
+            properties?: {
+              certifications?: unknown
+              coreSkills?: unknown
+              education?: unknown
+              experience?: unknown
+              focus?: unknown
+              impactHighlights?: unknown
+              languages?: unknown
+              profile?: unknown
+              references?: unknown
+              selectedWork?: unknown
+              sections?: unknown
+              tools?: unknown
+            }
+            required?: string[]
+          }
+        }
+      }
+    | undefined
+
+  spawnMock.mockImplementation((_command: string, args: string[]) => {
+    const child = createMockChildProcess()
+
+    const schemaFilePath = args[args.indexOf('--output-schema') + 1]
+    const outputFilePath = args[args.indexOf('--output-last-message') + 1]
+
+    if (schemaFilePath === undefined || outputFilePath === undefined) {
+      throw new Error('Expected Codex CLI schema and output file path arguments.')
+    }
+
+    void Promise.all([
+      readFile(schemaFilePath, 'utf8').then((schemaText) => {
+        capturedSchema = JSON.parse(schemaText) as typeof capturedSchema
+      }),
+      writeFile(outputFilePath, JSON.stringify(createValidGenerationResult()), 'utf8'),
+    ]).then(
+      () => {
+        child.emit('close', 0)
+      },
+      (error: unknown) => {
+        child.emit('error', error)
+      },
+    )
+
+    return child
+  })
+
+  const worker = createTailoredApplicationGenerationWorker({
+    environment: {
+      CV_MAXXING_AI_WORKER_CODEX_COMMAND: 'codex',
+    },
+  })
+
+  await worker.runGeneration({
+    runDirectoryPath,
+    signal: new AbortController().signal,
+  })
+
+  expect(capturedSchema?.properties?.adaptedCv?.properties?.sections).toBeUndefined()
+  expect(capturedSchema?.properties?.adaptedCv?.properties?.profile).toBeDefined()
+  expect(capturedSchema?.properties?.adaptedCv?.properties?.experience).toBeDefined()
+  expect(capturedSchema?.properties?.adaptedCv?.properties?.selectedWork).toBeDefined()
+  expect(capturedSchema?.properties?.adaptedCv?.properties?.impactHighlights).toBeDefined()
+  expect(capturedSchema?.properties?.adaptedCv?.properties?.coreSkills).toBeDefined()
+  expect(capturedSchema?.properties?.adaptedCv?.properties?.tools).toBeDefined()
+  expect(capturedSchema?.properties?.adaptedCv?.properties?.education).toBeDefined()
+  expect(capturedSchema?.properties?.adaptedCv?.properties?.certifications).toBeDefined()
+  expect(capturedSchema?.properties?.adaptedCv?.properties?.languages).toBeDefined()
+  expect(capturedSchema?.properties?.adaptedCv?.properties?.focus).toBeDefined()
+  expect(capturedSchema?.properties?.adaptedCv?.properties?.references).toBeDefined()
+  expect(capturedSchema?.properties?.adaptedCv?.required).toEqual(
+    expect.arrayContaining([
+      'profile',
+      'experience',
+      'selectedWork',
+      'impactHighlights',
+      'coreSkills',
+      'tools',
+      'education',
+      'certifications',
+      'languages',
+      'focus',
+      'references',
+    ]),
+  )
+})
+
+test('normalizes explicit adapted-CV section fields into the legacy sections array', async () => {
+  const worker = createTailoredApplicationGenerationWorker({
+    environment: {
+      CV_MAXXING_AI_WORKER_GENERATION_OUTPUT: JSON.stringify(createStructuredGenerationResult()),
+    },
+  })
+
+  await expect(
+    worker.runGeneration({
+      runDirectoryPath: '/tmp/unused',
+      signal: new AbortController().signal,
+    }),
+  ).resolves.toEqual(createValidGenerationResult())
 })
 
 test('instructs Codex to emit a role-only adapted-CV headline', async () => {
@@ -451,6 +566,45 @@ test('instructs Codex to emit a role-only adapted-CV headline', async () => {
   })
 
   expect(capturedPrompt).toContain('Set adaptedCv.headline.text to the role name only.')
+  expect(capturedPrompt).toContain(
+    'Always include adaptedCv.profile, adaptedCv.experience, adaptedCv.coreSkills, and adaptedCv.references.',
+  )
+  expect(capturedPrompt).toContain(
+    'If tailoring evidence is thin, keep required sections concise and grounded in the original CV rather than omitting them.',
+  )
+  expect(capturedPrompt).toContain(
+    'Return explicit adaptedCv fields for every template section: profile, experience, selectedWork, impactHighlights, coreSkills, tools, education, certifications, languages, focus, and references.',
+  )
+  expect(capturedPrompt).toContain(
+    'Return adaptedCv.coreSkills.items as concise vacancy-relevant skill labels only, not sentences, achievements, or responsibility statements.',
+  )
+  expect(capturedPrompt).toContain(
+    'Keep each adaptedCv.coreSkills.items entry brief, usually one to three words.',
+  )
+  expect(capturedPrompt).toContain(
+    'Always include adaptedCv.profile, adaptedCv.experience, adaptedCv.coreSkills, and adaptedCv.references.',
+  )
+  expect(capturedPrompt).toContain(
+    'Set optional section fields to null when they are weak, generic, duplicative, unsupported, or not needed.',
+  )
+  expect(capturedPrompt).toContain(
+    'Return adaptedCv.tools.items only for concise technology, framework, platform, database, or tooling labels that are explicit or conservatively inferable from the original CV.',
+  )
+  expect(capturedPrompt).toContain(
+    "Ungroup adaptedCv.tools.items; split combined labels such as 'NoSQL databases (MongoDB, AWS DynamoDB)' into separate items like 'MongoDB' and 'AWS DynamoDB'.",
+  )
+  expect(capturedPrompt).toContain(
+    'Do not repeat the same label across adaptedCv.coreSkills.items and adaptedCv.tools.items.',
+  )
+  expect(capturedPrompt).toContain(
+    'Return adaptedCv.impactHighlights.items only for grounded achievement or outcome lines, not for skills or tooling lists.',
+  )
+  expect(capturedPrompt).toContain(
+    'Return adaptedCv.selectedWork.items only for grounded named projects, products, clients, or case-study style examples.',
+  )
+  expect(capturedPrompt).toContain(
+    'Return adaptedCv.education as the latest relevant completed education entry only, or null.',
+  )
 })
 
 test('passes inline structured inputs to Codex instead of asking it to read files itself', async () => {
@@ -625,6 +779,22 @@ function createValidGenerationResult() {
         {
           items: [
             {
+              text: 'Workflow redesign for regulatory tooling',
+            },
+          ],
+          kind: 'selected_work',
+        },
+        {
+          items: [
+            {
+              text: 'Improved operator throughput for technical workflow reviews.',
+            },
+          ],
+          kind: 'impact_highlights',
+        },
+        {
+          items: [
+            {
               text: 'Product strategy',
             },
             {
@@ -632,6 +802,48 @@ function createValidGenerationResult() {
             },
           ],
           kind: 'core_skills',
+        },
+        {
+          items: [
+            {
+              text: 'Figma',
+            },
+            {
+              text: 'FigJam',
+            },
+          ],
+          kind: 'tools',
+        },
+        {
+          entry: {
+            meta: 'UCL · 2015 — 2018',
+            title: 'BSc Computer Science',
+          },
+          kind: 'education',
+        },
+        {
+          items: [
+            {
+              text: 'NN/g UX Certification',
+            },
+          ],
+          kind: 'certifications',
+        },
+        {
+          items: [
+            {
+              text: 'English (Native)',
+            },
+          ],
+          kind: 'languages',
+        },
+        {
+          items: [
+            {
+              text: 'Technical product design',
+            },
+          ],
+          kind: 'focus',
         },
         {
           kind: 'references',
@@ -658,6 +870,79 @@ function createValidGenerationResult() {
       model: 'gpt-5.4-codex',
       provider: 'codex' as const,
       sessionId: 'session-123',
+    },
+  }
+}
+
+function createStructuredGenerationResult() {
+  const result = createValidGenerationResult()
+  const [
+    profileSection,
+    experienceSection,
+    selectedWorkSection,
+    impactHighlightsSection,
+    coreSkillsSection,
+    toolsSection,
+    educationSection,
+    certificationsSection,
+    languagesSection,
+    focusSection,
+    referencesSection,
+  ] = result.adaptedCv.sections
+
+  if (
+    profileSection?.kind !== 'profile' ||
+    experienceSection?.kind !== 'experience' ||
+    selectedWorkSection?.kind !== 'selected_work' ||
+    impactHighlightsSection?.kind !== 'impact_highlights' ||
+    coreSkillsSection?.kind !== 'core_skills' ||
+    toolsSection?.kind !== 'tools' ||
+    educationSection?.kind !== 'education' ||
+    certificationsSection?.kind !== 'certifications' ||
+    languagesSection?.kind !== 'languages' ||
+    focusSection?.kind !== 'focus' ||
+    referencesSection?.kind !== 'references'
+  ) {
+    throw new Error('Expected the valid generation result to contain the required section order.')
+  }
+
+  return {
+    ...result,
+    adaptedCv: {
+      candidateName: result.adaptedCv.candidateName,
+      coreSkills: {
+        items: coreSkillsSection.items,
+      },
+      experience: {
+        items: experienceSection.items,
+      },
+      header: result.adaptedCv.header,
+      headline: result.adaptedCv.headline,
+      selectedWork: {
+        items: selectedWorkSection.items,
+      },
+      impactHighlights: {
+        items: impactHighlightsSection.items,
+      },
+      profile: {
+        summary: profileSection.summary,
+      },
+      tools: {
+        items: toolsSection.items,
+      },
+      education: {
+        entry: educationSection.entry,
+      },
+      certifications: {
+        items: certificationsSection.items,
+      },
+      languages: {
+        items: languagesSection.items,
+      },
+      focus: {
+        items: focusSection.items,
+      },
+      references: referencesSection,
     },
   }
 }

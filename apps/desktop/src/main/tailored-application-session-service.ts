@@ -783,6 +783,38 @@ export function createTailoredApplicationSessionService({
     })
   }
 
+  async function persistContractValidationFailureArtifacts({
+    error,
+    generationRunId,
+    rawResult,
+  }: {
+    error: TailoredApplicationContractValidationError
+    generationRunId: string
+    rawResult: TailoredApplicationGenerationResult
+  }): Promise<void> {
+    await Promise.all([
+      localAppData.artifacts.write({
+        content: Buffer.from(JSON.stringify(rawResult), 'utf8'),
+        id: generationRunId,
+        name: 'raw-generation-result.json',
+        scope: GENERATION_RUN_SCOPE,
+      }),
+      localAppData.artifacts.write({
+        content: Buffer.from(
+          JSON.stringify({
+            code: error.code,
+            detail: error.detail ?? null,
+            path: error.path,
+          }),
+          'utf8',
+        ),
+        id: generationRunId,
+        name: 'contract-validation-error.json',
+        scope: GENERATION_RUN_SCOPE,
+      }),
+    ])
+  }
+
   async function runPendingGeneration(
     command: PendingGenerationCommand,
   ): Promise<ResumePendingGenerationResult> {
@@ -839,8 +871,10 @@ export function createTailoredApplicationSessionService({
       vacancy,
     })
 
+    let rawResult: TailoredApplicationGenerationResult | null = null
+
     try {
-      const rawResult = await worker.runGeneration({
+      rawResult = await worker.runGeneration({
         runDirectoryPath,
         signal: activeAbortController?.signal ?? new AbortController().signal,
       })
@@ -930,6 +964,14 @@ export function createTailoredApplicationSessionService({
       }
 
       if (error instanceof Error && error instanceof TailoredApplicationContractValidationError) {
+        if (rawResult !== null) {
+          await persistContractValidationFailureArtifacts({
+            error,
+            generationRunId,
+            rawResult,
+          })
+        }
+
         throw error
       }
 
@@ -1334,7 +1376,7 @@ function validateTailoredApplicationGenerationResult(
   if (!isGeneratedAdaptedCvModel(candidate.adaptedCv, context)) {
     throwContractValidationError({
       code: 'adapted_cv_invalid',
-      detail: 'Expected a valid adaptedCv object.',
+      detail: describeGeneratedAdaptedCvValidationFailure(candidate.adaptedCv, context),
       path: 'adaptedCv',
     })
   }
@@ -1433,8 +1475,81 @@ function isGeneratedAdaptedCvModel(
     resolveCanonicalAdaptedCvHeadline(candidate.headline.text, candidate.sections, context) !==
       null &&
     hasRequiredAdaptedCvSections(candidate.sections) &&
+    getDuplicatedCoreSkillsAndToolsLabels(candidate.sections).length === 0 &&
     isGeneratedAdaptedCvTemplateFit(candidate as unknown as GeneratedAdaptedCvModel)
   )
+}
+
+function describeGeneratedAdaptedCvValidationFailure(
+  value: unknown,
+  context: {
+    originalCvHeadline: string
+    vacancyTitle: string | null
+  },
+): string {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    return 'Expected adaptedCv to be an object.'
+  }
+
+  const candidate = value as Record<string, unknown>
+
+  if (typeof candidate.candidateName !== 'string') {
+    return 'Expected adaptedCv.candidateName to be a string.'
+  }
+
+  if (!isGeneratedAdaptedCvHeader(candidate.header)) {
+    return 'Expected adaptedCv.header.intro.text to be a string.'
+  }
+
+  if (!isGroundedText(candidate.headline)) {
+    return 'Expected adaptedCv.headline.text to be a string.'
+  }
+
+  if (!Array.isArray(candidate.sections)) {
+    return 'Expected adaptedCv.sections to be an array.'
+  }
+
+  const sections = candidate.sections as unknown[]
+
+  const invalidSectionIndex = sections.findIndex((section) => {
+    return !isGeneratedAdaptedCvSection(section)
+  })
+
+  if (invalidSectionIndex !== -1) {
+    const invalidSection = sections[invalidSectionIndex]
+
+    return (
+      describeGeneratedAdaptedCvSectionValidationFailure(invalidSectionIndex, invalidSection) ??
+      `Expected adaptedCv.sections[${String(invalidSectionIndex)}] to match the section contract.`
+    )
+  }
+
+  if (
+    resolveCanonicalAdaptedCvHeadline(candidate.headline.text, candidate.sections, context) === null
+  ) {
+    return 'Expected adaptedCv.headline.text to resolve to a canonical role label from the original CV, vacancy title, or structured experience role titles.'
+  }
+
+  const missingRequiredSectionKinds = getMissingRequiredAdaptedCvSectionKinds(sections)
+  const returnedSectionKinds = getAdaptedCvSectionKinds(sections)
+
+  if (missingRequiredSectionKinds.length > 0) {
+    return `Expected adaptedCv.sections to include ${missingRequiredSectionKinds.join(
+      ', ',
+    )}. Received sections: ${returnedSectionKinds.join(', ') || 'none'}.`
+  }
+
+  const duplicatedSidebarLabels = getDuplicatedCoreSkillsAndToolsLabels(sections)
+
+  if (duplicatedSidebarLabels.length > 0) {
+    return `Expected adaptedCv tools items to avoid duplicating core_skills entries. Overlap: ${duplicatedSidebarLabels.join(', ')}.`
+  }
+
+  if (!isGeneratedAdaptedCvTemplateFit(candidate as unknown as GeneratedAdaptedCvModel)) {
+    return `Expected adaptedCv profile summary to be at most ${String(MAX_PROFILE_SUMMARY_LENGTH)} characters.`
+  }
+
+  return 'Expected a valid adaptedCv object.'
 }
 
 function isGeneratedAdaptedCvHeader(value: unknown): value is GeneratedAdaptedCvModel['header'] {
@@ -1474,11 +1589,11 @@ function isGeneratedAdaptedCvSection(
   }
 
   if (candidate.kind === 'selected_work' || candidate.kind === 'impact_highlights') {
-    return isGroundedTextList(candidate.items)
+    return isNarrativeEvidenceTextList(candidate.items)
   }
 
   if (candidate.kind === 'tools') {
-    return isOptionalGroundedTextListWithinCap(candidate.items, 6)
+    return isUngroupedToolListWithinCap(candidate.items, 6)
   }
 
   if (candidate.kind === 'education') {
@@ -1486,17 +1601,29 @@ function isGeneratedAdaptedCvSection(
   }
 
   if (candidate.kind === 'certifications') {
-    return isOptionalGroundedTextListWithinCap(candidate.items, 2)
+    return isConciseGroundedTextListWithinCap(candidate.items, 2)
   }
 
   if (candidate.kind === 'languages' || candidate.kind === 'focus') {
-    return isOptionalGroundedTextListWithinCap(candidate.items, 3)
+    return isConciseGroundedTextListWithinCap(candidate.items, 3)
   }
 
   return candidate.kind === 'references'
 }
 
 function hasRequiredAdaptedCvSections(sections: unknown[]): boolean {
+  return getMissingRequiredAdaptedCvSectionKinds(sections).length === 0
+}
+
+function getMissingRequiredAdaptedCvSectionKinds(sections: unknown[]): string[] {
+  const kinds = getAdaptedCvSectionKinds(sections)
+
+  return ['profile', 'experience', 'core_skills', 'references'].filter((kind) => {
+    return !kinds.includes(kind)
+  })
+}
+
+function getAdaptedCvSectionKinds(sections: unknown[]): string[] {
   const kinds = new Set(
     sections.flatMap((section) => {
       if (section === null || typeof section !== 'object' || Array.isArray(section)) {
@@ -1509,12 +1636,60 @@ function hasRequiredAdaptedCvSections(sections: unknown[]): boolean {
     }),
   )
 
-  return (
-    kinds.has('profile') &&
-    kinds.has('experience') &&
-    kinds.has('core_skills') &&
-    kinds.has('references')
+  return [...kinds]
+}
+
+function getDuplicatedCoreSkillsAndToolsLabels(sections: unknown[]): string[] {
+  const coreSkillsSection = sections.find((section) => {
+    return (
+      section !== null &&
+      typeof section === 'object' &&
+      !Array.isArray(section) &&
+      (section as Record<string, unknown>).kind === 'core_skills'
+    )
+  }) as
+    | {
+        items?: unknown
+      }
+    | undefined
+
+  const toolsSection = sections.find((section) => {
+    return (
+      section !== null &&
+      typeof section === 'object' &&
+      !Array.isArray(section) &&
+      (section as Record<string, unknown>).kind === 'tools'
+    )
+  }) as
+    | {
+        items?: unknown
+      }
+    | undefined
+
+  if (!Array.isArray(coreSkillsSection?.items) || !Array.isArray(toolsSection?.items)) {
+    return []
+  }
+
+  const coreSkillLabels = new Map(
+    coreSkillsSection.items.flatMap((item) => {
+      if (!isNonEmptyGroundedText(item)) {
+        return []
+      }
+
+      return [[normalizeSidebarLabel(item.text), item.text] as const]
+    }),
   )
+
+  return toolsSection.items.flatMap((item) => {
+    if (!isNonEmptyGroundedText(item)) {
+      return []
+    }
+
+    const normalizedLabel = normalizeSidebarLabel(item.text)
+    const duplicatedLabel = coreSkillLabels.get(normalizedLabel)
+
+    return duplicatedLabel === undefined ? [] : [duplicatedLabel]
+  })
 }
 
 function isAdaptedCvExperienceEntry(value: unknown): value is AdaptedCvExperienceEntry {
@@ -1546,7 +1721,7 @@ function isAdaptedCvSkill(value: unknown): value is AdaptedCvSkill {
     typeof value === 'object' &&
     !Array.isArray(value) &&
     typeof (value as Record<string, unknown>).text === 'string' &&
-    ((value as Record<string, unknown>).text as string).trim() !== ''
+    isConciseSidebarLabel((value as Record<string, unknown>).text as string)
   )
 }
 
@@ -1561,23 +1736,127 @@ function isRequiredAdaptedCvSkillList(value: unknown, maximumItems: number): boo
   )
 }
 
-function isGroundedTextList(value: unknown): boolean {
-  return (
-    Array.isArray(value) &&
-    value.every((item) => {
-      return isNonEmptyGroundedText(item)
-    })
-  )
-}
-
-function isOptionalGroundedTextListWithinCap(value: unknown, maximumItems: number): boolean {
+function isConciseGroundedTextListWithinCap(
+  value: unknown,
+  maximumItems: number,
+  labelConstraints?: {
+    maximumLength?: number
+    maximumWords?: number
+  },
+): boolean {
   return (
     Array.isArray(value) &&
     value.length <= maximumItems &&
     value.every((item) => {
-      return isNonEmptyGroundedText(item)
+      return isNonEmptyGroundedText(item) && isConciseSidebarLabel(item.text, labelConstraints)
     })
   )
+}
+
+function isUngroupedToolListWithinCap(value: unknown, maximumItems: number): boolean {
+  return (
+    Array.isArray(value) &&
+    value.length <= maximumItems &&
+    value.every((item) => {
+      return isNonEmptyGroundedText(item) && isUngroupedToolLabel(item.text)
+    })
+  )
+}
+
+function isNarrativeEvidenceTextList(value: unknown): boolean {
+  return (
+    Array.isArray(value) &&
+    value.length > 0 &&
+    value.every((item) => {
+      return isNonEmptyGroundedText(item)
+    }) &&
+    value.some((item) => {
+      return !isConciseSidebarLabel(item.text, {
+        maximumLength: 40,
+        maximumWords: 2,
+      })
+    })
+  )
+}
+
+function isConciseSidebarLabel(
+  value: string,
+  {
+    maximumLength = 48,
+    maximumWords = 4,
+  }: {
+    maximumLength?: number
+    maximumWords?: number
+  } = {},
+): boolean {
+  const normalizedValue = value.trim()
+
+  if (
+    normalizedValue === '' ||
+    normalizedValue.length > maximumLength ||
+    /[.!?]/u.test(normalizedValue)
+  ) {
+    return false
+  }
+
+  return countWords(normalizedValue) <= maximumWords
+}
+
+function countWords(value: string): number {
+  const matches = value.match(/[A-Za-z0-9+#./&'-]+/gu)
+
+  return matches?.length ?? 0
+}
+
+function normalizeSidebarLabel(value: string): string {
+  return value.trim().toLowerCase()
+}
+
+function isUngroupedToolLabel(value: string): boolean {
+  return (
+    isConciseSidebarLabel(value) &&
+    !/[()]/u.test(value) &&
+    !/,\s/u.test(value) &&
+    !/;\s/u.test(value) &&
+    !/\s+and\s+/iu.test(value) &&
+    !/\s+\+\s+/u.test(value) &&
+    !/\s+\/\s+/u.test(value) &&
+    !/\s*&\s*/u.test(value)
+  )
+}
+
+function describeGeneratedAdaptedCvSectionValidationFailure(
+  sectionIndex: number,
+  value: unknown,
+): string | null {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    return null
+  }
+
+  const candidate = value as Record<string, unknown>
+
+  if (candidate.kind === 'core_skills') {
+    return `Expected adaptedCv.sections[${String(sectionIndex)}] core_skills items to be concise sidebar labels rather than sentence-like content.`
+  }
+
+  if (candidate.kind === 'selected_work' || candidate.kind === 'impact_highlights') {
+    return `Expected adaptedCv.sections[${String(sectionIndex)}] ${candidate.kind} items to contain grounded evidence lines rather than bare skill or tool labels.`
+  }
+
+  if (
+    candidate.kind === 'tools' ||
+    candidate.kind === 'certifications' ||
+    candidate.kind === 'languages' ||
+    candidate.kind === 'focus'
+  ) {
+    if (candidate.kind === 'tools') {
+      return `Expected adaptedCv.sections[${String(sectionIndex)}] tools items to be concise ungrouped sidebar labels.`
+    }
+
+    return `Expected adaptedCv.sections[${String(sectionIndex)}] ${candidate.kind} items to be concise sidebar labels.`
+  }
+
+  return null
 }
 
 function isAdaptedCvEducationEntry(
@@ -1714,11 +1993,14 @@ function extractRoleLabel(value: string | null): string | null {
     return null
   }
 
-  const suffixSeparatorMatch = /\s(?:\||·|—|–|-)\s/u.exec(collapsedWhitespace)
+  const withoutParentheticalSuffix = collapsedWhitespace.replace(/\s+\([^)]*\)$/u, '').trim()
+  const normalizedValue =
+    withoutParentheticalSuffix === '' ? collapsedWhitespace : withoutParentheticalSuffix
+  const suffixSeparatorMatch = /\s(?:\/|\||·|:|—|–|-)\s/u.exec(normalizedValue)
   const roleOnlyLabel =
     suffixSeparatorMatch?.index === undefined
-      ? collapsedWhitespace
-      : collapsedWhitespace.slice(0, suffixSeparatorMatch.index).trim()
+      ? normalizedValue
+      : normalizedValue.slice(0, suffixSeparatorMatch.index).trim()
 
   if (roleOnlyLabel === '') {
     return null

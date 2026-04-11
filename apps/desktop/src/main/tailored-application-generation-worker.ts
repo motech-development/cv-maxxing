@@ -2,7 +2,12 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { spawn } from 'node:child_process'
 import path from 'node:path'
 
-import type { TailoredApplicationGenerationResult } from '../shared/tailored-application.js'
+import type {
+  AdaptedCvEducationEntry,
+  AdaptedCvExperienceEntry,
+  GroundedText,
+  TailoredApplicationGenerationResult,
+} from '../shared/tailored-application.js'
 import type { TailoredApplicationGenerationWorker } from './tailored-application-session-service.js'
 
 export interface TailoredApplicationGenerationEnvironment {
@@ -58,12 +63,98 @@ const OUTPUT_SCHEMA = {
           type: 'object',
         },
         headline: groundedTextSchema(),
-        sections: {
-          items: adaptedCvSectionSchema(),
-          type: 'array',
+        coreSkills: {
+          description: 'Required sidebar section. Max 6 short vacancy-relevant skill labels.',
+          additionalProperties: false,
+          properties: {
+            items: {
+              items: conciseGroundedTextSchema(40),
+              maxItems: 6,
+              type: 'array',
+            },
+          },
+          required: ['items'],
+          type: 'object',
+        },
+        experience: {
+          additionalProperties: false,
+          properties: {
+            items: {
+              items: adaptedCvExperienceEntrySchema(),
+              type: 'array',
+            },
+          },
+          required: ['items'],
+          type: 'object',
+        },
+        selectedWork: nullableItemsSectionSchema({
+          description:
+            'Optional left-column section. Use only for grounded named projects, products, clients, or case-study style examples.',
+          items: groundedTextSchema(),
+        }),
+        impactHighlights: nullableItemsSectionSchema({
+          description:
+            'Optional left-column section. Use only for grounded outcome or achievement lines, not for skill or tooling lists.',
+          items: groundedTextSchema(),
+        }),
+        profile: {
+          additionalProperties: false,
+          properties: {
+            summary: groundedTextSchema(),
+          },
+          required: ['summary'],
+          type: 'object',
+        },
+        tools: nullableItemsSectionSchema({
+          description:
+            'Optional sidebar section. Max 6 concise technology, framework, platform, database, or tooling labels.',
+          items: conciseGroundedTextSchema(48),
+          maxItems: 6,
+        }),
+        education: nullableEducationSectionSchema(),
+        certifications: nullableItemsSectionSchema({
+          description: 'Optional sidebar section. Max 2 concise certification labels.',
+          items: conciseGroundedTextSchema(60),
+          maxItems: 2,
+        }),
+        languages: nullableItemsSectionSchema({
+          description: 'Optional sidebar section. Max 3 concise language entries.',
+          items: conciseGroundedTextSchema(40),
+          maxItems: 3,
+        }),
+        focus: nullableItemsSectionSchema({
+          description: 'Optional sidebar section. Max 3 concise focus labels.',
+          items: conciseGroundedTextSchema(40),
+          maxItems: 3,
+        }),
+        references: {
+          additionalProperties: false,
+          properties: {
+            kind: {
+              const: 'references',
+              type: 'string',
+            },
+          },
+          required: ['kind'],
+          type: 'object',
         },
       },
-      required: ['candidateName', 'header', 'headline', 'sections'],
+      required: [
+        'candidateName',
+        'coreSkills',
+        'experience',
+        'header',
+        'headline',
+        'selectedWork',
+        'impactHighlights',
+        'profile',
+        'tools',
+        'education',
+        'certifications',
+        'languages',
+        'focus',
+        'references',
+      ],
       type: 'object',
     },
     coverLetter: {
@@ -111,6 +202,51 @@ const OUTPUT_SCHEMA = {
 } as const
 const TAILORED_APPLICATION_GENERATION_MODEL = 'gpt-5.4'
 const TAILORED_APPLICATION_GENERATION_REASONING_EFFORT = 'low'
+
+interface StructuredWorkerAdaptedCv {
+  candidateName: string
+  coreSkills: {
+    items: GroundedText[]
+  }
+  experience: {
+    items: AdaptedCvExperienceEntry[]
+  }
+  header: {
+    intro: GroundedText
+  }
+  headline: GroundedText
+  selectedWork: {
+    items: GroundedText[]
+  } | null
+  impactHighlights: {
+    items: GroundedText[]
+  } | null
+  profile: {
+    summary: GroundedText
+  }
+  tools: {
+    items: GroundedText[]
+  } | null
+  education: {
+    entry: AdaptedCvEducationEntry
+  } | null
+  certifications: {
+    items: GroundedText[]
+  } | null
+  languages: {
+    items: GroundedText[]
+  } | null
+  focus: {
+    items: GroundedText[]
+  } | null
+  references: {
+    kind: 'references'
+  }
+}
+
+type WorkerGenerationResult = Omit<TailoredApplicationGenerationResult, 'adaptedCv'> & {
+  adaptedCv: StructuredWorkerAdaptedCv | TailoredApplicationGenerationResult['adaptedCv']
+}
 
 interface TailoredApplicationTaskInput {
   originalCv: {
@@ -313,9 +449,22 @@ async function buildGenerationPrompt(runDirectoryPath: string): Promise<string> 
     'Use British English.',
     'Follow the JSON schema exactly.',
     'Keep the adapted CV and cover letter truthful to the provided CV and vacancy.',
+    'Return explicit adaptedCv fields for every template section: profile, experience, selectedWork, impactHighlights, coreSkills, tools, education, certifications, languages, focus, and references.',
+    'Always include adaptedCv.profile, adaptedCv.experience, adaptedCv.coreSkills, and adaptedCv.references.',
+    'Set optional section fields to null when they are weak, generic, duplicative, unsupported, or not needed.',
+    'Return adaptedCv.coreSkills.items as concise vacancy-relevant skill labels only, not sentences, achievements, or responsibility statements.',
+    'Keep each adaptedCv.coreSkills.items entry brief, usually one to three words.',
+    'Return adaptedCv.tools.items only for concise technology, framework, platform, database, or tooling labels that are explicit or conservatively inferable from the original CV.',
+    "Ungroup adaptedCv.tools.items; split combined labels such as 'NoSQL databases (MongoDB, AWS DynamoDB)' into separate items like 'MongoDB' and 'AWS DynamoDB'.",
+    'Do not repeat the same label across adaptedCv.coreSkills.items and adaptedCv.tools.items.',
+    'Return adaptedCv.selectedWork.items only for grounded named projects, products, clients, or case-study style examples.',
+    'Return adaptedCv.impactHighlights.items only for grounded achievement or outcome lines, not for skills or tooling lists.',
+    'Return adaptedCv.education as the latest relevant completed education entry only, or null.',
+    'Return adaptedCv.certifications.items, adaptedCv.languages.items, and adaptedCv.focus.items as concise sidebar entries only when strongly grounded and useful.',
     'Set adaptedCv.headline.text to the role name only.',
     'Reuse a source role label from the original CV, vacancy title, or structured experience role titles.',
     'Do not append skills, technologies, employers, locations, taglines, or separator suffixes.',
+    'If tailoring evidence is thin, keep required sections concise and grounded in the original CV rather than omitting them.',
     'Use British English spelling.',
     'Format cover-letter dates like "9 April 2026".',
     'Do not fetch any external context.',
@@ -402,204 +551,95 @@ function groundedTextSchema() {
   }
 }
 
-function adaptedCvSectionSchema() {
+function conciseGroundedTextSchema(maxLength: number) {
   return {
-    anyOf: [
-      {
+    additionalProperties: false,
+    properties: {
+      text: {
+        maxLength,
+        type: 'string',
+      },
+    },
+    required: ['text'],
+    type: 'object',
+  }
+}
+
+function adaptedCvExperienceEntrySchema() {
+  return {
+    additionalProperties: false,
+    properties: {
+      bullets: {
+        items: groundedTextSchema(),
+        type: 'array',
+      },
+      dateRange: {
+        type: 'string',
+      },
+      employer: {
+        type: 'string',
+      },
+      location: {
+        type: ['string', 'null'],
+      },
+      roleTitle: {
+        type: 'string',
+      },
+    },
+    required: ['bullets', 'dateRange', 'employer', 'location', 'roleTitle'],
+    type: 'object',
+  }
+}
+
+function nullableItemsSectionSchema({
+  description,
+  items,
+  maxItems,
+}: {
+  description: string
+  items: ReturnType<typeof groundedTextSchema> | ReturnType<typeof conciseGroundedTextSchema>
+  maxItems?: number
+}) {
+  return {
+    additionalProperties: false,
+    description,
+    properties: {
+      items: {
+        ...(maxItems === undefined
+          ? {}
+          : {
+              maxItems,
+            }),
+        items,
+        type: 'array',
+      },
+    },
+    required: ['items'],
+    type: ['object', 'null'],
+  }
+}
+
+function nullableEducationSectionSchema() {
+  return {
+    additionalProperties: false,
+    description: 'Optional sidebar section. Latest relevant completed education entry only.',
+    properties: {
+      entry: {
         additionalProperties: false,
         properties: {
-          kind: {
-            const: 'profile',
+          meta: {
             type: 'string',
           },
-          summary: groundedTextSchema(),
-        },
-        required: ['kind', 'summary'],
-        type: 'object',
-      },
-      {
-        additionalProperties: false,
-        properties: {
-          items: {
-            items: {
-              additionalProperties: false,
-              properties: {
-                bullets: {
-                  items: groundedTextSchema(),
-                  type: 'array',
-                },
-                dateRange: {
-                  type: 'string',
-                },
-                employer: {
-                  type: 'string',
-                },
-                location: {
-                  type: ['string', 'null'],
-                },
-                roleTitle: {
-                  type: 'string',
-                },
-              },
-              required: ['bullets', 'dateRange', 'employer', 'location', 'roleTitle'],
-              type: 'object',
-            },
-            type: 'array',
-          },
-          kind: {
-            const: 'experience',
-            type: 'string',
-          },
-        },
-        required: ['items', 'kind'],
-        type: 'object',
-      },
-      {
-        additionalProperties: false,
-        properties: {
-          items: {
-            items: groundedTextSchema(),
-            maxItems: 6,
-            type: 'array',
-          },
-          kind: {
-            const: 'core_skills',
-            type: 'string',
-          },
-        },
-        required: ['items', 'kind'],
-        type: 'object',
-      },
-      {
-        additionalProperties: false,
-        properties: {
-          items: {
-            items: groundedTextSchema(),
-            maxItems: 6,
-            type: 'array',
-          },
-          kind: {
-            const: 'tools',
-            type: 'string',
-          },
-        },
-        required: ['items', 'kind'],
-        type: 'object',
-      },
-      {
-        additionalProperties: false,
-        properties: {
-          entry: {
-            additionalProperties: false,
-            properties: {
-              meta: {
-                type: 'string',
-              },
-              title: {
-                type: 'string',
-              },
-            },
-            required: ['meta', 'title'],
-            type: ['object', 'null'],
-          },
-          kind: {
-            const: 'education',
+          title: {
             type: 'string',
           },
         },
-        required: ['entry', 'kind'],
+        required: ['meta', 'title'],
         type: 'object',
       },
-      {
-        additionalProperties: false,
-        properties: {
-          items: {
-            items: groundedTextSchema(),
-            maxItems: 2,
-            type: 'array',
-          },
-          kind: {
-            const: 'certifications',
-            type: 'string',
-          },
-        },
-        required: ['items', 'kind'],
-        type: 'object',
-      },
-      {
-        additionalProperties: false,
-        properties: {
-          items: {
-            items: groundedTextSchema(),
-            maxItems: 3,
-            type: 'array',
-          },
-          kind: {
-            const: 'languages',
-            type: 'string',
-          },
-        },
-        required: ['items', 'kind'],
-        type: 'object',
-      },
-      {
-        additionalProperties: false,
-        properties: {
-          items: {
-            items: groundedTextSchema(),
-            maxItems: 3,
-            type: 'array',
-          },
-          kind: {
-            const: 'focus',
-            type: 'string',
-          },
-        },
-        required: ['items', 'kind'],
-        type: 'object',
-      },
-      {
-        additionalProperties: false,
-        properties: {
-          items: {
-            items: groundedTextSchema(),
-            type: 'array',
-          },
-          kind: {
-            const: 'selected_work',
-            type: 'string',
-          },
-        },
-        required: ['items', 'kind'],
-        type: 'object',
-      },
-      {
-        additionalProperties: false,
-        properties: {
-          items: {
-            items: groundedTextSchema(),
-            type: 'array',
-          },
-          kind: {
-            const: 'impact_highlights',
-            type: 'string',
-          },
-        },
-        required: ['items', 'kind'],
-        type: 'object',
-      },
-      {
-        additionalProperties: false,
-        properties: {
-          kind: {
-            const: 'references',
-            type: 'string',
-          },
-        },
-        required: ['kind'],
-        type: 'object',
-      },
-    ],
+    },
+    required: ['entry'],
+    type: ['object', 'null'],
   }
 }
 
@@ -631,13 +671,107 @@ function parseGenerationResultJson({
   outputText: string
 }): TailoredApplicationGenerationResult {
   try {
-    return JSON.parse(outputText) as TailoredApplicationGenerationResult
+    return normalizeWorkerGenerationResult(JSON.parse(outputText) as WorkerGenerationResult)
   } catch (error) {
     const preview = buildOutputPreview(outputText)
     const reason = error instanceof Error ? error.message : 'Unknown parse error.'
 
     throw new Error(`${context} produced invalid JSON: ${reason}. Preview: ${preview}`)
   }
+}
+
+function normalizeWorkerGenerationResult(
+  result: WorkerGenerationResult,
+): TailoredApplicationGenerationResult {
+  if (!isStructuredWorkerAdaptedCv(result.adaptedCv)) {
+    return result as TailoredApplicationGenerationResult
+  }
+
+  return {
+    ...result,
+    adaptedCv: {
+      candidateName: result.adaptedCv.candidateName,
+      header: result.adaptedCv.header,
+      headline: result.adaptedCv.headline,
+      sections: [
+        {
+          kind: 'profile',
+          summary: result.adaptedCv.profile.summary,
+        },
+        {
+          items: result.adaptedCv.experience.items,
+          kind: 'experience',
+        },
+        ...(result.adaptedCv.selectedWork === null
+          ? []
+          : [
+              {
+                items: result.adaptedCv.selectedWork.items,
+                kind: 'selected_work' as const,
+              },
+            ]),
+        ...(result.adaptedCv.impactHighlights === null
+          ? []
+          : [
+              {
+                items: result.adaptedCv.impactHighlights.items,
+                kind: 'impact_highlights' as const,
+              },
+            ]),
+        {
+          items: result.adaptedCv.coreSkills.items,
+          kind: 'core_skills',
+        },
+        ...(result.adaptedCv.tools === null
+          ? []
+          : [
+              {
+                items: result.adaptedCv.tools.items,
+                kind: 'tools' as const,
+              },
+            ]),
+        ...(result.adaptedCv.education === null
+          ? []
+          : [
+              {
+                entry: result.adaptedCv.education.entry,
+                kind: 'education' as const,
+              },
+            ]),
+        ...(result.adaptedCv.certifications === null
+          ? []
+          : [
+              {
+                items: result.adaptedCv.certifications.items,
+                kind: 'certifications' as const,
+              },
+            ]),
+        ...(result.adaptedCv.languages === null
+          ? []
+          : [
+              {
+                items: result.adaptedCv.languages.items,
+                kind: 'languages' as const,
+              },
+            ]),
+        ...(result.adaptedCv.focus === null
+          ? []
+          : [
+              {
+                items: result.adaptedCv.focus.items,
+                kind: 'focus' as const,
+              },
+            ]),
+        result.adaptedCv.references,
+      ],
+    },
+  }
+}
+
+function isStructuredWorkerAdaptedCv(
+  value: WorkerGenerationResult['adaptedCv'],
+): value is StructuredWorkerAdaptedCv {
+  return !('sections' in value)
 }
 
 function buildOutputPreview(outputText: string): string {
