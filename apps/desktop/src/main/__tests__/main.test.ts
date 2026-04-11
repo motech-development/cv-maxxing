@@ -7,7 +7,11 @@ import {
   TAILORED_APPLICATION_IPC_CHANNELS,
   VACANCY_IPC_CHANNELS,
 } from '../../shared/ipc.js'
-import { createDesktopAppBootstrap, createElectronRuntimeDependencies } from '../main.js'
+import {
+  createDesktopAppBootstrap,
+  createElectronRuntimeDependencies,
+  handleOriginalCvImported,
+} from '../main.js'
 
 type AppEvent = 'activate' | 'window-all-closed'
 
@@ -159,6 +163,20 @@ function createSettingsDouble() {
 
 beforeEach(() => {
   vi.restoreAllMocks()
+})
+
+test('abandon pending tailored-application state after an original CV import succeeds', async () => {
+  const tailoredApplication = {
+    abandonPendingGeneration: vi.fn().mockImplementation(() => Promise.resolve()),
+  }
+
+  await expect(
+    handleOriginalCvImported({
+      tailoredApplication,
+    }),
+  ).resolves.toBeUndefined()
+
+  expect(tailoredApplication.abandonPendingGeneration).toHaveBeenCalledTimes(1)
 })
 
 test('bootstrap registers the full AI worker onboarding IPC surface and opens the packaged shell on startup', async () => {

@@ -910,6 +910,13 @@ export function createTailoredApplicationSessionService({
         throw error
       }
 
+      if (
+        error instanceof Error &&
+        error.message === 'Tailored application generation timed out.'
+      ) {
+        throw error
+      }
+
       throw new Error('Tailored application generation failed.', {
         cause: error,
       })

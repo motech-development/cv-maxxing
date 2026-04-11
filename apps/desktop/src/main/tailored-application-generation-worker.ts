@@ -10,6 +10,7 @@ export interface TailoredApplicationGenerationEnvironment {
   CV_MAXXING_AI_WORKER_GENERATION_DELAY_MS?: string
   CV_MAXXING_AI_WORKER_GENERATION_FAILURE?: string
   CV_MAXXING_AI_WORKER_GENERATION_OUTPUT?: string
+  CV_MAXXING_AI_WORKER_GENERATION_TIMEOUT_MS?: string
 }
 
 const OUTPUT_SCHEMA = {
@@ -110,6 +111,7 @@ const OUTPUT_SCHEMA = {
 } as const
 const TAILORED_APPLICATION_GENERATION_MODEL = 'gpt-5.4'
 const TAILORED_APPLICATION_GENERATION_REASONING_EFFORT = 'low'
+const DEFAULT_TAILORED_APPLICATION_GENERATION_TIMEOUT_MS = 300_000
 
 export function createTailoredApplicationGenerationWorker({
   environment = process.env,
@@ -141,6 +143,7 @@ export function createTailoredApplicationGenerationWorker({
         command: environment.CV_MAXXING_AI_WORKER_CODEX_COMMAND ?? 'codex',
         runDirectoryPath,
         signal,
+        timeoutMs: resolveTimeoutMs(environment.CV_MAXXING_AI_WORKER_GENERATION_TIMEOUT_MS),
       })
     },
   }
@@ -150,10 +153,12 @@ async function runCodexCliGeneration({
   command,
   runDirectoryPath,
   signal,
+  timeoutMs,
 }: {
   command: string
   runDirectoryPath: string
   signal: AbortSignal
+  timeoutMs: number
 }): Promise<TailoredApplicationGenerationResult> {
   const outputDirectoryPath = path.join(runDirectoryPath, 'output')
   const outputFilePath = path.join(outputDirectoryPath, 'result.json')
@@ -177,8 +182,11 @@ async function runCodexCliGeneration({
   ].join(' ')
 
   const stderrChunks: string[] = []
+  console.info(`Starting tailored application generation via Codex CLI in ${runDirectoryPath}.`)
 
   await new Promise<void>((resolve, reject) => {
+    let generationTimedOut = false
+
     const child = spawn(
       command,
       [
@@ -209,7 +217,14 @@ async function runCodexCliGeneration({
       return
     })
 
+    const timeoutId = setTimeout(() => {
+      generationTimedOut = true
+      console.error(`Tailored application generation timed out after ${String(timeoutMs)} ms.`)
+      child.kill('SIGTERM')
+    }, timeoutMs)
+
     const abortHandler = () => {
+      clearTimeout(timeoutId)
       child.kill('SIGTERM')
       reject(new Error('Generation cancelled.'))
     }
@@ -219,11 +234,19 @@ async function runCodexCliGeneration({
     })
 
     child.on('error', (error) => {
+      clearTimeout(timeoutId)
       signal.removeEventListener('abort', abortHandler)
       reject(error)
     })
     child.on('close', (code) => {
+      clearTimeout(timeoutId)
       signal.removeEventListener('abort', abortHandler)
+
+      if (generationTimedOut) {
+        reject(new Error('Tailored application generation timed out.'))
+
+        return
+      }
 
       if (signal.aborted) {
         reject(new Error('Generation cancelled.'))
@@ -232,11 +255,15 @@ async function runCodexCliGeneration({
       }
 
       if (code !== 0) {
+        console.error(
+          `Tailored application generation failed in Codex CLI with exit code ${String(code)}.`,
+        )
         reject(new Error(stderrChunks.join('').trim() || 'Codex CLI generation failed.'))
 
         return
       }
 
+      console.info('Tailored application generation completed.')
       resolve()
     })
   })
@@ -264,7 +291,7 @@ function groundedTextSchema() {
 
 function adaptedCvSectionSchema() {
   return {
-    oneOf: [
+    anyOf: [
       {
         additionalProperties: false,
         properties: {
@@ -350,24 +377,17 @@ function adaptedCvSectionSchema() {
         additionalProperties: false,
         properties: {
           entry: {
-            oneOf: [
-              {
-                additionalProperties: false,
-                properties: {
-                  meta: {
-                    type: 'string',
-                  },
-                  title: {
-                    type: 'string',
-                  },
-                },
-                required: ['meta', 'title'],
-                type: 'object',
+            additionalProperties: false,
+            properties: {
+              meta: {
+                type: 'string',
               },
-              {
-                type: 'null',
+              title: {
+                type: 'string',
               },
-            ],
+            },
+            required: ['meta', 'title'],
+            type: ['object', 'null'],
           },
           kind: {
             const: 'education',
@@ -475,6 +495,16 @@ function parseDelay(value: string | undefined): number {
 
   if (!Number.isFinite(parsedValue) || parsedValue < 0) {
     return 0
+  }
+
+  return parsedValue
+}
+
+function resolveTimeoutMs(value: string | undefined): number {
+  const parsedValue = Number.parseInt(value ?? '', 10)
+
+  if (!Number.isFinite(parsedValue) || parsedValue <= 0) {
+    return DEFAULT_TAILORED_APPLICATION_GENERATION_TIMEOUT_MS
   }
 
   return parsedValue

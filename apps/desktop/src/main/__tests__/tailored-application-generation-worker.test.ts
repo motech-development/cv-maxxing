@@ -35,6 +35,7 @@ class MockEventTarget extends EventTarget {
 }
 
 afterEach(async () => {
+  vi.useRealTimers()
   spawnMock.mockReset()
 
   await Promise.all(
@@ -60,6 +61,67 @@ test('reports invalid fixture JSON with clear context', async () => {
       signal: new AbortController().signal,
     }),
   ).rejects.toThrow(/CV_MAXXING_AI_WORKER_GENERATION_OUTPUT produced invalid JSON/u)
+})
+
+test('times out a stalled Codex CLI generation and logs lifecycle milestones', async () => {
+  const runDirectoryPath = await mkdtemp(
+    path.join(tmpdir(), 'cv-maxxing-generation-worker-timeout-'),
+  )
+
+  temporaryDirectories.push(runDirectoryPath)
+
+  const consoleInfoSpy = vi.spyOn(console, 'info').mockImplementation((message: string) => {
+    void message
+  })
+  const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation((message: string) => {
+    void message
+  })
+
+  let childProcess:
+    | (MockEventTarget & {
+        kill: ReturnType<typeof vi.fn>
+        stderr: MockEventTarget
+        stdout: MockEventTarget
+      })
+    | undefined
+
+  spawnMock.mockImplementation(() => {
+    const child = new MockEventTarget() as MockEventTarget & {
+      kill: ReturnType<typeof vi.fn>
+      stderr: MockEventTarget
+      stdout: MockEventTarget
+    }
+
+    child.kill = vi.fn(() => {
+      child.emit('close', null)
+    })
+    child.stderr = new MockEventTarget()
+    child.stdout = new MockEventTarget()
+    childProcess = child
+
+    return child
+  })
+
+  const worker = createTailoredApplicationGenerationWorker({
+    environment: {
+      CV_MAXXING_AI_WORKER_CODEX_COMMAND: 'codex',
+      CV_MAXXING_AI_WORKER_GENERATION_TIMEOUT_MS: '25',
+    },
+  })
+
+  const runPromise = worker.runGeneration({
+    runDirectoryPath,
+    signal: new AbortController().signal,
+  })
+
+  await expect(runPromise).rejects.toThrow('Tailored application generation timed out.')
+  expect(childProcess?.kill).toHaveBeenCalledWith('SIGTERM')
+  expect(consoleInfoSpy).toHaveBeenCalledWith(
+    `Starting tailored application generation via Codex CLI in ${runDirectoryPath}.`,
+  )
+  expect(consoleErrorSpy).toHaveBeenCalledWith(
+    'Tailored application generation timed out after 25 ms.',
+  )
 })
 
 test('writes a typed trace provider field in the Codex CLI output schema', async () => {
@@ -219,6 +281,77 @@ test('does not require cover-letter plain text in the Codex CLI output schema', 
   })
 
   expect(capturedSchema?.required).not.toContain('coverLetterPlainText')
+})
+
+test('writes a Codex-compatible tailored-application schema without oneOf branches', async () => {
+  const runDirectoryPath = await mkdtemp(
+    path.join(tmpdir(), 'cv-maxxing-generation-worker-output-schema-'),
+  )
+
+  temporaryDirectories.push(runDirectoryPath)
+
+  let capturedSchemaText = ''
+
+  spawnMock.mockImplementation((_command: string, args: string[]) => {
+    const child = new MockEventTarget() as MockEventTarget & {
+      kill: ReturnType<typeof vi.fn>
+      stderr: MockEventTarget
+      stdout: MockEventTarget
+    }
+
+    child.kill = vi.fn()
+    child.stderr = new MockEventTarget()
+    child.stdout = new MockEventTarget()
+
+    const schemaFlagIndex = args.indexOf('--output-schema')
+    const outputFlagIndex = args.indexOf('--output-last-message')
+
+    if (
+      schemaFlagIndex === -1 ||
+      outputFlagIndex === -1 ||
+      schemaFlagIndex + 1 >= args.length ||
+      outputFlagIndex + 1 >= args.length
+    ) {
+      throw new Error('Expected Codex CLI schema and output file path arguments.')
+    }
+
+    const schemaFilePath = args[schemaFlagIndex + 1]
+    const outputFilePath = args[outputFlagIndex + 1]
+
+    if (schemaFilePath === undefined || outputFilePath === undefined) {
+      throw new Error('Expected Codex CLI schema and output file path arguments.')
+    }
+
+    void Promise.all([
+      readFile(schemaFilePath, 'utf8').then((schemaText) => {
+        capturedSchemaText = schemaText
+      }),
+      writeFile(outputFilePath, JSON.stringify(createValidGenerationResult()), 'utf8'),
+    ]).then(
+      () => {
+        child.emit('close', 0)
+      },
+      (error: unknown) => {
+        child.emit('error', error)
+      },
+    )
+
+    return child
+  })
+
+  const worker = createTailoredApplicationGenerationWorker({
+    environment: {
+      CV_MAXXING_AI_WORKER_CODEX_COMMAND: 'codex',
+    },
+  })
+
+  await worker.runGeneration({
+    runDirectoryPath,
+    signal: new AbortController().signal,
+  })
+
+  expect(capturedSchemaText).toContain('"adaptedCv"')
+  expect(capturedSchemaText).not.toContain('"oneOf"')
 })
 
 test('reports invalid Codex CLI output JSON with the output file path', async () => {

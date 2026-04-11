@@ -1491,6 +1491,54 @@ test('blocks generation before queueing when the reviewed vacancy is non-English
   await expect(service.getPendingGenerationCommand()).resolves.toBeNull()
 })
 
+test('preserves the tailored-application generation timeout message for the loading-screen UI', async () => {
+  const harness = await createHarness()
+
+  await seedOriginalCvAndVacancy(harness)
+
+  const service = createTailoredApplicationSessionService({
+    adaptedCvRenderer: {
+      renderAdaptedCvPdf: vi.fn(),
+    },
+    coverLetterRenderer: {
+      renderCoverLetterPdf: vi.fn(),
+    },
+    aiWorker: {
+      retryAiWorkerPreflight: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+    },
+    generateId: createIdGenerator(['command-123', 'run-123', 'tailored-application-123']),
+    getCurrentTimestamp: () => {
+      return '2026-04-09T09:30:00.000Z'
+    },
+    localAppData: harness.localAppData,
+    readinessStore: harness.readinessStore,
+    runWorkspaceRootPath: path.join(harness.paths.rootDirectoryPath, 'runs'),
+    worker: {
+      runGeneration: () => {
+        return Promise.reject(new Error('Tailored application generation timed out.'))
+      },
+    },
+  })
+
+  await service.startPendingGeneration({
+    originalCvId: 'original-cv-123',
+    originalCvLabel: 'ada-lovelace.pdf',
+    vacancyDraft: {
+      text: 'Senior platform engineer',
+      url: 'https://jobs.example.com/roles/123',
+    },
+  })
+
+  await expect(service.resumePendingGeneration()).rejects.toThrow(
+    'Tailored application generation timed out.',
+  )
+})
+
 test('cancels an active generation, removes transient workspaces, and preserves the vacancy workspace', async () => {
   const harness = await createHarness()
 

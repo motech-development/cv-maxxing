@@ -140,6 +140,14 @@ interface RuntimeDependencyOptions {
   vacancy: VacancyService
 }
 
+export async function handleOriginalCvImported({
+  tailoredApplication,
+}: {
+  tailoredApplication: Pick<TailoredApplicationSessionService, 'abandonPendingGeneration'>
+}): Promise<void> {
+  await tailoredApplication.abandonPendingGeneration()
+}
+
 interface RuntimeEnvironment {
   CHECKING_TIMEOUT_MS?: string
   CV_MAXXING_AI_WORKER_PREFLIGHT_STATUS?: string
@@ -558,7 +566,9 @@ async function createRuntimeServices(electronRuntime: ElectronRuntimeModule): Pr
   return {
     aiWorker,
     onOriginalCvImported: async () => {
-      await readinessStore.setStartupDestination('workspace_empty')
+      await handleOriginalCvImported({
+        tailoredApplication,
+      })
     },
     originalCv: createOriginalCvService({
       extractTextFromDocx,
