@@ -191,6 +191,111 @@ test('omits optional left-column evidence sections when they are empty', () => {
   expect(document.html).not.toContain('IMPACT HIGHLIGHTS')
 })
 
+test('renders capped sidebar sections in canonical order on page 1 only', () => {
+  const input = createAdaptedCvInput()
+
+  input.adaptedCv.sections = [
+    ...input.adaptedCv.sections,
+    {
+      items: [
+        {
+          text: 'Operator workflow trust',
+        },
+        {
+          text: 'Technical product design',
+        },
+      ],
+      kind: 'focus',
+    },
+    {
+      items: [
+        {
+          text: 'English (Native)',
+        },
+        {
+          text: 'Swedish (Professional)',
+        },
+      ],
+      kind: 'languages',
+    },
+    {
+      items: [
+        {
+          text: 'NN/g UX Certification',
+        },
+        {
+          text: 'Google Analytics 4',
+        },
+      ],
+      kind: 'certifications',
+    },
+    {
+      entry: {
+        meta: 'UCL · 2015 — 2018',
+        title: 'BSc Computer Science',
+      },
+      kind: 'education',
+    },
+    {
+      items: [
+        {
+          text: 'Figma',
+        },
+        {
+          text: 'FigJam',
+        },
+        {
+          text: 'Miro',
+        },
+      ],
+      kind: 'tools',
+    },
+  ]
+  input.adaptedCv.sections[1] = {
+    items: Array.from({ length: 18 }, (_, index) => {
+      const itemNumber = String(index + 1)
+
+      return createExperienceEntry({
+        bullets: [
+          `Structured experience bullet ${itemNumber} about technical workflow delivery and evidence grounding.`,
+        ],
+        dateRange: `20${itemNumber.padStart(2, '0')} — Present`,
+        employer: `Employer ${itemNumber}`,
+        location: `Location ${itemNumber}`,
+        roleTitle: `Role ${itemNumber}`,
+      })
+    }),
+    kind: 'experience',
+  }
+
+  const document = createAdaptedCvDocument(input)
+  const pageOneMarkup = getPageMarkup(document.html, 1)
+  const pageTwoMarkup = getPageMarkup(document.html, 2)
+  const coreSkillsIndex = pageOneMarkup.indexOf('CORE SKILLS')
+  const toolsIndex = pageOneMarkup.indexOf('TOOLS')
+  const educationIndex = pageOneMarkup.indexOf('EDUCATION')
+  const certificationsIndex = pageOneMarkup.indexOf('CERTIFICATIONS')
+  const languagesIndex = pageOneMarkup.indexOf('LANGUAGES')
+  const focusIndex = pageOneMarkup.indexOf('FOCUS')
+  const referencesIndex = pageOneMarkup.indexOf('REFERENCES')
+
+  expect(coreSkillsIndex).toBeGreaterThan(-1)
+  expect(toolsIndex).toBeGreaterThan(coreSkillsIndex)
+  expect(educationIndex).toBeGreaterThan(toolsIndex)
+  expect(certificationsIndex).toBeGreaterThan(educationIndex)
+  expect(languagesIndex).toBeGreaterThan(certificationsIndex)
+  expect(focusIndex).toBeGreaterThan(languagesIndex)
+  expect(referencesIndex).toBeGreaterThan(focusIndex)
+  expect(pageOneMarkup).toContain('BSc Computer Science')
+  expect(pageOneMarkup).toContain('UCL · 2015 — 2018')
+  expect(pageTwoMarkup).not.toContain('TOOLS')
+  expect(pageTwoMarkup).not.toContain('EDUCATION')
+  expect(pageTwoMarkup).not.toContain('CERTIFICATIONS')
+  expect(pageTwoMarkup).not.toContain('LANGUAGES')
+  expect(pageTwoMarkup).not.toContain('FOCUS')
+  expect(pageTwoMarkup).not.toContain('REFERENCES')
+})
+
 test('creates continued headers and a non-blocking warning when pagination exceeds the v1 threshold', () => {
   const longInput = createAdaptedCvInput()
 

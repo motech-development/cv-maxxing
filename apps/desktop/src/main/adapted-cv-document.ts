@@ -49,11 +49,18 @@ type AdaptedCvPageSection =
       kind: 'impact_highlights' | 'selected_work'
     }
   | {
-      kind: 'references'
+      entry: {
+        meta: string
+        title: string
+      }
+      kind: 'education'
     }
   | {
-      kind: 'skills'
+      kind: 'core_skills' | 'certifications' | 'focus' | 'languages' | 'tools'
       items: string[]
+    }
+  | {
+      kind: 'references'
     }
 
 export interface AdaptedCvDocument {
@@ -117,12 +124,7 @@ export async function resolveUniqueExportFilePath(
 
 function paginateAdaptedCv(input: AdaptedCvDocumentInput): AdaptedCvPage[] {
   const profileSection = getRequiredSection(input.adaptedCv.sections, 'profile')
-  const coreSkillsSection = getRequiredSection(input.adaptedCv.sections, 'core_skills')
   const continuableSections = buildContinuableSectionStates(input.adaptedCv.sections)
-
-  const remainingSkills = coreSkillsSection.items.map((skill) => {
-    return skill.text
-  })
   const pages: AdaptedCvPage[] = []
   const firstPageLeftSections: AdaptedCvPageSection[] = [
     {
@@ -132,25 +134,10 @@ function paginateAdaptedCv(input: AdaptedCvDocumentInput): AdaptedCvPage[] {
   ]
   const firstPageRightSections: AdaptedCvPageSection[] = []
 
-  let firstPageCapacity = PAGE_ONE_CAPACITY - estimateProfileHeight(profileSection.summary.text)
-  firstPageCapacity = fillContinuableSections(
-    continuableSections,
-    firstPageCapacity,
-    firstPageLeftSections,
-  )
+  const firstPageCapacity = PAGE_ONE_CAPACITY - estimateProfileHeight(profileSection.summary.text)
 
-  const firstPageSkills = takeSkillItems(remainingSkills, Math.max(firstPageCapacity, 8))
-
-  if (firstPageSkills.length > 0) {
-    firstPageRightSections.push({
-      items: firstPageSkills,
-      kind: 'skills',
-    })
-  }
-
-  firstPageRightSections.push({
-    kind: 'references',
-  })
+  fillContinuableSections(continuableSections, firstPageCapacity, firstPageLeftSections)
+  firstPageRightSections.push(...buildRightSections(input.adaptedCv.sections))
 
   pages.push({
     kind: 'main',
@@ -208,6 +195,39 @@ function buildContinuableSectionStates(sections: AdaptedCvSection[]): Continuabl
   ]
 }
 
+function buildRightSections(sections: AdaptedCvSection[]): AdaptedCvPageSection[] {
+  const coreSkillsSection = getRequiredSection(sections, 'core_skills')
+  const toolsSection = getOptionalSection(sections, 'tools')
+  const educationSection = getOptionalSection(sections, 'education')
+  const certificationsSection = getOptionalSection(sections, 'certifications')
+  const languagesSection = getOptionalSection(sections, 'languages')
+  const focusSection = getOptionalSection(sections, 'focus')
+
+  return [
+    {
+      items: coreSkillsSection.items.map((item) => {
+        return item.text
+      }),
+      kind: 'core_skills',
+    },
+    ...createSidebarListSection(toolsSection, 'tools'),
+    ...(educationSection?.entry === null || educationSection === null
+      ? []
+      : [
+          {
+            entry: educationSection.entry,
+            kind: 'education' as const,
+          },
+        ]),
+    ...createSidebarListSection(certificationsSection, 'certifications'),
+    ...createSidebarListSection(languagesSection, 'languages'),
+    ...createSidebarListSection(focusSection, 'focus'),
+    {
+      kind: 'references',
+    },
+  ]
+}
+
 function getRequiredSection<K extends AdaptedCvSection['kind']>(
   sections: AdaptedCvSection[],
   kind: K,
@@ -256,15 +276,6 @@ function estimateExperienceSectionHeight(
   }, 0)
 
   return headingHeight + itemsHeight
-}
-
-function estimateSkillSectionHeight(skills: string[]): number {
-  return (
-    3 +
-    skills.reduce((totalHeight, skill) => {
-      return totalHeight + 1 + Math.ceil(skill.length / 28)
-    }, 0)
-  )
 }
 
 function estimateTextBlockSectionHeight(items: string[], isContinued: boolean): number {
@@ -382,39 +393,6 @@ function takeExperienceItems(
 
     if (forcedItem !== undefined) {
       selectedItems.push(forcedItem)
-    }
-  }
-
-  return selectedItems
-}
-
-function takeSkillItems(remainingSkills: string[], availableHeight: number): string[] {
-  const selectedItems: string[] = []
-  let consumedHeight = 0
-
-  while (remainingSkills.length > 0) {
-    const nextSkill = remainingSkills[0]
-
-    if (nextSkill === undefined) {
-      break
-    }
-
-    const nextSkillHeight = estimateSkillSectionHeight([nextSkill])
-
-    if (selectedItems.length > 0 && consumedHeight + nextSkillHeight > availableHeight) {
-      break
-    }
-
-    selectedItems.push(nextSkill)
-    consumedHeight += nextSkillHeight
-    remainingSkills.shift()
-  }
-
-  if (selectedItems.length === 0 && remainingSkills.length > 0) {
-    const forcedSkill = remainingSkills.shift()
-
-    if (forcedSkill !== undefined) {
-      selectedItems.push(forcedSkill)
     }
   }
 
@@ -640,17 +618,32 @@ function buildSectionMarkup(section: AdaptedCvPageSection): string {
       ].join('')
     }
 
-    case 'skills': {
+    case 'core_skills':
+    case 'tools':
+    case 'certifications':
+    case 'languages':
+    case 'focus': {
       const skillsMarkup = section.items
         .map((skill) => {
           return `<p class="sidebar-line">${escapeHtml(skill)}</p>`
         })
         .join('')
+      const label = buildSidebarSectionLabel(section.kind)
 
       return [
         '<section class="sidebar-section-gap-8">',
-        '<h2 class="section-label">CORE SKILLS</h2>',
+        `<h2 class="section-label">${label}</h2>`,
         skillsMarkup,
+        '</section>',
+      ].join('')
+    }
+
+    case 'education': {
+      return [
+        '<section class="sidebar-section-gap-8">',
+        '<h2 class="section-label">EDUCATION</h2>',
+        `<p class="edu-title">${escapeHtml(section.entry.title)}</p>`,
+        `<p class="edu-meta">${escapeHtml(section.entry.meta)}</p>`,
         '</section>',
       ].join('')
     }
@@ -953,6 +946,20 @@ function buildDocumentStyles(): string {
       font-weight: 400;
     }
 
+    .edu-title {
+      color: var(--text-primary);
+      font-size: 13px;
+      line-height: normal;
+      font-weight: 600;
+    }
+
+    .edu-meta {
+      color: var(--text-muted);
+      font-size: 12px;
+      line-height: 1.6;
+      font-weight: 400;
+    }
+
     .section-line {
       color: var(--text-primary);
       font-size: 12px;
@@ -1004,4 +1011,51 @@ function buildHeaderContactLines(contact: AdaptedCvModel['header']['contact']): 
       return value !== null && value.trim() !== ''
     },
   )
+}
+
+function createSidebarListSection(
+  section: Extract<
+    AdaptedCvSection,
+    { kind: 'certifications' | 'focus' | 'languages' | 'tools' }
+  > | null,
+  kind: 'certifications' | 'focus' | 'languages' | 'tools',
+): AdaptedCvPageSection[] {
+  if (section === null || section.items.length === 0) {
+    return []
+  }
+
+  return [
+    {
+      items: section.items.map((item) => {
+        return item.text
+      }),
+      kind,
+    },
+  ]
+}
+
+function buildSidebarSectionLabel(
+  kind: 'core_skills' | 'certifications' | 'focus' | 'languages' | 'tools',
+): string {
+  switch (kind) {
+    case 'core_skills': {
+      return 'CORE SKILLS'
+    }
+
+    case 'tools': {
+      return 'TOOLS'
+    }
+
+    case 'certifications': {
+      return 'CERTIFICATIONS'
+    }
+
+    case 'languages': {
+      return 'LANGUAGES'
+    }
+
+    case 'focus': {
+      return 'FOCUS'
+    }
+  }
 }

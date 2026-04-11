@@ -319,10 +319,106 @@ function adaptedCvSectionSchema() {
         properties: {
           items: {
             items: groundedTextSchema(),
+            maxItems: 6,
             type: 'array',
           },
           kind: {
             const: 'core_skills',
+            type: 'string',
+          },
+        },
+        required: ['items', 'kind'],
+        type: 'object',
+      },
+      {
+        additionalProperties: false,
+        properties: {
+          items: {
+            items: groundedTextSchema(),
+            maxItems: 6,
+            type: 'array',
+          },
+          kind: {
+            const: 'tools',
+            type: 'string',
+          },
+        },
+        required: ['items', 'kind'],
+        type: 'object',
+      },
+      {
+        additionalProperties: false,
+        properties: {
+          entry: {
+            oneOf: [
+              {
+                additionalProperties: false,
+                properties: {
+                  meta: {
+                    type: 'string',
+                  },
+                  title: {
+                    type: 'string',
+                  },
+                },
+                required: ['meta', 'title'],
+                type: 'object',
+              },
+              {
+                type: 'null',
+              },
+            ],
+          },
+          kind: {
+            const: 'education',
+            type: 'string',
+          },
+        },
+        required: ['entry', 'kind'],
+        type: 'object',
+      },
+      {
+        additionalProperties: false,
+        properties: {
+          items: {
+            items: groundedTextSchema(),
+            maxItems: 2,
+            type: 'array',
+          },
+          kind: {
+            const: 'certifications',
+            type: 'string',
+          },
+        },
+        required: ['items', 'kind'],
+        type: 'object',
+      },
+      {
+        additionalProperties: false,
+        properties: {
+          items: {
+            items: groundedTextSchema(),
+            maxItems: 3,
+            type: 'array',
+          },
+          kind: {
+            const: 'languages',
+            type: 'string',
+          },
+        },
+        required: ['items', 'kind'],
+        type: 'object',
+      },
+      {
+        additionalProperties: false,
+        properties: {
+          items: {
+            items: groundedTextSchema(),
+            maxItems: 3,
+            type: 'array',
+          },
+          kind: {
+            const: 'focus',
             type: 'string',
           },
         },

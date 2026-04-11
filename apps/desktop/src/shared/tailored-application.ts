@@ -52,6 +52,36 @@ export interface AdaptedCvSelectedWorkSection {
   kind: 'selected_work'
 }
 
+export interface AdaptedCvToolsSection {
+  items: GroundedText[]
+  kind: 'tools'
+}
+
+export interface AdaptedCvEducationEntry {
+  meta: string
+  title: string
+}
+
+export interface AdaptedCvEducationSection {
+  entry: AdaptedCvEducationEntry | null
+  kind: 'education'
+}
+
+export interface AdaptedCvCertificationsSection {
+  items: GroundedText[]
+  kind: 'certifications'
+}
+
+export interface AdaptedCvLanguagesSection {
+  items: GroundedText[]
+  kind: 'languages'
+}
+
+export interface AdaptedCvFocusSection {
+  items: GroundedText[]
+  kind: 'focus'
+}
+
 export interface AdaptedCvImpactHighlightsSection {
   items: GroundedText[]
   kind: 'impact_highlights'
@@ -62,11 +92,16 @@ export interface AdaptedCvReferencesSection {
 }
 
 export type AdaptedCvSection =
+  | AdaptedCvCertificationsSection
   | AdaptedCvCoreSkillsSection
+  | AdaptedCvEducationSection
   | AdaptedCvExperienceSection
+  | AdaptedCvFocusSection
   | AdaptedCvImpactHighlightsSection
+  | AdaptedCvLanguagesSection
   | AdaptedCvProfileSection
   | AdaptedCvSelectedWorkSection
+  | AdaptedCvToolsSection
   | AdaptedCvReferencesSection
 
 export type GeneratedAdaptedCvSection = AdaptedCvSection

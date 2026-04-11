@@ -1380,12 +1380,7 @@ function isGeneratedAdaptedCvSection(
   }
 
   if (candidate.kind === 'core_skills') {
-    return (
-      Array.isArray(candidate.items) &&
-      candidate.items.every((skill) => {
-        return isAdaptedCvSkill(skill)
-      })
-    )
+    return isAdaptedCvSkillList(candidate.items, 6)
   }
 
   if (candidate.kind === 'selected_work' || candidate.kind === 'impact_highlights') {
@@ -1395,6 +1390,22 @@ function isGeneratedAdaptedCvSection(
         return isGroundedText(item)
       })
     )
+  }
+
+  if (candidate.kind === 'tools') {
+    return isGroundedTextListWithinCap(candidate.items, 6)
+  }
+
+  if (candidate.kind === 'education') {
+    return isAdaptedCvEducationEntry(candidate.entry)
+  }
+
+  if (candidate.kind === 'certifications') {
+    return isGroundedTextListWithinCap(candidate.items, 2)
+  }
+
+  if (candidate.kind === 'languages' || candidate.kind === 'focus') {
+    return isGroundedTextListWithinCap(candidate.items, 3)
   }
 
   return candidate.kind === 'references'
@@ -1446,6 +1457,41 @@ function isAdaptedCvSkill(value: unknown): value is AdaptedCvSkill {
     typeof value === 'object' &&
     !Array.isArray(value) &&
     typeof (value as Record<string, unknown>).text === 'string'
+  )
+}
+
+function isAdaptedCvSkillList(value: unknown, maximumItems: number): boolean {
+  return (
+    Array.isArray(value) &&
+    value.length <= maximumItems &&
+    value.every((item) => {
+      return isAdaptedCvSkill(item)
+    })
+  )
+}
+
+function isGroundedTextListWithinCap(value: unknown, maximumItems: number): boolean {
+  return (
+    Array.isArray(value) &&
+    value.length <= maximumItems &&
+    value.every((item) => {
+      return isGroundedText(item)
+    })
+  )
+}
+
+function isAdaptedCvEducationEntry(
+  value: unknown,
+): value is Extract<GeneratedAdaptedCvModel['sections'][number], { kind: 'education' }>['entry'] {
+  if (value === null) {
+    return true
+  }
+
+  return (
+    typeof value === 'object' &&
+    !Array.isArray(value) &&
+    typeof (value as Record<string, unknown>).meta === 'string' &&
+    typeof (value as Record<string, unknown>).title === 'string'
   )
 }
 
