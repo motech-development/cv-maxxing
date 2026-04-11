@@ -5,46 +5,76 @@ import {
   createAdaptedCvDocument,
   resolveUniqueExportFilePath,
 } from '../adapted-cv-document.js'
+import type { AdaptedCvModel } from '../../shared/tailored-application.js'
 
-function createAdaptedCvInput() {
+function createAdaptedCvInput(): {
+  adaptedCv: AdaptedCvModel
+  employer: string
+  vacancyTitle: string
+} {
   return {
     adaptedCv: {
       candidateName: 'Ada Lovelace',
-      experienceHighlights: [
-        {
-          bullets: [
-            {
-              text: 'Led product design for AI-assisted desktop tooling used by technical teams.',
-            },
-          ],
-          heading: 'Analytical Engines Ltd',
+      header: {
+        contact: {
+          email: 'ada@lovelace.dev',
+          location: 'London, United Kingdom',
+          phone: '+44 7700 900123',
+          professionalLink: 'ada-lovelace.dev',
         },
-        {
-          bullets: [
-            {
-              text: 'Partnered with engineering on complex workflow software for regulated users.',
-            },
-          ],
-          heading: 'Difference Engines Studio',
+        intro: {
+          text: 'Design leader shaping truthful desktop workflow products for technical users.',
         },
-      ],
+      },
       headline: {
         text: 'Principal Product Designer for desktop workflow products',
       },
-      skills: [
+      sections: [
         {
-          text: 'Product strategy',
+          kind: 'profile',
+          summary: {
+            text: 'Design leader adapting complex desktop workflow products for technical users.',
+          },
         },
         {
-          text: 'UX research',
+          items: [
+            {
+              bullets: [
+                {
+                  text: 'Led product design for AI-assisted desktop tooling used by technical teams.',
+                },
+              ],
+              heading: 'Analytical Engines Ltd',
+            },
+            {
+              bullets: [
+                {
+                  text: 'Partnered with engineering on complex workflow software for regulated users.',
+                },
+              ],
+              heading: 'Difference Engines Studio',
+            },
+          ],
+          kind: 'experience',
         },
         {
-          text: 'Prototyping',
+          items: [
+            {
+              text: 'Product strategy',
+            },
+            {
+              text: 'UX research',
+            },
+            {
+              text: 'Prototyping',
+            },
+          ],
+          kind: 'core_skills',
+        },
+        {
+          kind: 'references',
         },
       ],
-      summary: {
-        text: 'Design leader adapting complex desktop workflow products for technical users.',
-      },
     },
     employer: 'Example Labs',
     vacancyTitle: 'Senior platform engineer',
@@ -59,34 +89,88 @@ test('renders a single-page adapted CV document using the authoritative v1 secti
   expect(document.html).toContain('class="cv-page page-1"')
   expect(document.html).toContain('Ada Lovelace')
   expect(document.html).toContain('Principal Product Designer for desktop workflow products')
+  expect(document.html).toContain('Design leader shaping truthful desktop workflow products')
+  expect(document.html).toContain('London, United Kingdom')
+  expect(document.html).toContain('+44 7700 900123')
+  expect(document.html).toContain('ada@lovelace.dev')
+  expect(document.html).toContain('ada-lovelace.dev')
   expect(document.html).toContain('PROFILE')
   expect(document.html).toContain('EXPERIENCE')
   expect(document.html).toContain('CORE SKILLS')
+  expect(document.html).toContain('REFERENCES')
+  expect(document.html).toContain('Available on request')
+  expect(document.html).not.toContain('Tailored for')
+  expect(document.html).not.toContain('<p>Adapted CV</p>')
+  expect(document.html).not.toContain('PDF preview artifact')
   expect(document.html).not.toContain('(CONTINUED)')
+})
+
+test('renders mandatory sections in canonical template order and preserves contact priority ordering', () => {
+  const input = createAdaptedCvInput()
+  const [profileSection, experienceSection, coreSkillsSection, referencesSection] =
+    input.adaptedCv.sections
+
+  if (
+    profileSection === undefined ||
+    experienceSection === undefined ||
+    coreSkillsSection === undefined ||
+    referencesSection === undefined
+  ) {
+    throw new Error('Expected the mandatory adapted-CV sections to be present in the test fixture.')
+  }
+
+  input.adaptedCv.sections = [
+    referencesSection,
+    experienceSection,
+    profileSection,
+    coreSkillsSection,
+  ]
+
+  const document = createAdaptedCvDocument(input)
+  const profileIndex = document.html.indexOf('PROFILE')
+  const experienceIndex = document.html.indexOf('EXPERIENCE')
+  const coreSkillsIndex = document.html.indexOf('CORE SKILLS')
+  const referencesIndex = document.html.indexOf('REFERENCES')
+  const locationIndex = document.html.indexOf('London, United Kingdom')
+  const phoneIndex = document.html.indexOf('+44 7700 900123')
+  const emailIndex = document.html.indexOf('ada@lovelace.dev')
+  const linkIndex = document.html.indexOf('ada-lovelace.dev')
+
+  expect(profileIndex).toBeGreaterThan(-1)
+  expect(experienceIndex).toBeGreaterThan(profileIndex)
+  expect(coreSkillsIndex).toBeGreaterThan(experienceIndex)
+  expect(referencesIndex).toBeGreaterThan(coreSkillsIndex)
+  expect(locationIndex).toBeGreaterThan(-1)
+  expect(phoneIndex).toBeGreaterThan(locationIndex)
+  expect(emailIndex).toBeGreaterThan(phoneIndex)
+  expect(linkIndex).toBeGreaterThan(emailIndex)
 })
 
 test('creates continued headers and a non-blocking warning when pagination exceeds the v1 threshold', () => {
   const longInput = createAdaptedCvInput()
 
-  longInput.adaptedCv.experienceHighlights = Array.from({ length: 18 }, (_, index) => {
-    const itemNumber = String(index + 1)
+  longInput.adaptedCv.sections[1] = {
+    items: Array.from({ length: 18 }, (_, index) => {
+      const itemNumber = String(index + 1)
 
-    return {
-      bullets: [
-        {
-          text:
-            `Owned complex desktop workflow redesign ${itemNumber}, improving clarity across ` +
-            'multi-step technical onboarding, audit trails, and operator review tooling.',
-        },
-        {
-          text:
-            `Shipped evidence-heavy workflow narrative ${itemNumber} for highly technical users ` +
-            'without dropping source-grounded proof points.',
-        },
-      ],
-      heading: `Experience heading ${itemNumber}`,
-    }
-  })
+      return {
+        bullets: [
+          {
+            text:
+              `Owned complex desktop workflow redesign ${itemNumber}, improving clarity across ` +
+              'multi-step technical onboarding, audit trails, and operator review tooling.',
+          },
+          {
+            text:
+              `Shipped evidence-heavy workflow narrative ${itemNumber} for highly technical users ` +
+              'without dropping source-grounded proof points.',
+          },
+        ],
+        heading: `Experience heading ${itemNumber}`,
+      }
+    }),
+    kind: 'experience',
+  }
 
   const document = createAdaptedCvDocument(longInput)
 

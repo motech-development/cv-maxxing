@@ -309,30 +309,49 @@ function createValidGenerationResult() {
     },
     adaptedCv: {
       candidateName: 'Ada Lovelace',
-      experienceHighlights: [
-        {
-          bullets: [
-            {
-              text: 'Led product design for AI-assisted desktop tooling used by technical teams.',
-            },
-          ],
-          heading: 'Analytical Engines Ltd',
+      header: {
+        intro: {
+          text: 'Design leader shaping truthful desktop workflow products for technical users.',
         },
-      ],
+      },
       headline: {
         text: 'Principal Product Designer for desktop workflow products',
       },
-      skills: [
+      sections: [
         {
-          text: 'Product strategy',
+          kind: 'profile',
+          summary: {
+            text: 'Design leader adapting complex desktop workflow products for technical users.',
+          },
         },
         {
-          text: 'UX research',
+          items: [
+            {
+              bullets: [
+                {
+                  text: 'Led product design for AI-assisted desktop tooling used by technical teams.',
+                },
+              ],
+              heading: 'Analytical Engines Ltd',
+            },
+          ],
+          kind: 'experience',
+        },
+        {
+          items: [
+            {
+              text: 'Product strategy',
+            },
+            {
+              text: 'UX research',
+            },
+          ],
+          kind: 'core_skills',
+        },
+        {
+          kind: 'references',
         },
       ],
-      summary: {
-        text: 'Design leader adapting complex desktop workflow products for technical users.',
-      },
     },
     coverLetter: {
       body: [

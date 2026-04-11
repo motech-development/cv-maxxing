@@ -5,6 +5,21 @@ export interface GroundedText {
   text: string
 }
 
+export interface GeneratedAdaptedCvHeader {
+  intro: GroundedText
+}
+
+export interface AdaptedCvHeaderContact {
+  email: string | null
+  location: string | null
+  phone: string | null
+  professionalLink: string | null
+}
+
+export interface AdaptedCvHeader extends GeneratedAdaptedCvHeader {
+  contact: AdaptedCvHeaderContact
+}
+
 export interface AdaptedCvExperienceHighlight {
   bullets: GroundedText[]
   heading: string
@@ -14,12 +29,42 @@ export interface AdaptedCvSkill {
   text: string
 }
 
-export interface AdaptedCvModel {
-  candidateName: string
-  experienceHighlights: AdaptedCvExperienceHighlight[]
-  headline: GroundedText
-  skills: AdaptedCvSkill[]
+export interface AdaptedCvProfileSection {
+  kind: 'profile'
   summary: GroundedText
+}
+
+export interface AdaptedCvExperienceSection {
+  items: AdaptedCvExperienceHighlight[]
+  kind: 'experience'
+}
+
+export interface AdaptedCvCoreSkillsSection {
+  items: AdaptedCvSkill[]
+  kind: 'core_skills'
+}
+
+export interface AdaptedCvReferencesSection {
+  kind: 'references'
+}
+
+export type AdaptedCvSection =
+  | AdaptedCvCoreSkillsSection
+  | AdaptedCvExperienceSection
+  | AdaptedCvProfileSection
+  | AdaptedCvReferencesSection
+
+export type GeneratedAdaptedCvSection = AdaptedCvSection
+
+export interface GeneratedAdaptedCvModel {
+  candidateName: string
+  header: GeneratedAdaptedCvHeader
+  headline: GroundedText
+  sections: GeneratedAdaptedCvSection[]
+}
+
+export interface AdaptedCvModel extends Omit<GeneratedAdaptedCvModel, 'header'> {
+  header: AdaptedCvHeader
 }
 
 export interface CoverLetterModel {
@@ -40,7 +85,7 @@ export interface AdaptationSummaryModel {
 
 export interface TailoredApplicationGenerationResult {
   adaptationSummary: AdaptationSummaryModel
-  adaptedCv: AdaptedCvModel
+  adaptedCv: GeneratedAdaptedCvModel
   coverLetter: CoverLetterModel
   trace: {
     model: string | null

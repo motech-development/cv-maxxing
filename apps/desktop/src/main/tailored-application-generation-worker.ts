@@ -48,31 +48,21 @@ const OUTPUT_SCHEMA = {
         candidateName: {
           type: 'string',
         },
-        experienceHighlights: {
-          items: {
-            additionalProperties: false,
-            properties: {
-              bullets: {
-                items: groundedTextSchema(),
-                type: 'array',
-              },
-              heading: {
-                type: 'string',
-              },
-            },
-            required: ['bullets', 'heading'],
-            type: 'object',
+        header: {
+          additionalProperties: false,
+          properties: {
+            intro: groundedTextSchema(),
           },
-          type: 'array',
+          required: ['intro'],
+          type: 'object',
         },
         headline: groundedTextSchema(),
-        skills: {
-          items: groundedTextSchema(),
+        sections: {
+          items: adaptedCvSectionSchema(),
           type: 'array',
         },
-        summary: groundedTextSchema(),
       },
-      required: ['candidateName', 'experienceHighlights', 'headline', 'skills', 'summary'],
+      required: ['candidateName', 'header', 'headline', 'sections'],
       type: 'object',
     },
     coverLetter: {
@@ -269,6 +259,79 @@ function groundedTextSchema() {
     },
     required: ['text'],
     type: 'object',
+  }
+}
+
+function adaptedCvSectionSchema() {
+  return {
+    oneOf: [
+      {
+        additionalProperties: false,
+        properties: {
+          kind: {
+            const: 'profile',
+            type: 'string',
+          },
+          summary: groundedTextSchema(),
+        },
+        required: ['kind', 'summary'],
+        type: 'object',
+      },
+      {
+        additionalProperties: false,
+        properties: {
+          items: {
+            items: {
+              additionalProperties: false,
+              properties: {
+                bullets: {
+                  items: groundedTextSchema(),
+                  type: 'array',
+                },
+                heading: {
+                  type: 'string',
+                },
+              },
+              required: ['bullets', 'heading'],
+              type: 'object',
+            },
+            type: 'array',
+          },
+          kind: {
+            const: 'experience',
+            type: 'string',
+          },
+        },
+        required: ['items', 'kind'],
+        type: 'object',
+      },
+      {
+        additionalProperties: false,
+        properties: {
+          items: {
+            items: groundedTextSchema(),
+            type: 'array',
+          },
+          kind: {
+            const: 'core_skills',
+            type: 'string',
+          },
+        },
+        required: ['items', 'kind'],
+        type: 'object',
+      },
+      {
+        additionalProperties: false,
+        properties: {
+          kind: {
+            const: 'references',
+            type: 'string',
+          },
+        },
+        required: ['kind'],
+        type: 'object',
+      },
+    ],
   }
 }
 

@@ -1,6 +1,7 @@
 import type {
   AdaptedCvExperienceHighlight,
   AdaptedCvModel,
+  AdaptedCvSection,
 } from '../shared/tailored-application.js'
 
 const PAGE_WARNING_THRESHOLD = 3
@@ -16,10 +17,11 @@ interface AdaptedCvDocumentInput {
 
 interface AdaptedCvPage {
   kind: 'continued' | 'main'
-  sections: AdaptedCvSection[]
+  leftSections: AdaptedCvPageSection[]
+  rightSections: AdaptedCvPageSection[]
 }
 
-type AdaptedCvSection =
+type AdaptedCvPageSection =
   | {
       kind: 'experience'
       isContinued: boolean
@@ -28,6 +30,9 @@ type AdaptedCvSection =
   | {
       kind: 'profile'
       text: string
+    }
+  | {
+      kind: 'references'
     }
   | {
       kind: 'skills'
@@ -43,9 +48,10 @@ export interface AdaptedCvDocument {
 export function createAdaptedCvDocument(input: AdaptedCvDocumentInput): AdaptedCvDocument {
   const pages = paginateAdaptedCv(input)
   const html = buildDocumentHtml({
+    contactLines: buildHeaderContactLines(input.adaptedCv.header.contact),
+    introLabel: input.adaptedCv.header.intro.text,
     pages,
     roleLabel: input.adaptedCv.headline.text,
-    subtitleLabel: buildSubtitleLabel(input),
     title: input.adaptedCv.candidateName,
   })
 
@@ -93,24 +99,29 @@ export async function resolveUniqueExportFilePath(
 }
 
 function paginateAdaptedCv(input: AdaptedCvDocumentInput): AdaptedCvPage[] {
-  const remainingExperience = [...input.adaptedCv.experienceHighlights]
-  const remainingSkills = input.adaptedCv.skills.map((skill) => {
+  const profileSection = getRequiredSection(input.adaptedCv.sections, 'profile')
+  const experienceSection = getRequiredSection(input.adaptedCv.sections, 'experience')
+  const coreSkillsSection = getRequiredSection(input.adaptedCv.sections, 'core_skills')
+
+  const remainingExperience = [...experienceSection.items]
+  const remainingSkills = coreSkillsSection.items.map((skill) => {
     return skill.text
   })
   const pages: AdaptedCvPage[] = []
-  const firstPageSections: AdaptedCvSection[] = [
+  const firstPageLeftSections: AdaptedCvPageSection[] = [
     {
       kind: 'profile',
-      text: input.adaptedCv.summary.text,
+      text: profileSection.summary.text,
     },
   ]
+  const firstPageRightSections: AdaptedCvPageSection[] = []
 
-  let firstPageCapacity = PAGE_ONE_CAPACITY - estimateProfileHeight(input.adaptedCv.summary.text)
+  let firstPageCapacity = PAGE_ONE_CAPACITY - estimateProfileHeight(profileSection.summary.text)
 
   const firstPageExperience = takeExperienceItems(remainingExperience, firstPageCapacity)
 
   if (firstPageExperience.length > 0) {
-    firstPageSections.push({
+    firstPageLeftSections.push({
       items: firstPageExperience,
       isContinued: false,
       kind: 'experience',
@@ -121,52 +132,57 @@ function paginateAdaptedCv(input: AdaptedCvDocumentInput): AdaptedCvPage[] {
   const firstPageSkills = takeSkillItems(remainingSkills, Math.max(firstPageCapacity, 8))
 
   if (firstPageSkills.length > 0) {
-    firstPageSections.push({
+    firstPageRightSections.push({
       items: firstPageSkills,
       kind: 'skills',
     })
   }
 
-  pages.push({
-    kind: 'main',
-    sections: firstPageSections,
+  firstPageRightSections.push({
+    kind: 'references',
   })
 
-  while (remainingExperience.length > 0 || remainingSkills.length > 0) {
-    const continuedPageSections: AdaptedCvSection[] = []
-    let continuedPageCapacity = CONTINUED_PAGE_CAPACITY
+  pages.push({
+    kind: 'main',
+    leftSections: firstPageLeftSections,
+    rightSections: firstPageRightSections,
+  })
 
-    if (remainingExperience.length > 0) {
-      const continuedExperience = takeExperienceItems(remainingExperience, continuedPageCapacity)
+  while (remainingExperience.length > 0) {
+    const continuedPageSections: AdaptedCvPageSection[] = []
+    const continuedExperience = takeExperienceItems(remainingExperience, CONTINUED_PAGE_CAPACITY)
 
-      if (continuedExperience.length > 0) {
-        continuedPageSections.push({
-          items: continuedExperience,
-          isContinued: true,
-          kind: 'experience',
-        })
-        continuedPageCapacity -= estimateExperienceSectionHeight(continuedExperience, true)
-      }
-    }
-
-    if (remainingSkills.length > 0) {
-      const continuedSkills = takeSkillItems(remainingSkills, Math.max(continuedPageCapacity, 8))
-
-      if (continuedSkills.length > 0) {
-        continuedPageSections.push({
-          items: continuedSkills,
-          kind: 'skills',
-        })
-      }
+    if (continuedExperience.length > 0) {
+      continuedPageSections.push({
+        items: continuedExperience,
+        isContinued: true,
+        kind: 'experience',
+      })
     }
 
     pages.push({
       kind: 'continued',
-      sections: continuedPageSections,
+      leftSections: continuedPageSections,
+      rightSections: [],
     })
   }
 
   return pages
+}
+
+function getRequiredSection<K extends AdaptedCvSection['kind']>(
+  sections: AdaptedCvSection[],
+  kind: K,
+): Extract<AdaptedCvSection, { kind: K }> {
+  const matchingSection = sections.find((section) => {
+    return section.kind === kind
+  })
+
+  if (matchingSection === undefined) {
+    throw new Error(`Adapted CV is missing the required ${kind} section.`)
+  }
+
+  return matchingSection as Extract<AdaptedCvSection, { kind: K }>
 }
 
 function estimateProfileHeight(summaryText: string): number {
@@ -273,23 +289,26 @@ function takeSkillItems(remainingSkills: string[], availableHeight: number): str
 }
 
 function buildDocumentHtml({
+  contactLines,
+  introLabel,
   pages,
   roleLabel,
-  subtitleLabel,
   title,
 }: {
+  contactLines: string[]
+  introLabel: string
   pages: AdaptedCvPage[]
   roleLabel: string
-  subtitleLabel: string
   title: string
 }): string {
   const pageMarkup = pages
     .map((page, pageIndex) => {
       return page.kind === 'main'
         ? buildMainPageMarkup({
+            contactLines,
+            introLabel,
             page,
             roleLabel,
-            subtitleLabel,
             title,
           })
         : buildContinuedPageMarkup({
@@ -322,37 +341,33 @@ function buildDocumentHtml({
 }
 
 function buildMainPageMarkup({
+  contactLines,
+  introLabel,
   page,
   roleLabel,
-  subtitleLabel,
   title,
 }: {
+  contactLines: string[]
+  introLabel: string
   page: AdaptedCvPage
   roleLabel: string
-  subtitleLabel: string
   title: string
 }): string {
-  const profileSection = page.sections.find((section) => {
-    return section.kind === 'profile'
-  })
-  const mainSections = page.sections
-    .filter((section) => {
-      return section.kind !== 'profile'
-    })
+  const leftSectionsMarkup = page.leftSections
     .map((section) => {
       return buildSectionMarkup(section)
     })
     .join('')
-
-  const profileMarkup =
-    profileSection?.kind === 'profile'
-      ? [
-          '<section class="section-profile">',
-          '<h2 class="section-label">PROFILE</h2>',
-          `<p class="profile-text">${escapeHtml(profileSection.text)}</p>`,
-          '</section>',
-        ].join('')
-      : ''
+  const rightSectionsMarkup = page.rightSections
+    .map((section) => {
+      return buildSectionMarkup(section)
+    })
+    .join('')
+  const contactMarkup = contactLines
+    .map((line) => {
+      return `<p>${escapeHtml(line)}</p>`
+    })
+    .join('')
 
   return [
     '<section class="cv-page page-1">',
@@ -360,19 +375,20 @@ function buildMainPageMarkup({
     '<section class="identity-main">',
     `<h1 class="name-main">${escapeHtml(title)}</h1>`,
     `<p class="role-main">${escapeHtml(roleLabel)}</p>`,
-    `<p class="intro-main">${escapeHtml(subtitleLabel)}</p>`,
+    `<p class="intro-main">${escapeHtml(introLabel)}</p>`,
     '</section>',
     '<section class="contact-list">',
-    '<p>Adapted CV</p>',
-    '<p>PDF preview artifact</p>',
+    contactMarkup,
     '</section>',
     '</header>',
     '<div class="divider"></div>',
     '<section class="body-main">',
     '<section class="left-col">',
-    profileMarkup,
-    mainSections,
+    leftSectionsMarkup,
     '</section>',
+    '<aside class="right-col">',
+    rightSectionsMarkup,
+    '</aside>',
     '</section>',
     '</section>',
   ].join('')
@@ -389,7 +405,7 @@ function buildContinuedPageMarkup({
   roleLabel: string
   title: string
 }): string {
-  const continuedSections = page.sections
+  const continuedSections = page.leftSections
     .map((section) => {
       return buildSectionMarkup(section)
     })
@@ -410,7 +426,7 @@ function buildContinuedPageMarkup({
   ].join('')
 }
 
-function buildSectionMarkup(section: AdaptedCvSection): string {
+function buildSectionMarkup(section: AdaptedCvPageSection): string {
   if (section.kind === 'experience') {
     const label = section.isContinued ? 'EXPERIENCE (CONTINUED)' : 'EXPERIENCE'
     const itemsMarkup = section.items
@@ -460,24 +476,21 @@ function buildSectionMarkup(section: AdaptedCvSection): string {
     ].join('')
   }
 
+  if (section.kind === 'references') {
+    return [
+      '<section class="sidebar-section-gap-8">',
+      '<h2 class="section-label">REFERENCES</h2>',
+      '<p class="sidebar-line">Available on request</p>',
+      '</section>',
+    ].join('')
+  }
+
   return [
     '<section class="section-profile">',
     '<h2 class="section-label">PROFILE</h2>',
     `<p class="profile-text">${escapeHtml(section.text)}</p>`,
     '</section>',
   ].join('')
-}
-
-function buildSubtitleLabel(input: AdaptedCvDocumentInput): string {
-  const summaryBits = [input.vacancyTitle, input.employer].filter((value): value is string => {
-    return value !== null && value.trim() !== ''
-  })
-
-  if (summaryBits.length === 0) {
-    return 'Tailored for the selected job vacancy.'
-  }
-
-  return `Tailored for ${summaryBits.join(' · ')}.`
 }
 
 function buildPageWarning(pageCount: number): string {
@@ -598,12 +611,13 @@ function buildDocumentStyles(): string {
       line-height: 1.45;
     }
 
-    .contact-list {
+      .contact-list {
       display: flex;
       flex-direction: column;
       gap: 6px;
       align-items: flex-end;
-      min-width: 180px;
+      width: 250px;
+      flex: 0 0 250px;
     }
 
     .contact-list p {
@@ -619,18 +633,36 @@ function buildDocumentStyles(): string {
       border-top: 1px solid var(--divider);
     }
 
-    .body-main,
     .body-continued {
       display: flex;
       flex-direction: column;
-      gap: 24px;
+      gap: 20px;
       flex: 1 1 auto;
+      min-height: 0;
+    }
+
+    .body-main {
+      display: flex;
+      gap: 38px;
+      align-items: flex-start;
+      flex: 1 1 auto;
+      min-height: 0;
     }
 
     .left-col {
       display: flex;
       flex-direction: column;
+      gap: 28px;
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+
+    .right-col {
+      display: flex;
+      flex-direction: column;
       gap: 24px;
+      width: 232px;
+      min-width: 232px;
     }
 
     .section-label {
@@ -683,11 +715,17 @@ function buildDocumentStyles(): string {
     }
 
     .bullet-mark,
-    .bullet-text,
-    .sidebar-line {
+    .bullet-text {
       color: var(--text-muted);
       font-size: 12px;
       line-height: 1.6;
+      font-weight: 400;
+    }
+
+    .sidebar-line {
+      color: var(--text-primary);
+      font-size: 12px;
+      line-height: 1.333333;
       font-weight: 400;
     }
 
@@ -727,4 +765,12 @@ function buildDocumentStyles(): string {
       padding: 36px 58px 52px;
     }
   `
+}
+
+function buildHeaderContactLines(contact: AdaptedCvModel['header']['contact']): string[] {
+  return [contact.location, contact.phone, contact.email, contact.professionalLink].filter(
+    (value): value is string => {
+      return value !== null && value.trim() !== ''
+    },
+  )
 }

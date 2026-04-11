@@ -11,8 +11,11 @@ import type {
 import type { OriginalCvSummary } from '../shared/original-cv.js'
 import type {
   AdaptationSummaryModel,
+  AdaptedCvExperienceHighlight,
   AdaptedCvModel,
+  AdaptedCvSkill,
   CoverLetterModel,
+  GeneratedAdaptedCvModel,
   GroundedText,
   TailoredApplicationExportResult,
   TailoredApplicationGenerationResult,
@@ -28,6 +31,7 @@ import {
 import type { AiWorkerPreflightService } from './ai-worker-preflight-service.js'
 import type { AiWorkerReadinessStore } from './ai-worker-readiness-store.js'
 import { buildAdaptedCvExportFilename, resolveUniqueExportFilePath } from './adapted-cv-document.js'
+import { extractAdaptedCvHeaderContact } from './adapted-cv-contact-details.js'
 import { buildCoverLetterExportFilename } from './cover-letter-document.js'
 import type { JsonValue, LocalAppDataStore } from './local-app-data-service.js'
 import {
@@ -502,6 +506,7 @@ export function createTailoredApplicationSessionService({
   }
 
   async function persistReadyArtifacts({
+    adaptedCv,
     adaptedCvPageCount,
     adaptedCvPageWarning,
     adaptedCvPdfBytes,
@@ -516,6 +521,7 @@ export function createTailoredApplicationSessionService({
     vacancyId,
     vacancyTitle,
   }: {
+    adaptedCv: AdaptedCvModel
     adaptedCvPageCount: number
     adaptedCvPageWarning: string | null
     adaptedCvPdfBytes: Uint8Array
@@ -538,7 +544,7 @@ export function createTailoredApplicationSessionService({
       value: {
         adaptedCvPageCount,
         adaptedCvPageWarning,
-        candidateName: result.adaptedCv.candidateName,
+        candidateName: adaptedCv.candidateName,
         coverLetterPageCount,
         coverLetterPageWarning,
         createdAt: timestamp,
@@ -550,7 +556,7 @@ export function createTailoredApplicationSessionService({
       },
     })
     await localAppData.artifacts.write({
-      content: Buffer.from(JSON.stringify(result.adaptedCv), 'utf8'),
+      content: Buffer.from(JSON.stringify(adaptedCv), 'utf8'),
       id: tailoredApplicationId,
       name: 'adapted-cv.json',
       scope: TAILORED_APPLICATION_SCOPE,
@@ -823,9 +829,13 @@ export function createTailoredApplicationSessionService({
       })
 
       validateTailoredApplicationGenerationResult(result)
+      const renderReadyAdaptedCv = buildAdaptedCvModel({
+        generatedAdaptedCv: result.adaptedCv,
+        originalCvText: originalCv.originalCvText,
+      })
       const [renderedAdaptedCv, renderedCoverLetter] = await Promise.all([
         adaptedCvRenderer.renderAdaptedCvPdf({
-          adaptedCv: result.adaptedCv,
+          adaptedCv: renderReadyAdaptedCv,
           employer: vacancy.employer,
           vacancyTitle: vacancy.title,
         }),
@@ -844,6 +854,7 @@ export function createTailoredApplicationSessionService({
         coverLetterPdfBytes: renderedCoverLetter.pdfBytes,
         employer: vacancy.employer,
         originalCvId: command.originalCvId,
+        adaptedCv: renderReadyAdaptedCv,
         result,
         tailoredApplicationId,
         timestamp,
@@ -1244,6 +1255,22 @@ export function createTailoredApplicationSessionService({
   }
 }
 
+function buildAdaptedCvModel({
+  generatedAdaptedCv,
+  originalCvText,
+}: {
+  generatedAdaptedCv: GeneratedAdaptedCvModel
+  originalCvText: string
+}): AdaptedCvModel {
+  return {
+    ...generatedAdaptedCv,
+    header: {
+      contact: extractAdaptedCvHeaderContact(originalCvText),
+      intro: generatedAdaptedCv.header.intro,
+    },
+  }
+}
+
 async function getPendingCommandId(
   readinessStore: Pick<AiWorkerReadinessStore, 'getPendingGenerationCommand'>,
 ): Promise<string> {
@@ -1269,7 +1296,7 @@ function validateTailoredApplicationGenerationResult(
 
   const candidate = result as Record<string, unknown>
 
-  if (!isAdaptedCvModel(candidate.adaptedCv)) {
+  if (!isGeneratedAdaptedCvModel(candidate.adaptedCv)) {
     throwContractValidationError({
       code: 'adapted_cv_invalid',
       detail: 'Expected a valid adaptedCv object.',
@@ -1302,7 +1329,7 @@ function validateTailoredApplicationGenerationResult(
   }
 }
 
-function isAdaptedCvModel(value: unknown): value is AdaptedCvModel {
+function isGeneratedAdaptedCvModel(value: unknown): value is GeneratedAdaptedCvModel {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) {
     return false
   }
@@ -1311,22 +1338,81 @@ function isAdaptedCvModel(value: unknown): value is AdaptedCvModel {
 
   return (
     typeof candidate.candidateName === 'string' &&
-    Array.isArray(candidate.experienceHighlights) &&
-    candidate.experienceHighlights.every((experienceHighlight) => {
-      return isAdaptedCvExperienceHighlight(experienceHighlight)
-    }) &&
+    isGeneratedAdaptedCvHeader(candidate.header) &&
     isGroundedText(candidate.headline) &&
-    Array.isArray(candidate.skills) &&
-    candidate.skills.every((skill) => {
-      return isAdaptedCvSkill(skill)
+    Array.isArray(candidate.sections) &&
+    candidate.sections.every((section) => {
+      return isGeneratedAdaptedCvSection(section)
     }) &&
-    isGroundedText(candidate.summary)
+    hasRequiredAdaptedCvSections(candidate.sections)
   )
 }
 
-function isAdaptedCvExperienceHighlight(
+function isGeneratedAdaptedCvHeader(value: unknown): value is GeneratedAdaptedCvModel['header'] {
+  return (
+    value !== null &&
+    typeof value === 'object' &&
+    !Array.isArray(value) &&
+    isGroundedText((value as Record<string, unknown>).intro)
+  )
+}
+
+function isGeneratedAdaptedCvSection(
   value: unknown,
-): value is AdaptedCvModel['experienceHighlights'][number] {
+): value is GeneratedAdaptedCvModel['sections'][number] {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    return false
+  }
+
+  const candidate = value as Record<string, unknown>
+
+  if (candidate.kind === 'profile') {
+    return isGroundedText(candidate.summary)
+  }
+
+  if (candidate.kind === 'experience') {
+    return (
+      Array.isArray(candidate.items) &&
+      candidate.items.every((experienceHighlight) => {
+        return isAdaptedCvExperienceHighlight(experienceHighlight)
+      })
+    )
+  }
+
+  if (candidate.kind === 'core_skills') {
+    return (
+      Array.isArray(candidate.items) &&
+      candidate.items.every((skill) => {
+        return isAdaptedCvSkill(skill)
+      })
+    )
+  }
+
+  return candidate.kind === 'references'
+}
+
+function hasRequiredAdaptedCvSections(sections: unknown[]): boolean {
+  const kinds = new Set(
+    sections.flatMap((section) => {
+      if (section === null || typeof section !== 'object' || Array.isArray(section)) {
+        return []
+      }
+
+      const kind = (section as Record<string, unknown>).kind
+
+      return typeof kind === 'string' ? [kind] : []
+    }),
+  )
+
+  return (
+    kinds.has('profile') &&
+    kinds.has('experience') &&
+    kinds.has('core_skills') &&
+    kinds.has('references')
+  )
+}
+
+function isAdaptedCvExperienceHighlight(value: unknown): value is AdaptedCvExperienceHighlight {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) {
     return false
   }
@@ -1342,7 +1428,7 @@ function isAdaptedCvExperienceHighlight(
   )
 }
 
-function isAdaptedCvSkill(value: unknown): value is AdaptedCvModel['skills'][number] {
+function isAdaptedCvSkill(value: unknown): value is AdaptedCvSkill {
   return (
     value !== null &&
     typeof value === 'object' &&

@@ -161,8 +161,29 @@ test('assembles structured worker inputs and persists immutable tailored-applica
     'cover-letter.txt',
   ])
 
-  expect(renderAdaptedCvPdf).toHaveBeenCalledWith({
-    adaptedCv: createValidGenerationResult().adaptedCv,
+  expect(renderAdaptedCvPdf).toHaveBeenCalledTimes(1)
+
+  const renderAdaptedCvCall = renderAdaptedCvPdf.mock.calls[0]
+
+  if (renderAdaptedCvCall === undefined) {
+    throw new Error('Expected the adapted-CV renderer to be called.')
+  }
+
+  expect(renderAdaptedCvCall[0]).toMatchObject({
+    adaptedCv: {
+      candidateName: 'Ada Lovelace',
+      header: {
+        contact: {
+          email: 'ada@lovelace.dev',
+          location: 'London, United Kingdom',
+          phone: '+44 7700 900123',
+          professionalLink: 'ada-lovelace.dev',
+        },
+        intro: {
+          text: 'Design leader shaping truthful desktop workflow products for technical users.',
+        },
+      },
+    },
     employer: 'Example Labs',
     vacancyTitle: 'Senior platform engineer',
   })
@@ -723,9 +744,15 @@ test('accepts adapted output without numeric truthfulness validation', async () 
           ...createValidGenerationResult(),
           adaptedCv: {
             ...createValidGenerationResult().adaptedCv,
-            summary: {
-              text: 'Led a team that increased delivery by 300% using Kubernetes.',
-            },
+            sections: [
+              {
+                kind: 'profile',
+                summary: {
+                  text: 'Led a team that increased delivery by 300% using Kubernetes.',
+                },
+              },
+              ...createValidGenerationResult().adaptedCv.sections.slice(1),
+            ],
           },
         })
       },
@@ -1473,6 +1500,12 @@ async function seedOriginalCvAndVacancy(harness: {
       extractedText: [
         'Ada Lovelace',
         'Principal Product Designer',
+        'London, United Kingdom',
+        '+44 7700 900123',
+        'ada@lovelace.dev',
+        'https://www.linkedin.com/in/ada-lovelace',
+        'https://github.com/ada-lovelace',
+        'ada-lovelace.dev',
         'Summary',
         'Design leader focused on complex workflow products for technical users.',
         'Experience',
@@ -1518,6 +1551,12 @@ async function seedOriginalCvAndVacancy(harness: {
       [
         'Ada Lovelace',
         'Principal Product Designer',
+        'London, United Kingdom',
+        '+44 7700 900123',
+        'ada@lovelace.dev',
+        'https://www.linkedin.com/in/ada-lovelace',
+        'https://github.com/ada-lovelace',
+        'ada-lovelace.dev',
         'Design leader focused on complex workflow products for technical users.',
         'Led product design for AI-assisted desktop tooling.',
         'Product strategy, UX research, prototyping',
@@ -1628,30 +1667,49 @@ function createValidGenerationResult(): TailoredApplicationGenerationResult {
     },
     adaptedCv: {
       candidateName: 'Ada Lovelace',
-      experienceHighlights: [
-        {
-          bullets: [
-            {
-              text: 'Led product design for AI-assisted desktop tooling used by technical teams.',
-            },
-          ],
-          heading: 'Analytical Engines Ltd',
+      header: {
+        intro: {
+          text: 'Design leader shaping truthful desktop workflow products for technical users.',
         },
-      ],
+      },
       headline: {
         text: 'Principal Product Designer for desktop workflow products',
       },
-      skills: [
+      sections: [
         {
-          text: 'Product strategy',
+          kind: 'profile',
+          summary: {
+            text: 'Design leader adapting complex desktop workflow products for technical users.',
+          },
         },
         {
-          text: 'UX research',
+          items: [
+            {
+              bullets: [
+                {
+                  text: 'Led product design for AI-assisted desktop tooling used by technical teams.',
+                },
+              ],
+              heading: 'Analytical Engines Ltd',
+            },
+          ],
+          kind: 'experience',
+        },
+        {
+          items: [
+            {
+              text: 'Product strategy',
+            },
+            {
+              text: 'UX research',
+            },
+          ],
+          kind: 'core_skills',
+        },
+        {
+          kind: 'references',
         },
       ],
-      summary: {
-        text: 'Design leader adapting complex desktop workflow products for technical users.',
-      },
     },
     coverLetter: {
       body: [
