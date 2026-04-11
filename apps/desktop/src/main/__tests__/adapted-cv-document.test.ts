@@ -27,7 +27,7 @@ function createAdaptedCvInput(): {
         },
       },
       headline: {
-        text: 'Principal Product Designer for desktop workflow products',
+        text: 'Principal Product Designer',
       },
       sections: [
         {
@@ -91,7 +91,7 @@ test('renders a single-page adapted CV document using the authoritative v1 secti
   expect(document.pageWarning).toBeNull()
   expect(document.html).toContain('class="cv-page page-1"')
   expect(document.html).toContain('Ada Lovelace')
-  expect(document.html).toContain('Principal Product Designer for desktop workflow products')
+  expect(document.html).toContain('Principal Product Designer')
   expect(document.html).toContain('Design leader shaping truthful desktop workflow products')
   expect(document.html).toContain('London, United Kingdom')
   expect(document.html).toContain('+44 7700 900123')

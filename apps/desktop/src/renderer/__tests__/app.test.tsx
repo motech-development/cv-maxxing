@@ -2185,6 +2185,75 @@ test('returns to the workspace with a visible error when generation fails contra
   expect(screen.getByRole('button', { name: 'Review pasted vacancy' })).toBeDefined()
 })
 
+test('returns to the workspace immediately when loading-screen recovery stalls after generation failure', async () => {
+  const getStartupDestination = vi.fn().mockResolvedValueOnce('workspace_loading')
+  const getAiWorkerPreflight = vi
+    .fn()
+    .mockResolvedValueOnce({
+      canResumeGeneration: true,
+      message: 'The local AI worker is ready.',
+      provider: 'codex',
+      status: 'ready',
+    })
+    .mockImplementation(() => {
+      return new Promise((resolve) => {
+        void resolve
+      })
+    })
+
+  renderApp({
+    aiWorker: createAiWorkerApi({
+      getAiWorkerPreflight,
+      getStartupDestination,
+    }),
+    originalCv: createOriginalCvApi({
+      getOriginalCvWorkspaceState: vi.fn().mockResolvedValue({
+        activeOriginalCv: {
+          fileType: 'pdf',
+          headline: 'Principal Product Designer',
+          id: 'original-cv-123',
+          importedAt: '2026-04-08T14:30:00.000Z',
+          originalFilename: 'ada-lovelace.pdf',
+          pageCount: 1,
+          snapshotCount: 1,
+          summary: 'Design leader focused on complex workflow products.',
+          writingStyle: {
+            averageSentenceLength: 7,
+            clicheDetections: [],
+            firstPersonUsage: 'absent',
+            formality: 'direct',
+          },
+        },
+        snapshotCount: 1,
+      }),
+    }),
+    tailoredApplication: createTailoredApplicationApi({
+      getPendingGenerationCommand: vi.fn().mockResolvedValue({
+        commandId: 'command-123',
+        originalCvId: 'original-cv-123',
+        originalCvLabel: 'ada-lovelace.pdf',
+        vacancyId: 'vacancy-123',
+        vacancyDraft: {
+          text: 'Senior platform engineer',
+          url: 'https://jobs.example.com/roles/123',
+        },
+      }),
+      resumePendingGeneration: vi.fn().mockRejectedValue({
+        message: 'Generated tailored application failed contract validation.',
+      }),
+    }),
+  })
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Create a tailored application' })).toBeDefined()
+  })
+
+  expect(
+    screen.getByText('Generated tailored application failed contract validation.'),
+  ).toBeDefined()
+  expect(screen.queryByRole('heading', { name: 'Generating tailored application' })).toBeNull()
+})
+
 test('automatically opens the tailored application after generation completes from the loading screen', async () => {
   const getStartupDestination = vi
     .fn()

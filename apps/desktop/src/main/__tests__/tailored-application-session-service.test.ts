@@ -342,6 +342,93 @@ test('passes derived original-CV normalization artifacts through to the tailored
   ])
 })
 
+test('bounds oversized original-CV and vacancy extracted text before invoking the tailored-generation worker', async () => {
+  const harness = await createHarness()
+
+  await seedOriginalCvAndVacancy(harness)
+  await harness.localAppData.artifacts.write({
+    content: Buffer.from(`Ada Lovelace\nPrincipal Product Designer\n${'A'.repeat(40_000)}`, 'utf8'),
+    id: 'original-cv-123',
+    name: 'extracted.txt',
+    scope: 'original-cvs',
+  })
+  await harness.localAppData.artifacts.write({
+    content: Buffer.from(
+      `Full Stack Engineer | TypeScript, React, Node.js, AWS\n${'B'.repeat(40_000)}`,
+      'utf8',
+    ),
+    id: 'vacancy-123',
+    name: 'extracted.txt',
+    scope: 'vacancies',
+  })
+
+  const capturedInputTexts: {
+    originalCvText: string
+    vacancyText: string
+  }[] = []
+
+  const service = createTailoredApplicationSessionService({
+    adaptedCvRenderer: {
+      renderAdaptedCvPdf: vi.fn().mockResolvedValue({
+        pageCount: 1,
+        pageWarning: null,
+        pdfBytes: Buffer.from('%PDF-1.7 adapted cv', 'utf8'),
+      }),
+    },
+    aiWorker: {
+      retryAiWorkerPreflight: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+    },
+    coverLetterRenderer: {
+      renderCoverLetterPdf: vi.fn().mockResolvedValue({
+        pageCount: 1,
+        pageWarning: null,
+        pdfBytes: Buffer.from('%PDF-1.7 cover letter', 'utf8'),
+      }),
+    },
+    generateId: createIdGenerator(['command-123', 'run-123', 'tailored-application-123']),
+    getCurrentTimestamp: () => {
+      return '2026-04-09T09:30:00.000Z'
+    },
+    localAppData: harness.localAppData,
+    readinessStore: harness.readinessStore,
+    runWorkspaceRootPath: path.join(harness.paths.rootDirectoryPath, 'runs'),
+    worker: {
+      runGeneration: async ({ runDirectoryPath }) => {
+        capturedInputTexts.push({
+          originalCvText: await readFile(
+            path.join(runDirectoryPath, 'input', 'original-cv.txt'),
+            'utf8',
+          ),
+          vacancyText: await readFile(path.join(runDirectoryPath, 'input', 'vacancy.txt'), 'utf8'),
+        })
+
+        return createValidGenerationResult()
+      },
+    },
+  })
+
+  await service.startPendingGeneration({
+    originalCvId: 'original-cv-123',
+    originalCvLabel: 'ada-lovelace.pdf',
+    vacancyDraft: {
+      text: 'Senior platform engineer',
+      url: 'https://jobs.example.com/roles/123',
+    },
+  })
+  await service.resumePendingGeneration()
+
+  expect(capturedInputTexts).toHaveLength(1)
+  expect(capturedInputTexts[0]?.originalCvText.length).toBeLessThanOrEqual(24_000)
+  expect(capturedInputTexts[0]?.vacancyText.length).toBeLessThanOrEqual(24_000)
+  expect(capturedInputTexts[0]?.originalCvText.startsWith('Ada Lovelace')).toBe(true)
+  expect(capturedInputTexts[0]?.vacancyText.startsWith('Full Stack Engineer')).toBe(true)
+})
+
 test('keeps existing original CV snapshots unavailable when required artifacts are missing instead of repairing them', async () => {
   const harness = await createHarness()
 
@@ -934,6 +1021,229 @@ test('rejects adapted output when structured experience semantics are incomplete
     code: 'adapted_cv_invalid',
     path: 'adaptedCv',
   })
+})
+
+test('normalizes a stacked vacancy-style headline to the role name before rendering and persistence', async () => {
+  const harness = await createHarness()
+
+  await seedOriginalCvAndVacancy(harness)
+  await harness.localAppData.metadata.put({
+    id: 'vacancy-123',
+    scope: 'vacancies',
+    value: {
+      blockingReason: null,
+      canGenerate: true,
+      employer: 'Example Labs',
+      fetchedAt: '2026-04-08T21:00:00.000Z',
+      inputType: 'pasted_text',
+      location: 'London, United Kingdom',
+      originalUrl: 'https://jobs.example.com/roles/123',
+      requirements: ['Experience shipping workflow software.'],
+      resolvedUrl: 'https://jobs.example.com/roles/123',
+      responsibilities: ['Build reliable desktop tooling for technical users.'],
+      source: 'generic',
+      status: 'ready',
+      textPreview: 'Build reliable desktop tooling for technical users.',
+      title: 'Full Stack Engineer | TypeScript, React, Node.js, AWS',
+    },
+  })
+  await harness.localAppData.artifacts.write({
+    content: Buffer.from(
+      JSON.stringify({
+        bodyText: 'Build reliable desktop tooling for technical users.',
+        employer: 'Example Labs',
+        location: 'London, United Kingdom',
+        requirements: ['Experience shipping workflow software.'],
+        responsibilities: ['Build reliable desktop tooling for technical users.'],
+        title: 'Full Stack Engineer | TypeScript, React, Node.js, AWS',
+      }),
+      'utf8',
+    ),
+    id: 'vacancy-123',
+    name: 'normalized.json',
+    scope: 'vacancies',
+  })
+  await harness.localAppData.metadata.put({
+    id: 'current',
+    scope: 'vacancy-workspace',
+    value: {
+      text: 'Full Stack Engineer | TypeScript, React, Node.js, AWS',
+      url: 'https://jobs.example.com/roles/123',
+      vacancyId: 'vacancy-123',
+    },
+  })
+
+  const renderAdaptedCvPdf = vi.fn().mockResolvedValue({
+    pageCount: 1,
+    pageWarning: null,
+    pdfBytes: new Uint8Array([37, 80, 68, 70]),
+  })
+
+  const service = createTailoredApplicationSessionService({
+    adaptedCvRenderer: {
+      renderAdaptedCvPdf,
+    },
+    coverLetterRenderer: {
+      renderCoverLetterPdf: vi.fn().mockResolvedValue({
+        pageCount: 1,
+        pageWarning: null,
+        pdfBytes: new Uint8Array([37, 80, 68, 70, 45, 67, 76]),
+      }),
+    },
+    aiWorker: {
+      retryAiWorkerPreflight: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+    },
+    generateId: createIdGenerator(['command-123', 'run-123', 'tailored-application-123']),
+    getCurrentTimestamp: () => {
+      return '2026-04-09T09:30:00.000Z'
+    },
+    localAppData: harness.localAppData,
+    readinessStore: harness.readinessStore,
+    runWorkspaceRootPath: path.join(harness.paths.rootDirectoryPath, 'runs'),
+    worker: {
+      runGeneration: () => {
+        const result = createValidGenerationResult()
+
+        return Promise.resolve({
+          ...result,
+          adaptedCv: {
+            ...result.adaptedCv,
+            headline: {
+              text: 'Full Stack Engineer | TypeScript, React, Node.js, AWS',
+            },
+          },
+        })
+      },
+    },
+  })
+
+  await service.startPendingGeneration({
+    originalCvId: 'original-cv-123',
+    originalCvLabel: 'ada-lovelace.pdf',
+    vacancyDraft: {
+      text: 'Full Stack Engineer | TypeScript, React, Node.js, AWS',
+      url: 'https://jobs.example.com/roles/123',
+    },
+  })
+
+  await expect(service.resumePendingGeneration()).resolves.toEqual({
+    generationRunId: 'run-123',
+    tailoredApplicationId: 'tailored-application-123',
+  })
+
+  const renderAdaptedCvCall = renderAdaptedCvPdf.mock.calls[0]
+
+  if (renderAdaptedCvCall === undefined) {
+    throw new Error('Expected the adapted-CV renderer to be called.')
+  }
+
+  expect(renderAdaptedCvCall[0]).toMatchObject({
+    adaptedCv: {
+      headline: {
+        text: 'Full Stack Engineer',
+      },
+    },
+    employer: 'Example Labs',
+    vacancyTitle: 'Full Stack Engineer | TypeScript, React, Node.js, AWS',
+  })
+
+  await expect(
+    harness.localAppData.artifacts.read({
+      id: 'tailored-application-123',
+      name: 'adapted-cv.json',
+      scope: 'tailored-applications',
+    }),
+  ).resolves.toEqual(expect.any(Buffer))
+
+  const persistedAdaptedCvBuffer = await harness.localAppData.artifacts.read({
+    id: 'tailored-application-123',
+    name: 'adapted-cv.json',
+    scope: 'tailored-applications',
+  })
+
+  expect(persistedAdaptedCvBuffer).not.toBeNull()
+  expect(JSON.parse(persistedAdaptedCvBuffer?.toString('utf8') ?? '{}')).toMatchObject({
+    headline: {
+      text: 'Full Stack Engineer',
+    },
+  })
+})
+
+test('rejects adapted output when the headline is not a canonical role label', async () => {
+  const harness = await createHarness()
+
+  await seedOriginalCvAndVacancy(harness)
+
+  const service = createTailoredApplicationSessionService({
+    adaptedCvRenderer: {
+      renderAdaptedCvPdf: vi.fn().mockResolvedValue({
+        pageCount: 1,
+        pageWarning: null,
+        pdfBytes: new Uint8Array([37, 80, 68, 70]),
+      }),
+    },
+    coverLetterRenderer: {
+      renderCoverLetterPdf: vi.fn().mockResolvedValue({
+        pageCount: 1,
+        pageWarning: null,
+        pdfBytes: new Uint8Array([37, 80, 68, 70, 45, 67, 76]),
+      }),
+    },
+    aiWorker: {
+      retryAiWorkerPreflight: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+    },
+    generateId: createIdGenerator(['command-123', 'run-123', 'tailored-application-123']),
+    getCurrentTimestamp: () => {
+      return '2026-04-09T09:30:00.000Z'
+    },
+    localAppData: harness.localAppData,
+    readinessStore: harness.readinessStore,
+    runWorkspaceRootPath: path.join(harness.paths.rootDirectoryPath, 'runs'),
+    worker: {
+      runGeneration: () => {
+        const result = createValidGenerationResult()
+
+        return Promise.resolve({
+          ...result,
+          adaptedCv: {
+            ...result.adaptedCv,
+            headline: {
+              text: 'Distributed Systems Builder',
+            },
+          },
+        })
+      },
+    },
+  })
+
+  await service.startPendingGeneration({
+    originalCvId: 'original-cv-123',
+    originalCvLabel: 'ada-lovelace.pdf',
+    vacancyDraft: {
+      text: 'Senior platform engineer',
+      url: 'https://jobs.example.com/roles/123',
+    },
+  })
+
+  const resumePromise = service.resumePendingGeneration()
+
+  await expect(resumePromise).rejects.toMatchObject({
+    code: 'adapted_cv_invalid',
+    path: 'adaptedCv',
+  })
+  await expect(resumePromise).rejects.toThrow(
+    'Generated tailored application failed contract validation.',
+  )
 })
 
 test('rejects adapted output when capped sidebar sections exceed their contract limits', async () => {
@@ -2031,7 +2341,7 @@ function createValidGenerationResult(): TailoredApplicationGenerationResult {
         },
       },
       headline: {
-        text: 'Principal Product Designer for desktop workflow products',
+        text: 'Principal Product Designer',
       },
       sections: [
         {

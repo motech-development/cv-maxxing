@@ -916,17 +916,30 @@ export function App() {
         tailoredApplicationId: result.tailoredApplicationId,
       })
     } catch (error) {
-      try {
-        await invalidateReadinessQuery()
-      } catch {
-        // Preserve the original generation failure message even if the reload also fails.
-      }
-
       flushSync(() => {
-        setStartupDestinationOverride(null)
+        setStartupDestinationOverride('workspace_empty')
         setReadinessError(
           resolveErrorMessage(error, `${readinessErrorMessage} ${readinessErrorAction}`),
         )
+        setSelectedTailoredApplicationId(null)
+        setVacancyPreviewOverride(null)
+      })
+
+      queryClient.setQueryData(rendererQueryKeys.pendingGeneration, null)
+
+      Promise.all([
+        invalidateReadinessQuery(),
+        queryClient.invalidateQueries({
+          queryKey: rendererQueryKeys.pendingGeneration,
+        }),
+        queryClient.invalidateQueries({
+          queryKey: rendererQueryKeys.tailoredApplicationWorkspace,
+        }),
+        queryClient.invalidateQueries({
+          queryKey: rendererQueryKeys.vacancyWorkspace,
+        }),
+      ]).catch(() => {
+        // Preserve the original generation failure message even if the reload also fails.
       })
     }
   })

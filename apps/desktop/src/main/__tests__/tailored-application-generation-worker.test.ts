@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 
@@ -32,6 +32,28 @@ class MockEventTarget extends EventTarget {
   emit(eventName: string, detail?: unknown): void {
     this.dispatchEvent(new CustomEvent(eventName, { detail }))
   }
+}
+
+type MockChildProcess = MockEventTarget & {
+  kill: ReturnType<typeof vi.fn>
+  stderr: MockEventTarget
+  stdin: {
+    end: ReturnType<typeof vi.fn>
+  }
+  stdout: MockEventTarget
+}
+
+function createMockChildProcess(): MockChildProcess {
+  const child = new MockEventTarget() as MockChildProcess
+
+  child.kill = vi.fn()
+  child.stderr = new MockEventTarget()
+  child.stdin = {
+    end: vi.fn(),
+  }
+  child.stdout = new MockEventTarget()
+
+  return child
 }
 
 afterEach(async () => {
@@ -69,6 +91,7 @@ test('times out a stalled Codex CLI generation and logs lifecycle milestones', a
   )
 
   temporaryDirectories.push(runDirectoryPath)
+  await createRunWorkspaceInput(runDirectoryPath)
 
   const consoleInfoSpy = vi.spyOn(console, 'info').mockImplementation((message: string) => {
     void message
@@ -77,26 +100,14 @@ test('times out a stalled Codex CLI generation and logs lifecycle milestones', a
     void message
   })
 
-  let childProcess:
-    | (MockEventTarget & {
-        kill: ReturnType<typeof vi.fn>
-        stderr: MockEventTarget
-        stdout: MockEventTarget
-      })
-    | undefined
+  let childProcess: MockChildProcess | undefined
 
   spawnMock.mockImplementation(() => {
-    const child = new MockEventTarget() as MockEventTarget & {
-      kill: ReturnType<typeof vi.fn>
-      stderr: MockEventTarget
-      stdout: MockEventTarget
-    }
+    const child = createMockChildProcess()
 
     child.kill = vi.fn(() => {
       child.emit('close', null)
     })
-    child.stderr = new MockEventTarget()
-    child.stdout = new MockEventTarget()
     childProcess = child
 
     return child
@@ -124,12 +135,74 @@ test('times out a stalled Codex CLI generation and logs lifecycle milestones', a
   )
 })
 
+test('does not time out by default and logs completion duration', async () => {
+  const runDirectoryPath = await mkdtemp(
+    path.join(tmpdir(), 'cv-maxxing-generation-worker-no-timeout-'),
+  )
+
+  temporaryDirectories.push(runDirectoryPath)
+  await createRunWorkspaceInput(runDirectoryPath)
+
+  const consoleInfoSpy = vi.spyOn(console, 'info').mockImplementation((message: string) => {
+    void message
+  })
+  const setTimeoutSpy = vi.spyOn(globalThis, 'setTimeout')
+  const dateNowSpy = vi.spyOn(Date, 'now')
+
+  const childProcess = createMockChildProcess()
+
+  dateNowSpy.mockReturnValueOnce(1000).mockReturnValueOnce(9000)
+
+  spawnMock.mockImplementation((_command: string, args: string[]) => {
+    const outputFilePath = args[args.indexOf('--output-last-message') + 1]
+
+    if (outputFilePath === undefined) {
+      throw new Error('Expected Codex CLI output file path argument.')
+    }
+
+    queueMicrotask(() => {
+      void writeFile(outputFilePath, JSON.stringify(createValidGenerationResult()), 'utf8').then(
+        () => {
+          childProcess.emit('close', 0)
+        },
+        (error: unknown) => {
+          childProcess.emit('error', error)
+        },
+      )
+    })
+
+    return childProcess
+  })
+
+  const worker = createTailoredApplicationGenerationWorker({
+    environment: {
+      CV_MAXXING_AI_WORKER_CODEX_COMMAND: 'codex',
+    },
+  })
+
+  const runPromise = worker.runGeneration({
+    runDirectoryPath,
+    signal: new AbortController().signal,
+  })
+
+  await expect(runPromise).resolves.toEqual(createValidGenerationResult())
+  expect(setTimeoutSpy).not.toHaveBeenCalledWith(expect.any(Function), 300_000)
+  expect(childProcess.kill).not.toHaveBeenCalled()
+  expect(consoleInfoSpy).toHaveBeenCalledWith(
+    `Starting tailored application generation via Codex CLI in ${runDirectoryPath}.`,
+  )
+  expect(consoleInfoSpy).toHaveBeenCalledWith(
+    'Tailored application generation completed in 8000 ms.',
+  )
+})
+
 test('writes a typed trace provider field in the Codex CLI output schema', async () => {
   const runDirectoryPath = await mkdtemp(
     path.join(tmpdir(), 'cv-maxxing-generation-worker-output-schema-'),
   )
 
   temporaryDirectories.push(runDirectoryPath)
+  await createRunWorkspaceInput(runDirectoryPath)
 
   let capturedSchema:
     | {
@@ -144,15 +217,7 @@ test('writes a typed trace provider field in the Codex CLI output schema', async
     | undefined
 
   spawnMock.mockImplementation((_command: string, args: string[]) => {
-    const child = new MockEventTarget() as MockEventTarget & {
-      kill: ReturnType<typeof vi.fn>
-      stderr: MockEventTarget
-      stdout: MockEventTarget
-    }
-
-    child.kill = vi.fn()
-    child.stderr = new MockEventTarget()
-    child.stdout = new MockEventTarget()
+    const child = createMockChildProcess()
 
     const schemaFlagIndex = args.indexOf('--output-schema')
     const outputFlagIndex = args.indexOf('--output-last-message')
@@ -215,6 +280,7 @@ test('does not require cover-letter plain text in the Codex CLI output schema', 
   )
 
   temporaryDirectories.push(runDirectoryPath)
+  await createRunWorkspaceInput(runDirectoryPath)
 
   let capturedSchema:
     | {
@@ -223,15 +289,7 @@ test('does not require cover-letter plain text in the Codex CLI output schema', 
     | undefined
 
   spawnMock.mockImplementation((_command: string, args: string[]) => {
-    const child = new MockEventTarget() as MockEventTarget & {
-      kill: ReturnType<typeof vi.fn>
-      stderr: MockEventTarget
-      stdout: MockEventTarget
-    }
-
-    child.kill = vi.fn()
-    child.stderr = new MockEventTarget()
-    child.stdout = new MockEventTarget()
+    const child = createMockChildProcess()
 
     const schemaFlagIndex = args.indexOf('--output-schema')
     const outputFlagIndex = args.indexOf('--output-last-message')
@@ -289,19 +347,12 @@ test('writes a Codex-compatible tailored-application schema without oneOf branch
   )
 
   temporaryDirectories.push(runDirectoryPath)
+  await createRunWorkspaceInput(runDirectoryPath)
 
   let capturedSchemaText = ''
 
   spawnMock.mockImplementation((_command: string, args: string[]) => {
-    const child = new MockEventTarget() as MockEventTarget & {
-      kill: ReturnType<typeof vi.fn>
-      stderr: MockEventTarget
-      stdout: MockEventTarget
-    }
-
-    child.kill = vi.fn()
-    child.stderr = new MockEventTarget()
-    child.stdout = new MockEventTarget()
+    const child = createMockChildProcess()
 
     const schemaFlagIndex = args.indexOf('--output-schema')
     const outputFlagIndex = args.indexOf('--output-last-message')
@@ -354,23 +405,120 @@ test('writes a Codex-compatible tailored-application schema without oneOf branch
   expect(capturedSchemaText).not.toContain('"oneOf"')
 })
 
+test('instructs Codex to emit a role-only adapted-CV headline', async () => {
+  const runDirectoryPath = await mkdtemp(
+    path.join(tmpdir(), 'cv-maxxing-generation-worker-headline-prompt-'),
+  )
+
+  temporaryDirectories.push(runDirectoryPath)
+  await createRunWorkspaceInput(runDirectoryPath)
+
+  let capturedPrompt = ''
+
+  spawnMock.mockImplementation((_command: string, args: string[]) => {
+    const child = createMockChildProcess()
+
+    const outputFilePath = args[args.indexOf('--output-last-message') + 1]
+    const prompt = args.at(-1)
+
+    if (outputFilePath === undefined || prompt === undefined) {
+      throw new Error('Expected Codex CLI output file path and prompt arguments.')
+    }
+
+    capturedPrompt = prompt
+
+    void writeFile(outputFilePath, JSON.stringify(createValidGenerationResult()), 'utf8').then(
+      () => {
+        child.emit('close', 0)
+      },
+      (error: unknown) => {
+        child.emit('error', error)
+      },
+    )
+
+    return child
+  })
+
+  const worker = createTailoredApplicationGenerationWorker({
+    environment: {
+      CV_MAXXING_AI_WORKER_CODEX_COMMAND: 'codex',
+    },
+  })
+
+  await worker.runGeneration({
+    runDirectoryPath,
+    signal: new AbortController().signal,
+  })
+
+  expect(capturedPrompt).toContain('Set adaptedCv.headline.text to the role name only.')
+})
+
+test('passes inline structured inputs to Codex instead of asking it to read files itself', async () => {
+  const runDirectoryPath = await mkdtemp(
+    path.join(tmpdir(), 'cv-maxxing-generation-worker-inline-inputs-'),
+  )
+
+  temporaryDirectories.push(runDirectoryPath)
+
+  await createRunWorkspaceInput(runDirectoryPath)
+
+  let capturedPrompt = ''
+
+  spawnMock.mockImplementation((_command: string, args: string[]) => {
+    const child = createMockChildProcess()
+
+    const outputFilePath = args[args.indexOf('--output-last-message') + 1]
+    const prompt = args.at(-1)
+
+    if (outputFilePath === undefined || prompt === undefined) {
+      throw new Error('Expected Codex CLI output file path and prompt arguments.')
+    }
+
+    capturedPrompt = prompt
+
+    void writeFile(outputFilePath, JSON.stringify(createValidGenerationResult()), 'utf8').then(
+      () => {
+        child.emit('close', 0)
+      },
+      (error: unknown) => {
+        child.emit('error', error)
+      },
+    )
+
+    return child
+  })
+
+  const worker = createTailoredApplicationGenerationWorker({
+    environment: {
+      CV_MAXXING_AI_WORKER_CODEX_COMMAND: 'codex',
+    },
+  })
+
+  await worker.runGeneration({
+    runDirectoryPath,
+    signal: new AbortController().signal,
+  })
+
+  expect(capturedPrompt).toContain('Use only the inline inputs below.')
+  expect(capturedPrompt).toContain('<task-json>')
+  expect(capturedPrompt).toContain('"headline":"Senior Web Engineer"')
+  expect(capturedPrompt).toContain('Original CV text')
+  expect(capturedPrompt).toContain('Vacancy text')
+  expect(capturedPrompt).not.toContain(
+    'Read input/task.json and the referenced structured input files.',
+  )
+})
+
 test('reports invalid Codex CLI output JSON with the output file path', async () => {
   const runDirectoryPath = await mkdtemp(
     path.join(tmpdir(), 'cv-maxxing-generation-worker-invalid-json-'),
   )
 
   temporaryDirectories.push(runDirectoryPath)
+  await createRunWorkspaceInput(runDirectoryPath)
 
   spawnMock.mockImplementation((_command: string, args: string[]) => {
-    const child = new MockEventTarget() as MockEventTarget & {
-      kill: ReturnType<typeof vi.fn>
-      stderr: MockEventTarget
-      stdout: MockEventTarget
-    }
-
-    child.kill = vi.fn()
-    child.stderr = new MockEventTarget()
-    child.stdout = new MockEventTarget()
+    const child = createMockChildProcess()
 
     const outputFilePath = args[args.indexOf('--output-last-message') + 1]
 
@@ -417,9 +565,10 @@ test('reports invalid Codex CLI output JSON with the output file path', async ()
     ]),
     expect.objectContaining({
       cwd: runDirectoryPath,
-      stdio: ['ignore', 'pipe', 'pipe'],
+      stdio: ['pipe', 'pipe', 'pipe'],
     }),
   )
+  expect(spawnMock.mock.calls[0]?.[1]).not.toContain('-a')
 })
 
 function createValidGenerationResult() {
@@ -448,7 +597,7 @@ function createValidGenerationResult() {
         },
       },
       headline: {
-        text: 'Principal Product Designer for desktop workflow products',
+        text: 'Principal Product Designer',
       },
       sections: [
         {
@@ -511,4 +660,51 @@ function createValidGenerationResult() {
       sessionId: 'session-123',
     },
   }
+}
+
+async function createRunWorkspaceInput(runDirectoryPath: string): Promise<void> {
+  await mkdir(path.join(runDirectoryPath, 'input'), {
+    recursive: true,
+  })
+
+  await Promise.all([
+    writeFile(
+      path.join(runDirectoryPath, 'input', 'task.json'),
+      JSON.stringify({
+        originalCv: {
+          extractedTextPath: 'input/original-cv.txt',
+          normalizedJsonPath: 'input/original-cv.json',
+          writingStyleProfilePath: 'input/writing-style-profile.json',
+        },
+        vacancy: {
+          extractedTextPath: 'input/vacancy.txt',
+          normalizedJsonPath: 'input/vacancy.json',
+        },
+      }),
+      'utf8',
+    ),
+    writeFile(path.join(runDirectoryPath, 'input', 'original-cv.txt'), 'Original CV text', 'utf8'),
+    writeFile(
+      path.join(runDirectoryPath, 'input', 'original-cv.json'),
+      JSON.stringify({
+        headline: 'Senior Web Engineer',
+      }),
+      'utf8',
+    ),
+    writeFile(path.join(runDirectoryPath, 'input', 'vacancy.txt'), 'Vacancy text', 'utf8'),
+    writeFile(
+      path.join(runDirectoryPath, 'input', 'vacancy.json'),
+      JSON.stringify({
+        title: 'Full Stack Engineer',
+      }),
+      'utf8',
+    ),
+    writeFile(
+      path.join(runDirectoryPath, 'input', 'writing-style-profile.json'),
+      JSON.stringify({
+        formality: 'direct',
+      }),
+      'utf8',
+    ),
+  ])
 }

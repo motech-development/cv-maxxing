@@ -111,7 +111,18 @@ const OUTPUT_SCHEMA = {
 } as const
 const TAILORED_APPLICATION_GENERATION_MODEL = 'gpt-5.4'
 const TAILORED_APPLICATION_GENERATION_REASONING_EFFORT = 'low'
-const DEFAULT_TAILORED_APPLICATION_GENERATION_TIMEOUT_MS = 300_000
+
+interface TailoredApplicationTaskInput {
+  originalCv: {
+    extractedTextPath: string
+    normalizedJsonPath: string
+    writingStyleProfilePath: string
+  }
+  vacancy: {
+    extractedTextPath: string
+    normalizedJsonPath: string
+  }
+}
 
 export function createTailoredApplicationGenerationWorker({
   environment = process.env,
@@ -158,8 +169,9 @@ async function runCodexCliGeneration({
   command: string
   runDirectoryPath: string
   signal: AbortSignal
-  timeoutMs: number
+  timeoutMs: number | null
 }): Promise<TailoredApplicationGenerationResult> {
+  const startedAt = Date.now()
   const outputDirectoryPath = path.join(runDirectoryPath, 'output')
   const outputFilePath = path.join(outputDirectoryPath, 'result.json')
   const schemaFilePath = path.join(runDirectoryPath, 'output-schema.json')
@@ -169,23 +181,14 @@ async function runCodexCliGeneration({
   })
   await writeFile(schemaFilePath, JSON.stringify(OUTPUT_SCHEMA), 'utf8')
 
-  const prompt = [
-    'Read input/task.json and the referenced structured input files.',
-    'Return JSON only.',
-    'Use British English.',
-    'Follow the JSON schema exactly.',
-    'Keep the adapted CV and cover letter truthful to the provided CV and vacancy.',
-    'Use British English spelling.',
-    'Format cover-letter dates like "9 April 2026".',
-    'Do not fetch any external context.',
-    'Do not generate PDFs.',
-  ].join(' ')
+  const prompt = await buildGenerationPrompt(runDirectoryPath)
 
   const stderrChunks: string[] = []
   console.info(`Starting tailored application generation via Codex CLI in ${runDirectoryPath}.`)
 
   await new Promise<void>((resolve, reject) => {
     let generationTimedOut = false
+    let timeoutId: ReturnType<typeof setTimeout> | undefined
 
     const child = spawn(
       command,
@@ -206,10 +209,11 @@ async function runCodexCliGeneration({
       ],
       {
         cwd: runDirectoryPath,
-        stdio: ['ignore', 'pipe', 'pipe'],
+        stdio: ['pipe', 'pipe', 'pipe'],
       },
     )
 
+    child.stdin.end()
     child.stderr.on('data', (chunk: Buffer | string) => {
       stderrChunks.push(chunk.toString())
     })
@@ -217,14 +221,19 @@ async function runCodexCliGeneration({
       return
     })
 
-    const timeoutId = setTimeout(() => {
-      generationTimedOut = true
-      console.error(`Tailored application generation timed out after ${String(timeoutMs)} ms.`)
-      child.kill('SIGTERM')
-    }, timeoutMs)
+    if (timeoutMs !== null) {
+      timeoutId = setTimeout(() => {
+        generationTimedOut = true
+        console.error(`Tailored application generation timed out after ${String(timeoutMs)} ms.`)
+        child.kill('SIGTERM')
+      }, timeoutMs)
+    }
 
     const abortHandler = () => {
-      clearTimeout(timeoutId)
+      if (timeoutId !== undefined) {
+        clearTimeout(timeoutId)
+      }
+
       child.kill('SIGTERM')
       reject(new Error('Generation cancelled.'))
     }
@@ -234,12 +243,18 @@ async function runCodexCliGeneration({
     })
 
     child.on('error', (error) => {
-      clearTimeout(timeoutId)
+      if (timeoutId !== undefined) {
+        clearTimeout(timeoutId)
+      }
+
       signal.removeEventListener('abort', abortHandler)
       reject(error)
     })
     child.on('close', (code) => {
-      clearTimeout(timeoutId)
+      if (timeoutId !== undefined) {
+        clearTimeout(timeoutId)
+      }
+
       signal.removeEventListener('abort', abortHandler)
 
       if (generationTimedOut) {
@@ -256,14 +271,18 @@ async function runCodexCliGeneration({
 
       if (code !== 0) {
         console.error(
-          `Tailored application generation failed in Codex CLI with exit code ${String(code)}.`,
+          `Tailored application generation failed in Codex CLI with exit code ${String(code)} after ${String(
+            Date.now() - startedAt,
+          )} ms.`,
         )
         reject(new Error(stderrChunks.join('').trim() || 'Codex CLI generation failed.'))
 
         return
       }
 
-      console.info('Tailored application generation completed.')
+      console.info(
+        `Tailored application generation completed in ${String(Date.now() - startedAt)} ms.`,
+      )
       resolve()
     })
   })
@@ -274,6 +293,100 @@ async function runCodexCliGeneration({
     context: `Codex CLI output at ${outputFilePath}`,
     outputText,
   })
+}
+
+async function buildGenerationPrompt(runDirectoryPath: string): Promise<string> {
+  const taskFilePath = path.join(runDirectoryPath, 'input', 'task.json')
+  const taskText = await readFile(taskFilePath, 'utf8')
+  const task = parseTaskInput(taskText)
+  const [originalCvJson, originalCvText, vacancyJson, vacancyText, writingStyleProfileJson] =
+    await Promise.all([
+      readFile(path.join(runDirectoryPath, task.originalCv.normalizedJsonPath), 'utf8'),
+      readFile(path.join(runDirectoryPath, task.originalCv.extractedTextPath), 'utf8'),
+      readFile(path.join(runDirectoryPath, task.vacancy.normalizedJsonPath), 'utf8'),
+      readFile(path.join(runDirectoryPath, task.vacancy.extractedTextPath), 'utf8'),
+      readFile(path.join(runDirectoryPath, task.originalCv.writingStyleProfilePath), 'utf8'),
+    ])
+
+  return [
+    'Return JSON only.',
+    'Use British English.',
+    'Follow the JSON schema exactly.',
+    'Keep the adapted CV and cover letter truthful to the provided CV and vacancy.',
+    'Set adaptedCv.headline.text to the role name only.',
+    'Reuse a source role label from the original CV, vacancy title, or structured experience role titles.',
+    'Do not append skills, technologies, employers, locations, taglines, or separator suffixes.',
+    'Use British English spelling.',
+    'Format cover-letter dates like "9 April 2026".',
+    'Do not fetch any external context.',
+    'Do not generate PDFs.',
+    'Use only the inline inputs below.',
+    '',
+    '<task-json>',
+    taskText,
+    '</task-json>',
+    '',
+    '<original-cv-json>',
+    originalCvJson,
+    '</original-cv-json>',
+    '',
+    '<original-cv-text>',
+    originalCvText,
+    '</original-cv-text>',
+    '',
+    '<vacancy-json>',
+    vacancyJson,
+    '</vacancy-json>',
+    '',
+    '<vacancy-text>',
+    vacancyText,
+    '</vacancy-text>',
+    '',
+    '<writing-style-profile-json>',
+    writingStyleProfileJson,
+    '</writing-style-profile-json>',
+  ].join('\n')
+}
+
+function parseTaskInput(taskText: string): TailoredApplicationTaskInput {
+  const parsedTask = JSON.parse(taskText) as unknown
+
+  if (!isTailoredApplicationTaskInput(parsedTask)) {
+    throw new Error('Tailored application task input is invalid.')
+  }
+
+  return parsedTask
+}
+
+function isTailoredApplicationTaskInput(value: unknown): value is TailoredApplicationTaskInput {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    return false
+  }
+
+  const candidate = value as Record<string, unknown>
+
+  return (
+    isTaskDocumentGroup(candidate.originalCv) &&
+    typeof candidate.originalCv.writingStyleProfilePath === 'string' &&
+    isTaskDocumentGroup(candidate.vacancy)
+  )
+}
+
+function isTaskDocumentGroup(value: unknown): value is {
+  extractedTextPath: string
+  normalizedJsonPath: string
+  writingStyleProfilePath?: string
+} {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    return false
+  }
+
+  const candidate = value as Record<string, unknown>
+
+  return (
+    typeof candidate.extractedTextPath === 'string' &&
+    typeof candidate.normalizedJsonPath === 'string'
+  )
 }
 
 function groundedTextSchema() {
@@ -500,11 +613,11 @@ function parseDelay(value: string | undefined): number {
   return parsedValue
 }
 
-function resolveTimeoutMs(value: string | undefined): number {
+function resolveTimeoutMs(value: string | undefined): number | null {
   const parsedValue = Number.parseInt(value ?? '', 10)
 
   if (!Number.isFinite(parsedValue) || parsedValue <= 0) {
-    return DEFAULT_TAILORED_APPLICATION_GENERATION_TIMEOUT_MS
+    return null
   }
 
   return parsedValue

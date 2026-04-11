@@ -52,6 +52,7 @@ const COVER_LETTER_PDF_ARTIFACT_NAME = 'cover-letter.pdf'
 const TAILORED_APPLICATION_CONTRACT_ERROR_MESSAGE =
   'Generated tailored application failed contract validation.'
 const MAX_PROFILE_SUMMARY_LENGTH = 900
+const MAX_TAILORED_APPLICATION_SOURCE_TEXT_LENGTH = 24_000
 
 export interface TailoredApplicationGenerationWorker {
   runGeneration: (input: {
@@ -207,6 +208,7 @@ interface CreateTailoredApplicationSessionServiceOptions {
 }
 
 interface OriginalCvContext {
+  headline: string
   normalizedJson: string
   originalCvId: string
   originalCvText: string
@@ -345,26 +347,35 @@ export function createTailoredApplicationSessionService({
   async function loadOriginalCvContext(
     command: PendingGenerationCommand,
   ): Promise<OriginalCvContext> {
-    const [normalizedJsonBuffer, originalCvTextBuffer, writingStyleProfileBuffer] =
-      await Promise.all([
-        localAppData.artifacts.read({
-          id: command.originalCvId,
-          name: 'normalized.json',
-          scope: ORIGINAL_CV_SCOPE,
-        }),
-        localAppData.artifacts.read({
-          id: command.originalCvId,
-          name: 'extracted.txt',
-          scope: ORIGINAL_CV_SCOPE,
-        }),
-        localAppData.artifacts.read({
-          id: command.originalCvId,
-          name: 'writing-style-profile.json',
-          scope: ORIGINAL_CV_SCOPE,
-        }),
-      ])
+    const [
+      originalCvMetadata,
+      normalizedJsonBuffer,
+      originalCvTextBuffer,
+      writingStyleProfileBuffer,
+    ] = await Promise.all([
+      localAppData.metadata.get<OriginalCvMetadataValue>({
+        id: command.originalCvId,
+        scope: ORIGINAL_CV_SCOPE,
+      }),
+      localAppData.artifacts.read({
+        id: command.originalCvId,
+        name: 'normalized.json',
+        scope: ORIGINAL_CV_SCOPE,
+      }),
+      localAppData.artifacts.read({
+        id: command.originalCvId,
+        name: 'extracted.txt',
+        scope: ORIGINAL_CV_SCOPE,
+      }),
+      localAppData.artifacts.read({
+        id: command.originalCvId,
+        name: 'writing-style-profile.json',
+        scope: ORIGINAL_CV_SCOPE,
+      }),
+    ])
 
     if (
+      originalCvMetadata === null ||
       normalizedJsonBuffer === null ||
       originalCvTextBuffer === null ||
       writingStyleProfileBuffer === null
@@ -377,6 +388,7 @@ export function createTailoredApplicationSessionService({
     }
 
     return {
+      headline: originalCvMetadata.headline,
       normalizedJson: normalizedJsonBuffer.toString('utf8'),
       originalCvId: command.originalCvId,
       originalCvText: originalCvTextBuffer.toString('utf8'),
@@ -492,7 +504,7 @@ export function createTailoredApplicationSessionService({
       ),
       writeFile(
         path.join(inputDirectoryPath, 'original-cv.txt'),
-        originalCv.originalCvText,
+        boundTailoredApplicationSourceText(originalCv.originalCvText),
         'utf8',
       ),
       writeFile(
@@ -501,7 +513,11 @@ export function createTailoredApplicationSessionService({
         'utf8',
       ),
       writeFile(path.join(inputDirectoryPath, 'vacancy.json'), vacancy.normalizedJson, 'utf8'),
-      writeFile(path.join(inputDirectoryPath, 'vacancy.txt'), vacancy.vacancyText, 'utf8'),
+      writeFile(
+        path.join(inputDirectoryPath, 'vacancy.txt'),
+        boundTailoredApplicationSourceText(vacancy.vacancyText),
+        'utf8',
+      ),
       writeFile(path.join(inputDirectoryPath, 'task.json'), taskJson, 'utf8'),
     ])
   }
@@ -824,12 +840,19 @@ export function createTailoredApplicationSessionService({
     })
 
     try {
-      const result = await worker.runGeneration({
+      const rawResult = await worker.runGeneration({
         runDirectoryPath,
         signal: activeAbortController?.signal ?? new AbortController().signal,
       })
+      const result = normalizeTailoredApplicationGenerationResult(rawResult, {
+        originalCvHeadline: originalCv.headline,
+        vacancyTitle: vacancy.title,
+      })
 
-      validateTailoredApplicationGenerationResult(result)
+      validateTailoredApplicationGenerationResult(result, {
+        originalCvHeadline: originalCv.headline,
+        vacancyTitle: vacancy.title,
+      })
       const renderReadyAdaptedCv = buildAdaptedCvModel({
         generatedAdaptedCv: result.adaptedCv,
         originalCvText: originalCv.originalCvText,
@@ -1293,6 +1316,10 @@ async function getPendingCommandId(
 
 function validateTailoredApplicationGenerationResult(
   result: unknown,
+  context: {
+    originalCvHeadline: string
+    vacancyTitle: string | null
+  },
 ): asserts result is TailoredApplicationGenerationResult {
   if (result === null || typeof result !== 'object' || Array.isArray(result)) {
     throwContractValidationError({
@@ -1304,7 +1331,7 @@ function validateTailoredApplicationGenerationResult(
 
   const candidate = result as Record<string, unknown>
 
-  if (!isGeneratedAdaptedCvModel(candidate.adaptedCv)) {
+  if (!isGeneratedAdaptedCvModel(candidate.adaptedCv, context)) {
     throwContractValidationError({
       code: 'adapted_cv_invalid',
       detail: 'Expected a valid adaptedCv object.',
@@ -1337,7 +1364,58 @@ function validateTailoredApplicationGenerationResult(
   }
 }
 
-function isGeneratedAdaptedCvModel(value: unknown): value is GeneratedAdaptedCvModel {
+function normalizeTailoredApplicationGenerationResult(
+  result: TailoredApplicationGenerationResult,
+  context: {
+    originalCvHeadline: string
+    vacancyTitle: string | null
+  },
+): TailoredApplicationGenerationResult {
+  const normalizedAdaptedCv = normalizeGeneratedAdaptedCvModel(result.adaptedCv, context)
+
+  if (normalizedAdaptedCv === result.adaptedCv) {
+    return result
+  }
+
+  return {
+    ...result,
+    adaptedCv: normalizedAdaptedCv,
+  }
+}
+
+function normalizeGeneratedAdaptedCvModel(
+  adaptedCv: TailoredApplicationGenerationResult['adaptedCv'],
+  context: {
+    originalCvHeadline: string
+    vacancyTitle: string | null
+  },
+): TailoredApplicationGenerationResult['adaptedCv'] {
+  const canonicalHeadline = resolveCanonicalAdaptedCvHeadline(
+    adaptedCv.headline.text,
+    adaptedCv.sections,
+    context,
+  )
+
+  if (canonicalHeadline === null || canonicalHeadline === adaptedCv.headline.text) {
+    return adaptedCv
+  }
+
+  return {
+    ...adaptedCv,
+    headline: {
+      ...adaptedCv.headline,
+      text: canonicalHeadline,
+    },
+  }
+}
+
+function isGeneratedAdaptedCvModel(
+  value: unknown,
+  context: {
+    originalCvHeadline: string
+    vacancyTitle: string | null
+  },
+): value is GeneratedAdaptedCvModel {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) {
     return false
   }
@@ -1352,6 +1430,8 @@ function isGeneratedAdaptedCvModel(value: unknown): value is GeneratedAdaptedCvM
     candidate.sections.every((section) => {
       return isGeneratedAdaptedCvSection(section)
     }) &&
+    resolveCanonicalAdaptedCvHeadline(candidate.headline.text, candidate.sections, context) !==
+      null &&
     hasRequiredAdaptedCvSections(candidate.sections) &&
     isGeneratedAdaptedCvTemplateFit(candidate as unknown as GeneratedAdaptedCvModel)
   )
@@ -1529,6 +1609,124 @@ function isGeneratedAdaptedCvTemplateFit(value: GeneratedAdaptedCvModel): boolea
   return profileSection.summary.text.length <= MAX_PROFILE_SUMMARY_LENGTH
 }
 
+function resolveCanonicalAdaptedCvHeadline(
+  headline: string,
+  sections: unknown[],
+  context: {
+    originalCvHeadline: string
+    vacancyTitle: string | null
+  },
+): string | null {
+  const normalizedHeadline = normalizeRoleLabel(headline)
+
+  if (normalizedHeadline === null) {
+    return null
+  }
+
+  const canonicalRoleLabels = buildCanonicalRoleLabels(sections, context)
+  const matchingRoleLabel = canonicalRoleLabels.find((roleLabel) => {
+    return roleLabel.normalized === normalizedHeadline
+  })
+
+  return matchingRoleLabel?.display ?? null
+}
+
+function extractExperienceRoleTitles(sections: unknown[]): string[] {
+  return sections.flatMap((section) => {
+    if (
+      section === null ||
+      typeof section !== 'object' ||
+      Array.isArray(section) ||
+      (section as Record<string, unknown>).kind !== 'experience'
+    ) {
+      return []
+    }
+
+    const items = (section as Record<string, unknown>).items
+
+    if (!Array.isArray(items)) {
+      return []
+    }
+
+    return items.flatMap((item) => {
+      if (item === null || typeof item !== 'object' || Array.isArray(item)) {
+        return []
+      }
+
+      const roleTitle = (item as Record<string, unknown>).roleTitle
+
+      return typeof roleTitle === 'string' ? [roleTitle] : []
+    })
+  })
+}
+
+function buildCanonicalRoleLabels(
+  sections: unknown[],
+  context: {
+    originalCvHeadline: string
+    vacancyTitle: string | null
+  },
+): {
+  display: string
+  normalized: string
+}[] {
+  return [
+    context.originalCvHeadline,
+    context.vacancyTitle,
+    ...extractExperienceRoleTitles(sections),
+  ].flatMap((value) => {
+    const roleLabel = toCanonicalRoleLabel(value)
+
+    return roleLabel === null ? [] : [roleLabel]
+  })
+}
+
+function toCanonicalRoleLabel(value: string | null): {
+  display: string
+  normalized: string
+} | null {
+  const roleLabel = extractRoleLabel(value)
+
+  if (roleLabel === null) {
+    return null
+  }
+
+  return {
+    display: roleLabel,
+    normalized: roleLabel.toLocaleLowerCase('en-GB'),
+  }
+}
+
+function normalizeRoleLabel(value: string | null): string | null {
+  const roleLabel = extractRoleLabel(value)
+
+  return roleLabel === null ? null : roleLabel.toLocaleLowerCase('en-GB')
+}
+
+function extractRoleLabel(value: string | null): string | null {
+  if (typeof value !== 'string') {
+    return null
+  }
+
+  const collapsedWhitespace = value.replaceAll(/\s+/gu, ' ').trim()
+
+  if (collapsedWhitespace === '') {
+    return null
+  }
+
+  const suffixSeparatorMatch = /\s(?:\||·|—|–|-)\s/u.exec(collapsedWhitespace)
+  const roleOnlyLabel =
+    suffixSeparatorMatch?.index === undefined
+      ? collapsedWhitespace
+      : collapsedWhitespace.slice(0, suffixSeparatorMatch.index).trim()
+
+  if (roleOnlyLabel === '') {
+    return null
+  }
+
+  return roleOnlyLabel
+}
+
 function isNonEmptyGroundedText(value: unknown): value is GroundedText {
   return isGroundedText(value) && value.text.trim() !== ''
 }
@@ -1577,6 +1775,14 @@ function buildCoverLetterPlainText(coverLetter: CoverLetterModel): string {
     '',
     coverLetter.signature,
   ].join('\n')
+}
+
+function boundTailoredApplicationSourceText(value: string): string {
+  if (value.length <= MAX_TAILORED_APPLICATION_SOURCE_TEXT_LENGTH) {
+    return value
+  }
+
+  return value.slice(0, MAX_TAILORED_APPLICATION_SOURCE_TEXT_LENGTH).trimEnd()
 }
 
 function isAdaptationSummaryModel(value: unknown): value is AdaptationSummaryModel {
