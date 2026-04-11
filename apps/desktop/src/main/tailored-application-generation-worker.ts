@@ -332,6 +332,36 @@ function adaptedCvSectionSchema() {
       {
         additionalProperties: false,
         properties: {
+          items: {
+            items: groundedTextSchema(),
+            type: 'array',
+          },
+          kind: {
+            const: 'selected_work',
+            type: 'string',
+          },
+        },
+        required: ['items', 'kind'],
+        type: 'object',
+      },
+      {
+        additionalProperties: false,
+        properties: {
+          items: {
+            items: groundedTextSchema(),
+            type: 'array',
+          },
+          kind: {
+            const: 'impact_highlights',
+            type: 'string',
+          },
+        },
+        required: ['items', 'kind'],
+        type: 'object',
+      },
+      {
+        additionalProperties: false,
+        properties: {
           kind: {
             const: 'references',
             type: 'string',

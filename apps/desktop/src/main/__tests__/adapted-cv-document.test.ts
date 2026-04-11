@@ -170,6 +170,27 @@ test('renders structured experience entries with chronology and within-role bull
   expect(secondBulletIndex).toBeGreaterThan(firstBulletIndex)
 })
 
+test('omits optional left-column evidence sections when they are empty', () => {
+  const input = createAdaptedCvInput()
+
+  input.adaptedCv.sections = [
+    ...input.adaptedCv.sections,
+    {
+      items: [],
+      kind: 'selected_work',
+    },
+    {
+      items: [],
+      kind: 'impact_highlights',
+    },
+  ]
+
+  const document = createAdaptedCvDocument(input)
+
+  expect(document.html).not.toContain('SELECTED WORK')
+  expect(document.html).not.toContain('IMPACT HIGHLIGHTS')
+})
+
 test('creates continued headers and a non-blocking warning when pagination exceeds the v1 threshold', () => {
   const longInput = createAdaptedCvInput()
 
@@ -201,6 +222,45 @@ test('creates continued headers and a non-blocking warning when pagination excee
   expect(document.html).toContain('EXPERIENCE (CONTINUED)')
   expect(document.html).toContain('Role 1 · Employer 1')
   expect(document.html).toContain('Location 1 · 2001 — Present')
+})
+
+test('finishes a continued selected-work section before impact highlights begin', () => {
+  const input = createAdaptedCvInput()
+
+  input.adaptedCv.sections = [
+    ...input.adaptedCv.sections,
+    {
+      items: Array.from({ length: 18 }, (_, index) => {
+        return {
+          text:
+            `Selected work line ${String(index + 1)} with grounded workflow evidence for ` +
+            'technical users and regulated review tooling.',
+        }
+      }),
+      kind: 'selected_work',
+    },
+    {
+      items: [
+        {
+          text: 'Impact highlight line 1 showing measurable workflow adoption gains.',
+        },
+        {
+          text: 'Impact highlight line 2 showing improved operator throughput and trust.',
+        },
+      ],
+      kind: 'impact_highlights',
+    },
+  ]
+
+  const document = createAdaptedCvDocument(input)
+  const pageTwoMarkup = getPageMarkup(document.html, 2)
+  const firstImpactHighlightsIndex = document.html.indexOf('IMPACT HIGHLIGHTS')
+  const lastSelectedWorkContinuationIndex = document.html.lastIndexOf('SELECTED WORK (CONTINUED)')
+
+  expect(document.pageCount).toBeGreaterThanOrEqual(3)
+  expect(pageTwoMarkup).toContain('SELECTED WORK (CONTINUED)')
+  expect(pageTwoMarkup).not.toContain('IMPACT HIGHLIGHTS')
+  expect(firstImpactHighlightsIndex).toBeGreaterThan(lastSelectedWorkContinuationIndex)
 })
 
 test('builds safe readable export names and resolves overwrite collisions without silent replacement', async () => {
@@ -251,4 +311,17 @@ function createExperienceEntry({
     location,
     roleTitle,
   }
+}
+
+function getPageMarkup(html: string, pageNumber: number): string {
+  const startMarker = `<section class="cv-page page-${String(pageNumber)}">`
+  const nextMarker = `<section class="cv-page page-${String(pageNumber + 1)}">`
+  const startIndex = html.indexOf(startMarker)
+  const nextIndex = html.indexOf(nextMarker)
+
+  if (startIndex === -1) {
+    throw new Error(`Expected page ${String(pageNumber)} to exist in the rendered document.`)
+  }
+
+  return nextIndex === -1 ? html.slice(startIndex) : html.slice(startIndex, nextIndex)
 }

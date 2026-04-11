@@ -1388,6 +1388,15 @@ function isGeneratedAdaptedCvSection(
     )
   }
 
+  if (candidate.kind === 'selected_work' || candidate.kind === 'impact_highlights') {
+    return (
+      Array.isArray(candidate.items) &&
+      candidate.items.every((item) => {
+        return isGroundedText(item)
+      })
+    )
+  }
+
   return candidate.kind === 'references'
 }
 

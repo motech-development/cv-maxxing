@@ -47,6 +47,16 @@ export interface AdaptedCvCoreSkillsSection {
   kind: 'core_skills'
 }
 
+export interface AdaptedCvSelectedWorkSection {
+  items: GroundedText[]
+  kind: 'selected_work'
+}
+
+export interface AdaptedCvImpactHighlightsSection {
+  items: GroundedText[]
+  kind: 'impact_highlights'
+}
+
 export interface AdaptedCvReferencesSection {
   kind: 'references'
 }
@@ -54,7 +64,9 @@ export interface AdaptedCvReferencesSection {
 export type AdaptedCvSection =
   | AdaptedCvCoreSkillsSection
   | AdaptedCvExperienceSection
+  | AdaptedCvImpactHighlightsSection
   | AdaptedCvProfileSection
+  | AdaptedCvSelectedWorkSection
   | AdaptedCvReferencesSection
 
 export type GeneratedAdaptedCvSection = AdaptedCvSection

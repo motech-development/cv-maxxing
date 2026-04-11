@@ -21,6 +21,18 @@ interface AdaptedCvPage {
   rightSections: AdaptedCvPageSection[]
 }
 
+type ContinuableSectionState =
+  | {
+      hasStarted: boolean
+      kind: 'experience'
+      remainingItems: AdaptedCvExperienceEntry[]
+    }
+  | {
+      hasStarted: boolean
+      kind: 'impact_highlights' | 'selected_work'
+      remainingItems: string[]
+    }
+
 type AdaptedCvPageSection =
   | {
       kind: 'experience'
@@ -30,6 +42,11 @@ type AdaptedCvPageSection =
   | {
       kind: 'profile'
       text: string
+    }
+  | {
+      isContinued: boolean
+      items: string[]
+      kind: 'impact_highlights' | 'selected_work'
     }
   | {
       kind: 'references'
@@ -100,10 +117,9 @@ export async function resolveUniqueExportFilePath(
 
 function paginateAdaptedCv(input: AdaptedCvDocumentInput): AdaptedCvPage[] {
   const profileSection = getRequiredSection(input.adaptedCv.sections, 'profile')
-  const experienceSection = getRequiredSection(input.adaptedCv.sections, 'experience')
   const coreSkillsSection = getRequiredSection(input.adaptedCv.sections, 'core_skills')
+  const continuableSections = buildContinuableSectionStates(input.adaptedCv.sections)
 
-  const remainingExperience = [...experienceSection.items]
   const remainingSkills = coreSkillsSection.items.map((skill) => {
     return skill.text
   })
@@ -117,17 +133,11 @@ function paginateAdaptedCv(input: AdaptedCvDocumentInput): AdaptedCvPage[] {
   const firstPageRightSections: AdaptedCvPageSection[] = []
 
   let firstPageCapacity = PAGE_ONE_CAPACITY - estimateProfileHeight(profileSection.summary.text)
-
-  const firstPageExperience = takeExperienceItems(remainingExperience, firstPageCapacity)
-
-  if (firstPageExperience.length > 0) {
-    firstPageLeftSections.push({
-      items: firstPageExperience,
-      isContinued: false,
-      kind: 'experience',
-    })
-    firstPageCapacity -= estimateExperienceSectionHeight(firstPageExperience, false)
-  }
+  firstPageCapacity = fillContinuableSections(
+    continuableSections,
+    firstPageCapacity,
+    firstPageLeftSections,
+  )
 
   const firstPageSkills = takeSkillItems(remainingSkills, Math.max(firstPageCapacity, 8))
 
@@ -148,17 +158,9 @@ function paginateAdaptedCv(input: AdaptedCvDocumentInput): AdaptedCvPage[] {
     rightSections: firstPageRightSections,
   })
 
-  while (remainingExperience.length > 0) {
+  while (continuableSections.length > 0) {
     const continuedPageSections: AdaptedCvPageSection[] = []
-    const continuedExperience = takeExperienceItems(remainingExperience, CONTINUED_PAGE_CAPACITY)
-
-    if (continuedExperience.length > 0) {
-      continuedPageSections.push({
-        items: continuedExperience,
-        isContinued: true,
-        kind: 'experience',
-      })
-    }
+    fillContinuableSections(continuableSections, CONTINUED_PAGE_CAPACITY, continuedPageSections)
 
     pages.push({
       kind: 'continued',
@@ -168,6 +170,42 @@ function paginateAdaptedCv(input: AdaptedCvDocumentInput): AdaptedCvPage[] {
   }
 
   return pages
+}
+
+function buildContinuableSectionStates(sections: AdaptedCvSection[]): ContinuableSectionState[] {
+  const experienceSection = getRequiredSection(sections, 'experience')
+  const selectedWorkSection = getOptionalSection(sections, 'selected_work')
+  const impactHighlightsSection = getOptionalSection(sections, 'impact_highlights')
+
+  return [
+    {
+      hasStarted: false,
+      kind: 'experience',
+      remainingItems: [...experienceSection.items],
+    },
+    ...(selectedWorkSection === null || selectedWorkSection.items.length === 0
+      ? []
+      : [
+          {
+            hasStarted: false,
+            kind: 'selected_work' as const,
+            remainingItems: selectedWorkSection.items.map((item) => {
+              return item.text
+            }),
+          },
+        ]),
+    ...(impactHighlightsSection === null || impactHighlightsSection.items.length === 0
+      ? []
+      : [
+          {
+            hasStarted: false,
+            kind: 'impact_highlights' as const,
+            remainingItems: impactHighlightsSection.items.map((item) => {
+              return item.text
+            }),
+          },
+        ]),
+  ]
 }
 
 function getRequiredSection<K extends AdaptedCvSection['kind']>(
@@ -183,6 +221,19 @@ function getRequiredSection<K extends AdaptedCvSection['kind']>(
   }
 
   return matchingSection as Extract<AdaptedCvSection, { kind: K }>
+}
+
+function getOptionalSection<K extends AdaptedCvSection['kind']>(
+  sections: AdaptedCvSection[],
+  kind: K,
+): Extract<AdaptedCvSection, { kind: K }> | null {
+  const matchingSection = sections.find((section) => {
+    return section.kind === kind
+  })
+
+  return matchingSection === undefined
+    ? null
+    : (matchingSection as Extract<AdaptedCvSection, { kind: K }>)
 }
 
 function estimateProfileHeight(summaryText: string): number {
@@ -214,6 +265,87 @@ function estimateSkillSectionHeight(skills: string[]): number {
       return totalHeight + 1 + Math.ceil(skill.length / 28)
     }, 0)
   )
+}
+
+function estimateTextBlockSectionHeight(items: string[], isContinued: boolean): number {
+  const headingHeight = isContinued ? 3 : 4
+
+  return (
+    headingHeight +
+    items.reduce((totalHeight, item) => {
+      return totalHeight + 2 + Math.ceil(item.length / 95)
+    }, 0)
+  )
+}
+
+function fillContinuableSections(
+  continuableSections: ContinuableSectionState[],
+  availableHeight: number,
+  pageSections: AdaptedCvPageSection[],
+): number {
+  let remainingHeight = availableHeight
+
+  while (continuableSections.length > 0) {
+    const currentSection = continuableSections[0]
+
+    if (currentSection === undefined) {
+      break
+    }
+
+    if (currentSection.kind === 'experience') {
+      const items = takeExperienceItems(currentSection.remainingItems, remainingHeight)
+
+      if (items.length === 0) {
+        break
+      }
+
+      pageSections.push({
+        items,
+        isContinued: currentSection.hasStarted,
+        kind: 'experience',
+      })
+      remainingHeight -= estimateExperienceSectionHeight(items, currentSection.hasStarted)
+
+      if (currentSection.remainingItems.length === 0) {
+        continuableSections.shift()
+
+        continue
+      }
+
+      currentSection.hasStarted = true
+
+      break
+    }
+
+    const items = takeTextBlockItems(
+      currentSection.remainingItems,
+      remainingHeight,
+      currentSection.hasStarted,
+    )
+
+    if (items.length === 0) {
+      break
+    }
+
+    pageSections.push({
+      isContinued: currentSection.hasStarted,
+      items,
+      kind: currentSection.kind,
+    })
+    remainingHeight -= estimateTextBlockSectionHeight(items, currentSection.hasStarted)
+
+    if (currentSection.remainingItems.length === 0) {
+      continuableSections.shift()
+
+      continue
+    }
+
+    currentSection.hasStarted = true
+
+    break
+  }
+
+  return remainingHeight
 }
 
 function takeExperienceItems(
@@ -283,6 +415,50 @@ function takeSkillItems(remainingSkills: string[], availableHeight: number): str
 
     if (forcedSkill !== undefined) {
       selectedItems.push(forcedSkill)
+    }
+  }
+
+  return selectedItems
+}
+
+function takeTextBlockItems(
+  remainingItems: string[],
+  availableHeight: number,
+  isContinued: boolean,
+): string[] {
+  const selectedItems: string[] = []
+  let consumedHeight = 0
+
+  while (remainingItems.length > 0) {
+    const nextItem = remainingItems[0]
+
+    if (nextItem === undefined) {
+      break
+    }
+
+    const nextItemHeight = estimateTextBlockSectionHeight(
+      [nextItem],
+      isContinued || selectedItems.length > 0,
+    )
+
+    if (selectedItems.length > 0 && consumedHeight + nextItemHeight > availableHeight) {
+      break
+    }
+
+    selectedItems.push(nextItem)
+    consumedHeight += nextItemHeight
+    remainingItems.shift()
+
+    if (consumedHeight >= availableHeight) {
+      break
+    }
+  }
+
+  if (selectedItems.length === 0 && remainingItems.length > 0) {
+    const forcedItem = remainingItems.shift()
+
+    if (forcedItem !== undefined) {
+      selectedItems.push(forcedItem)
     }
   }
 
@@ -428,71 +604,93 @@ function buildContinuedPageMarkup({
 }
 
 function buildSectionMarkup(section: AdaptedCvPageSection): string {
-  if (section.kind === 'experience') {
-    const label = section.isContinued ? 'EXPERIENCE (CONTINUED)' : 'EXPERIENCE'
-    const itemsMarkup = section.items
-      .map((item) => {
-        const bulletsMarkup = item.bullets
-          .map((bullet) => {
-            return [
-              '<div class="bullet-row">',
-              '<span class="bullet-mark">•</span>',
-              `<span class="bullet-text">${escapeHtml(bullet.text)}</span>`,
-              '</div>',
-            ].join('')
-          })
-          .join('')
+  switch (section.kind) {
+    case 'experience': {
+      const label = section.isContinued ? 'EXPERIENCE (CONTINUED)' : 'EXPERIENCE'
+      const itemsMarkup = section.items
+        .map((item) => {
+          const bulletsMarkup = item.bullets
+            .map((bullet) => {
+              return [
+                '<div class="bullet-row">',
+                '<span class="bullet-mark">•</span>',
+                `<span class="bullet-text">${escapeHtml(bullet.text)}</span>`,
+                '</div>',
+              ].join('')
+            })
+            .join('')
 
-        return [
-          '<article class="experience-item">',
-          `<p class="exp-title">${escapeHtml(buildExperienceTitle(item))}</p>`,
-          `<p class="exp-meta">${escapeHtml(buildExperienceMeta(item))}</p>`,
-          bulletsMarkup,
-          '</article>',
-        ].join('')
-      })
-      .join('')
+          return [
+            '<article class="experience-item">',
+            `<p class="exp-title">${escapeHtml(buildExperienceTitle(item))}</p>`,
+            `<p class="exp-meta">${escapeHtml(buildExperienceMeta(item))}</p>`,
+            bulletsMarkup,
+            '</article>',
+          ].join('')
+        })
+        .join('')
 
-    return [
-      `<section class="${section.isContinued ? 'section-experience-continued' : 'section-experience'}">`,
-      `<h2 class="section-label">${label}</h2>`,
-      '<div class="experience-list">',
-      itemsMarkup,
-      '</div>',
-      '</section>',
-    ].join('')
+      return [
+        `<section class="${section.isContinued ? 'section-experience-continued' : 'section-experience'}">`,
+        `<h2 class="section-label">${label}</h2>`,
+        '<div class="experience-list">',
+        itemsMarkup,
+        '</div>',
+        '</section>',
+      ].join('')
+    }
+
+    case 'skills': {
+      const skillsMarkup = section.items
+        .map((skill) => {
+          return `<p class="sidebar-line">${escapeHtml(skill)}</p>`
+        })
+        .join('')
+
+      return [
+        '<section class="sidebar-section-gap-8">',
+        '<h2 class="section-label">CORE SKILLS</h2>',
+        skillsMarkup,
+        '</section>',
+      ].join('')
+    }
+
+    case 'references': {
+      return [
+        '<section class="sidebar-section-gap-8">',
+        '<h2 class="section-label">REFERENCES</h2>',
+        '<p class="sidebar-line">Available on request</p>',
+        '</section>',
+      ].join('')
+    }
+
+    case 'selected_work':
+    case 'impact_highlights': {
+      const label = section.kind === 'selected_work' ? 'SELECTED WORK' : 'IMPACT HIGHLIGHTS'
+      const headingLabel = section.isContinued ? `${label} (CONTINUED)` : label
+      const itemsMarkup = section.items
+        .map((item) => {
+          return `<p class="section-line">${escapeHtml(item)}</p>`
+        })
+        .join('')
+
+      return [
+        '<section class="section-text-block">',
+        `<h2 class="section-label">${headingLabel}</h2>`,
+        itemsMarkup,
+        '</section>',
+      ].join('')
+    }
+
+    case 'profile': {
+      return [
+        '<section class="section-profile">',
+        '<h2 class="section-label">PROFILE</h2>',
+        `<p class="profile-text">${escapeHtml(section.text)}</p>`,
+        '</section>',
+      ].join('')
+    }
   }
-
-  if (section.kind === 'skills') {
-    const skillsMarkup = section.items
-      .map((skill) => {
-        return `<p class="sidebar-line">${escapeHtml(skill)}</p>`
-      })
-      .join('')
-
-    return [
-      '<section class="sidebar-section-gap-8">',
-      '<h2 class="section-label">CORE SKILLS</h2>',
-      skillsMarkup,
-      '</section>',
-    ].join('')
-  }
-
-  if (section.kind === 'references') {
-    return [
-      '<section class="sidebar-section-gap-8">',
-      '<h2 class="section-label">REFERENCES</h2>',
-      '<p class="sidebar-line">Available on request</p>',
-      '</section>',
-    ].join('')
-  }
-
-  return [
-    '<section class="section-profile">',
-    '<h2 class="section-label">PROFILE</h2>',
-    `<p class="profile-text">${escapeHtml(section.text)}</p>`,
-    '</section>',
-  ].join('')
 }
 
 function buildPageWarning(pageCount: number): string {
@@ -695,6 +893,7 @@ function buildDocumentStyles(): string {
     .section-profile,
     .section-experience,
     .section-experience-continued,
+    .section-text-block,
     .sidebar-section-gap-8 {
       display: flex;
       flex-direction: column;
@@ -751,6 +950,13 @@ function buildDocumentStyles(): string {
       color: var(--text-primary);
       font-size: 12px;
       line-height: 1.333333;
+      font-weight: 400;
+    }
+
+    .section-line {
+      color: var(--text-primary);
+      font-size: 12px;
+      line-height: 1.6;
       font-weight: 400;
     }
 
