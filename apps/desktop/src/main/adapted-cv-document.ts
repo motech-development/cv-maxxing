@@ -1,5 +1,5 @@
 import type {
-  AdaptedCvExperienceHighlight,
+  AdaptedCvExperienceEntry,
   AdaptedCvModel,
   AdaptedCvSection,
 } from '../shared/tailored-application.js'
@@ -25,7 +25,7 @@ type AdaptedCvPageSection =
   | {
       kind: 'experience'
       isContinued: boolean
-      items: AdaptedCvExperienceHighlight[]
+      items: AdaptedCvExperienceEntry[]
     }
   | {
       kind: 'profile'
@@ -190,17 +190,18 @@ function estimateProfileHeight(summaryText: string): number {
 }
 
 function estimateExperienceSectionHeight(
-  items: AdaptedCvExperienceHighlight[],
+  items: AdaptedCvExperienceEntry[],
   isContinued: boolean,
 ): number {
   const headingHeight = isContinued ? 3 : 4
   const itemsHeight = items.reduce((totalHeight, item) => {
     const headingHeight = 3
+    const metaHeight = 2 + (item.location === null ? 0 : 1)
     const bulletsHeight = item.bullets.reduce((totalBulletHeight, bullet) => {
       return totalBulletHeight + 2 + Math.ceil(bullet.text.length / 110)
     }, 0)
 
-    return totalHeight + headingHeight + bulletsHeight
+    return totalHeight + headingHeight + metaHeight + bulletsHeight
   }, 0)
 
   return headingHeight + itemsHeight
@@ -216,10 +217,10 @@ function estimateSkillSectionHeight(skills: string[]): number {
 }
 
 function takeExperienceItems(
-  remainingExperience: AdaptedCvExperienceHighlight[],
+  remainingExperience: AdaptedCvExperienceEntry[],
   availableHeight: number,
-): AdaptedCvExperienceHighlight[] {
-  const selectedItems: AdaptedCvExperienceHighlight[] = []
+): AdaptedCvExperienceEntry[] {
+  const selectedItems: AdaptedCvExperienceEntry[] = []
   let consumedHeight = 0
 
   while (remainingExperience.length > 0) {
@@ -444,7 +445,8 @@ function buildSectionMarkup(section: AdaptedCvPageSection): string {
 
         return [
           '<article class="experience-item">',
-          `<p class="exp-title">${escapeHtml(item.heading)}</p>`,
+          `<p class="exp-title">${escapeHtml(buildExperienceTitle(item))}</p>`,
+          `<p class="exp-meta">${escapeHtml(buildExperienceMeta(item))}</p>`,
           bulletsMarkup,
           '</article>',
         ].join('')
@@ -495,6 +497,22 @@ function buildSectionMarkup(section: AdaptedCvPageSection): string {
 
 function buildPageWarning(pageCount: number): string {
   return `This adapted CV runs to ${String(pageCount)} pages. Export is still available.`
+}
+
+function buildExperienceMeta(item: AdaptedCvExperienceEntry): string {
+  return [item.location, item.dateRange]
+    .filter((value): value is string => {
+      return value !== null && value.trim() !== ''
+    })
+    .join(' · ')
+}
+
+function buildExperienceTitle(item: AdaptedCvExperienceEntry): string {
+  return [item.roleTitle, item.employer]
+    .filter((value) => {
+      return value.trim() !== ''
+    })
+    .join(' · ')
 }
 
 function sanitizeFilenamePart(value: string): string {
@@ -706,6 +724,13 @@ function buildDocumentStyles(): string {
       font-size: 14px;
       line-height: 1.2;
       font-weight: 600;
+    }
+
+    .exp-meta {
+      color: var(--text-subtle);
+      font-size: 12px;
+      line-height: 1.333333;
+      font-weight: 400;
     }
 
     .bullet-row {

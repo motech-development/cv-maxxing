@@ -288,11 +288,20 @@ function adaptedCvSectionSchema() {
                   items: groundedTextSchema(),
                   type: 'array',
                 },
-                heading: {
+                dateRange: {
+                  type: 'string',
+                },
+                employer: {
+                  type: 'string',
+                },
+                location: {
+                  type: ['string', 'null'],
+                },
+                roleTitle: {
                   type: 'string',
                 },
               },
-              required: ['bullets', 'heading'],
+              required: ['bullets', 'dateRange', 'employer', 'location', 'roleTitle'],
               type: 'object',
             },
             type: 'array',

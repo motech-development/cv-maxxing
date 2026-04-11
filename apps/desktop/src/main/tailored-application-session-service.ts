@@ -11,7 +11,7 @@ import type {
 import type { OriginalCvSummary } from '../shared/original-cv.js'
 import type {
   AdaptationSummaryModel,
-  AdaptedCvExperienceHighlight,
+  AdaptedCvExperienceEntry,
   AdaptedCvModel,
   AdaptedCvSkill,
   CoverLetterModel,
@@ -1374,7 +1374,7 @@ function isGeneratedAdaptedCvSection(
     return (
       Array.isArray(candidate.items) &&
       candidate.items.every((experienceHighlight) => {
-        return isAdaptedCvExperienceHighlight(experienceHighlight)
+        return isAdaptedCvExperienceEntry(experienceHighlight)
       })
     )
   }
@@ -1412,7 +1412,7 @@ function hasRequiredAdaptedCvSections(sections: unknown[]): boolean {
   )
 }
 
-function isAdaptedCvExperienceHighlight(value: unknown): value is AdaptedCvExperienceHighlight {
+function isAdaptedCvExperienceEntry(value: unknown): value is AdaptedCvExperienceEntry {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) {
     return false
   }
@@ -1420,7 +1420,10 @@ function isAdaptedCvExperienceHighlight(value: unknown): value is AdaptedCvExper
   const candidate = value as Record<string, unknown>
 
   return (
-    typeof candidate.heading === 'string' &&
+    typeof candidate.dateRange === 'string' &&
+    typeof candidate.employer === 'string' &&
+    (candidate.location === null || typeof candidate.location === 'string') &&
+    typeof candidate.roleTitle === 'string' &&
     Array.isArray(candidate.bullets) &&
     candidate.bullets.every((bullet) => {
       return isGroundedText(bullet)

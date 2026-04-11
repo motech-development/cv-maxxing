@@ -857,6 +857,85 @@ test('rejects generation output when the JSON contract shape is invalid', async 
   )
 })
 
+test('rejects adapted output when structured experience semantics are incomplete', async () => {
+  const harness = await createHarness()
+
+  await seedOriginalCvAndVacancy(harness)
+
+  const service = createTailoredApplicationSessionService({
+    adaptedCvRenderer: {
+      renderAdaptedCvPdf: vi.fn().mockResolvedValue({
+        pageCount: 1,
+        pageWarning: null,
+        pdfBytes: new Uint8Array([37, 80, 68, 70]),
+      }),
+    },
+    coverLetterRenderer: {
+      renderCoverLetterPdf: vi.fn().mockResolvedValue({
+        pageCount: 1,
+        pageWarning: null,
+        pdfBytes: new Uint8Array([37, 80, 68, 70, 45, 67, 76]),
+      }),
+    },
+    aiWorker: {
+      retryAiWorkerPreflight: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+    },
+    generateId: createIdGenerator(['command-123', 'run-123', 'tailored-application-123']),
+    getCurrentTimestamp: () => {
+      return '2026-04-09T09:30:00.000Z'
+    },
+    localAppData: harness.localAppData,
+    readinessStore: harness.readinessStore,
+    runWorkspaceRootPath: path.join(harness.paths.rootDirectoryPath, 'runs'),
+    worker: {
+      runGeneration: () => {
+        const result = createValidGenerationResult()
+        const [profileSection] = result.adaptedCv.sections
+
+        if (profileSection === undefined) {
+          throw new Error('Expected the profile section to exist in the test fixture.')
+        }
+
+        return Promise.resolve({
+          ...result,
+          adaptedCv: {
+            ...result.adaptedCv,
+            sections: [
+              profileSection,
+              {
+                items: [{} as never],
+                kind: 'experience',
+              },
+              ...result.adaptedCv.sections.slice(2),
+            ],
+          },
+        })
+      },
+    },
+  })
+
+  await service.startPendingGeneration({
+    originalCvId: 'original-cv-123',
+    originalCvLabel: 'ada-lovelace.pdf',
+    vacancyDraft: {
+      text: 'Senior platform engineer',
+      url: 'https://jobs.example.com/roles/123',
+    },
+  })
+
+  const resumePromise = service.resumePendingGeneration()
+
+  await expect(resumePromise).rejects.toMatchObject({
+    code: 'adapted_cv_invalid',
+    path: 'adaptedCv',
+  })
+})
+
 test('derives the persisted cover-letter plain text from the canonical cover-letter model', async () => {
   const harness = await createHarness()
 
@@ -1690,7 +1769,10 @@ function createValidGenerationResult(): TailoredApplicationGenerationResult {
                   text: 'Led product design for AI-assisted desktop tooling used by technical teams.',
                 },
               ],
-              heading: 'Analytical Engines Ltd',
+              dateRange: '2022 — Present',
+              employer: 'Analytical Engines Ltd',
+              location: 'London',
+              roleTitle: 'Lead Product Designer',
             },
           ],
           kind: 'experience',

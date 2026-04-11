@@ -5,7 +5,7 @@ import {
   createAdaptedCvDocument,
   resolveUniqueExportFilePath,
 } from '../adapted-cv-document.js'
-import type { AdaptedCvModel } from '../../shared/tailored-application.js'
+import type { AdaptedCvExperienceEntry, AdaptedCvModel } from '../../shared/tailored-application.js'
 
 function createAdaptedCvInput(): {
   adaptedCv: AdaptedCvModel
@@ -38,22 +38,25 @@ function createAdaptedCvInput(): {
         },
         {
           items: [
-            {
+            createExperienceEntry({
               bullets: [
-                {
-                  text: 'Led product design for AI-assisted desktop tooling used by technical teams.',
-                },
+                'Led product design for AI-assisted desktop tooling used by technical teams.',
+                'Prioritised workflow evidence in the bullet order used for this tailored CV.',
               ],
-              heading: 'Analytical Engines Ltd',
-            },
-            {
+              dateRange: '2022 — Present',
+              employer: 'Analytical Engines Ltd',
+              location: 'London',
+              roleTitle: 'Lead Product Designer',
+            }),
+            createExperienceEntry({
               bullets: [
-                {
-                  text: 'Partnered with engineering on complex workflow software for regulated users.',
-                },
+                'Partnered with engineering on complex workflow software for regulated users.',
               ],
-              heading: 'Difference Engines Studio',
-            },
+              dateRange: '2019 — 2022',
+              employer: 'Difference Engines Studio',
+              location: 'Stockholm',
+              roleTitle: 'Senior Product Designer',
+            }),
           ],
           kind: 'experience',
         },
@@ -96,6 +99,8 @@ test('renders a single-page adapted CV document using the authoritative v1 secti
   expect(document.html).toContain('ada-lovelace.dev')
   expect(document.html).toContain('PROFILE')
   expect(document.html).toContain('EXPERIENCE')
+  expect(document.html).toContain('Lead Product Designer · Analytical Engines Ltd')
+  expect(document.html).toContain('London · 2022 — Present')
   expect(document.html).toContain('CORE SKILLS')
   expect(document.html).toContain('REFERENCES')
   expect(document.html).toContain('Available on request')
@@ -146,6 +151,25 @@ test('renders mandatory sections in canonical template order and preserves conta
   expect(linkIndex).toBeGreaterThan(emailIndex)
 })
 
+test('renders structured experience entries with chronology and within-role bullet ordering preserved', () => {
+  const document = createAdaptedCvDocument(createAdaptedCvInput())
+  const newestRoleIndex = document.html.indexOf('Lead Product Designer · Analytical Engines Ltd')
+  const olderRoleIndex = document.html.indexOf(
+    'Senior Product Designer · Difference Engines Studio',
+  )
+  const firstBulletIndex = document.html.indexOf(
+    'Led product design for AI-assisted desktop tooling used by technical teams.',
+  )
+  const secondBulletIndex = document.html.indexOf(
+    'Prioritised workflow evidence in the bullet order used for this tailored CV.',
+  )
+
+  expect(newestRoleIndex).toBeGreaterThan(-1)
+  expect(olderRoleIndex).toBeGreaterThan(newestRoleIndex)
+  expect(firstBulletIndex).toBeGreaterThan(newestRoleIndex)
+  expect(secondBulletIndex).toBeGreaterThan(firstBulletIndex)
+})
+
 test('creates continued headers and a non-blocking warning when pagination exceeds the v1 threshold', () => {
   const longInput = createAdaptedCvInput()
 
@@ -153,21 +177,18 @@ test('creates continued headers and a non-blocking warning when pagination excee
     items: Array.from({ length: 18 }, (_, index) => {
       const itemNumber = String(index + 1)
 
-      return {
+      return createExperienceEntry({
         bullets: [
-          {
-            text:
-              `Owned complex desktop workflow redesign ${itemNumber}, improving clarity across ` +
-              'multi-step technical onboarding, audit trails, and operator review tooling.',
-          },
-          {
-            text:
-              `Shipped evidence-heavy workflow narrative ${itemNumber} for highly technical users ` +
-              'without dropping source-grounded proof points.',
-          },
+          `Owned complex desktop workflow redesign ${itemNumber}, improving clarity across ` +
+            'multi-step technical onboarding, audit trails, and operator review tooling.',
+          `Shipped evidence-heavy workflow narrative ${itemNumber} for highly technical users ` +
+            'without dropping source-grounded proof points.',
         ],
-        heading: `Experience heading ${itemNumber}`,
-      }
+        dateRange: `20${itemNumber.padStart(2, '0')} — Present`,
+        employer: `Employer ${itemNumber}`,
+        location: `Location ${itemNumber}`,
+        roleTitle: `Role ${itemNumber}`,
+      })
     }),
     kind: 'experience',
   }
@@ -178,6 +199,8 @@ test('creates continued headers and a non-blocking warning when pagination excee
   expect(document.pageWarning).toContain(`${String(document.pageCount)} pages`)
   expect(document.html).toContain('Curriculum Vitae - Continued')
   expect(document.html).toContain('EXPERIENCE (CONTINUED)')
+  expect(document.html).toContain('Role 1 · Employer 1')
+  expect(document.html).toContain('Location 1 · 2001 — Present')
 })
 
 test('builds safe readable export names and resolves overwrite collisions without silent replacement', async () => {
@@ -203,3 +226,29 @@ test('builds safe readable export names and resolves overwrite collisions withou
     ),
   ).resolves.toBe('/exports/Ada Lovelace - Senior platform engineer - adapted-cv (3).pdf')
 })
+
+function createExperienceEntry({
+  bullets,
+  dateRange,
+  employer,
+  location,
+  roleTitle,
+}: {
+  bullets: string[]
+  dateRange: string
+  employer: string
+  location: string | null
+  roleTitle: string
+}): AdaptedCvExperienceEntry {
+  return {
+    bullets: bullets.map((text) => {
+      return {
+        text,
+      }
+    }),
+    dateRange,
+    employer,
+    location,
+    roleTitle,
+  }
+}

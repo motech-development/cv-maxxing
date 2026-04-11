@@ -20,9 +20,12 @@ export interface AdaptedCvHeader extends GeneratedAdaptedCvHeader {
   contact: AdaptedCvHeaderContact
 }
 
-export interface AdaptedCvExperienceHighlight {
+export interface AdaptedCvExperienceEntry {
   bullets: GroundedText[]
-  heading: string
+  dateRange: string
+  employer: string
+  location: string | null
+  roleTitle: string
 }
 
 export interface AdaptedCvSkill {
@@ -35,7 +38,7 @@ export interface AdaptedCvProfileSection {
 }
 
 export interface AdaptedCvExperienceSection {
-  items: AdaptedCvExperienceHighlight[]
+  items: AdaptedCvExperienceEntry[]
   kind: 'experience'
 }
 
