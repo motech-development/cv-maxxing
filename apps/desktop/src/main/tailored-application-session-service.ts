@@ -51,6 +51,7 @@ const ADAPTED_CV_PDF_ARTIFACT_NAME = 'adapted-cv.pdf'
 const COVER_LETTER_PDF_ARTIFACT_NAME = 'cover-letter.pdf'
 const TAILORED_APPLICATION_CONTRACT_ERROR_MESSAGE =
   'Generated tailored application failed contract validation.'
+const MAX_PROFILE_SUMMARY_LENGTH = 900
 
 export interface TailoredApplicationGenerationWorker {
   runGeneration: (input: {
@@ -1344,7 +1345,8 @@ function isGeneratedAdaptedCvModel(value: unknown): value is GeneratedAdaptedCvM
     candidate.sections.every((section) => {
       return isGeneratedAdaptedCvSection(section)
     }) &&
-    hasRequiredAdaptedCvSections(candidate.sections)
+    hasRequiredAdaptedCvSections(candidate.sections) &&
+    isGeneratedAdaptedCvTemplateFit(candidate as unknown as GeneratedAdaptedCvModel)
   )
 }
 
@@ -1367,12 +1369,13 @@ function isGeneratedAdaptedCvSection(
   const candidate = value as Record<string, unknown>
 
   if (candidate.kind === 'profile') {
-    return isGroundedText(candidate.summary)
+    return isNonEmptyGroundedText(candidate.summary)
   }
 
   if (candidate.kind === 'experience') {
     return (
       Array.isArray(candidate.items) &&
+      candidate.items.length > 0 &&
       candidate.items.every((experienceHighlight) => {
         return isAdaptedCvExperienceEntry(experienceHighlight)
       })
@@ -1380,20 +1383,15 @@ function isGeneratedAdaptedCvSection(
   }
 
   if (candidate.kind === 'core_skills') {
-    return isAdaptedCvSkillList(candidate.items, 6)
+    return isRequiredAdaptedCvSkillList(candidate.items, 6)
   }
 
   if (candidate.kind === 'selected_work' || candidate.kind === 'impact_highlights') {
-    return (
-      Array.isArray(candidate.items) &&
-      candidate.items.every((item) => {
-        return isGroundedText(item)
-      })
-    )
+    return isGroundedTextList(candidate.items)
   }
 
   if (candidate.kind === 'tools') {
-    return isGroundedTextListWithinCap(candidate.items, 6)
+    return isOptionalGroundedTextListWithinCap(candidate.items, 6)
   }
 
   if (candidate.kind === 'education') {
@@ -1401,11 +1399,11 @@ function isGeneratedAdaptedCvSection(
   }
 
   if (candidate.kind === 'certifications') {
-    return isGroundedTextListWithinCap(candidate.items, 2)
+    return isOptionalGroundedTextListWithinCap(candidate.items, 2)
   }
 
   if (candidate.kind === 'languages' || candidate.kind === 'focus') {
-    return isGroundedTextListWithinCap(candidate.items, 3)
+    return isOptionalGroundedTextListWithinCap(candidate.items, 3)
   }
 
   return candidate.kind === 'references'
@@ -1441,12 +1439,16 @@ function isAdaptedCvExperienceEntry(value: unknown): value is AdaptedCvExperienc
 
   return (
     typeof candidate.dateRange === 'string' &&
+    candidate.dateRange.trim() !== '' &&
     typeof candidate.employer === 'string' &&
+    candidate.employer.trim() !== '' &&
     (candidate.location === null || typeof candidate.location === 'string') &&
     typeof candidate.roleTitle === 'string' &&
+    candidate.roleTitle.trim() !== '' &&
     Array.isArray(candidate.bullets) &&
+    candidate.bullets.length > 0 &&
     candidate.bullets.every((bullet) => {
-      return isGroundedText(bullet)
+      return isNonEmptyGroundedText(bullet)
     })
   )
 }
@@ -1456,13 +1458,15 @@ function isAdaptedCvSkill(value: unknown): value is AdaptedCvSkill {
     value !== null &&
     typeof value === 'object' &&
     !Array.isArray(value) &&
-    typeof (value as Record<string, unknown>).text === 'string'
+    typeof (value as Record<string, unknown>).text === 'string' &&
+    ((value as Record<string, unknown>).text as string).trim() !== ''
   )
 }
 
-function isAdaptedCvSkillList(value: unknown, maximumItems: number): boolean {
+function isRequiredAdaptedCvSkillList(value: unknown, maximumItems: number): boolean {
   return (
     Array.isArray(value) &&
+    value.length > 0 &&
     value.length <= maximumItems &&
     value.every((item) => {
       return isAdaptedCvSkill(item)
@@ -1470,12 +1474,21 @@ function isAdaptedCvSkillList(value: unknown, maximumItems: number): boolean {
   )
 }
 
-function isGroundedTextListWithinCap(value: unknown, maximumItems: number): boolean {
+function isGroundedTextList(value: unknown): boolean {
+  return (
+    Array.isArray(value) &&
+    value.every((item) => {
+      return isNonEmptyGroundedText(item)
+    })
+  )
+}
+
+function isOptionalGroundedTextListWithinCap(value: unknown, maximumItems: number): boolean {
   return (
     Array.isArray(value) &&
     value.length <= maximumItems &&
     value.every((item) => {
-      return isGroundedText(item)
+      return isNonEmptyGroundedText(item)
     })
   )
 }
@@ -1491,8 +1504,26 @@ function isAdaptedCvEducationEntry(
     typeof value === 'object' &&
     !Array.isArray(value) &&
     typeof (value as Record<string, unknown>).meta === 'string' &&
-    typeof (value as Record<string, unknown>).title === 'string'
+    ((value as Record<string, unknown>).meta as string).trim() !== '' &&
+    typeof (value as Record<string, unknown>).title === 'string' &&
+    ((value as Record<string, unknown>).title as string).trim() !== ''
   )
+}
+
+function isGeneratedAdaptedCvTemplateFit(value: GeneratedAdaptedCvModel): boolean {
+  const profileSection = value.sections.find((section) => {
+    return section.kind === 'profile'
+  })
+
+  if (profileSection?.kind !== 'profile') {
+    return false
+  }
+
+  return profileSection.summary.text.length <= MAX_PROFILE_SUMMARY_LENGTH
+}
+
+function isNonEmptyGroundedText(value: unknown): value is GroundedText {
+  return isGroundedText(value) && value.text.trim() !== ''
 }
 
 function isGroundedText(value: unknown): value is GroundedText {
