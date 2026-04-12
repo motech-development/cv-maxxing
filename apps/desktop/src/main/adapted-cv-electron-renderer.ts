@@ -3,7 +3,7 @@ import { createRequire } from 'node:module'
 import { pathToFileURL } from 'node:url'
 
 import type { AdaptedCvRenderer } from './tailored-application-session-service.js'
-import { createAdaptedCvDocument } from './adapted-cv-document.js'
+import { buildAdaptedCvPageWarning, createAdaptedCvDocument } from './adapted-cv-document.js'
 
 const require = createRequire(import.meta.url)
 const manrope400Url = pathToFileURL(
@@ -37,9 +37,7 @@ export function createElectronAdaptedCvRenderer(): AdaptedCvRenderer {
         const html = injectFontFaceCss(document.html)
 
         await renderWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`)
-        await renderWindow.webContents.executeJavaScript(
-          'document.fonts?.ready ? document.fonts.ready.then(() => true) : Promise.resolve(true)',
-        )
+        const pageCount = await waitForAdaptedCvPagination(renderWindow)
 
         const pdfBytes = await renderWindow.webContents.printToPDF({
           landscape: false,
@@ -55,8 +53,8 @@ export function createElectronAdaptedCvRenderer(): AdaptedCvRenderer {
         })
 
         return {
-          pageCount: document.pageCount,
-          pageWarning: document.pageWarning,
+          pageCount,
+          pageWarning: buildAdaptedCvPageWarning(pageCount),
           pdfBytes: new Uint8Array(pdfBytes),
         }
       } finally {
@@ -91,4 +89,51 @@ function injectFontFaceCss(html: string): string {
   `
 
   return html.replace('<style>', `<style>${fontFaceCss}`)
+}
+
+async function waitForAdaptedCvPagination(renderWindow: BrowserWindow): Promise<number> {
+  const pageCountResult: unknown = await renderWindow.webContents.executeJavaScript(`
+    (() => {
+      const readyState = document.body?.dataset?.cvReady
+
+      if (readyState === 'true') {
+        return Promise.resolve(Number.parseInt(document.body.dataset.pageCount ?? '0', 10))
+      }
+
+      if (readyState === 'error') {
+        return Promise.reject(
+          new Error(document.body?.dataset?.cvError ?? 'Adapted CV pagination failed.')
+        )
+      }
+
+      return new Promise((resolve, reject) => {
+        const handleReady = () => {
+          document.removeEventListener('adapted-cv-error', handleError)
+          resolve(Number.parseInt(document.body?.dataset?.pageCount ?? '0', 10))
+        }
+
+        const handleError = () => {
+          document.removeEventListener('adapted-cv-ready', handleReady)
+          reject(new Error(document.body?.dataset?.cvError ?? 'Adapted CV pagination failed.'))
+        }
+
+        document.addEventListener('adapted-cv-ready', handleReady, { once: true })
+        document.addEventListener('adapted-cv-error', handleError, { once: true })
+      })
+    })()
+  `)
+
+  if (
+    typeof pageCountResult !== 'number' ||
+    !Number.isInteger(pageCountResult) ||
+    pageCountResult < 1
+  ) {
+    throw new Error(
+      `Expected adapted CV pagination to produce at least one page, received ${String(pageCountResult)}.`,
+    )
+  }
+
+  const pageCount = pageCountResult
+
+  return pageCount
 }

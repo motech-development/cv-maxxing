@@ -43,6 +43,7 @@ These rules always apply. Follow project-local rules first when they are more sp
 - When the renderer owns a custom desktop shell header, configure the macOS Electron window to hide duplicate native title-bar chrome and do not render faux traffic-light controls inside the shell.
 - When editing `.pen` files through the Pencil editor, treat the editor state as authoritative until the user saves; disk reads and git diffs will not reflect unsaved Pencil changes.
 - Treat `design/cv.pen` as the authoritative reference for CV/PDF visual layout, with `design/cv.html` as the implementation reference for HTML-based rendering and PDF export.
+- Keep browser functions serialized into injected CV/PDF HTML fully self-contained. Do not reference module-scope helpers or constants from code embedded via `String(fn)` in the Electron print pipeline.
 - The product is Electron-first and local desktop-first; do not introduce a required web backend unless a later task proves it necessary.
 - V1 targets macOS Intel.
 - Use a provider-neutral local AI worker architecture for generation workflows; v1 ships a bring-your-own Codex CLI adapter only.

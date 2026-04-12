@@ -2,7 +2,9 @@ import { expect, test } from 'vitest'
 
 import {
   buildAdaptedCvExportFilename,
+  buildAdaptedCvPageWarning,
   createAdaptedCvDocument,
+  createAdaptedCvRenderPayload,
   resolveUniqueExportFilePath,
 } from '../adapted-cv-document.js'
 import type { AdaptedCvExperienceEntry, AdaptedCvModel } from '../../shared/tailored-application.js'
@@ -84,33 +86,23 @@ function createAdaptedCvInput(): {
   }
 }
 
-test('renders a single-page adapted CV document using the authoritative v1 section structure', () => {
+test('renders an adapted CV html shell that bootstraps browser pagination', () => {
   const document = createAdaptedCvDocument(createAdaptedCvInput())
 
-  expect(document.pageCount).toBe(1)
-  expect(document.pageWarning).toBeNull()
-  expect(document.html).toContain('class="cv-page page-1"')
+  expect(document.html).toContain('<main class="cv-document" id="cv-document-root"></main>')
+  expect(document.html).toContain('<script id="adapted-cv-data" type="application/json">')
+  expect(document.html).toContain('const renderPages = function renderAdaptedCvPagesInBrowser')
+  expect(document.html).not.toContain('DEFAULT_ROOT_ELEMENT_ID')
+  expect(document.html).not.toContain('doesPageOverflowWithBottomClearance')
+  expect(document.html).not.toContain('doesElementOverflowPageWithBottomClearance')
   expect(document.html).toContain('Ada Lovelace')
   expect(document.html).toContain('Principal Product Designer')
-  expect(document.html).toContain('Design leader shaping truthful desktop workflow products')
-  expect(document.html).toContain('London, United Kingdom')
-  expect(document.html).toContain('+44 7700 900123')
-  expect(document.html).toContain('ada@lovelace.dev')
-  expect(document.html).toContain('ada-lovelace.dev')
-  expect(document.html).toContain('PROFILE')
-  expect(document.html).toContain('EXPERIENCE')
-  expect(document.html).toContain('Lead Product Designer · Analytical Engines Ltd')
-  expect(document.html).toContain('London · 2022 — Present')
-  expect(document.html).toContain('CORE SKILLS')
-  expect(document.html).toContain('REFERENCES')
-  expect(document.html).toContain('Available on request')
   expect(document.html).not.toContain('Tailored for')
   expect(document.html).not.toContain('<p>Adapted CV</p>')
   expect(document.html).not.toContain('PDF preview artifact')
-  expect(document.html).not.toContain('(CONTINUED)')
 })
 
-test('renders mandatory sections in canonical template order and preserves contact priority ordering', () => {
+test('builds canonical payload ordering and preserves contact priority ordering', () => {
   const input = createAdaptedCvInput()
   const [profileSection, experienceSection, coreSkillsSection, referencesSection] =
     input.adaptedCv.sections
@@ -131,43 +123,42 @@ test('renders mandatory sections in canonical template order and preserves conta
     coreSkillsSection,
   ]
 
-  const document = createAdaptedCvDocument(input)
-  const profileIndex = document.html.indexOf('PROFILE')
-  const experienceIndex = document.html.indexOf('EXPERIENCE')
-  const coreSkillsIndex = document.html.indexOf('CORE SKILLS')
-  const referencesIndex = document.html.indexOf('REFERENCES')
-  const locationIndex = document.html.indexOf('London, United Kingdom')
-  const phoneIndex = document.html.indexOf('+44 7700 900123')
-  const emailIndex = document.html.indexOf('ada@lovelace.dev')
-  const linkIndex = document.html.indexOf('ada-lovelace.dev')
+  const payload = createAdaptedCvRenderPayload(input)
 
-  expect(profileIndex).toBeGreaterThan(-1)
-  expect(experienceIndex).toBeGreaterThan(profileIndex)
-  expect(coreSkillsIndex).toBeGreaterThan(experienceIndex)
-  expect(referencesIndex).toBeGreaterThan(coreSkillsIndex)
-  expect(locationIndex).toBeGreaterThan(-1)
-  expect(phoneIndex).toBeGreaterThan(locationIndex)
-  expect(emailIndex).toBeGreaterThan(phoneIndex)
-  expect(linkIndex).toBeGreaterThan(emailIndex)
+  expect(payload.profileText).toContain('Design leader adapting complex desktop workflow products')
+  expect(payload.continuableSections.map((section) => section.label)).toEqual(['EXPERIENCE'])
+  expect(payload.rightSections.map((section) => section.label)).toEqual([
+    'CORE SKILLS',
+    'REFERENCES',
+  ])
+  expect(payload.contactLines).toEqual([
+    'London, United Kingdom',
+    '+44 7700 900123',
+    'ada@lovelace.dev',
+    'ada-lovelace.dev',
+  ])
 })
 
-test('renders structured experience entries with chronology and within-role bullet ordering preserved', () => {
-  const document = createAdaptedCvDocument(createAdaptedCvInput())
-  const newestRoleIndex = document.html.indexOf('Lead Product Designer · Analytical Engines Ltd')
-  const olderRoleIndex = document.html.indexOf(
-    'Senior Product Designer · Difference Engines Studio',
-  )
-  const firstBulletIndex = document.html.indexOf(
+test('preserves structured experience chronology and bullet ordering in the render payload', () => {
+  const payload = createAdaptedCvRenderPayload(createAdaptedCvInput())
+  const experienceSection = payload.continuableSections[0]
+
+  if (experienceSection?.kind !== 'experience') {
+    throw new Error('Expected the first continuable section to be experience.')
+  }
+
+  const [newestRole, olderRole] = experienceSection.items
+
+  expect(newestRole?.roleTitle).toBe('Lead Product Designer')
+  expect(newestRole?.employer).toBe('Analytical Engines Ltd')
+  expect(newestRole?.bullets[0]?.text).toBe(
     'Led product design for AI-assisted desktop tooling used by technical teams.',
   )
-  const secondBulletIndex = document.html.indexOf(
+  expect(newestRole?.bullets[1]?.text).toBe(
     'Prioritised workflow evidence in the bullet order used for this tailored CV.',
   )
-
-  expect(newestRoleIndex).toBeGreaterThan(-1)
-  expect(olderRoleIndex).toBeGreaterThan(newestRoleIndex)
-  expect(firstBulletIndex).toBeGreaterThan(newestRoleIndex)
-  expect(secondBulletIndex).toBeGreaterThan(firstBulletIndex)
+  expect(olderRole?.roleTitle).toBe('Senior Product Designer')
+  expect(olderRole?.employer).toBe('Difference Engines Studio')
 })
 
 test('omits optional left-column evidence sections when they are empty', () => {
@@ -185,13 +176,12 @@ test('omits optional left-column evidence sections when they are empty', () => {
     },
   ]
 
-  const document = createAdaptedCvDocument(input)
+  const payload = createAdaptedCvRenderPayload(input)
 
-  expect(document.html).not.toContain('SELECTED WORK')
-  expect(document.html).not.toContain('IMPACT HIGHLIGHTS')
+  expect(payload.continuableSections.map((section) => section.label)).toEqual(['EXPERIENCE'])
 })
 
-test('renders capped sidebar sections in canonical order on page 1 only', () => {
+test('builds sidebar sections in canonical order for the page one rail', () => {
   const input = createAdaptedCvInput()
 
   input.adaptedCv.sections = [
@@ -251,124 +241,42 @@ test('renders capped sidebar sections in canonical order on page 1 only', () => 
       kind: 'tools',
     },
   ]
-  input.adaptedCv.sections[1] = {
-    items: Array.from({ length: 18 }, (_, index) => {
-      const itemNumber = String(index + 1)
 
-      return createExperienceEntry({
-        bullets: [
-          `Structured experience bullet ${itemNumber} about technical workflow delivery and evidence grounding.`,
-        ],
-        dateRange: `20${itemNumber.padStart(2, '0')} — Present`,
-        employer: `Employer ${itemNumber}`,
-        location: `Location ${itemNumber}`,
-        roleTitle: `Role ${itemNumber}`,
-      })
-    }),
-    kind: 'experience',
-  }
+  const payload = createAdaptedCvRenderPayload(input)
 
-  const document = createAdaptedCvDocument(input)
-  const pageOneMarkup = getPageMarkup(document.html, 1)
-  const pageTwoMarkup = getPageMarkup(document.html, 2)
-  const coreSkillsIndex = pageOneMarkup.indexOf('CORE SKILLS')
-  const toolsIndex = pageOneMarkup.indexOf('TOOLS')
-  const educationIndex = pageOneMarkup.indexOf('EDUCATION')
-  const certificationsIndex = pageOneMarkup.indexOf('CERTIFICATIONS')
-  const languagesIndex = pageOneMarkup.indexOf('LANGUAGES')
-  const focusIndex = pageOneMarkup.indexOf('FOCUS')
-  const referencesIndex = pageOneMarkup.indexOf('REFERENCES')
-
-  expect(coreSkillsIndex).toBeGreaterThan(-1)
-  expect(toolsIndex).toBeGreaterThan(coreSkillsIndex)
-  expect(educationIndex).toBeGreaterThan(toolsIndex)
-  expect(certificationsIndex).toBeGreaterThan(educationIndex)
-  expect(languagesIndex).toBeGreaterThan(certificationsIndex)
-  expect(focusIndex).toBeGreaterThan(languagesIndex)
-  expect(referencesIndex).toBeGreaterThan(focusIndex)
-  expect(pageOneMarkup).toContain('BSc Computer Science')
-  expect(pageOneMarkup).toContain('UCL · 2015 — 2018')
-  expect(pageTwoMarkup).not.toContain('TOOLS')
-  expect(pageTwoMarkup).not.toContain('EDUCATION')
-  expect(pageTwoMarkup).not.toContain('CERTIFICATIONS')
-  expect(pageTwoMarkup).not.toContain('LANGUAGES')
-  expect(pageTwoMarkup).not.toContain('FOCUS')
-  expect(pageTwoMarkup).not.toContain('REFERENCES')
+  expect(payload.rightSections.map((section) => section.label)).toEqual([
+    'CORE SKILLS',
+    'TOOLS',
+    'EDUCATION',
+    'CERTIFICATIONS',
+    'LANGUAGES',
+    'FOCUS',
+    'REFERENCES',
+  ])
 })
 
-test('creates continued headers and a non-blocking warning when pagination exceeds the v1 threshold', () => {
-  const longInput = createAdaptedCvInput()
-
-  longInput.adaptedCv.sections[1] = {
-    items: Array.from({ length: 18 }, (_, index) => {
-      const itemNumber = String(index + 1)
-
-      return createExperienceEntry({
-        bullets: [
-          `Owned complex desktop workflow redesign ${itemNumber}, improving clarity across ` +
-            'multi-step technical onboarding, audit trails, and operator review tooling.',
-          `Shipped evidence-heavy workflow narrative ${itemNumber} for highly technical users ` +
-            'without dropping source-grounded proof points.',
-        ],
-        dateRange: `20${itemNumber.padStart(2, '0')} — Present`,
-        employer: `Employer ${itemNumber}`,
-        location: `Location ${itemNumber}`,
-        roleTitle: `Role ${itemNumber}`,
-      })
-    }),
-    kind: 'experience',
-  }
-
-  const document = createAdaptedCvDocument(longInput)
-
-  expect(document.pageCount).toBeGreaterThan(3)
-  expect(document.pageWarning).toContain(`${String(document.pageCount)} pages`)
-  expect(document.html).toContain('Curriculum Vitae - Continued')
-  expect(document.html).toContain('EXPERIENCE (CONTINUED)')
-  expect(document.html).toContain('Role 1 · Employer 1')
-  expect(document.html).toContain('Location 1 · 2001 — Present')
-})
-
-test('uses continued-page padding without adding an extra header inset', () => {
-  const longInput = createAdaptedCvInput()
-
-  longInput.adaptedCv.sections[1] = {
-    items: Array.from({ length: 18 }, (_, index) => {
-      const itemNumber = String(index + 1)
-
-      return createExperienceEntry({
-        bullets: [
-          `Owned complex desktop workflow redesign ${itemNumber}, improving clarity across ` +
-            'multi-step technical onboarding, audit trails, and operator review tooling.',
-          `Shipped evidence-heavy workflow narrative ${itemNumber} for highly technical users ` +
-            'without dropping source-grounded proof points.',
-        ],
-        dateRange: `20${itemNumber.padStart(2, '0')} — Present`,
-        employer: `Employer ${itemNumber}`,
-        location: `Location ${itemNumber}`,
-        roleTitle: `Role ${itemNumber}`,
-      })
-    }),
-    kind: 'experience',
-  }
-
-  const document = createAdaptedCvDocument(longInput)
-
-  expect(document.pageCount).toBeGreaterThan(1)
-  expect(document.html).toContain('.page-2,')
-  expect(document.html).toContain('padding: 36px 58px 52px;')
-  expect(document.html).not.toContain(
-    '.header-continued {\n      display: flex;\n      flex-direction: column;\n      gap: 8px;\n      padding: 36px 58px 0;',
+test('builds a non-blocking warning only when the actual page count exceeds the threshold', () => {
+  expect(buildAdaptedCvPageWarning(3)).toBeNull()
+  expect(buildAdaptedCvPageWarning(4)).toBe(
+    'This adapted CV runs to 4 pages. Export is still available.',
   )
 })
 
-test('finishes a continued selected-work section before impact highlights begin', () => {
+test('uses generalized continued-page padding without a header inset hack', () => {
+  const document = createAdaptedCvDocument(createAdaptedCvInput())
+
+  expect(document.html).toContain('.cv-page:not(.page-1)')
+  expect(document.html).toContain('padding: 36px 58px 52px;')
+  expect(document.html).not.toContain('padding: 36px 58px 0;')
+})
+
+test('keeps selected work ahead of impact highlights in the continuable payload order', () => {
   const input = createAdaptedCvInput()
 
   input.adaptedCv.sections = [
     ...input.adaptedCv.sections,
     {
-      items: Array.from({ length: 18 }, (_, index) => {
+      items: Array.from({ length: 3 }, (_, index) => {
         return {
           text:
             `Selected work line ${String(index + 1)} with grounded workflow evidence for ` +
@@ -390,15 +298,13 @@ test('finishes a continued selected-work section before impact highlights begin'
     },
   ]
 
-  const document = createAdaptedCvDocument(input)
-  const pageTwoMarkup = getPageMarkup(document.html, 2)
-  const firstImpactHighlightsIndex = document.html.indexOf('IMPACT HIGHLIGHTS')
-  const lastSelectedWorkContinuationIndex = document.html.lastIndexOf('SELECTED WORK (CONTINUED)')
+  const payload = createAdaptedCvRenderPayload(input)
 
-  expect(document.pageCount).toBeGreaterThanOrEqual(3)
-  expect(pageTwoMarkup).toContain('SELECTED WORK (CONTINUED)')
-  expect(pageTwoMarkup).not.toContain('IMPACT HIGHLIGHTS')
-  expect(firstImpactHighlightsIndex).toBeGreaterThan(lastSelectedWorkContinuationIndex)
+  expect(payload.continuableSections.map((section) => section.label)).toEqual([
+    'EXPERIENCE',
+    'SELECTED WORK',
+    'IMPACT HIGHLIGHTS',
+  ])
 })
 
 test('builds safe readable export names and resolves overwrite collisions without silent replacement', async () => {
@@ -449,17 +355,4 @@ function createExperienceEntry({
     location,
     roleTitle,
   }
-}
-
-function getPageMarkup(html: string, pageNumber: number): string {
-  const startMarker = `<section class="cv-page page-${String(pageNumber)}">`
-  const nextMarker = `<section class="cv-page page-${String(pageNumber + 1)}">`
-  const startIndex = html.indexOf(startMarker)
-  const nextIndex = html.indexOf(nextMarker)
-
-  if (startIndex === -1) {
-    throw new Error(`Expected page ${String(pageNumber)} to exist in the rendered document.`)
-  }
-
-  return nextIndex === -1 ? html.slice(startIndex) : html.slice(startIndex, nextIndex)
 }
