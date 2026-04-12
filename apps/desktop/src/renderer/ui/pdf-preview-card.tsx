@@ -61,7 +61,7 @@ function LoadedPdfPreviewCard({
 
     async function renderPdfPage(): Promise<void> {
       activeLoadingTask = getDocument({
-        data: activePreview.pdfBytes,
+        data: Uint8Array.from(activePreview.pdfBytes),
       })
 
       try {
