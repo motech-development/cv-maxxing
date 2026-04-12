@@ -89,6 +89,11 @@ These rules always apply. Follow project-local rules first when they are more sp
   - “I understand.”
   - “I see the issue.”
 
+### Consultation First
+
+- When the user presents a problem, do not jump straight into implementation.
+- First present the proposed solution, intended scope, and key assumptions, then consult with the user before making changes.
+
 ---
 
 ## 3) Reconnaissance Before Change
