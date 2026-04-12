@@ -29,6 +29,25 @@ const OUTPUT_SCHEMA = {
     normalizedCv: {
       additionalProperties: false,
       properties: {
+        contact: {
+          additionalProperties: false,
+          properties: {
+            email: {
+              type: 'string',
+            },
+            location: {
+              type: 'string',
+            },
+            phone: {
+              type: 'string',
+            },
+            professionalLink: {
+              type: 'string',
+            },
+          },
+          required: ['email', 'location', 'phone', 'professionalLink'],
+          type: 'object',
+        },
         experience: {
           items: {
             type: 'string',
@@ -51,7 +70,7 @@ const OUTPUT_SCHEMA = {
           type: 'string',
         },
       },
-      required: ['experience', 'fullName', 'headline', 'skills', 'summary'],
+      required: ['contact', 'experience', 'fullName', 'headline', 'skills', 'summary'],
       type: 'object',
     },
     writingStyle: {
@@ -144,6 +163,14 @@ async function runCodexCliNormalization({
     'Read input/task.json, input/examples.json, and the referenced original CV text.',
     'Return JSON only.',
     'Use British English.',
+    'Extract CV contact fields into normalizedCv.contact.',
+    'Copy contact values exactly as written in the original CV when present.',
+    'Treat normalizedCv.contact.location as optional.',
+    'If the CV clearly provides a geographic location, return it in "location, country" format.',
+    'If the CV provides a location but omits the country, infer the country and include it.',
+    'Do not assume location appears in any specific section or layout position.',
+    'Do not include unrelated personal or contact details in normalizedCv.contact.location.',
+    'Use empty strings for missing contact fields instead of guessing or normalizing.',
     'Preserve source meaning.',
     'Remain non-vacancy-aware.',
     'Handle heading variants such as Profile, Core Skills, and Career Highlights.',
@@ -246,7 +273,9 @@ function parseNormalizationResultJson({
     })
   }
 
-  if (!isOriginalCvNormalizationResult(parsedOutput)) {
+  const normalizedOutput = normalizeOriginalCvNormalizationResult(parsedOutput)
+
+  if (normalizedOutput === null) {
     throw new OriginalCvNormalizationError({
       code: 'invalid_normalization',
       message: `${context} produced invalid normalization output. Preview: ${buildOutputPreview(
@@ -255,20 +284,30 @@ function parseNormalizationResultJson({
     })
   }
 
-  return parsedOutput
+  return normalizedOutput
 }
 
-function isOriginalCvNormalizationResult(value: unknown): value is OriginalCvNormalizationResult {
+function normalizeOriginalCvNormalizationResult(
+  value: unknown,
+): OriginalCvNormalizationResult | null {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) {
-    return false
+    return null
   }
 
   const candidate = value as Record<string, unknown>
 
-  return (
-    isNormalizedOriginalCv(candidate.normalizedCv) &&
-    isOriginalCvWritingStyle(candidate.writingStyle)
-  )
+  if (!isNormalizedOriginalCv(candidate.normalizedCv)) {
+    return null
+  }
+
+  if (!isOriginalCvWritingStyle(candidate.writingStyle)) {
+    return null
+  }
+
+  return {
+    normalizedCv: normalizeOriginalCv(candidate.normalizedCv),
+    writingStyle: candidate.writingStyle,
+  }
 }
 
 function isNormalizedOriginalCv(value: unknown): value is NormalizedOriginalCv {
@@ -285,6 +324,40 @@ function isNormalizedOriginalCv(value: unknown): value is NormalizedOriginalCv {
     isStringArray(candidate.experience) &&
     isStringArray(candidate.skills)
   )
+}
+
+function normalizeOriginalCv(value: unknown): NormalizedOriginalCv {
+  const candidate = value as Record<string, unknown>
+
+  return {
+    contact: normalizeOriginalCvContact(candidate.contact),
+    experience: candidate.experience as string[],
+    fullName: candidate.fullName as string,
+    headline: candidate.headline as string,
+    skills: candidate.skills as string[],
+    summary: candidate.summary as string,
+  }
+}
+
+function normalizeOriginalCvContact(value: unknown): NormalizedOriginalCv['contact'] {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    return {
+      email: '',
+      location: '',
+      phone: '',
+      professionalLink: '',
+    }
+  }
+
+  const candidate = value as Record<string, unknown>
+
+  return {
+    email: typeof candidate.email === 'string' ? candidate.email : '',
+    location: typeof candidate.location === 'string' ? candidate.location : '',
+    phone: typeof candidate.phone === 'string' ? candidate.phone : '',
+    professionalLink:
+      typeof candidate.professionalLink === 'string' ? candidate.professionalLink : '',
+  }
 }
 
 function isOriginalCvWritingStyle(value: unknown): value is OriginalCvWritingStyle {

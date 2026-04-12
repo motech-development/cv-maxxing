@@ -31,7 +31,7 @@ import {
 import type { AiWorkerPreflightService } from './ai-worker-preflight-service.js'
 import type { AiWorkerReadinessStore } from './ai-worker-readiness-store.js'
 import { buildAdaptedCvExportFilename, resolveUniqueExportFilePath } from './adapted-cv-document.js'
-import { extractAdaptedCvHeaderContact } from './adapted-cv-contact-details.js'
+import type { NormalizedOriginalCv } from './original-cv-normalization-service.js'
 import { buildCoverLetterExportFilename } from './cover-letter-document.js'
 import type { JsonValue, LocalAppDataStore } from './local-app-data-service.js'
 import {
@@ -210,6 +210,7 @@ interface CreateTailoredApplicationSessionServiceOptions {
 
 interface OriginalCvContext {
   headline: string
+  normalizedCv: NormalizedOriginalCv
   normalizedJson: string
   originalCvId: string
   originalCvText: string
@@ -388,9 +389,12 @@ export function createTailoredApplicationSessionService({
       throw new Error(ORIGINAL_CV_LANGUAGE_BLOCK_MESSAGE)
     }
 
+    const normalizedJson = normalizedJsonBuffer.toString('utf8')
+
     return {
       headline: originalCvMetadata.headline,
-      normalizedJson: normalizedJsonBuffer.toString('utf8'),
+      normalizedCv: parseNormalizedOriginalCvJson(normalizedJson),
+      normalizedJson,
       originalCvId: command.originalCvId,
       originalCvText: originalCvTextBuffer.toString('utf8'),
       originalFilename: command.originalCvLabel,
@@ -890,7 +894,7 @@ export function createTailoredApplicationSessionService({
       })
       const renderReadyAdaptedCv = buildAdaptedCvModel({
         generatedAdaptedCv: result.adaptedCv,
-        originalCvText: originalCv.originalCvText,
+        originalCv: originalCv.normalizedCv,
       })
       const [renderedAdaptedCv, renderedCoverLetter] = await Promise.all([
         adaptedCvRenderer.renderAdaptedCvPdf({
@@ -1331,18 +1335,86 @@ export function createTailoredApplicationSessionService({
 
 function buildAdaptedCvModel({
   generatedAdaptedCv,
-  originalCvText,
+  originalCv,
 }: {
   generatedAdaptedCv: GeneratedAdaptedCvModel
-  originalCvText: string
+  originalCv: NormalizedOriginalCv
 }): AdaptedCvModel {
   return {
     ...generatedAdaptedCv,
     header: {
-      contact: extractAdaptedCvHeaderContact(originalCvText),
+      contact: toAdaptedCvHeaderContact(originalCv.contact),
       intro: generatedAdaptedCv.header.intro,
     },
   }
+}
+
+function parseNormalizedOriginalCvJson(normalizedJson: string): NormalizedOriginalCv {
+  let parsedValue: unknown
+
+  try {
+    parsedValue = JSON.parse(normalizedJson) as unknown
+  } catch {
+    throw new Error('The selected original CV is incomplete or unavailable.')
+  }
+
+  if (!isNormalizedOriginalCv(parsedValue)) {
+    throw new Error('The selected original CV is incomplete or unavailable.')
+  }
+
+  return parsedValue
+}
+
+function isNormalizedOriginalCv(value: unknown): value is NormalizedOriginalCv {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    return false
+  }
+
+  const candidate = value as Record<string, unknown>
+  const contact = candidate.contact
+
+  if (contact === null || typeof contact !== 'object' || Array.isArray(contact)) {
+    return false
+  }
+
+  const normalizedContact = contact as Record<string, unknown>
+
+  return (
+    typeof candidate.fullName === 'string' &&
+    typeof candidate.headline === 'string' &&
+    typeof candidate.summary === 'string' &&
+    Array.isArray(candidate.experience) &&
+    candidate.experience.every((entry) => {
+      return typeof entry === 'string'
+    }) &&
+    Array.isArray(candidate.skills) &&
+    candidate.skills.every((entry) => {
+      return typeof entry === 'string'
+    }) &&
+    typeof normalizedContact.email === 'string' &&
+    typeof normalizedContact.location === 'string' &&
+    typeof normalizedContact.phone === 'string' &&
+    typeof normalizedContact.professionalLink === 'string'
+  )
+}
+
+function toAdaptedCvHeaderContact(contact: NormalizedOriginalCv['contact']) {
+  return {
+    email: normalizeOptionalContactValue(contact.email),
+    location: normalizeOptionalContactValue(contact.location),
+    phone: normalizeOptionalContactValue(contact.phone),
+    professionalLink: normalizeOptionalContactValue(contact.professionalLink),
+  }
+}
+
+function normalizeOptionalContactValue(value: string): string | null {
+  const trimmedValue = value.trim()
+
+  if (trimmedValue === '') {
+    return null
+  }
+
+  return trimmedValue
 }
 
 async function getPendingCommandId(

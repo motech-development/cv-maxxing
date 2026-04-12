@@ -15,6 +15,12 @@ const temporaryDirectories: string[] = []
 
 interface NormalizationExample {
   normalizedCv: {
+    contact: {
+      email: string
+      location: string
+      phone: string
+      professionalLink: string
+    }
     experience: string[]
     headline: string
     summary: string
@@ -56,6 +62,7 @@ test('writes a dedicated normalization run workspace with derived-field examples
             deriveFaithfulFieldsWhenNeeded: true,
             keepMissingFieldsEmpty: true,
             outputLanguage: 'British English',
+            preserveHeaderContactExactly: true,
             preserveSourceMeaning: true,
             remainVacancyAware: false,
           },
@@ -84,6 +91,7 @@ test('writes a dedicated normalization run workspace with derived-field examples
         })
 
         expect(headingVariantExample?.normalizedCv.headline).toBe('Principal Product Designer')
+        expect(headingVariantExample?.normalizedCv.contact.email).toBe('ada@lovelace.dev')
         expect(headingVariantExample?.normalizedCv.summary).toBe(
           'Design leader focused on complex workflow products for technical users.',
         )
@@ -94,6 +102,12 @@ test('writes a dedicated normalization run workspace with derived-field examples
 
         return {
           normalizedCv: {
+            contact: {
+              email: 'ada@lovelace.dev',
+              location: 'London, United Kingdom',
+              phone: '+44 7700 900123',
+              professionalLink: 'ada-lovelace.dev',
+            },
             experience: ['Principal Product Designer | Analytical Engines Ltd'],
             fullName: 'Ada Lovelace',
             headline: 'Principal Product Designer',
@@ -125,6 +139,12 @@ test('writes a dedicated normalization run workspace with derived-field examples
     }),
   ).resolves.toEqual({
     normalizedCv: {
+      contact: {
+        email: 'ada@lovelace.dev',
+        location: 'London, United Kingdom',
+        phone: '+44 7700 900123',
+        professionalLink: 'ada-lovelace.dev',
+      },
       experience: ['Principal Product Designer | Analytical Engines Ltd'],
       fullName: 'Ada Lovelace',
       headline: 'Principal Product Designer',

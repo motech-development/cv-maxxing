@@ -551,7 +551,7 @@ Scanned/image-only PDFs are not supported in v1. Detect likely image-only or gar
 1. Extract deterministic PDF or DOCX text and page metadata
 2. Reject unreadable or garbled extraction before AI normalization
 3. Submit extracted text plus import metadata to the provider-neutral original-CV normalization service
-4. Receive the minimal canonical CV JSON plus writing-style profile from the configured AI worker
+4. Receive the canonical CV JSON including explicit contact fields plus writing-style profile from the configured AI worker
 5. Deterministically validate normalization output into approved failure modes
 6. Persist the source file, extracted text, normalized CV JSON, writing-style profile JSON, and active snapshot metadata
 ```
@@ -574,13 +574,18 @@ DOCX import should extract and normalize content only. The app renderer owns out
 
 Use the stored normalized original-CV JSON as the authoritative import output consumed by later tailored-application generation.
 
-The shipped v1 import model is intentionally minimal and unchanged by the AI rollout:
+The shipped v1 import model is consumed directly by later tailored-application generation:
 
 - `fullName`
 - `headline`
 - `summary`
 - `experience`
 - `skills`
+- `contact`
+  - `location`
+  - `phone`
+  - `email`
+  - `professionalLink`
 
 Missing-value conventions remain unchanged:
 
@@ -589,7 +594,9 @@ Missing-value conventions remain unchanged:
 
 Existing imported snapshots are not migrated. Old and new snapshots remain generation-compatible as long as the expected stored artifacts are present. Missing artifacts remain `incomplete or unavailable`; the app does not repair them automatically.
 
-Imported original CVs should be English. v1 output is always British English. Contact details should remain exactly as imported, while prose and confident date rendering should follow British English conventions.
+Imported original CVs should be English. v1 output is always British English. Contact details should remain exactly as imported except for `location`, which should be normalised to `location, country` when the CV clearly provides a location. If the source CV provides a location but omits the country, the country may be inferred from grounded geographic evidence in the CV; otherwise `location` should remain blank. Prose and confident date rendering should follow British English conventions.
+
+The app must not heuristically reconstruct CV header contact details during tailored-application generation. Those values must come from the stored AI-normalized original-CV model and be deterministically validated against the extracted source text before persistence.
 
 ### 9.4 Style fingerprint
 

@@ -6,7 +6,15 @@ import type { OriginalCvFileType, OriginalCvWritingStyle } from '../shared/origi
 import { OriginalCvNormalizationError } from './original-cv-normalization-error.js'
 import type { OriginalCvNormalizationWorker } from './original-cv-normalization-worker.js'
 
+export interface NormalizedOriginalCvContact {
+  email: string
+  location: string
+  phone: string
+  professionalLink: string
+}
+
 export interface NormalizedOriginalCv {
+  contact: NormalizedOriginalCvContact
   experience: string[]
   fullName: string
   headline: string
@@ -35,6 +43,12 @@ export interface OriginalCvNormalizationService {
 const ORIGINAL_CV_NORMALIZATION_EXAMPLES = [
   {
     normalizedCv: {
+      contact: {
+        email: 'ada@lovelace.dev',
+        location: 'London, United Kingdom',
+        phone: '+44 7700 900123',
+        professionalLink: 'ada-lovelace.dev',
+      },
       experience: [
         'Principal Product Designer | Analytical Engines Ltd',
         'Led product design for AI-assisted desktop tooling across import and export flows.',
@@ -48,6 +62,12 @@ const ORIGINAL_CV_NORMALIZATION_EXAMPLES = [
   },
   {
     normalizedCv: {
+      contact: {
+        email: 'ada@lovelace.dev',
+        location: 'London, United Kingdom',
+        phone: '+44 7700 900123',
+        professionalLink: 'linkedin.com/in/ada-lovelace',
+      },
       experience: [
         'Senior Content Strategist | Difference Engines Ltd',
         'Built content systems and UX research practices for complex workflow products.',
@@ -135,6 +155,7 @@ async function writeRunWorkspaceInput({
       deriveFaithfulFieldsWhenNeeded: true,
       keepMissingFieldsEmpty: true,
       outputLanguage: 'British English',
+      preserveHeaderContactExactly: true,
       preserveSourceMeaning: true,
       remainVacancyAware: false,
     },

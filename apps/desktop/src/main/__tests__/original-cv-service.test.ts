@@ -10,6 +10,7 @@ import { createOriginalCvNormalizationService } from '../original-cv-normalizati
 import { OriginalCvImportError, createOriginalCvService } from '../original-cv-service.js'
 import type { KeychainBoundary, LocalAppDataPaths } from '../local-app-data-service.js'
 import type {
+  NormalizedOriginalCvContact,
   OriginalCvNormalizationInput,
   OriginalCvNormalizationResult,
   OriginalCvNormalizationService,
@@ -104,6 +105,12 @@ function normalizeExtractedTextForTest(extractedText: string) {
 
   return {
     normalizedCv: {
+      contact: createNormalizedContact({
+        email: '',
+        location: '',
+        phone: '',
+        professionalLink: '',
+      }),
       experience:
         experienceIndex === -1 ? [] : lines.slice(experienceIndex + 1, experienceSectionEndIndex),
       fullName: lines[0] ?? '',
@@ -134,6 +141,18 @@ function normalizeExtractedTextForTest(extractedText: string) {
   } satisfies OriginalCvNormalizationResult
 }
 
+function createNormalizedContact(
+  overrides: Partial<NormalizedOriginalCvContact> = {},
+): NormalizedOriginalCvContact {
+  return {
+    email: 'ada@lovelace.dev',
+    location: 'London, United Kingdom',
+    phone: '+44 7700 900123',
+    professionalLink: 'ada-lovelace.dev',
+    ...overrides,
+  }
+}
+
 test('imports the first original CV snapshot and persists encrypted source, text, normalized JSON, and writing style artifacts', async () => {
   const paths = await createTestPaths()
   const localAppData = await openLocalAppData({
@@ -144,6 +163,12 @@ test('imports the first original CV snapshot and persists encrypted source, text
     vi.fn((): Promise<OriginalCvNormalizationResult> => {
       return Promise.resolve({
         normalizedCv: {
+          contact: createNormalizedContact({
+            email: '',
+            location: '',
+            phone: '',
+            professionalLink: '',
+          }),
           experience: [
             'Principal Product Designer | Analytical Engines Ltd',
             'Led product design for AI-assisted desktop tooling.',
@@ -299,6 +324,12 @@ test('imports a DOCX original CV through the same AI-backed normalization path a
     vi.fn((): Promise<OriginalCvNormalizationResult> => {
       return Promise.resolve({
         normalizedCv: {
+          contact: createNormalizedContact({
+            email: '',
+            location: '',
+            phone: '',
+            professionalLink: '',
+          }),
           experience: [
             'Senior Content Strategist | Difference Engines Ltd',
             'Built truthful CV adaptation workflows for complex desktop software.',
@@ -423,6 +454,12 @@ test('imports a heading-variant original CV with grounded high-risk fields plus 
     vi.fn((): Promise<OriginalCvNormalizationResult> => {
       return Promise.resolve({
         normalizedCv: {
+          contact: createNormalizedContact({
+            email: '',
+            location: '',
+            phone: '',
+            professionalLink: '',
+          }),
           experience: [
             'Principal Product Designer | Analytical Engines Ltd',
             'Led product design for AI-assisted desktop tooling across import and export flows.',
@@ -512,6 +549,12 @@ test('imports a heading-variant original CV with grounded high-risk fields plus 
 
   expect(normalizedArtifact?.toString('utf8')).toBe(
     JSON.stringify({
+      contact: {
+        email: '',
+        location: '',
+        phone: '',
+        professionalLink: '',
+      },
       experience: [
         'Principal Product Designer | Analytical Engines Ltd',
         'Led product design for AI-assisted desktop tooling across import and export flows.',
@@ -539,6 +582,12 @@ test('imports a CV without an explicit skills section when recovered skills stay
     vi.fn((): Promise<OriginalCvNormalizationResult> => {
       return Promise.resolve({
         normalizedCv: {
+          contact: createNormalizedContact({
+            email: '',
+            location: '',
+            phone: '',
+            professionalLink: '',
+          }),
           experience: [
             'Principal Product Designer | Analytical Engines Ltd',
             'Designed workflow systems for AI-assisted desktop tooling and ran UX research across import and export journeys.',
@@ -809,6 +858,7 @@ test('rejects a replacement with weak normalization output and keeps the previou
       })
       .mockResolvedValueOnce({
         normalizedCv: {
+          contact: createNormalizedContact(),
           experience: [],
           fullName: 'Ada Lovelace',
           headline: 'Principal Product Designer',
@@ -1132,6 +1182,12 @@ test('rejects normalization that invents unsupported identity or skill content a
     vi.fn((): Promise<OriginalCvNormalizationResult> => {
       return Promise.resolve({
         normalizedCv: {
+          contact: createNormalizedContact({
+            email: '',
+            location: '',
+            phone: '',
+            professionalLink: '',
+          }),
           experience: [
             'Principal Product Designer | Analytical Engines Ltd',
             'Led product design for AI-assisted desktop tooling across import and export flows.',
@@ -1215,6 +1271,12 @@ test('rejects a recovered skill that is not supported by the experience evidence
     vi.fn((): Promise<OriginalCvNormalizationResult> => {
       return Promise.resolve({
         normalizedCv: {
+          contact: createNormalizedContact({
+            email: '',
+            location: '',
+            phone: '',
+            professionalLink: '',
+          }),
           experience: [
             'Principal Product Designer | Analytical Engines Ltd',
             'Designed workflow systems for AI-assisted desktop tooling and ran UX research across import and export journeys.',
@@ -1294,6 +1356,12 @@ test('rejects weak normalization output and leaves encrypted storage unchanged',
     vi.fn((): Promise<OriginalCvNormalizationResult> => {
       return Promise.resolve({
         normalizedCv: {
+          contact: createNormalizedContact({
+            email: '',
+            location: '',
+            phone: '',
+            professionalLink: '',
+          }),
           experience: [],
           fullName: 'Ada Lovelace',
           headline: 'Principal Product Designer',
@@ -1362,6 +1430,12 @@ test('imports a substantive original CV when normalization leaves the summary bl
     vi.fn((): Promise<OriginalCvNormalizationResult> => {
       return Promise.resolve({
         normalizedCv: {
+          contact: createNormalizedContact({
+            email: '',
+            location: '',
+            phone: '',
+            professionalLink: '',
+          }),
           experience: [
             'Principal Product Designer | Analytical Engines Ltd',
             'Led product design for AI-assisted desktop tooling across import and export flows.',
@@ -1425,6 +1499,380 @@ test('imports a substantive original CV when normalization leaves the summary bl
       formality: 'formal',
     },
   })
+
+  await localAppData.close()
+})
+
+test('accepts AI-extracted contact values when they differ only by URL formatting from the extracted CV text', async () => {
+  const paths = await createTestPaths()
+  const localAppData = await openLocalAppData({
+    keychain: createKeychainBoundary(),
+    paths,
+  })
+  const normalizationService = createNormalizationServiceMock(
+    vi.fn((): Promise<OriginalCvNormalizationResult> => {
+      return Promise.resolve({
+        normalizedCv: {
+          contact: createNormalizedContact({
+            professionalLink: 'linkedin.com/in/ada-lovelace',
+          }),
+          experience: [
+            'Principal Product Designer | Analytical Engines Ltd',
+            'Led product design for AI-assisted desktop tooling across import and export flows.',
+          ],
+          fullName: 'Ada Lovelace',
+          headline: 'Principal Product Designer',
+          skills: ['Workflow design', 'UX research', 'Content systems'],
+          summary: 'Design leader focused on complex workflow products for technical users.',
+        },
+        writingStyle: {
+          averageSentenceLength: 13,
+          clicheDetections: [],
+          firstPersonUsage: 'absent',
+          formality: 'formal',
+        },
+      })
+    }),
+  )
+  const originalCvService = createOriginalCvService({
+    extractTextFromDocx: vi.fn(),
+    extractTextFromPdf: vi.fn(() => {
+      return Promise.resolve({
+        pageCount: 1,
+        text: [
+          'Ada Lovelace',
+          'Principal Product Designer',
+          'London, United Kingdom',
+          '+44 7700 900123',
+          'ada@lovelace.dev',
+          'https://www.linkedin.com/in/ada-lovelace',
+          'Summary',
+          'Design leader focused on complex workflow products for technical users.',
+          'Experience',
+          'Principal Product Designer | Analytical Engines Ltd',
+          'Led product design for AI-assisted desktop tooling across import and export flows.',
+          'Skills',
+          'Workflow design, UX research, content systems',
+        ].join('\n'),
+      })
+    }),
+    generateId: vi.fn(() => 'original-cv-005'),
+    getCurrentTimestamp: vi.fn(() => '2026-04-08T16:00:00.000Z'),
+    localAppData,
+    normalizationService,
+  })
+
+  await expect(
+    originalCvService.importOriginalCv({
+      content: Buffer.from('%PDF-1.7 contact-formatting', 'utf8'),
+      filename: 'ada-lovelace-contact-formatting.pdf',
+    }),
+  ).resolves.toMatchObject({
+    headline: 'Principal Product Designer',
+    id: 'original-cv-005',
+  })
+
+  await localAppData.close()
+})
+
+test('blanks ungrounded AI-extracted contact fields instead of rejecting the original CV import', async () => {
+  const paths = await createTestPaths()
+  const localAppData = await openLocalAppData({
+    keychain: createKeychainBoundary(),
+    paths,
+  })
+  const normalizationService = createNormalizationServiceMock(
+    vi.fn((): Promise<OriginalCvNormalizationResult> => {
+      return Promise.resolve({
+        normalizedCv: {
+          contact: createNormalizedContact({
+            location: 'Stockholm, Sweden',
+            phone: '+44 20 7000 0000',
+            professionalLink: 'linkedin.com/in/ada-lovelace',
+          }),
+          experience: [
+            'Principal Product Designer | Analytical Engines Ltd',
+            'Led product design for AI-assisted desktop tooling across import and export flows.',
+          ],
+          fullName: 'Ada Lovelace',
+          headline: 'Principal Product Designer',
+          skills: ['Workflow design', 'UX research', 'Content systems'],
+          summary: 'Design leader focused on complex workflow products for technical users.',
+        },
+        writingStyle: {
+          averageSentenceLength: 13,
+          clicheDetections: [],
+          firstPersonUsage: 'absent',
+          formality: 'formal',
+        },
+      })
+    }),
+  )
+  const originalCvService = createOriginalCvService({
+    extractTextFromDocx: vi.fn(),
+    extractTextFromPdf: vi.fn(() => {
+      return Promise.resolve({
+        pageCount: 1,
+        text: [
+          'Ada Lovelace',
+          'Principal Product Designer',
+          'London, United Kingdom',
+          '+44 7700 900123',
+          'ada@lovelace.dev',
+          'Summary',
+          'Design leader focused on complex workflow products for technical users.',
+          'Experience',
+          'Principal Product Designer | Analytical Engines Ltd',
+          'Led product design for AI-assisted desktop tooling across import and export flows.',
+          'Skills',
+          'Workflow design, UX research, content systems',
+        ].join('\n'),
+      })
+    }),
+    generateId: vi.fn(() => 'original-cv-006'),
+    getCurrentTimestamp: vi.fn(() => '2026-04-08T16:30:00.000Z'),
+    localAppData,
+    normalizationService,
+  })
+
+  await expect(
+    originalCvService.importOriginalCv({
+      content: Buffer.from('%PDF-1.7 sanitize-contact', 'utf8'),
+      filename: 'ada-lovelace-sanitize-contact.pdf',
+    }),
+  ).resolves.toMatchObject({
+    headline: 'Principal Product Designer',
+    id: 'original-cv-006',
+  })
+
+  await expect(
+    localAppData.artifacts.read({
+      id: 'original-cv-006',
+      name: 'normalized.json',
+      scope: 'original-cvs',
+    }),
+  ).resolves.toEqual(
+    Buffer.from(
+      JSON.stringify({
+        contact: {
+          email: 'ada@lovelace.dev',
+          location: '',
+          phone: '',
+          professionalLink: '',
+        },
+        experience: [
+          'Principal Product Designer | Analytical Engines Ltd',
+          'Led product design for AI-assisted desktop tooling across import and export flows.',
+        ],
+        fullName: 'Ada Lovelace',
+        headline: 'Principal Product Designer',
+        skills: ['Workflow design', 'UX research', 'Content systems'],
+        summary: 'Design leader focused on complex workflow products for technical users.',
+      }),
+      'utf8',
+    ),
+  )
+
+  await localAppData.close()
+})
+
+test('does not preserve a professional link that is only implied by an email address substring', async () => {
+  const paths = await createTestPaths()
+  const localAppData = await openLocalAppData({
+    keychain: createKeychainBoundary(),
+    paths,
+  })
+  const normalizationService = createNormalizationServiceMock(
+    vi.fn((): Promise<OriginalCvNormalizationResult> => {
+      return Promise.resolve({
+        normalizedCv: {
+          contact: createNormalizedContact({
+            professionalLink: 'ada-lovelace.dev',
+          }),
+          experience: [
+            'Principal Product Designer | Analytical Engines Ltd',
+            'Led product design for AI-assisted desktop tooling across import and export flows.',
+          ],
+          fullName: 'Ada Lovelace',
+          headline: 'Principal Product Designer',
+          skills: ['Workflow design', 'UX research', 'Content systems'],
+          summary: 'Design leader focused on complex workflow products for technical users.',
+        },
+        writingStyle: {
+          averageSentenceLength: 13,
+          clicheDetections: [],
+          firstPersonUsage: 'absent',
+          formality: 'formal',
+        },
+      })
+    }),
+  )
+  const originalCvService = createOriginalCvService({
+    extractTextFromDocx: vi.fn(),
+    extractTextFromPdf: vi.fn(() => {
+      return Promise.resolve({
+        pageCount: 1,
+        text: [
+          'Ada Lovelace',
+          'Principal Product Designer',
+          'London, United Kingdom',
+          '+44 7700 900123',
+          'ada@lovelace.dev',
+          'Summary',
+          'Design leader focused on complex workflow products for technical users.',
+          'Experience',
+          'Principal Product Designer | Analytical Engines Ltd',
+          'Led product design for AI-assisted desktop tooling across import and export flows.',
+          'Skills',
+          'Workflow design, UX research, content systems',
+        ].join('\n'),
+      })
+    }),
+    generateId: vi.fn(() => 'original-cv-006b'),
+    getCurrentTimestamp: vi.fn(() => '2026-04-08T16:45:00.000Z'),
+    localAppData,
+    normalizationService,
+  })
+
+  await expect(
+    originalCvService.importOriginalCv({
+      content: Buffer.from('%PDF-1.7 sanitize-link-collision', 'utf8'),
+      filename: 'ada-lovelace-link-collision.pdf',
+    }),
+  ).resolves.toMatchObject({
+    headline: 'Principal Product Designer',
+    id: 'original-cv-006b',
+  })
+
+  await expect(
+    localAppData.artifacts.read({
+      id: 'original-cv-006b',
+      name: 'normalized.json',
+      scope: 'original-cvs',
+    }),
+  ).resolves.toEqual(
+    Buffer.from(
+      JSON.stringify({
+        contact: {
+          email: 'ada@lovelace.dev',
+          location: 'London, United Kingdom',
+          phone: '+44 7700 900123',
+          professionalLink: '',
+        },
+        experience: [
+          'Principal Product Designer | Analytical Engines Ltd',
+          'Led product design for AI-assisted desktop tooling across import and export flows.',
+        ],
+        fullName: 'Ada Lovelace',
+        headline: 'Principal Product Designer',
+        skills: ['Workflow design', 'UX research', 'Content systems'],
+        summary: 'Design leader focused on complex workflow products for technical users.',
+      }),
+      'utf8',
+    ),
+  )
+
+  await localAppData.close()
+})
+
+test('preserves a location in "location, country" format when the country is inferred from a grounded source location', async () => {
+  const paths = await createTestPaths()
+  const localAppData = await openLocalAppData({
+    keychain: createKeychainBoundary(),
+    paths,
+  })
+  const normalizationService = createNormalizationServiceMock(
+    vi.fn((): Promise<OriginalCvNormalizationResult> => {
+      return Promise.resolve({
+        normalizedCv: {
+          contact: createNormalizedContact({
+            location: 'Whitley Bay, United Kingdom',
+            phone: '',
+            professionalLink: '',
+          }),
+          experience: [
+            'Principal Product Designer | Analytical Engines Ltd',
+            'Led product design for AI-assisted desktop tooling across import and export flows.',
+          ],
+          fullName: 'Ada Lovelace',
+          headline: 'Principal Product Designer',
+          skills: ['Workflow design', 'UX research', 'Content systems'],
+          summary: 'Design leader focused on complex workflow products for technical users.',
+        },
+        writingStyle: {
+          averageSentenceLength: 13,
+          clicheDetections: [],
+          firstPersonUsage: 'absent',
+          formality: 'formal',
+        },
+      })
+    }),
+  )
+  const originalCvService = createOriginalCvService({
+    extractTextFromDocx: vi.fn(),
+    extractTextFromPdf: vi.fn(() => {
+      return Promise.resolve({
+        pageCount: 1,
+        text: [
+          'Ada Lovelace',
+          'Principal Product Designer',
+          '45 Hazeldene',
+          'Whitley Bay',
+          'NE25 9AL',
+          'ada@lovelace.dev',
+          'Summary',
+          'Design leader focused on complex workflow products for technical users.',
+          'Experience',
+          'Principal Product Designer | Analytical Engines Ltd',
+          'Led product design for AI-assisted desktop tooling across import and export flows.',
+          'Skills',
+          'Workflow design, UX research, content systems',
+        ].join('\n'),
+      })
+    }),
+    generateId: vi.fn(() => 'original-cv-007'),
+    getCurrentTimestamp: vi.fn(() => '2026-04-08T17:00:00.000Z'),
+    localAppData,
+    normalizationService,
+  })
+
+  await expect(
+    originalCvService.importOriginalCv({
+      content: Buffer.from('%PDF-1.7 inferred-country-location', 'utf8'),
+      filename: 'ada-lovelace-location-country.pdf',
+    }),
+  ).resolves.toMatchObject({
+    headline: 'Principal Product Designer',
+    id: 'original-cv-007',
+  })
+
+  await expect(
+    localAppData.artifacts.read({
+      id: 'original-cv-007',
+      name: 'normalized.json',
+      scope: 'original-cvs',
+    }),
+  ).resolves.toEqual(
+    Buffer.from(
+      JSON.stringify({
+        contact: {
+          email: 'ada@lovelace.dev',
+          location: 'Whitley Bay, United Kingdom',
+          phone: '',
+          professionalLink: '',
+        },
+        experience: [
+          'Principal Product Designer | Analytical Engines Ltd',
+          'Led product design for AI-assisted desktop tooling across import and export flows.',
+        ],
+        fullName: 'Ada Lovelace',
+        headline: 'Principal Product Designer',
+        skills: ['Workflow design', 'UX research', 'Content systems'],
+        summary: 'Design leader focused on complex workflow products for technical users.',
+      }),
+      'utf8',
+    ),
+  )
 
   await localAppData.close()
 })

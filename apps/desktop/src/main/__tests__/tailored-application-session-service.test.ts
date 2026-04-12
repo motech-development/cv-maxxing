@@ -7,7 +7,10 @@ import { afterEach, expect, test, vi } from 'vitest'
 import type { TailoredApplicationGenerationResult } from '../../shared/tailored-application.js'
 import { createAiWorkerReadinessStore } from '../ai-worker-readiness-store.js'
 import { createLocalAppDataPaths, openLocalAppData } from '../local-app-data-service.js'
-import { createTailoredApplicationSessionService } from '../tailored-application-session-service.js'
+import {
+  createTailoredApplicationSessionService,
+  type AdaptedCvRenderer,
+} from '../tailored-application-session-service.js'
 
 const temporaryDirectories: string[] = []
 
@@ -31,7 +34,7 @@ test('assembles structured worker inputs and persists immutable tailored-applica
     files: Record<string, string>
     taskJson: string
   }[] = []
-  const renderAdaptedCvPdf = vi.fn().mockResolvedValue({
+  const renderAdaptedCvPdf = vi.fn<AdaptedCvRenderer['renderAdaptedCvPdf']>().mockResolvedValue({
     pageCount: 1,
     pageWarning: null,
     pdfBytes: Buffer.from('%PDF-1.7 adapted cv', 'utf8'),
@@ -211,6 +214,115 @@ test('assembles structured worker inputs and persists immutable tailored-applica
   ).rejects.toThrow()
 })
 
+test('renders adapted-CV header contact from the stored normalized original CV instead of reparsing extracted text', async () => {
+  const harness = await createHarness()
+
+  await seedOriginalCvAndVacancy(harness)
+  await harness.localAppData.artifacts.write({
+    content: Buffer.from(
+      [
+        'Ada Lovelace',
+        'Principal Product Designer',
+        'mo.gusbi@motechdevelopment.co.uk',
+        'Summary',
+        'Design leader focused on complex workflow products for technical users.',
+      ].join('\n'),
+      'utf8',
+    ),
+    id: 'original-cv-123',
+    name: 'extracted.txt',
+    scope: 'original-cvs',
+  })
+  await harness.localAppData.artifacts.write({
+    content: Buffer.from(
+      JSON.stringify({
+        contact: {
+          email: 'ada@lovelace.dev',
+          location: 'London, United Kingdom',
+          phone: '+44 7700 900123',
+          professionalLink: 'ada-lovelace.dev',
+        },
+        experience: ['Led product design for AI-assisted desktop tooling.'],
+        fullName: 'Ada Lovelace',
+        headline: 'Principal Product Designer',
+        skills: ['Product strategy', 'UX research', 'prototyping'],
+        summary: 'Design leader focused on complex workflow products for technical users.',
+      }),
+      'utf8',
+    ),
+    id: 'original-cv-123',
+    name: 'normalized.json',
+    scope: 'original-cvs',
+  })
+
+  const renderAdaptedCvPdf = vi.fn().mockResolvedValue({
+    pageCount: 1,
+    pageWarning: null,
+    pdfBytes: Buffer.from('%PDF-1.7 adapted cv', 'utf8'),
+  })
+  const service = createTailoredApplicationSessionService({
+    adaptedCvRenderer: {
+      renderAdaptedCvPdf,
+    },
+    aiWorker: {
+      retryAiWorkerPreflight: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+    },
+    coverLetterRenderer: {
+      renderCoverLetterPdf: vi.fn().mockResolvedValue({
+        pageCount: 1,
+        pageWarning: null,
+        pdfBytes: Buffer.from('%PDF-1.7 cover letter', 'utf8'),
+      }),
+    },
+    generateId: createIdGenerator(['command-123', 'run-123', 'tailored-application-123']),
+    getCurrentTimestamp: () => {
+      return '2026-04-09T09:30:00.000Z'
+    },
+    localAppData: harness.localAppData,
+    readinessStore: harness.readinessStore,
+    runWorkspaceRootPath: path.join(harness.paths.rootDirectoryPath, 'runs'),
+    worker: {
+      runGeneration: () => {
+        return Promise.resolve(createValidGenerationResult())
+      },
+    },
+  })
+
+  await service.startPendingGeneration({
+    originalCvId: 'original-cv-123',
+    originalCvLabel: 'ada-lovelace.pdf',
+    vacancyDraft: {
+      text: 'Senior platform engineer',
+      url: 'https://jobs.example.com/roles/123',
+    },
+  })
+  await service.resumePendingGeneration()
+
+  expect(renderAdaptedCvPdf).toHaveBeenCalledTimes(1)
+
+  const renderAdaptedCvCalls = renderAdaptedCvPdf.mock.calls as Parameters<
+    AdaptedCvRenderer['renderAdaptedCvPdf']
+  >[]
+  const renderAdaptedCvInput = renderAdaptedCvCalls[0]?.[0]
+
+  expect(renderAdaptedCvInput?.employer).toBe('Example Labs')
+  expect(renderAdaptedCvInput?.vacancyTitle).toBe('Senior platform engineer')
+  expect(renderAdaptedCvInput?.adaptedCv.header.contact).toEqual({
+    email: 'ada@lovelace.dev',
+    location: 'London, United Kingdom',
+    phone: '+44 7700 900123',
+    professionalLink: 'ada-lovelace.dev',
+  })
+  expect(renderAdaptedCvInput?.adaptedCv.header.intro).toEqual({
+    text: 'Design leader shaping truthful desktop workflow products for technical users.',
+  })
+})
+
 test('preserves optional adapted-CV sections through rendering and artifact persistence', async () => {
   const harness = await createHarness()
   const expectedOptionalSections = [
@@ -373,6 +485,12 @@ test('passes derived original-CV normalization artifacts through to the tailored
   await harness.localAppData.artifacts.write({
     content: Buffer.from(
       JSON.stringify({
+        contact: {
+          email: 'ada@lovelace.dev',
+          location: 'London, United Kingdom',
+          phone: '+44 7700 900123',
+          professionalLink: 'ada-lovelace.dev',
+        },
         experience: [
           'Principal Product Designer | Analytical Engines Ltd',
           'Led product design for AI-assisted desktop tooling across import and export flows.',
@@ -446,6 +564,12 @@ test('passes derived original-CV normalization artifacts through to the tailored
 
   expect(capturedOriginalCvJson).toEqual([
     JSON.stringify({
+      contact: {
+        email: 'ada@lovelace.dev',
+        location: 'London, United Kingdom',
+        phone: '+44 7700 900123',
+        professionalLink: 'ada-lovelace.dev',
+      },
       experience: [
         'Principal Product Designer | Analytical Engines Ltd',
         'Led product design for AI-assisted desktop tooling across import and export flows.',
@@ -2982,6 +3106,12 @@ async function seedOriginalCvAndVacancy(harness: {
   await harness.localAppData.artifacts.write({
     content: Buffer.from(
       JSON.stringify({
+        contact: {
+          email: 'ada@lovelace.dev',
+          location: 'London, United Kingdom',
+          phone: '+44 7700 900123',
+          professionalLink: 'ada-lovelace.dev',
+        },
         experience: ['Led product design for AI-assisted desktop tooling.'],
         fullName: 'Ada Lovelace',
         headline: 'Principal Product Designer',

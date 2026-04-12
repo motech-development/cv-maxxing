@@ -436,6 +436,8 @@ function validateGroundedHighRiskFields({
       throwUnsupportedGroundingError()
     }
   }
+
+  normalizedCv.contact = sanitizeGroundedContactFields(normalizedCv.contact, extractedText)
 }
 
 function isGroundedIdentityFieldInSource(value: string, extractedText: string): boolean {
@@ -484,6 +486,122 @@ function isGroundedSkillInSource(skill: string, extractedText: string): boolean 
       })
     })
   })
+}
+
+function isGroundedTextFieldInSource(value: string, extractedText: string): boolean {
+  const trimmedValue = value.trim()
+
+  if (trimmedValue === '') {
+    return true
+  }
+
+  if (extractedText.includes(trimmedValue)) {
+    return true
+  }
+
+  const normalizedValue = normalizeGroundingText(trimmedValue)
+
+  if (normalizedValue === '') {
+    return true
+  }
+
+  return normalizeGroundingText(extractedText).includes(normalizedValue)
+}
+
+function sanitizeGroundedContactFields(
+  contact: NormalizedOriginalCv['contact'],
+  extractedText: string,
+): NormalizedOriginalCv['contact'] {
+  return {
+    email: isGroundedEmailInSource(contact.email, extractedText) ? contact.email : '',
+    location: isGroundedLocationFieldInSource(contact.location, extractedText)
+      ? contact.location
+      : '',
+    phone: isGroundedPhoneInSource(contact.phone, extractedText) ? contact.phone : '',
+    professionalLink: isGroundedProfessionalLinkInSource(contact.professionalLink, extractedText)
+      ? contact.professionalLink
+      : '',
+  }
+}
+
+function isGroundedEmailInSource(value: string, extractedText: string): boolean {
+  const trimmedValue = value.trim().toLowerCase()
+
+  if (trimmedValue === '') {
+    return true
+  }
+
+  if (!trimmedValue.includes('@')) {
+    return false
+  }
+
+  return extractedText.toLowerCase().includes(trimmedValue)
+}
+
+function isGroundedLocationFieldInSource(value: string, extractedText: string): boolean {
+  if (isGroundedTextFieldInSource(value, extractedText)) {
+    return true
+  }
+
+  const locationSegments = value
+    .split(',')
+    .map((segment) => {
+      return segment.trim()
+    })
+    .filter((segment) => {
+      return segment !== ''
+    })
+
+  if (locationSegments.length < 2) {
+    return false
+  }
+
+  const groundedLocationCore = locationSegments.slice(0, -1).join(', ')
+
+  return isGroundedTextFieldInSource(groundedLocationCore, extractedText)
+}
+
+function isGroundedPhoneInSource(value: string, extractedText: string): boolean {
+  const canonicalPhone = canonicalizePhoneForGrounding(value)
+
+  if (canonicalPhone === '') {
+    return true
+  }
+
+  return canonicalizePhoneForGrounding(extractedText).includes(canonicalPhone)
+}
+
+function isGroundedProfessionalLinkInSource(value: string, extractedText: string): boolean {
+  const trimmedValue = value.trim().toLowerCase()
+
+  if (trimmedValue === '') {
+    return true
+  }
+
+  if (extractedText.toLowerCase().includes(trimmedValue)) {
+    return true
+  }
+
+  const canonicalValue = canonicalizeProfessionalLinkForGrounding(trimmedValue)
+
+  if (canonicalValue === '') {
+    return false
+  }
+
+  return canonicalizeProfessionalLinkForGrounding(extractedText).includes(canonicalValue)
+}
+
+function canonicalizePhoneForGrounding(value: string): string {
+  return value.replaceAll(/\D+/gu, '')
+}
+
+function canonicalizeProfessionalLinkForGrounding(value: string): string {
+  return value
+    .toLowerCase()
+    .replaceAll(/https?:\/\//gu, '')
+    .replaceAll(/\bwww\./gu, '')
+    .replaceAll(/\s+/gu, ' ')
+    .trim()
 }
 
 function createSkillEvidenceCandidates(extractedText: string): string[] {

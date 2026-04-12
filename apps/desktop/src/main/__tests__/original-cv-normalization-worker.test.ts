@@ -67,6 +67,12 @@ test('rejects fixture output that does not match the normalization contract', as
     environment: {
       CV_MAXXING_AI_WORKER_ORIGINAL_CV_NORMALIZATION_OUTPUT: JSON.stringify({
         normalizedCv: {
+          contact: {
+            email: 'ada@lovelace.dev',
+            location: 'London, United Kingdom',
+            phone: '+44 7700 900123',
+            professionalLink: 'ada-lovelace.dev',
+          },
           experience: [],
           fullName: 'Ada Lovelace',
           headline: 'Principal Product Designer',
@@ -95,6 +101,12 @@ test('returns parsed normalization results from fixture output', async () => {
     environment: {
       CV_MAXXING_AI_WORKER_ORIGINAL_CV_NORMALIZATION_OUTPUT: JSON.stringify({
         normalizedCv: {
+          contact: {
+            email: 'ada@lovelace.dev',
+            location: 'London, United Kingdom',
+            phone: '+44 7700 900123',
+            professionalLink: 'ada-lovelace.dev',
+          },
           experience: ['Principal Product Designer | Analytical Engines Ltd'],
           fullName: 'Ada Lovelace',
           headline: 'Principal Product Designer',
@@ -118,6 +130,61 @@ test('returns parsed normalization results from fixture output', async () => {
     }),
   ).resolves.toEqual({
     normalizedCv: {
+      contact: {
+        email: 'ada@lovelace.dev',
+        location: 'London, United Kingdom',
+        phone: '+44 7700 900123',
+        professionalLink: 'ada-lovelace.dev',
+      },
+      experience: ['Principal Product Designer | Analytical Engines Ltd'],
+      fullName: 'Ada Lovelace',
+      headline: 'Principal Product Designer',
+      skills: ['Product strategy', 'UX research', 'Prototyping'],
+      summary: 'Design leader focused on complex workflow products for technical users.',
+    },
+    writingStyle: {
+      averageSentenceLength: 12,
+      clicheDetections: [],
+      firstPersonUsage: 'absent',
+      formality: 'formal',
+    },
+  })
+})
+
+test('fills missing AI contact fields with blank strings instead of rejecting normalization output', async () => {
+  const worker = createOriginalCvNormalizationWorker({
+    environment: {
+      CV_MAXXING_AI_WORKER_ORIGINAL_CV_NORMALIZATION_OUTPUT: JSON.stringify({
+        normalizedCv: {
+          experience: ['Principal Product Designer | Analytical Engines Ltd'],
+          fullName: 'Ada Lovelace',
+          headline: 'Principal Product Designer',
+          skills: ['Product strategy', 'UX research', 'Prototyping'],
+          summary: 'Design leader focused on complex workflow products for technical users.',
+        },
+        writingStyle: {
+          averageSentenceLength: 12,
+          clicheDetections: [],
+          firstPersonUsage: 'absent',
+          formality: 'formal',
+        },
+      }),
+    },
+  })
+
+  await expect(
+    worker.runNormalization({
+      runDirectoryPath: '/tmp/unused',
+      signal: new AbortController().signal,
+    }),
+  ).resolves.toEqual({
+    normalizedCv: {
+      contact: {
+        email: '',
+        location: '',
+        phone: '',
+        professionalLink: '',
+      },
       experience: ['Principal Product Designer | Analytical Engines Ltd'],
       fullName: 'Ada Lovelace',
       headline: 'Principal Product Designer',
@@ -143,6 +210,9 @@ test('writes typed enum fields in the original-CV normalization output schema', 
   let capturedSchema:
     | {
         properties?: {
+          normalizedCv?: {
+            required?: unknown
+          }
           writingStyle?: {
             properties?: {
               firstPersonUsage?: unknown
@@ -189,6 +259,12 @@ test('writes typed enum fields in the original-CV normalization output schema', 
         outputFilePath,
         JSON.stringify({
           normalizedCv: {
+            contact: {
+              email: 'ada@lovelace.dev',
+              location: 'London, United Kingdom',
+              phone: '+44 7700 900123',
+              professionalLink: 'ada-lovelace.dev',
+            },
             experience: ['Principal Product Designer | Analytical Engines Ltd'],
             fullName: 'Ada Lovelace',
             headline: 'Principal Product Designer',
@@ -229,6 +305,12 @@ test('writes typed enum fields in the original-CV normalization output schema', 
     }),
   ).resolves.toEqual({
     normalizedCv: {
+      contact: {
+        email: 'ada@lovelace.dev',
+        location: 'London, United Kingdom',
+        phone: '+44 7700 900123',
+        professionalLink: 'ada-lovelace.dev',
+      },
       experience: ['Principal Product Designer | Analytical Engines Ltd'],
       fullName: 'Ada Lovelace',
       headline: 'Principal Product Designer',
@@ -251,6 +333,103 @@ test('writes typed enum fields in the original-CV normalization output schema', 
     enum: ['conversational', 'direct', 'formal'],
     type: 'string',
   })
+  expect(capturedSchema?.properties?.normalizedCv).toMatchObject({
+    required: ['contact', 'experience', 'fullName', 'headline', 'skills', 'summary'],
+  })
+})
+
+test('uses generic location instructions without assuming a specific CV layout', async () => {
+  const runDirectoryPath = await mkdtemp(
+    path.join(tmpdir(), 'cv-maxxing-original-cv-normalization-worker-prompt-'),
+  )
+
+  temporaryDirectories.push(runDirectoryPath)
+
+  let capturedPrompt: string | undefined
+
+  spawnMock.mockImplementation((_command: string, args: string[]) => {
+    const child = new MockEventTarget() as MockEventTarget & {
+      stderr: MockEventTarget
+      stdout: MockEventTarget
+    }
+
+    child.stderr = new MockEventTarget()
+    child.stdout = new MockEventTarget()
+
+    const outputFlagIndex = args.indexOf('--output-last-message')
+
+    if (outputFlagIndex === -1 || outputFlagIndex + 1 >= args.length) {
+      throw new Error('Expected Codex CLI output file path argument.')
+    }
+
+    const outputFilePath = args[outputFlagIndex + 1]
+
+    if (outputFilePath === undefined) {
+      throw new Error('Expected Codex CLI output file path argument.')
+    }
+
+    capturedPrompt = args.at(-1)
+
+    void writeFile(
+      outputFilePath,
+      JSON.stringify({
+        normalizedCv: {
+          contact: {
+            email: 'ada@lovelace.dev',
+            location: 'London, United Kingdom',
+            phone: '+44 7700 900123',
+            professionalLink: 'ada-lovelace.dev',
+          },
+          experience: ['Principal Product Designer | Analytical Engines Ltd'],
+          fullName: 'Ada Lovelace',
+          headline: 'Principal Product Designer',
+          skills: ['Product strategy', 'UX research', 'Prototyping'],
+          summary: 'Design leader focused on complex workflow products for technical users.',
+        },
+        writingStyle: {
+          averageSentenceLength: 12,
+          clicheDetections: [],
+          firstPersonUsage: 'absent',
+          formality: 'formal',
+        },
+      }),
+      'utf8',
+    ).then(
+      () => {
+        child.emit('close', 0)
+      },
+      (error: unknown) => {
+        child.emit('error', error)
+      },
+    )
+
+    return child
+  })
+
+  const worker = createOriginalCvNormalizationWorker({
+    environment: {
+      CV_MAXXING_AI_WORKER_CODEX_COMMAND: 'codex',
+    },
+  })
+
+  await expect(
+    worker.runNormalization({
+      runDirectoryPath,
+      signal: new AbortController().signal,
+    }),
+  ).resolves.toBeDefined()
+
+  expect(capturedPrompt).toContain('Extract CV contact fields into normalizedCv.contact.')
+  expect(capturedPrompt).toContain(
+    'If the CV clearly provides a geographic location, return it in "location, country" format.',
+  )
+  expect(capturedPrompt).toContain(
+    'If the CV provides a location but omits the country, infer the country and include it.',
+  )
+  expect(capturedPrompt).toContain(
+    'Do not assume location appears in any specific section or layout position.',
+  )
+  expect(capturedPrompt).not.toContain('Extract header contact fields into normalizedCv.contact.')
 })
 
 test('kills the Codex CLI subprocess when normalization is aborted', async () => {
