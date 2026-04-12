@@ -274,6 +274,97 @@ test('writes a typed trace provider field in the Codex CLI output schema', async
   })
 })
 
+test('writes a concise adapted-CV header intro field in the Codex CLI output schema', async () => {
+  const runDirectoryPath = await mkdtemp(
+    path.join(tmpdir(), 'cv-maxxing-generation-worker-output-schema-'),
+  )
+
+  temporaryDirectories.push(runDirectoryPath)
+  await createRunWorkspaceInput(runDirectoryPath)
+
+  let capturedSchema:
+    | {
+        properties?: {
+          adaptedCv?: {
+            properties?: {
+              header?: {
+                properties?: {
+                  intro?: {
+                    properties?: {
+                      text?: unknown
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    | undefined
+
+  spawnMock.mockImplementation((_command: string, args: string[]) => {
+    const child = createMockChildProcess()
+
+    const schemaFlagIndex = args.indexOf('--output-schema')
+    const outputFlagIndex = args.indexOf('--output-last-message')
+
+    if (
+      schemaFlagIndex === -1 ||
+      outputFlagIndex === -1 ||
+      schemaFlagIndex + 1 >= args.length ||
+      outputFlagIndex + 1 >= args.length
+    ) {
+      throw new Error('Expected Codex CLI schema and output file path arguments.')
+    }
+
+    const schemaFilePath = args[schemaFlagIndex + 1]
+    const outputFilePath = args[outputFlagIndex + 1]
+
+    if (schemaFilePath === undefined || outputFilePath === undefined) {
+      throw new Error('Expected Codex CLI schema and output file path arguments.')
+    }
+
+    void Promise.all([
+      readFile(schemaFilePath, 'utf8').then((schemaText) => {
+        capturedSchema = JSON.parse(schemaText) as typeof capturedSchema
+      }),
+      writeFile(outputFilePath, JSON.stringify(createValidGenerationResult()), 'utf8'),
+    ]).then(
+      () => {
+        child.emit('close', 0)
+      },
+      (error: unknown) => {
+        child.emit('error', error)
+      },
+    )
+
+    return child
+  })
+
+  const worker = createTailoredApplicationGenerationWorker({
+    environment: {
+      CV_MAXXING_AI_WORKER_CODEX_COMMAND: 'codex',
+    },
+  })
+
+  await worker.runGeneration({
+    runDirectoryPath,
+    signal: new AbortController().signal,
+  })
+
+  expect(capturedSchema?.properties?.adaptedCv?.properties?.header?.properties?.intro).toEqual({
+    additionalProperties: false,
+    properties: {
+      text: {
+        maxLength: 180,
+        type: 'string',
+      },
+    },
+    required: ['text'],
+    type: 'object',
+  })
+})
+
 test('does not require cover-letter plain text in the Codex CLI output schema', async () => {
   const runDirectoryPath = await mkdtemp(
     path.join(tmpdir(), 'cv-maxxing-generation-worker-output-schema-'),
@@ -604,6 +695,9 @@ test('instructs Codex to emit a role-only adapted-CV headline', async () => {
   )
   expect(capturedPrompt).toContain(
     'Return adaptedCv.education as the latest relevant completed education entry only, or null.',
+  )
+  expect(capturedPrompt).toContain(
+    'Keep adaptedCv.header.intro.text to a short recruiter-facing introduction, not a paragraph, and at most 180 characters.',
   )
 })
 

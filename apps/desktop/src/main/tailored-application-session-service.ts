@@ -51,6 +51,7 @@ const ADAPTED_CV_PDF_ARTIFACT_NAME = 'adapted-cv.pdf'
 const COVER_LETTER_PDF_ARTIFACT_NAME = 'cover-letter.pdf'
 const TAILORED_APPLICATION_CONTRACT_ERROR_MESSAGE =
   'Generated tailored application failed contract validation.'
+const MAX_HEADER_INTRO_LENGTH = 180
 const MAX_PROFILE_SUMMARY_LENGTH = 900
 const MAX_TAILORED_APPLICATION_SOURCE_TEXT_LENGTH = 24_000
 
@@ -1476,7 +1477,8 @@ function isGeneratedAdaptedCvModel(
       null &&
     hasRequiredAdaptedCvSections(candidate.sections) &&
     getDuplicatedCoreSkillsAndToolsLabels(candidate.sections).length === 0 &&
-    isGeneratedAdaptedCvTemplateFit(candidate as unknown as GeneratedAdaptedCvModel)
+    isGeneratedAdaptedCvHeaderIntroFit(candidate as unknown as GeneratedAdaptedCvModel) &&
+    isGeneratedAdaptedCvProfileFit(candidate as unknown as GeneratedAdaptedCvModel)
   )
 }
 
@@ -1545,7 +1547,11 @@ function describeGeneratedAdaptedCvValidationFailure(
     return `Expected adaptedCv tools items to avoid duplicating core_skills entries. Overlap: ${duplicatedSidebarLabels.join(', ')}.`
   }
 
-  if (!isGeneratedAdaptedCvTemplateFit(candidate as unknown as GeneratedAdaptedCvModel)) {
+  if (!isGeneratedAdaptedCvHeaderIntroFit(candidate as unknown as GeneratedAdaptedCvModel)) {
+    return `Expected adaptedCv.header.intro.text to be at most ${String(MAX_HEADER_INTRO_LENGTH)} characters.`
+  }
+
+  if (!isGeneratedAdaptedCvProfileFit(candidate as unknown as GeneratedAdaptedCvModel)) {
     return `Expected adaptedCv profile summary to be at most ${String(MAX_PROFILE_SUMMARY_LENGTH)} characters.`
   }
 
@@ -1876,7 +1882,11 @@ function isAdaptedCvEducationEntry(
   )
 }
 
-function isGeneratedAdaptedCvTemplateFit(value: GeneratedAdaptedCvModel): boolean {
+function isGeneratedAdaptedCvHeaderIntroFit(value: GeneratedAdaptedCvModel): boolean {
+  return value.header.intro.text.length <= MAX_HEADER_INTRO_LENGTH
+}
+
+function isGeneratedAdaptedCvProfileFit(value: GeneratedAdaptedCvModel): boolean {
   const profileSection = value.sections.find((section) => {
     return section.kind === 'profile'
   })

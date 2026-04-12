@@ -18,6 +18,7 @@ export interface TailoredApplicationGenerationEnvironment {
   CV_MAXXING_AI_WORKER_GENERATION_TIMEOUT_MS?: string
 }
 
+const MAX_HEADER_INTRO_LENGTH = 180
 const OUTPUT_SCHEMA = {
   additionalProperties: false,
   properties: {
@@ -57,7 +58,7 @@ const OUTPUT_SCHEMA = {
         header: {
           additionalProperties: false,
           properties: {
-            intro: groundedTextSchema(),
+            intro: conciseGroundedTextSchema(MAX_HEADER_INTRO_LENGTH),
           },
           required: ['intro'],
           type: 'object',
@@ -461,6 +462,7 @@ async function buildGenerationPrompt(runDirectoryPath: string): Promise<string> 
     'Return adaptedCv.impactHighlights.items only for grounded achievement or outcome lines, not for skills or tooling lists.',
     'Return adaptedCv.education as the latest relevant completed education entry only, or null.',
     'Return adaptedCv.certifications.items, adaptedCv.languages.items, and adaptedCv.focus.items as concise sidebar entries only when strongly grounded and useful.',
+    `Keep adaptedCv.header.intro.text to a short recruiter-facing introduction, not a paragraph, and at most ${String(MAX_HEADER_INTRO_LENGTH)} characters.`,
     'Set adaptedCv.headline.text to the role name only.',
     'Reuse a source role label from the original CV, vacancy title, or structured experience role titles.',
     'Do not append skills, technologies, employers, locations, taglines, or separator suffixes.',

@@ -2184,6 +2184,79 @@ test('rejects adapted output when the profile breaches the page-one template-fit
   expect(renderAdaptedCvPdf).not.toHaveBeenCalled()
 })
 
+test('rejects adapted output when the header intro breaches the concise intro limit', async () => {
+  const harness = await createHarness()
+
+  await seedOriginalCvAndVacancy(harness)
+
+  const renderAdaptedCvPdf = vi.fn().mockResolvedValue({
+    pageCount: 1,
+    pageWarning: null,
+    pdfBytes: new Uint8Array([37, 80, 68, 70]),
+  })
+  const service = createTailoredApplicationSessionService({
+    adaptedCvRenderer: {
+      renderAdaptedCvPdf,
+    },
+    coverLetterRenderer: {
+      renderCoverLetterPdf: vi.fn().mockResolvedValue({
+        pageCount: 1,
+        pageWarning: null,
+        pdfBytes: new Uint8Array([37, 80, 68, 70, 45, 67, 76]),
+      }),
+    },
+    aiWorker: {
+      retryAiWorkerPreflight: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+    },
+    generateId: createIdGenerator(['command-123', 'run-123', 'tailored-application-123']),
+    getCurrentTimestamp: () => {
+      return '2026-04-09T09:30:00.000Z'
+    },
+    localAppData: harness.localAppData,
+    readinessStore: harness.readinessStore,
+    runWorkspaceRootPath: path.join(harness.paths.rootDirectoryPath, 'runs'),
+    worker: {
+      runGeneration: () => {
+        const result = createValidGenerationResult()
+
+        return Promise.resolve({
+          ...result,
+          adaptedCv: {
+            ...result.adaptedCv,
+            header: {
+              intro: {
+                text: 'This header intro has drifted into an oversized recruiter-facing paragraph that keeps adding explanatory detail about workflow delivery, stakeholder alignment, systems thinking, operating cadence, and cross-functional influence until it clearly stops behaving like the short intro line required by the CV template.',
+              },
+            },
+          },
+        })
+      },
+    },
+  })
+
+  await service.startPendingGeneration({
+    originalCvId: 'original-cv-123',
+    originalCvLabel: 'ada-lovelace.pdf',
+    vacancyDraft: {
+      text: 'Senior platform engineer',
+      url: 'https://jobs.example.com/roles/123',
+    },
+  })
+
+  const resumePromise = service.resumePendingGeneration()
+
+  await expect(resumePromise).rejects.toMatchObject({
+    code: 'adapted_cv_invalid',
+    path: 'adaptedCv',
+  })
+  expect(renderAdaptedCvPdf).not.toHaveBeenCalled()
+})
+
 test('derives the persisted cover-letter plain text from the canonical cover-letter model', async () => {
   const harness = await createHarness()
 
