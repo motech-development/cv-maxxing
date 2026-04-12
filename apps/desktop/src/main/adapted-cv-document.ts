@@ -971,7 +971,6 @@ function buildDocumentStyles(): string {
       display: flex;
       flex-direction: column;
       gap: 8px;
-      padding: 36px 58px 0;
     }
 
     .name-continued {

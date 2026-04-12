@@ -329,6 +329,39 @@ test('creates continued headers and a non-blocking warning when pagination excee
   expect(document.html).toContain('Location 1 · 2001 — Present')
 })
 
+test('uses continued-page padding without adding an extra header inset', () => {
+  const longInput = createAdaptedCvInput()
+
+  longInput.adaptedCv.sections[1] = {
+    items: Array.from({ length: 18 }, (_, index) => {
+      const itemNumber = String(index + 1)
+
+      return createExperienceEntry({
+        bullets: [
+          `Owned complex desktop workflow redesign ${itemNumber}, improving clarity across ` +
+            'multi-step technical onboarding, audit trails, and operator review tooling.',
+          `Shipped evidence-heavy workflow narrative ${itemNumber} for highly technical users ` +
+            'without dropping source-grounded proof points.',
+        ],
+        dateRange: `20${itemNumber.padStart(2, '0')} — Present`,
+        employer: `Employer ${itemNumber}`,
+        location: `Location ${itemNumber}`,
+        roleTitle: `Role ${itemNumber}`,
+      })
+    }),
+    kind: 'experience',
+  }
+
+  const document = createAdaptedCvDocument(longInput)
+
+  expect(document.pageCount).toBeGreaterThan(1)
+  expect(document.html).toContain('.page-2,')
+  expect(document.html).toContain('padding: 36px 58px 52px;')
+  expect(document.html).not.toContain(
+    '.header-continued {\n      display: flex;\n      flex-direction: column;\n      gap: 8px;\n      padding: 36px 58px 0;',
+  )
+})
+
 test('finishes a continued selected-work section before impact highlights begin', () => {
   const input = createAdaptedCvInput()
 
