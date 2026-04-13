@@ -99,15 +99,15 @@ function buildDocumentTitle({
   employer: string | null
   vacancyTitle: string | null
 }): string | null {
-  const titleParts = [vacancyTitle, employer].filter((value): value is string => {
-    return value !== null && value.trim() !== ''
-  })
-
-  if (titleParts.length === 0) {
-    return null
+  if (vacancyTitle !== null && vacancyTitle.trim() !== '') {
+    return vacancyTitle
   }
 
-  return titleParts.join(' · ')
+  if (employer !== null && employer.trim() !== '') {
+    return employer
+  }
+
+  return null
 }
 
 function buildDocumentHtml({

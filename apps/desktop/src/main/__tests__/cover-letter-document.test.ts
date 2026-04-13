@@ -35,6 +35,10 @@ test('renders a single-page cover-letter document using the shared PDF visual sy
 
   expect(document.html).toContain('class="cover-letter-sheet"')
   expect(document.html).toContain('Ada Lovelace')
+  expect(document.html).toContain('<p class="role-main">Senior platform engineer</p>')
+  expect(document.html).not.toContain(
+    '<p class="role-main">Senior platform engineer · Example Labs</p>',
+  )
   expect(document.html).toContain('Senior platform engineer')
   expect(document.html).toContain('9 April 2026')
   expect(document.html).toContain('Dear Hiring Manager,')
