@@ -753,6 +753,15 @@ test('instructs Codex to emit a role-only adapted-CV headline', async () => {
     'If tailoring evidence is thin, keep required sections concise and grounded in the original CV rather than omitting them.',
   )
   expect(capturedPrompt).toContain(
+    'Retain every source role from the original CV in adaptedCv.experience.items; do not omit earlier roles even when they are less relevant.',
+  )
+  expect(capturedPrompt).toContain(
+    'Preserve the source experience chronology in adaptedCv.experience.items, with the most recent roles first.',
+  )
+  expect(capturedPrompt).toContain(
+    'Keep older or less relevant roles briefer by using fewer bullets and tighter phrasing instead of dropping those roles.',
+  )
+  expect(capturedPrompt).toContain(
     'Return explicit adaptedCv fields for every template section: profile, experience, selectedWork, impactHighlights, coreSkills, tools, education, certifications, languages, focus, and references.',
   )
   expect(capturedPrompt).toContain(

@@ -940,6 +940,7 @@ export function createTailoredApplicationSessionService({
 
       validateTailoredApplicationGenerationResult(result, {
         originalCvHeadline: originalCv.headline,
+        originalCvExperience: originalCv.normalizedCv.experience,
         vacancyTitle: vacancy.title,
       })
       const renderReadyAdaptedCv = buildAdaptedCvModel({
@@ -1483,6 +1484,7 @@ function validateTailoredApplicationGenerationResult(
   result: unknown,
   context: {
     originalCvHeadline: string
+    originalCvExperience: string[]
     vacancyTitle: string | null
   },
 ): asserts result is TailoredApplicationGenerationResult {
@@ -1525,6 +1527,21 @@ function validateTailoredApplicationGenerationResult(
       code: 'tailored_application_result_invalid',
       detail: 'Expected a valid trace object.',
       path: 'trace',
+    })
+  }
+
+  const missingSourceExperienceEntries = getMissingSourceExperienceEntries(
+    candidate.adaptedCv.sections,
+    context.originalCvExperience,
+  )
+
+  if (missingSourceExperienceEntries.length > 0) {
+    throwContractValidationError({
+      code: 'adapted_cv_invalid',
+      detail: `Expected adaptedCv.sections experience items to retain every source role from originalCv.experience. Missing: ${missingSourceExperienceEntries.join(
+        ', ',
+      )}.`,
+      path: 'adaptedCv',
     })
   }
 }
@@ -2112,6 +2129,117 @@ function normalizeRoleLabel(value: string | null): string | null {
   const roleLabel = extractRoleLabel(value)
 
   return roleLabel === null ? null : roleLabel.toLocaleLowerCase('en-GB')
+}
+
+function getMissingSourceExperienceEntries(
+  sections: unknown[],
+  sourceExperienceEntries: string[],
+): string[] {
+  const sourceIdentities = sourceExperienceEntries.flatMap((entry) => {
+    const identity = parseSourceExperienceIdentity(entry)
+
+    return identity === null ? [] : [identity]
+  })
+
+  if (sourceIdentities.length === 0) {
+    return []
+  }
+
+  const generatedExperienceKeys = new Set(
+    extractGeneratedExperienceEntries(sections).map((entry) => {
+      return createExperienceIdentityKey({
+        dateRange: entry.dateRange,
+        employer: entry.employer,
+        roleTitle: entry.roleTitle,
+      })
+    }),
+  )
+
+  return sourceIdentities.flatMap((identity) => {
+    return generatedExperienceKeys.has(identity.key) ? [] : [identity.display]
+  })
+}
+
+function extractGeneratedExperienceEntries(sections: unknown[]): AdaptedCvExperienceEntry[] {
+  return sections.flatMap((section) => {
+    if (
+      section === null ||
+      typeof section !== 'object' ||
+      Array.isArray(section) ||
+      (section as Record<string, unknown>).kind !== 'experience'
+    ) {
+      return []
+    }
+
+    const items = (section as Record<string, unknown>).items
+
+    if (!Array.isArray(items)) {
+      return []
+    }
+
+    return items.flatMap((item) => {
+      return isAdaptedCvExperienceEntry(item) ? [item] : []
+    })
+  })
+}
+
+function parseSourceExperienceIdentity(entry: string): {
+  display: string
+  key: string
+} | null {
+  const firstLine = entry
+    .split(/\r?\n/u)
+    .map((line) => {
+      return line.trim()
+    })
+    .find((line) => {
+      return line !== ''
+    })
+
+  if (firstLine === undefined) {
+    return null
+  }
+
+  const [roleTitle = '', employer = '', ...dateParts] = firstLine.split('|').map((part) => {
+    return part.trim()
+  })
+
+  if (roleTitle === '' || employer === '') {
+    return null
+  }
+
+  return {
+    display: firstLine,
+    key: createExperienceIdentityKey({
+      dateRange: dateParts.join(' | '),
+      employer,
+      roleTitle,
+    }),
+  }
+}
+
+function createExperienceIdentityKey({
+  dateRange,
+  employer,
+  roleTitle,
+}: {
+  dateRange: string
+  employer: string
+  roleTitle: string
+}): string {
+  return [roleTitle, employer, dateRange]
+    .map((value) => {
+      return normalizeExperienceIdentityPart(value)
+    })
+    .join('::')
+}
+
+function normalizeExperienceIdentityPart(value: string): string {
+  return value
+    .replaceAll(/[‐‑‒–—−]/gu, '-')
+    .replaceAll(/\s+/gu, ' ')
+    .trim()
+    .toLocaleLowerCase('en-GB')
 }
 
 function extractRoleLabel(value: string | null): string | null {
