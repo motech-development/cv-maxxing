@@ -365,6 +365,95 @@ test('writes a concise adapted-CV header intro field in the Codex CLI output sch
   })
 })
 
+test('writes stricter sidebar-label descriptions for core skills and tools in the Codex CLI output schema', async () => {
+  const runDirectoryPath = await mkdtemp(
+    path.join(tmpdir(), 'cv-maxxing-generation-worker-output-schema-'),
+  )
+
+  temporaryDirectories.push(runDirectoryPath)
+  await createRunWorkspaceInput(runDirectoryPath)
+
+  let capturedSchema:
+    | {
+        properties?: {
+          adaptedCv?: {
+            properties?: {
+              coreSkills?: {
+                description?: string
+              }
+              tools?: {
+                description?: string
+              }
+            }
+          }
+        }
+      }
+    | undefined
+
+  spawnMock.mockImplementation((_command: string, args: string[]) => {
+    const child = createMockChildProcess()
+
+    const schemaFlagIndex = args.indexOf('--output-schema')
+    const outputFlagIndex = args.indexOf('--output-last-message')
+
+    if (
+      schemaFlagIndex === -1 ||
+      outputFlagIndex === -1 ||
+      schemaFlagIndex + 1 >= args.length ||
+      outputFlagIndex + 1 >= args.length
+    ) {
+      throw new Error('Expected Codex CLI schema and output file path arguments.')
+    }
+
+    const schemaFilePath = args[schemaFlagIndex + 1]
+    const outputFilePath = args[outputFlagIndex + 1]
+
+    if (schemaFilePath === undefined || outputFilePath === undefined) {
+      throw new Error('Expected Codex CLI schema and output file path arguments.')
+    }
+
+    void Promise.all([
+      readFile(schemaFilePath, 'utf8').then((schemaText) => {
+        capturedSchema = JSON.parse(schemaText) as typeof capturedSchema
+      }),
+      writeFile(outputFilePath, JSON.stringify(createValidGenerationResult()), 'utf8'),
+    ]).then(
+      () => {
+        child.emit('close', 0)
+      },
+      (error: unknown) => {
+        child.emit('error', error)
+      },
+    )
+
+    return child
+  })
+
+  const worker = createTailoredApplicationGenerationWorker({
+    environment: {
+      CV_MAXXING_AI_WORKER_CODEX_COMMAND: 'codex',
+    },
+  })
+
+  await worker.runGeneration({
+    runDirectoryPath,
+    signal: new AbortController().signal,
+  })
+
+  expect(capturedSchema?.properties?.adaptedCv?.properties?.coreSkills?.description).toContain(
+    'Return concise sidebar labels only',
+  )
+  expect(capturedSchema?.properties?.adaptedCv?.properties?.coreSkills?.description).toContain(
+    'not sentences',
+  )
+  expect(capturedSchema?.properties?.adaptedCv?.properties?.tools?.description).toContain(
+    'Return ungrouped concise tool labels only',
+  )
+  expect(capturedSchema?.properties?.adaptedCv?.properties?.tools?.description).toContain(
+    'Do not combine multiple tools into one item',
+  )
+})
+
 test('does not require cover-letter plain text in the Codex CLI output schema', async () => {
   const runDirectoryPath = await mkdtemp(
     path.join(tmpdir(), 'cv-maxxing-generation-worker-output-schema-'),
@@ -673,6 +762,12 @@ test('instructs Codex to emit a role-only adapted-CV headline', async () => {
     'Keep each adaptedCv.coreSkills.items entry brief, usually one to three words.',
   )
   expect(capturedPrompt).toContain(
+    "Good adaptedCv.coreSkills.items examples: 'Stakeholder management', 'Roadmapping', 'Service design'.",
+  )
+  expect(capturedPrompt).toContain(
+    "Bad adaptedCv.coreSkills.items examples: 'Led cross-functional teams to deliver roadmap outcomes.' and 'Improved stakeholder alignment across product and engineering teams'.",
+  )
+  expect(capturedPrompt).toContain(
     'Always include adaptedCv.profile, adaptedCv.experience, adaptedCv.coreSkills, and adaptedCv.references.',
   )
   expect(capturedPrompt).toContain(
@@ -683,6 +778,9 @@ test('instructs Codex to emit a role-only adapted-CV headline', async () => {
   )
   expect(capturedPrompt).toContain(
     "Ungroup adaptedCv.tools.items; split combined labels such as 'NoSQL databases (MongoDB, AWS DynamoDB)' into separate items like 'MongoDB' and 'AWS DynamoDB'.",
+  )
+  expect(capturedPrompt).toContain(
+    "Bad adaptedCv.tools.items examples: 'MongoDB / DynamoDB', 'Figma and FigJam', and 'NoSQL databases (MongoDB, AWS DynamoDB)'.",
   )
   expect(capturedPrompt).toContain(
     'Do not repeat the same label across adaptedCv.coreSkills.items and adaptedCv.tools.items.',

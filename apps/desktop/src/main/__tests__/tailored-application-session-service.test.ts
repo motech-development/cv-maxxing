@@ -1629,6 +1629,8 @@ test('persists raw generation output and validation details when required sectio
         code: 'adapted_cv_invalid',
         detail:
           'Expected adaptedCv.sections to include experience, core_skills. Received sections: profile, references.',
+        invalidSection: null,
+        invalidSectionIndex: null,
         path: 'adaptedCv',
       }),
       'utf8',
@@ -2151,7 +2153,133 @@ test('rejects grouped tool labels so Codex must return ungrouped tool items', as
     detail: 'Expected adaptedCv.sections[3] tools items to be concise ungrouped sidebar labels.',
     path: 'adaptedCv',
   })
+
+  await expect(
+    harness.localAppData.artifacts.read({
+      id: 'run-123',
+      name: 'contract-validation-error.json',
+      scope: 'generation-runs',
+    }),
+  ).resolves.toEqual(
+    Buffer.from(
+      JSON.stringify({
+        code: 'adapted_cv_invalid',
+        detail:
+          'Expected adaptedCv.sections[3] tools items to be concise ungrouped sidebar labels.',
+        invalidSection: {
+          items: [
+            {
+              text: 'NoSQL databases (MongoDB, AWS DynamoDB)',
+            },
+            {
+              text: 'Serverless Framework',
+            },
+          ],
+          kind: 'tools',
+        },
+        invalidSectionIndex: 3,
+        path: 'adaptedCv',
+      }),
+      'utf8',
+    ),
+  )
+
   expect(renderAdaptedCvPdf).not.toHaveBeenCalled()
+})
+
+test('accepts concise tool labels with internal periods such as Node.js', async () => {
+  const harness = await createHarness()
+
+  await seedOriginalCvAndVacancy(harness)
+
+  const renderAdaptedCvPdf = vi.fn().mockResolvedValue({
+    pageCount: 1,
+    pageWarning: null,
+    pdfBytes: new Uint8Array([37, 80, 68, 70]),
+  })
+  const service = createTailoredApplicationSessionService({
+    adaptedCvRenderer: {
+      renderAdaptedCvPdf,
+    },
+    coverLetterRenderer: {
+      renderCoverLetterPdf: vi.fn().mockResolvedValue({
+        pageCount: 1,
+        pageWarning: null,
+        pdfBytes: new Uint8Array([37, 80, 68, 70, 45, 67, 76]),
+      }),
+    },
+    aiWorker: {
+      retryAiWorkerPreflight: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+    },
+    generateId: createIdGenerator(['command-123', 'run-123', 'tailored-application-123']),
+    getCurrentTimestamp: () => {
+      return '2026-04-09T09:30:00.000Z'
+    },
+    localAppData: harness.localAppData,
+    readinessStore: harness.readinessStore,
+    runWorkspaceRootPath: path.join(harness.paths.rootDirectoryPath, 'runs'),
+    worker: {
+      runGeneration: () => {
+        const result = createValidGenerationResult()
+
+        return Promise.resolve({
+          ...result,
+          adaptedCv: {
+            ...result.adaptedCv,
+            sections: [
+              ...result.adaptedCv.sections.slice(0, -1),
+              {
+                items: [
+                  {
+                    text: 'React',
+                  },
+                  {
+                    text: 'React Native',
+                  },
+                  {
+                    text: 'Node.js',
+                  },
+                  {
+                    text: 'TypeScript',
+                  },
+                  {
+                    text: 'AWS',
+                  },
+                  {
+                    text: 'PostgreSQL',
+                  },
+                ],
+                kind: 'tools',
+              },
+              result.adaptedCv.sections.at(-1) ?? {
+                kind: 'references',
+              },
+            ],
+          },
+        })
+      },
+    },
+  })
+
+  await service.startPendingGeneration({
+    originalCvId: 'original-cv-123',
+    originalCvLabel: 'ada-lovelace.pdf',
+    vacancyDraft: {
+      text: 'Senior platform engineer',
+      url: 'https://jobs.example.com/roles/123',
+    },
+  })
+
+  await expect(service.resumePendingGeneration()).resolves.toEqual({
+    generationRunId: 'run-123',
+    tailoredApplicationId: 'tailored-application-123',
+  })
+  expect(renderAdaptedCvPdf).toHaveBeenCalledTimes(1)
 })
 
 test('rejects adapted output when a mandatory tailored-CV section is empty', async () => {

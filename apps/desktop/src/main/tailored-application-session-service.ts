@@ -188,6 +188,14 @@ interface VacancyWorkspaceMetadataValue extends Record<string, JsonValue> {
   vacancyId: string | null
 }
 
+interface ContractValidationFailureArtifact extends Record<string, JsonValue> {
+  code: string
+  detail: string | null
+  invalidSection: JsonValue | null
+  invalidSectionIndex: number | null
+  path: string
+}
+
 interface CreateTailoredApplicationSessionServiceOptions {
   adaptedCvRenderer?: AdaptedCvRenderer
   aiWorker: Pick<AiWorkerPreflightService, 'retryAiWorkerPreflight'>
@@ -291,6 +299,44 @@ function createTailoredApplicationTitle({
   }
 
   return titleParts.join(' · ')
+}
+
+function getInvalidAdaptedCvSectionIndex(detail: string | undefined): number | null {
+  if (detail === undefined) {
+    return null
+  }
+
+  const matchedSectionIndex = /adaptedCv\.sections\[(\d+)\]/u.exec(detail)
+
+  if (matchedSectionIndex === null) {
+    return null
+  }
+
+  const parsedSectionIndex = Number.parseInt(matchedSectionIndex[1] ?? '', 10)
+
+  return Number.isInteger(parsedSectionIndex) ? parsedSectionIndex : null
+}
+
+function buildContractValidationFailureArtifact({
+  error,
+  rawResult,
+}: {
+  error: TailoredApplicationContractValidationError
+  rawResult: TailoredApplicationGenerationResult
+}): ContractValidationFailureArtifact {
+  const invalidSectionIndex = getInvalidAdaptedCvSectionIndex(error.detail)
+  const invalidSection =
+    invalidSectionIndex === null
+      ? null
+      : ((rawResult.adaptedCv.sections[invalidSectionIndex] ?? null) as JsonValue | null)
+
+  return {
+    code: error.code,
+    detail: error.detail ?? null,
+    invalidSection,
+    invalidSectionIndex,
+    path: error.path,
+  }
 }
 
 export function createTailoredApplicationSessionService({
@@ -797,6 +843,17 @@ export function createTailoredApplicationSessionService({
     generationRunId: string
     rawResult: TailoredApplicationGenerationResult
   }): Promise<void> {
+    const contractValidationFailureArtifact = buildContractValidationFailureArtifact({
+      error,
+      rawResult,
+    })
+
+    console.error(
+      `Tailored application contract validation failed for generation run ${generationRunId}: ${JSON.stringify(
+        contractValidationFailureArtifact,
+      )}`,
+    )
+
     await Promise.all([
       localAppData.artifacts.write({
         content: Buffer.from(JSON.stringify(rawResult), 'utf8'),
@@ -805,14 +862,7 @@ export function createTailoredApplicationSessionService({
         scope: GENERATION_RUN_SCOPE,
       }),
       localAppData.artifacts.write({
-        content: Buffer.from(
-          JSON.stringify({
-            code: error.code,
-            detail: error.detail ?? null,
-            path: error.path,
-          }),
-          'utf8',
-        ),
+        content: Buffer.from(JSON.stringify(contractValidationFailureArtifact), 'utf8'),
         id: generationRunId,
         name: 'contract-validation-error.json',
         scope: GENERATION_RUN_SCOPE,
@@ -1872,7 +1922,7 @@ function isConciseSidebarLabel(
   if (
     normalizedValue === '' ||
     normalizedValue.length > maximumLength ||
-    /[.!?]/u.test(normalizedValue)
+    /[.!?]$/u.test(normalizedValue)
   ) {
     return false
   }

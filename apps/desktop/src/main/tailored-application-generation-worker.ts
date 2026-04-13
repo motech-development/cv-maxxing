@@ -65,7 +65,8 @@ const OUTPUT_SCHEMA = {
         },
         headline: groundedTextSchema(),
         coreSkills: {
-          description: 'Required sidebar section. Max 6 short vacancy-relevant skill labels.',
+          description:
+            'Required sidebar section. Max 6 short vacancy-relevant skill labels. Return concise sidebar labels only, not sentences, achievements, responsibility statements, or evidence lines.',
           additionalProperties: false,
           properties: {
             items: {
@@ -108,7 +109,7 @@ const OUTPUT_SCHEMA = {
         },
         tools: nullableItemsSectionSchema({
           description:
-            'Optional sidebar section. Max 6 concise technology, framework, platform, database, or tooling labels.',
+            'Optional sidebar section. Max 6 concise technology, framework, platform, database, or tooling labels. Return ungrouped concise tool labels only. Do not combine multiple tools into one item or use grouped labels with commas, parentheses, slashes, ampersands, plus signs, or "and".',
           items: conciseGroundedTextSchema(48),
           maxItems: 6,
         }),
@@ -455,8 +456,11 @@ async function buildGenerationPrompt(runDirectoryPath: string): Promise<string> 
     'Set optional section fields to null when they are weak, generic, duplicative, unsupported, or not needed.',
     'Return adaptedCv.coreSkills.items as concise vacancy-relevant skill labels only, not sentences, achievements, or responsibility statements.',
     'Keep each adaptedCv.coreSkills.items entry brief, usually one to three words.',
+    "Good adaptedCv.coreSkills.items examples: 'Stakeholder management', 'Roadmapping', 'Service design'.",
+    "Bad adaptedCv.coreSkills.items examples: 'Led cross-functional teams to deliver roadmap outcomes.' and 'Improved stakeholder alignment across product and engineering teams'.",
     'Return adaptedCv.tools.items only for concise technology, framework, platform, database, or tooling labels that are explicit or conservatively inferable from the original CV.',
     "Ungroup adaptedCv.tools.items; split combined labels such as 'NoSQL databases (MongoDB, AWS DynamoDB)' into separate items like 'MongoDB' and 'AWS DynamoDB'.",
+    "Bad adaptedCv.tools.items examples: 'MongoDB / DynamoDB', 'Figma and FigJam', and 'NoSQL databases (MongoDB, AWS DynamoDB)'.",
     'Do not repeat the same label across adaptedCv.coreSkills.items and adaptedCv.tools.items.',
     'Return adaptedCv.selectedWork.items only for grounded named projects, products, clients, or case-study style examples.',
     'Return adaptedCv.impactHighlights.items only for grounded achievement or outcome lines, not for skills or tooling lists.',
