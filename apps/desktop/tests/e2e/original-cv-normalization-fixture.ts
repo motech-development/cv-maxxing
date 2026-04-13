@@ -1,4 +1,11 @@
-export function createOriginalCvNormalizationFixtureOutput(): string {
+export function createOriginalCvNormalizationFixtureOutput(
+  overrides?: Partial<{
+    experience: string[]
+    headline: string
+    skills: string[]
+    summary: string
+  }>,
+): string {
   return JSON.stringify({
     normalizedCv: {
       contact: {
@@ -7,13 +14,15 @@ export function createOriginalCvNormalizationFixtureOutput(): string {
         phone: '',
         professionalLink: '',
       },
-      experience: [
+      experience: overrides?.experience ?? [
         'Principal Product Designer | Analytical Engines Ltd | 2022 — Present\nLed product design for AI-assisted desktop tooling.',
       ],
       fullName: 'Ada Lovelace',
-      headline: 'Principal Product Designer',
-      skills: ['Product strategy', 'UX research', 'Prototyping'],
-      summary: 'Design leader focused on complex workflow products for technical users.',
+      headline: overrides?.headline ?? 'Principal Product Designer',
+      skills: overrides?.skills ?? ['Product strategy', 'UX research', 'Prototyping'],
+      summary:
+        overrides?.summary ??
+        'Design leader focused on complex workflow products for technical users.',
     },
     writingStyle: {
       averageSentenceLength: 7,

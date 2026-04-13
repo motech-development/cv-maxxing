@@ -179,17 +179,38 @@ test('replaces the active original CV from the workspace with a DOCX snapshot', 
     ]),
   )
 
-  const electronApp = await launchDesktopApp({
+  let electronApp = await launchDesktopApp({
     CV_MAXXING_AI_WORKER_PREFLIGHT_STATUS: 'ready',
     CV_MAXXING_LOCAL_APP_DATA_ROOT: testPaths.appDataRoot,
     CV_MAXXING_STARTUP_DESTINATION: 'first_launch',
   })
 
-  const page = await electronApp.firstWindow()
+  let page = await electronApp.firstWindow()
 
   await expect(page.getByRole('heading', { name: 'Import your original CV' })).toBeVisible()
   await page.getByLabel('Original CV file').setInputFiles(testPaths.pdfPath)
   await page.getByRole('button', { name: 'Import original CV' }).click()
+  await expect(page.getByRole('heading', { name: 'Create a tailored application' })).toBeVisible()
+  await expect(page.getByText('ada-lovelace.pdf')).toBeVisible()
+
+  await electronApp.close()
+
+  electronApp = await launchDesktopApp({
+    CV_MAXXING_AI_WORKER_ORIGINAL_CV_NORMALIZATION_OUTPUT:
+      createOriginalCvNormalizationFixtureOutput({
+        experience: [
+          'Staff Product Designer | Analytical Engines Ltd | 2022 — Present\nRefined import and adaptation workflows for complex authoring tools.',
+        ],
+        headline: 'Staff Product Designer',
+        skills: ['Design systems', 'Desktop UX', 'Content strategy'],
+        summary: 'Product designer adapting CVs for desktop AI tooling.',
+      }),
+    CV_MAXXING_AI_WORKER_PREFLIGHT_STATUS: 'ready',
+    CV_MAXXING_LOCAL_APP_DATA_ROOT: testPaths.appDataRoot,
+  })
+
+  page = await electronApp.firstWindow()
+
   await expect(page.getByRole('heading', { name: 'Create a tailored application' })).toBeVisible()
   await expect(page.getByText('ada-lovelace.pdf')).toBeVisible()
   await page.getByLabel('Replacement original CV file').setInputFiles(testPaths.docxPath)
@@ -376,9 +397,21 @@ test('returns cleanly to the vacancy intake with blocking guidance when the inte
   await expect(page.getByRole('heading', { name: 'Create a tailored application' })).toBeVisible()
   await page.getByLabel('Vacancy URL').fill('https://www.linkedin.com/jobs/view/123456')
   await page.getByRole('button', { name: 'Review vacancy from URL' }).click()
+  await expect
+    .poll(
+      async () => {
+        return (await page.locator('body').textContent()) ?? ''
+      },
+      {
+        timeout: 15_000,
+      },
+    )
+    .toContain('Add the full job responsibilities or requirements before adapting this CV.')
   await expect(
     page.getByText('Add the full job responsibilities or requirements before adapting this CV.'),
-  ).toBeVisible()
+  ).toBeVisible({
+    timeout: 15_000,
+  })
   await expect(page.getByRole('button', { name: 'Adapt CV' })).toBeDisabled()
   await expect(page.getByLabel('Vacancy URL')).toHaveValue(
     'https://www.linkedin.com/jobs/view/123456',
