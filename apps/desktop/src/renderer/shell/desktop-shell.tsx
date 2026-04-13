@@ -123,7 +123,9 @@ export function DesktopShell({
             <div className="flex h-full flex-col gap-4 p-5">{sidebar}</div>
           </aside>
 
-          <div className="min-w-0 flex-1 bg-[var(--color-surface-0)] p-7">{children}</div>
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[var(--color-surface-0)] p-7">
+            {children}
+          </div>
         </div>
       </section>
     </main>

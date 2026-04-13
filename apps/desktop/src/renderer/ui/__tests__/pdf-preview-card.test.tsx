@@ -14,6 +14,8 @@ const { getDocumentMock } = vi.hoisted(() => {
   }
 })
 
+let activeGetViewportMock = vi.fn()
+
 vi.mock('pdfjs-dist/legacy/build/pdf.mjs', () => {
   return {
     getDocument: getDocumentMock,
@@ -27,6 +29,55 @@ import { PdfPreviewCard } from '../pdf-preview-card.js'
 
 beforeEach(() => {
   vi.clearAllMocks()
+
+  activeGetViewportMock = vi.fn(({ scale }: { scale: number }) => {
+    return {
+      height: 1600 * scale,
+      width: 1200 * scale,
+    }
+  })
+
+  class ResizeObserverMock {
+    private readonly callback: ResizeObserverCallback
+    public readonly disconnect = vi.fn()
+    public readonly unobserve = vi.fn()
+
+    public constructor(callback: ResizeObserverCallback) {
+      this.callback = callback
+    }
+
+    public observe(target: Element) {
+      this.callback(
+        [
+          {
+            borderBoxSize: [],
+            contentBoxSize: [],
+            contentRect: {
+              bottom: 640,
+              height: 640,
+              left: 0,
+              right: 300,
+              toJSON: () => {
+                return {}
+              },
+              top: 0,
+              width: 300,
+              x: 0,
+              y: 0,
+            },
+            devicePixelContentBoxSize: [],
+            target,
+          } satisfies ResizeObserverEntry,
+        ],
+        this as unknown as ResizeObserver,
+      )
+    }
+  }
+
+  Object.defineProperty(globalThis, 'ResizeObserver', {
+    configurable: true,
+    value: ResizeObserverMock,
+  })
 
   Object.defineProperty(HTMLCanvasElement.prototype, 'getContext', {
     configurable: true,
@@ -53,12 +104,7 @@ beforeEach(() => {
       destroy: vi.fn().mockImplementation(() => Promise.resolve()),
       promise: Promise.resolve({
         getPage: vi.fn().mockResolvedValue({
-          getViewport: ({ scale }: { scale: number }) => {
-            return {
-              height: 160 * scale,
-              width: 120 * scale,
-            }
-          },
+          getViewport: activeGetViewportMock,
           render: vi.fn().mockReturnValue({
             cancel: vi.fn(),
             promise: Promise.resolve(),
@@ -91,11 +137,47 @@ test('navigates between PDF pages without surfacing a detached worker buffer err
 
   expect(screen.queryByText('This PDF runs long but should not show a warning banner.')).toBeNull()
 
+  const previewCanvas = screen.getByLabelText('Adapted CV PDF preview')
+  const previewScrollport = previewCanvas.parentElement
+  const previewFrame = previewScrollport?.parentElement
+  const previewCard = previewFrame?.parentElement
+
+  expect(previewCanvas.className).toContain('block')
+  expect(previewCanvas.className).toContain('mx-auto')
+  expect(previewScrollport?.className).toContain('h-full')
+  expect(previewScrollport?.className).toContain('w-full')
+  expect(previewScrollport?.className).toContain('overflow-auto')
+  expect(previewFrame?.className).toContain('min-w-0')
+  expect(previewFrame?.className).toContain('max-w-full')
+  expect(previewFrame?.className).toContain('overflow-hidden')
+  expect(previewFrame?.className).toContain('p-4')
+  expect(previewCard?.className).toContain('min-w-0')
+  expect(previewCard?.className).toContain('max-w-full')
+  expect(previewCanvas).toHaveProperty('width', 300)
+  expect(previewCanvas).toHaveProperty('height', 400)
+  expect(activeGetViewportMock).toHaveBeenNthCalledWith(1, {
+    scale: 1,
+  })
+  expect(activeGetViewportMock).toHaveBeenNthCalledWith(2, {
+    scale: 0.25,
+  })
+
+  fireEvent.click(screen.getByRole('button', { name: 'Zoom in' }))
+
+  await waitFor(() => {
+    expect(previewCanvas).toHaveProperty('width', 360)
+  })
+
+  expect(previewCanvas).toHaveProperty('height', 480)
+  expect(activeGetViewportMock).toHaveBeenNthCalledWith(4, {
+    scale: 0.3,
+  })
+
   fireEvent.click(screen.getByRole('button', { name: 'Next page' }))
 
   await waitFor(() => {
     expect(screen.getByText('Page 2 of 2')).toBeDefined()
-    expect(getDocumentMock).toHaveBeenCalledTimes(2)
+    expect(getDocumentMock).toHaveBeenCalledTimes(3)
   })
 
   expect(screen.queryByText(detachedBufferErrorMessage)).toBeNull()
@@ -104,7 +186,7 @@ test('navigates between PDF pages without surfacing a detached worker buffer err
 
   await waitFor(() => {
     expect(screen.getByText('Page 1 of 2')).toBeDefined()
-    expect(getDocumentMock).toHaveBeenCalledTimes(3)
+    expect(getDocumentMock).toHaveBeenCalledTimes(4)
   })
 
   expect(screen.queryByText(detachedBufferErrorMessage)).toBeNull()

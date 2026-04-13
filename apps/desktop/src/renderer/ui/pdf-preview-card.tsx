@@ -45,16 +45,63 @@ function LoadedPdfPreviewCard({
   title: string
 }) {
   const canvasReference = useRef<HTMLCanvasElement | null>(null)
+  const scrollportReference = useRef<HTMLDivElement | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
   const [renderError, setRenderError] = useState<string | null>(null)
+  const [scrollportWidth, setScrollportWidth] = useState<number | null>(null)
   const [zoom, setZoom] = useState(1)
 
   useEffect(() => {
-    if (canvasReference.current === null) {
+    const scrollport = scrollportReference.current
+
+    if (scrollport === null) {
+      return
+    }
+
+    const syncScrollportWidth = (nextWidth: number) => {
+      if (nextWidth <= 0) {
+        return
+      }
+
+      setScrollportWidth((previousWidth) => {
+        return previousWidth === nextWidth ? previousWidth : nextWidth
+      })
+    }
+
+    syncScrollportWidth(scrollport.clientWidth)
+
+    if (typeof ResizeObserver === 'undefined') {
+      const handleResize = () => {
+        syncScrollportWidth(scrollport.clientWidth)
+      }
+
+      globalThis.window.addEventListener('resize', handleResize)
+
+      return () => {
+        globalThis.window.removeEventListener('resize', handleResize)
+      }
+    }
+
+    const resizeObserver = new ResizeObserver((entries) => {
+      const entry = entries[0]
+
+      syncScrollportWidth(entry?.contentRect.width ?? scrollport.clientWidth)
+    })
+
+    resizeObserver.observe(scrollport)
+
+    return () => {
+      resizeObserver.disconnect()
+    }
+  }, [])
+
+  useEffect(() => {
+    if (canvasReference.current === null || scrollportWidth === null) {
       return
     }
 
     const activePreview = preview
+    const resolvedScrollportWidth = scrollportWidth
     let isCancelled = false
     let activeLoadingTask: ReturnType<typeof getDocument> | null = null
     let activeRenderTask: { cancel: () => void; promise: Promise<void> } | null = null
@@ -68,8 +115,12 @@ function LoadedPdfPreviewCard({
         const pdfDocument = await activeLoadingTask.promise
         activeLoadingTask = null
         const page = await pdfDocument.getPage(currentPage)
+        const baseViewport = page.getViewport({
+          scale: 1,
+        })
+        const fitWidthScale = Math.min(1, resolvedScrollportWidth / baseViewport.width)
         const viewport = page.getViewport({
-          scale: zoom,
+          scale: fitWidthScale * zoom,
         })
         const canvas = canvasReference.current
 
@@ -114,10 +165,10 @@ function LoadedPdfPreviewCard({
       activeLoadingTask?.destroy().catch(() => null)
       activeRenderTask?.cancel()
     }
-  }, [currentPage, preview, zoom])
+  }, [currentPage, preview, scrollportWidth, zoom])
 
   return (
-    <div className="flex h-full min-h-[520px] flex-col gap-4 rounded-[8px] border border-[var(--color-border)] bg-[var(--color-surface-1)] p-[18px]">
+    <div className="flex h-full min-h-[520px] min-w-0 max-w-full flex-col gap-4 rounded-[8px] border border-[var(--color-border)] bg-[var(--color-surface-1)] p-[18px]">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <Button
@@ -172,15 +223,20 @@ function LoadedPdfPreviewCard({
         </div>
       </div>
 
-      <div className="flex min-h-0 flex-1 items-start justify-center overflow-auto rounded-[6px] bg-[var(--color-shell-canvas)] p-4">
+      <div className="min-h-0 min-w-0 max-w-full flex-1 overflow-hidden rounded-[6px] bg-[var(--color-shell-canvas)] p-4">
         {renderError ? (
           <p className="m-0 text-sm text-[var(--color-copy-muted)]">{renderError}</p>
         ) : null}
-        <canvas
-          aria-label={`${title} PDF preview`}
-          className={`${renderError ? 'hidden' : 'block'} rounded-[4px] bg-white shadow-[0_18px_48px_rgba(8,20,31,0.08)]`}
-          ref={canvasReference}
-        />
+        <div
+          className={`${renderError ? 'hidden' : 'block'} h-full w-full overflow-auto`}
+          ref={scrollportReference}
+        >
+          <canvas
+            aria-label={`${title} PDF preview`}
+            className="block mx-auto rounded-[4px] bg-white shadow-[0_18px_48px_rgba(8,20,31,0.08)]"
+            ref={canvasReference}
+          />
+        </div>
       </div>
     </div>
   )

@@ -142,145 +142,151 @@ export function WorkspaceActiveScreen({
       workerLabel="Ready"
       workerTone="ready"
     >
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          <h1 className="m-0 text-[32px] font-extrabold tracking-[-0.03em] text-[var(--color-copy-strong)]">
-            {resolvedApplicationTitle}
-          </h1>
-          <p className="mt-2 text-sm leading-6 text-[var(--color-copy-muted)]">
-            Adapted CV and cover letter generated from the active original CV snapshot.
-          </p>
-          {workspaceError ? (
-            <div className="mt-4 max-w-4xl rounded-[var(--radius-card)] border border-[var(--color-status-danger)]/20 bg-[var(--color-surface-danger)] px-4 py-3 text-sm leading-6 text-[var(--color-status-danger)]">
-              {workspaceError}
-            </div>
-          ) : null}
-        </div>
-        <Button disabled={preview === null || isExportingPdf} onClick={onExportPdf} tone="primary">
-          Export PDFs
-        </Button>
-      </div>
-
-      <div className="mt-4 flex gap-4">
-        <PanelCard className="flex min-h-[620px] flex-1 flex-col gap-3 p-[18px]">
-          <div className="flex gap-2">
-            <button
-              className={`rounded-[8px] px-3 py-2 text-[12px] font-extrabold ${
-                previewDocumentKind === 'adapted_cv'
-                  ? 'bg-[var(--color-ink-900)] text-white'
-                  : 'bg-[var(--color-surface-2)] text-[var(--color-copy-strong)]'
-              }`}
-              onClick={() => {
-                onSelectPreviewDocument('adapted_cv')
-              }}
-              type="button"
-            >
-              Adapted CV
-            </button>
-            <button
-              className={`rounded-[8px] px-3 py-2 text-[12px] font-extrabold ${
-                previewDocumentKind === 'cover_letter'
-                  ? 'bg-[var(--color-ink-900)] text-white'
-                  : 'bg-[var(--color-surface-2)] text-[var(--color-copy-strong)]'
-              }`}
-              onClick={() => {
-                onSelectPreviewDocument('cover_letter')
-              }}
-              type="button"
-            >
-              Cover letter
-            </button>
-          </div>
-          <PdfPreviewCard
-            emptyStateCopy={documentEmptyStateCopy}
-            preview={activeDocumentPreview}
-            previewKey={
-              preview === null ? previewDocumentKind : `${preview.id}:${previewDocumentKind}`
-            }
-            title={documentTitle}
-          />
-        </PanelCard>
-
-        <PanelCard className="flex w-[300px] flex-col gap-3 overflow-y-auto p-[18px]">
-          <h2 className="m-0 text-sm font-extrabold text-[var(--color-copy-strong)]">
-            Job vacancy
-          </h2>
-          <p className="m-0 text-xs leading-5 text-[var(--color-copy-muted)]">
-            {resolvedVacancySubtitle}
-          </p>
-          {preview?.vacancy.responsibilities[0] ? (
-            <p className="m-0 text-xs leading-5 text-[var(--color-copy-muted)]">
-              {preview.vacancy.responsibilities[0]}
+      <div className="flex min-h-0 flex-1 flex-col">
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <h1 className="m-0 text-[32px] font-extrabold tracking-[-0.03em] text-[var(--color-copy-strong)]">
+              {resolvedApplicationTitle}
+            </h1>
+            <p className="mt-2 text-sm leading-6 text-[var(--color-copy-muted)]">
+              Adapted CV and cover letter generated from the active original CV snapshot.
             </p>
-          ) : null}
-          <div className="h-px bg-[var(--color-border)]" />
-          <div className="flex flex-col gap-2">
-            {previewStatusTags.map((tag) => {
-              return (
-                <div
-                  className="rounded-[8px] bg-[var(--color-surface-2)] px-3 py-2 text-xs font-extrabold text-[var(--color-copy-strong)]"
-                  key={tag}
-                >
-                  {tag}
-                </div>
-              )
-            })}
+            {workspaceError ? (
+              <div className="mt-4 max-w-4xl rounded-[var(--radius-card)] border border-[var(--color-status-danger)]/20 bg-[var(--color-surface-danger)] px-4 py-3 text-sm leading-6 text-[var(--color-status-danger)]">
+                {workspaceError}
+              </div>
+            ) : null}
           </div>
-          {preview ? (
-            <>
-              <DetailSection title="Original CV snapshot">
-                <p className="m-0 text-xs font-extrabold text-[var(--color-copy-strong)]">
-                  {preview.originalCv.originalFilename}
-                </p>
-                <p className="m-0 text-xs leading-5 text-[var(--color-copy-muted)]">
-                  {preview.originalCv.headline}
-                </p>
-                <p className="m-0 text-xs leading-5 text-[var(--color-copy-muted)]">
-                  Imported {formatTimestamp(preview.originalCv.importedAt)}
-                </p>
-              </DetailSection>
-              <DetailSection title="Adaptation summary">
-                <DetailList
-                  emptyMessage="No adaptation notes recorded."
-                  items={[
-                    ...preview.adaptationSummary.emphasized.map((item) => {
-                      return item.text
-                    }),
-                    ...preview.adaptationSummary.omitted.map((item) => {
-                      return item.text
-                    }),
-                  ]}
-                />
-              </DetailSection>
-              <DetailSection title="Gaps and validation hints">
-                <DetailList
-                  emptyMessage="No gaps or validation hints recorded."
-                  items={[
-                    ...preview.adaptationSummary.gaps,
-                    ...preview.adaptationSummary.validationHints,
-                  ]}
-                />
-              </DetailSection>
-            </>
-          ) : null}
           <Button
-            disabled={preview === null || isCopyingCoverLetterText}
-            onClick={onCopyCoverLetterText}
+            disabled={preview === null || isExportingPdf}
+            onClick={onExportPdf}
             tone="primary"
           >
-            Copy cover letter text
+            Export PDFs
           </Button>
-          <Button
-            className="border-[var(--color-border)] bg-[var(--color-surface-danger)] text-[var(--color-status-danger)] hover:bg-[#ffe5e5]"
-            disabled={preview === null || isExportingPdf}
-            onClick={onDeleteTailoredApplication}
-            tone="secondary"
-          >
-            {isConfirmingDeleteTailoredApplication
-              ? 'Confirm delete tailored application'
-              : 'Delete tailored application'}
-          </Button>
-        </PanelCard>
+        </div>
+
+        <div className="mt-4 flex min-h-0 min-w-0 flex-1 gap-4">
+          <PanelCard className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 overflow-hidden p-[18px]">
+            <div className="flex gap-2">
+              <button
+                className={`rounded-[8px] px-3 py-2 text-[12px] font-extrabold ${
+                  previewDocumentKind === 'adapted_cv'
+                    ? 'bg-[var(--color-ink-900)] text-white'
+                    : 'bg-[var(--color-surface-2)] text-[var(--color-copy-strong)]'
+                }`}
+                onClick={() => {
+                  onSelectPreviewDocument('adapted_cv')
+                }}
+                type="button"
+              >
+                Adapted CV
+              </button>
+              <button
+                className={`rounded-[8px] px-3 py-2 text-[12px] font-extrabold ${
+                  previewDocumentKind === 'cover_letter'
+                    ? 'bg-[var(--color-ink-900)] text-white'
+                    : 'bg-[var(--color-surface-2)] text-[var(--color-copy-strong)]'
+                }`}
+                onClick={() => {
+                  onSelectPreviewDocument('cover_letter')
+                }}
+                type="button"
+              >
+                Cover letter
+              </button>
+            </div>
+            <PdfPreviewCard
+              emptyStateCopy={documentEmptyStateCopy}
+              preview={activeDocumentPreview}
+              previewKey={
+                preview === null ? previewDocumentKind : `${preview.id}:${previewDocumentKind}`
+              }
+              title={documentTitle}
+            />
+          </PanelCard>
+
+          <PanelCard className="flex w-[300px] shrink-0 flex-col gap-3 overflow-y-auto p-[18px]">
+            <h2 className="m-0 text-sm font-extrabold text-[var(--color-copy-strong)]">
+              Job vacancy
+            </h2>
+            <p className="m-0 text-xs leading-5 text-[var(--color-copy-muted)]">
+              {resolvedVacancySubtitle}
+            </p>
+            {preview?.vacancy.responsibilities[0] ? (
+              <p className="m-0 text-xs leading-5 text-[var(--color-copy-muted)]">
+                {preview.vacancy.responsibilities[0]}
+              </p>
+            ) : null}
+            <div className="h-px bg-[var(--color-border)]" />
+            <div className="flex flex-col gap-2">
+              {previewStatusTags.map((tag) => {
+                return (
+                  <div
+                    className="rounded-[8px] bg-[var(--color-surface-2)] px-3 py-2 text-xs font-extrabold text-[var(--color-copy-strong)]"
+                    key={tag}
+                  >
+                    {tag}
+                  </div>
+                )
+              })}
+            </div>
+            {preview ? (
+              <>
+                <DetailSection title="Original CV snapshot">
+                  <p className="m-0 text-xs font-extrabold text-[var(--color-copy-strong)]">
+                    {preview.originalCv.originalFilename}
+                  </p>
+                  <p className="m-0 text-xs leading-5 text-[var(--color-copy-muted)]">
+                    {preview.originalCv.headline}
+                  </p>
+                  <p className="m-0 text-xs leading-5 text-[var(--color-copy-muted)]">
+                    Imported {formatTimestamp(preview.originalCv.importedAt)}
+                  </p>
+                </DetailSection>
+                <DetailSection title="Adaptation summary">
+                  <DetailList
+                    emptyMessage="No adaptation notes recorded."
+                    items={[
+                      ...preview.adaptationSummary.emphasized.map((item) => {
+                        return item.text
+                      }),
+                      ...preview.adaptationSummary.omitted.map((item) => {
+                        return item.text
+                      }),
+                    ]}
+                  />
+                </DetailSection>
+                <DetailSection title="Gaps and validation hints">
+                  <DetailList
+                    emptyMessage="No gaps or validation hints recorded."
+                    items={[
+                      ...preview.adaptationSummary.gaps,
+                      ...preview.adaptationSummary.validationHints,
+                    ]}
+                  />
+                </DetailSection>
+              </>
+            ) : null}
+            <Button
+              disabled={preview === null || isCopyingCoverLetterText}
+              onClick={onCopyCoverLetterText}
+              tone="primary"
+            >
+              Copy cover letter text
+            </Button>
+            <Button
+              className="border-[var(--color-border)] bg-[var(--color-surface-danger)] text-[var(--color-status-danger)] hover:bg-[#ffe5e5]"
+              disabled={preview === null || isExportingPdf}
+              onClick={onDeleteTailoredApplication}
+              tone="secondary"
+            >
+              {isConfirmingDeleteTailoredApplication
+                ? 'Confirm delete tailored application'
+                : 'Delete tailored application'}
+            </Button>
+          </PanelCard>
+        </div>
       </div>
     </DesktopShell>
   )
