@@ -172,12 +172,6 @@ function LoadedPdfPreviewCard({
         </div>
       </div>
 
-      {preview.pageWarning ? (
-        <div className="rounded-[8px] bg-[var(--color-surface-warning)] px-3 py-2 text-sm text-[var(--color-copy-strong)]">
-          {preview.pageWarning}
-        </div>
-      ) : null}
-
       <div className="flex min-h-0 flex-1 items-start justify-center overflow-auto rounded-[6px] bg-[var(--color-shell-canvas)] p-4">
         {renderError ? (
           <p className="m-0 text-sm text-[var(--color-copy-muted)]">{renderError}</p>

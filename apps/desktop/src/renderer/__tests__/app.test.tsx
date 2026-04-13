@@ -2417,8 +2417,8 @@ test('automatically opens the tailored application after generation completes fr
 
   expect(screen.getByText('Page 1 of 4')).toBeDefined()
   expect(
-    screen.getByText('This adapted CV runs to 4 pages. Export is still available.'),
-  ).toBeDefined()
+    screen.queryByText('This adapted CV runs to 4 pages. Export is still available.'),
+  ).toBeNull()
   expect(screen.getByRole('button', { name: 'Zoom in' })).toBeDefined()
   expect(screen.getByRole('button', { name: 'Export PDFs' })).toBeDefined()
 
@@ -2431,10 +2431,12 @@ test('automatically opens the tailored application after generation completes fr
   fireEvent.click(screen.getByRole('button', { name: 'Cover letter' }))
 
   await waitFor(() => {
-    expect(
-      screen.getByText('This cover letter runs to 2 pages. Export and copy remain available.'),
-    ).toBeDefined()
+    expect(screen.getByText('Page 1 of 2')).toBeDefined()
   })
+
+  expect(
+    screen.queryByText('This cover letter runs to 2 pages. Export and copy remain available.'),
+  ).toBeNull()
 
   fireEvent.click(screen.getByRole('button', { name: 'Export PDFs' }))
   fireEvent.click(screen.getByRole('button', { name: 'Copy cover letter text' }))

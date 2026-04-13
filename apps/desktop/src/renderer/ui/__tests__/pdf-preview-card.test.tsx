@@ -72,7 +72,7 @@ beforeEach(() => {
 test('navigates between PDF pages without surfacing a detached worker buffer error', async () => {
   const preview: TailoredApplicationPdfPreview = {
     pageCount: 2,
-    pageWarning: null,
+    pageWarning: 'This PDF runs long but should not show a warning banner.',
     pdfBytes: new Uint8Array([37, 80, 68, 70, 45, 49, 46, 55]),
   }
 
@@ -88,6 +88,8 @@ test('navigates between PDF pages without surfacing a detached worker buffer err
   await waitFor(() => {
     expect(getDocumentMock).toHaveBeenCalledTimes(1)
   })
+
+  expect(screen.queryByText('This PDF runs long but should not show a warning banner.')).toBeNull()
 
   fireEvent.click(screen.getByRole('button', { name: 'Next page' }))
 

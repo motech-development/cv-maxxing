@@ -1,8 +1,9 @@
 import { BrowserWindow } from 'electron'
 import { createRequire } from 'node:module'
 import { pathToFileURL } from 'node:url'
+import { getDocument } from 'pdfjs-dist/legacy/build/pdf.mjs'
 
-import { createCoverLetterDocument } from './cover-letter-document.js'
+import { buildCoverLetterPageWarning, createCoverLetterDocument } from './cover-letter-document.js'
 import type { CoverLetterRenderer } from './tailored-application-session-service.js'
 
 const require = createRequire(import.meta.url)
@@ -54,9 +55,11 @@ export function createElectronCoverLetterRenderer(): CoverLetterRenderer {
           preferCSSPageSize: true,
         })
 
+        const pageCount = await countPdfPages(pdfBytes)
+
         return {
-          pageCount: document.pageCount,
-          pageWarning: document.pageWarning,
+          pageCount,
+          pageWarning: buildCoverLetterPageWarning(pageCount),
           pdfBytes: new Uint8Array(pdfBytes),
         }
       } finally {
@@ -91,4 +94,10 @@ function injectFontFaceCss(html: string): string {
   `
 
   return html.replace('<style>', `<style>${fontFaceCss}`)
+}
+
+export async function countPdfPages(pdfBytes: Uint8Array): Promise<number> {
+  const pdfDocument = await getDocument(new Uint8Array(pdfBytes)).promise
+
+  return pdfDocument.numPages
 }

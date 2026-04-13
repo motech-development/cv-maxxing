@@ -1,6 +1,7 @@
 import { expect, test } from 'vitest'
 
 import {
+  buildCoverLetterPageWarning,
   buildCoverLetterExportFilename,
   createCoverLetterDocument,
   resolveUniqueExportFilePath,
@@ -32,36 +33,22 @@ function createCoverLetterInput() {
 test('renders a single-page cover-letter document using the shared PDF visual system', () => {
   const document = createCoverLetterDocument(createCoverLetterInput())
 
-  expect(document.pageCount).toBe(1)
-  expect(document.pageWarning).toBeNull()
-  expect(document.html).toContain('class="cover-letter-page page-1"')
+  expect(document.html).toContain('class="cover-letter-sheet"')
   expect(document.html).toContain('Ada Lovelace')
-  expect(document.html).toContain('Cover letter')
+  expect(document.html).toContain('Senior platform engineer')
   expect(document.html).toContain('9 April 2026')
   expect(document.html).toContain('Dear Hiring Manager,')
   expect(document.html).toContain('I would welcome the chance to discuss')
+  expect(document.html).not.toContain('Tailored for')
+  expect(document.html).not.toContain('<p>Cover letter</p>')
+  expect(document.html).not.toContain('PDF preview artifact')
 })
 
-test('adds a non-blocking warning when the cover letter spills to continued pages', () => {
-  const longInput = createCoverLetterInput()
-
-  longInput.coverLetter.body = Array.from({ length: 12 }, (_, index) => {
-    const itemNumber = String(index + 1)
-
-    return {
-      text:
-        `Paragraph ${itemNumber} explains grounded desktop-tooling evidence in detail, ` +
-        'preserving a truthful connection between the original CV and the vacancy requirements.',
-    }
-  })
-
-  const document = createCoverLetterDocument(longInput)
-
-  expect(document.pageCount).toBeGreaterThan(1)
-  expect(document.pageWarning).toBe(
-    `This cover letter runs to ${String(document.pageCount)} pages. Export and copy remain available.`,
+test('builds a non-blocking warning only when the actual page count exceeds the threshold', () => {
+  expect(buildCoverLetterPageWarning(1)).toBeNull()
+  expect(buildCoverLetterPageWarning(2)).toBe(
+    'This cover letter runs to 2 pages. Export and copy remain available.',
   )
-  expect(document.html).toContain('Cover letter - Continued')
 })
 
 test('builds safe readable cover-letter export names and resolves overwrite collisions', async () => {
