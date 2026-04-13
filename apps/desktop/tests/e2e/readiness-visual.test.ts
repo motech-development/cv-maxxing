@@ -158,6 +158,16 @@ test('captures the workspace-active adapted CV preview', async () => {
   await page.getByRole('button', { name: 'Review pasted vacancy' }).dispatchEvent('click')
   await expect(page.getByText('Vacancy preview', { exact: true })).toBeVisible()
   await page.getByRole('button', { name: 'Adapt CV' }).click()
+  await expect
+    .poll(
+      async () => {
+        return (await page.locator('body').textContent()) ?? ''
+      },
+      {
+        timeout: 15_000,
+      },
+    )
+    .toContain('Senior platform engineer · Example Labs')
   await expect(
     page.getByRole('heading', { name: 'Senior platform engineer · Example Labs' }),
   ).toBeVisible({
@@ -207,27 +217,54 @@ function createGenerationResultFixture() {
     },
     adaptedCv: {
       candidateName: 'Ada Lovelace',
-      experienceHighlights: [
-        {
-          bullets: [
-            {
-              text: 'Led product design for AI-assisted desktop tooling used by technical teams.',
-            },
-          ],
-          heading: 'Analytical Engines Ltd',
+      certifications: null,
+      coreSkills: {
+        items: [
+          {
+            text: 'Product strategy',
+          },
+          {
+            text: 'UX research',
+          },
+        ],
+      },
+      education: null,
+      experience: {
+        items: [
+          {
+            bullets: [
+              {
+                text: 'Led product design for AI-assisted desktop tooling used by technical teams.',
+              },
+            ],
+            dateRange: '2022 — Present',
+            employer: 'Analytical Engines Ltd',
+            location: 'London',
+            roleTitle: 'Principal Product Designer',
+          },
+        ],
+      },
+      focus: null,
+      header: {
+        intro: {
+          text: 'Design leader shaping truthful desktop workflow products for technical users.',
         },
-      ],
+      },
       headline: {
-        text: 'Principal Product Designer for desktop workflow products',
+        text: 'Principal Product Designer',
       },
-      skills: [
-        {
-          text: 'Product strategy',
+      impactHighlights: null,
+      languages: null,
+      profile: {
+        summary: {
+          text: 'Design leader adapting complex desktop workflow products for technical users.',
         },
-      ],
-      summary: {
-        text: 'Design leader adapting complex desktop workflow products for technical users.',
       },
+      references: {
+        kind: 'references',
+      },
+      selectedWork: null,
+      tools: null,
     },
     coverLetter: {
       body: [

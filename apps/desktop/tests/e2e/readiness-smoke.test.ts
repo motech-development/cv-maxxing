@@ -756,8 +756,9 @@ test('renders the stored adapted CV PDF artifact and exports a readable non-over
   const normalizedExportedPdfText = exportedPdfText.replaceAll(/\s+/g, ' ')
 
   expect(normalizedExportedPdfText).toContain('Ada Lovelace')
+  expect(normalizedExportedPdfText).toContain('Principal Product Designer')
   expect(normalizedExportedPdfText).toMatch(
-    /Principal Product Designer for desktop work\s*fl\s*ow products/u,
+    /Design leader shaping truthful desktop work\s*fl\s*ow products for technical users/u,
   )
   expect(normalizedExportedPdfText).toContain('Analytical Engines Ltd')
 
@@ -976,27 +977,54 @@ function createGenerationResultFixture(overrides?: {
     },
     adaptedCv: {
       candidateName: 'Ada Lovelace',
-      experienceHighlights: [
-        {
-          bullets: [
-            {
-              text: 'Led product design for AI-assisted desktop tooling used by technical teams.',
-            },
-          ],
-          heading: 'Analytical Engines Ltd',
+      certifications: null,
+      coreSkills: {
+        items: [
+          {
+            text: 'Product strategy',
+          },
+          {
+            text: 'UX research',
+          },
+        ],
+      },
+      education: null,
+      experience: {
+        items: [
+          {
+            bullets: [
+              {
+                text: 'Led product design for AI-assisted desktop tooling used by technical teams.',
+              },
+            ],
+            dateRange: '2022 — Present',
+            employer: 'Analytical Engines Ltd',
+            location: 'London',
+            roleTitle: 'Principal Product Designer',
+          },
+        ],
+      },
+      focus: null,
+      header: {
+        intro: {
+          text: 'Design leader shaping truthful desktop workflow products for technical users.',
         },
-      ],
+      },
       headline: {
-        text: 'Principal Product Designer for desktop workflow products',
+        text: 'Principal Product Designer',
       },
-      skills: [
-        {
-          text: 'Product strategy',
+      impactHighlights: null,
+      languages: null,
+      profile: {
+        summary: {
+          text: 'Design leader adapting complex desktop workflow products for technical users.',
         },
-      ],
-      summary: {
-        text: 'Design leader adapting complex desktop workflow products for technical users.',
       },
+      references: {
+        kind: 'references',
+      },
+      selectedWork: null,
+      tools: null,
     },
     coverLetter: {
       body: [

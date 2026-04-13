@@ -1,14 +1,19 @@
 export function createOriginalCvNormalizationFixtureOutput(): string {
   return JSON.stringify({
     normalizedCv: {
+      contact: {
+        email: '',
+        location: '',
+        phone: '',
+        professionalLink: '',
+      },
       experience: [
-        'Product Designer | Analytical Engines Ltd',
-        'Designed desktop tooling and CV workflows for complex authoring tools.',
+        'Principal Product Designer | Analytical Engines Ltd | 2022 — Present\nLed product design for AI-assisted desktop tooling.',
       ],
       fullName: 'Ada Lovelace',
-      headline: 'Product Designer',
-      skills: ['Product design', 'Desktop tooling', 'Analytical Engines'],
-      summary: 'Product designer focused on desktop tooling for complex workflow products.',
+      headline: 'Principal Product Designer',
+      skills: ['Product strategy', 'UX research', 'Prototyping'],
+      summary: 'Design leader focused on complex workflow products for technical users.',
     },
     writingStyle: {
       averageSentenceLength: 7,
