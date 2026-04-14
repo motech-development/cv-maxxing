@@ -6,6 +6,7 @@ coverage
 **/coverage
 **/dist
 **/release
+**/playwright-report
 **/test-results
 *.log
 .playwright-mcp/

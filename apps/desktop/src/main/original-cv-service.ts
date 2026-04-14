@@ -614,11 +614,13 @@ function extractProfessionalLinkCandidates(extractedText: string): {
       value: string
     }
   >()
+  const candidatePattern =
+    /(?<!@)\b(?:https?:\/\/)?(?:www\.)?(?:linkedin\.com\/[^\s<>()]+|github\.com\/[^\s<>()]+|[a-z0-9-]+(?:\.[a-z0-9-]+)+(?:\/[^\s<>()]+)?)\b/giu
+
   for (const line of extractedText.split(/\r?\n/gu)) {
-    const matches =
-      line.match(
-        /\b(?:https?:\/\/)?(?:www\.)?(?:linkedin\.com\/[^\s<>()]+|github\.com\/[^\s<>()]+|[a-z0-9-]+(?:\.[a-z0-9-]+)+(?:\/[^\s<>()]+)?)\b/giu,
-      ) ?? []
+    const matches = [...line.matchAll(candidatePattern)].map((match) => {
+      return match[0]
+    })
 
     for (const match of matches) {
       const trimmedMatch = match.trim().replaceAll(/[.,;:!?]+$/gu, '')
