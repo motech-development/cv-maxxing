@@ -183,7 +183,7 @@ test('captures the workspace-active adapted CV preview', async () => {
   await expect(page).toHaveScreenshot('workspace-active-adapted-cv-screen.png', {
     animations: 'disabled',
     caret: 'hide',
-    mask: [page.getByLabel('Adapted CV PDF preview'), page.getByText(/^Imported /u)],
+    mask: [page.getByText(/^Imported /u)],
     maxDiffPixels: visualScreenshotBudgets['workspace-active-adapted-cv-screen.png'],
   })
 
