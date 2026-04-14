@@ -5,6 +5,7 @@ import { createRequire } from 'node:module'
 import { pathToFileURL } from 'node:url'
 
 import { expect, test } from '@playwright/test'
+import type { Page } from '@playwright/test'
 import { _electron as electron } from 'playwright'
 
 import { createAdaptedCvDocument } from '../../src/main/adapted-cv-document.js'
@@ -45,6 +46,7 @@ test('captures the adapted CV document first page', async () => {
   await page.waitForFunction(() => {
     return document.body.dataset.cvReady === 'true'
   })
+  await hideScrollbars(page)
   await expect(page.locator('.cv-page')).toHaveCount(2)
   await expect(page.locator('body')).toContainText('PROFILE')
   await expect(page.locator('body')).toContainText('EXPERIENCE')
@@ -71,6 +73,23 @@ test('captures the adapted CV document first page', async () => {
 
   await electronApp.close()
 })
+
+async function hideScrollbars(page: Page) {
+  await page.addStyleTag({
+    content: `
+      html,
+      body {
+        overflow: hidden !important;
+      }
+
+      ::-webkit-scrollbar {
+        display: none !important;
+        width: 0 !important;
+        height: 0 !important;
+      }
+    `,
+  })
+}
 
 async function createRuntimePaths(): Promise<{
   launcherPath: string

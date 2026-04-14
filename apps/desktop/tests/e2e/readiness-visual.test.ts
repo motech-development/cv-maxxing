@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 
 import { expect, test } from '@playwright/test'
+import type { Page } from '@playwright/test'
 import { _electron as electron } from 'playwright'
 
 import { createOriginalCvNormalizationFixtureOutput } from './original-cv-normalization-fixture.js'
@@ -59,6 +60,7 @@ test('captures the first-launch screen', async () => {
   const page = await electronApp.firstWindow()
 
   await expect(page.getByRole('heading', { name: 'Import your original CV' })).toBeVisible()
+  await hideScrollbars(page)
   await expect(page).toHaveScreenshot('first-launch-screen.png', {
     animations: 'disabled',
     caret: 'hide',
@@ -77,6 +79,7 @@ test('captures the AI worker repair screen', async () => {
   const page = await electronApp.firstWindow()
 
   await expect(page.getByRole('heading', { name: 'Repair the local AI worker' })).toBeVisible()
+  await hideScrollbars(page)
   await expect(page).toHaveScreenshot('ai-worker-repair-screen.png', {
     animations: 'disabled',
     caret: 'hide',
@@ -115,6 +118,7 @@ test('captures the workspace-empty state after the original CV import', async ()
   await page.getByLabel('Original CV file').setInputFiles(testPaths.pdfPath)
   await page.getByRole('button', { name: 'Import original CV' }).click()
   await expect(page.getByRole('heading', { name: 'Create a tailored application' })).toBeVisible()
+  await hideScrollbars(page)
   await expect(page).toHaveScreenshot('workspace-empty-screen.png', {
     animations: 'disabled',
     caret: 'hide',
@@ -175,6 +179,7 @@ test('captures the workspace-active adapted CV preview', async () => {
   })
   await expect(page.getByText('Page 1 of 1')).toBeVisible()
   await expect(page.getByLabel('Adapted CV PDF preview')).toBeVisible()
+  await hideScrollbars(page)
   await expect(page).toHaveScreenshot('workspace-active-adapted-cv-screen.png', {
     animations: 'disabled',
     caret: 'hide',
@@ -184,6 +189,23 @@ test('captures the workspace-active adapted CV preview', async () => {
 
   await electronApp.close()
 })
+
+async function hideScrollbars(page: Page) {
+  await page.addStyleTag({
+    content: `
+      html,
+      body {
+        overflow: hidden !important;
+      }
+
+      ::-webkit-scrollbar {
+        display: none !important;
+        width: 0 !important;
+        height: 0 !important;
+      }
+    `,
+  })
+}
 
 async function createOriginalCvTestPaths(): Promise<{
   appDataRoot: string
