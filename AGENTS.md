@@ -24,6 +24,8 @@ These rules always apply. Follow project-local rules first when they are more sp
 ### Project-Specific Conventions
 
 - Use `pnpm` as the package manager and keep the repository as a `pnpm` workspace, even while v1 ships as one desktop app package. The repository already declares `pnpm@10.28.0` in `package.json`.
+- This repository is a Node.js project. Install and keep `@redwoodjs/agent-ci` as a root dev dependency with `pnpm install -D @redwoodjs/agent-ci`.
+- Install the Agent CI skill with `npx skills add redwoodjs/agent-ci --skill agent-ci`.
 - Keep native install scripts on the `pnpm` allowlist narrowly scoped. The workspace currently permits `@journeyapps/sqlcipher` for the encrypted metadata layer and `electron` for required smoke, visual, and packaged desktop verification binaries.
 - Put package-specific build, dev, test, smoke, and type-check scripts in the owning workspace package. Keep root scripts limited to repo-wide tooling instead of delegating app-specific commands.
 - Use Node 24 as the project runtime version. The repository pins this in `.nvmrc`.
@@ -173,6 +175,7 @@ Absent these conditions, continue without asking for confirmation.
 - Prefer targeted tests over full-suite runs when they provide sufficient evidence quickly.
 - Always run relevant linting and type-checking after changes.
 - Run broader verification when shared code, public APIs, or cross-cutting behavior changes.
+- Before reporting work complete, run the `agent-ci` skill locally. If it fails, fix the issue and rerun it. Do not report work as done until it passes.
 - Before concluding any issue or feature slice, explicitly verify the implemented result against the task's acceptance criteria and against any applicable decisions in `ARCHITECTURE.md`. Treat mismatches as failed quality gates.
 - Before concluding any issue or feature slice, run CodeRabbit review on the current diff with `coderabbit review --agent` when the CLI is available and authenticated.
 - CodeRabbit is a mandatory blocking quality gate when available. After the review command starts successfully, wait indefinitely until it reaches a terminal result.
