@@ -1575,6 +1575,108 @@ test('accepts AI-extracted contact values when they differ only by URL formattin
   await localAppData.close()
 })
 
+test('prefers a portfolio link over LinkedIn and GitHub when multiple grounded professional links are present', async () => {
+  const paths = await createTestPaths()
+  const localAppData = await openLocalAppData({
+    keychain: createKeychainBoundary(),
+    paths,
+  })
+  const normalizationService = createNormalizationServiceMock(
+    vi.fn((): Promise<OriginalCvNormalizationResult> => {
+      return Promise.resolve({
+        normalizedCv: {
+          contact: createNormalizedContact({
+            professionalLink: 'linkedin.com/in/ada-lovelace',
+          }),
+          experience: [
+            'Principal Product Designer | Analytical Engines Ltd',
+            'Led product design for AI-assisted desktop tooling across import and export flows.',
+          ],
+          fullName: 'Ada Lovelace',
+          headline: 'Principal Product Designer',
+          skills: ['Workflow design', 'UX research', 'Content systems'],
+          summary: 'Design leader focused on complex workflow products for technical users.',
+        },
+        writingStyle: {
+          averageSentenceLength: 13,
+          clicheDetections: [],
+          firstPersonUsage: 'absent',
+          formality: 'formal',
+        },
+      })
+    }),
+  )
+  const originalCvService = createOriginalCvService({
+    extractTextFromDocx: vi.fn(),
+    extractTextFromPdf: vi.fn(() => {
+      return Promise.resolve({
+        pageCount: 1,
+        text: [
+          'Ada Lovelace',
+          'Principal Product Designer',
+          'London, United Kingdom',
+          '+44 7700 900123',
+          'ada@lovelace.dev',
+          'https://www.linkedin.com/in/ada-lovelace',
+          'https://github.com/ada-lovelace',
+          'https://ada-lovelace.dev',
+          'Summary',
+          'Design leader focused on complex workflow products for technical users.',
+          'Experience',
+          'Principal Product Designer | Analytical Engines Ltd',
+          'Led product design for AI-assisted desktop tooling across import and export flows.',
+          'Skills',
+          'Workflow design, UX research, content systems',
+        ].join('\n'),
+      })
+    }),
+    generateId: vi.fn(() => 'original-cv-005a'),
+    getCurrentTimestamp: vi.fn(() => '2026-04-08T16:05:00.000Z'),
+    localAppData,
+    normalizationService,
+  })
+
+  await expect(
+    originalCvService.importOriginalCv({
+      content: Buffer.from('%PDF-1.7 contact-priority', 'utf8'),
+      filename: 'ada-lovelace-contact-priority.pdf',
+    }),
+  ).resolves.toMatchObject({
+    headline: 'Principal Product Designer',
+    id: 'original-cv-005a',
+  })
+
+  await expect(
+    localAppData.artifacts.read({
+      id: 'original-cv-005a',
+      name: 'normalized.json',
+      scope: 'original-cvs',
+    }),
+  ).resolves.toEqual(
+    Buffer.from(
+      JSON.stringify({
+        contact: {
+          email: 'ada@lovelace.dev',
+          location: 'London, United Kingdom',
+          phone: '+44 7700 900123',
+          professionalLink: 'https://ada-lovelace.dev',
+        },
+        experience: [
+          'Principal Product Designer | Analytical Engines Ltd',
+          'Led product design for AI-assisted desktop tooling across import and export flows.',
+        ],
+        fullName: 'Ada Lovelace',
+        headline: 'Principal Product Designer',
+        skills: ['Workflow design', 'UX research', 'Content systems'],
+        summary: 'Design leader focused on complex workflow products for technical users.',
+      }),
+      'utf8',
+    ),
+  )
+
+  await localAppData.close()
+})
+
 test('blanks ungrounded AI-extracted contact fields instead of rejecting the original CV import', async () => {
   const paths = await createTestPaths()
   const localAppData = await openLocalAppData({

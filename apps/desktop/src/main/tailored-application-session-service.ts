@@ -88,6 +88,7 @@ export interface AdaptedCvRenderer {
     employer: string | null
     vacancyTitle: string | null
   }) => Promise<{
+    appliedAdaptedCv?: AdaptedCvModel
     pageCount: number
     pageWarning: string | null
     pdfBytes: Uint8Array
@@ -959,6 +960,7 @@ export function createTailoredApplicationSessionService({
           vacancyTitle: vacancy.title,
         }),
       ])
+      const persistedAdaptedCv = renderedAdaptedCv.appliedAdaptedCv ?? renderReadyAdaptedCv
       await persistReadyArtifacts({
         adaptedCvPageCount: renderedAdaptedCv.pageCount,
         adaptedCvPageWarning: renderedAdaptedCv.pageWarning,
@@ -968,7 +970,7 @@ export function createTailoredApplicationSessionService({
         coverLetterPdfBytes: renderedCoverLetter.pdfBytes,
         employer: vacancy.employer,
         originalCvId: command.originalCvId,
-        adaptedCv: renderReadyAdaptedCv,
+        adaptedCv: persistedAdaptedCv,
         result,
         tailoredApplicationId,
         timestamp,

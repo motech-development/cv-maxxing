@@ -170,6 +170,7 @@ async function runCodexCliNormalization({
     'If the CV provides a location but omits the country, infer the country and include it.',
     'Do not assume location appears in any specific section or layout position.',
     'Do not include unrelated personal or contact details in normalizedCv.contact.location.',
+    'If multiple professional links are present, prefer a personal portfolio, then LinkedIn, then GitHub.',
     'Use empty strings for missing contact fields instead of guessing or normalizing.',
     'Preserve source meaning.',
     'Remain non-vacancy-aware.',

@@ -95,6 +95,13 @@ test('renders an adapted CV html shell that bootstraps browser pagination', () =
   expect(document.html).not.toContain('DEFAULT_ROOT_ELEMENT_ID')
   expect(document.html).not.toContain('doesPageOverflowWithBottomClearance')
   expect(document.html).not.toContain('doesElementOverflowPageWithBottomClearance')
+  expect(document.html).not.toContain('planSidebarSectionsForPageOneFit')
+  expect(document.html).not.toContain('cloneSidebarSections')
+  expect(document.html).not.toContain('doesSidebarOverflowPage')
+  expect(document.html).not.toContain('applyNextSidebarOmission')
+  expect(document.html).not.toContain('trimListSectionItem')
+  expect(document.html).not.toContain('dropSection')
+  expect(document.html).not.toContain('isMultilineSidebarSection')
   expect(document.html).toContain('Ada Lovelace')
   expect(document.html).toContain('Principal Product Designer')
   expect(document.html).not.toContain('Tailored for')
@@ -268,6 +275,14 @@ test('uses generalized continued-page padding without a header inset hack', () =
   expect(document.html).toContain('.cv-page:not(.page-1)')
   expect(document.html).toContain('padding: 36px 58px 52px;')
   expect(document.html).not.toContain('padding: 36px 58px 0;')
+})
+
+test('includes the template-aligned multiline sidebar styles from design/cv.html', () => {
+  const document = createAdaptedCvDocument(createAdaptedCvInput())
+
+  expect(document.html).toContain('.sidebar-section-gap-10')
+  expect(document.html).toContain('.sidebar-multiline')
+  expect(document.html).toContain('white-space: pre-line;')
 })
 
 test('keeps selected work ahead of impact highlights in the continuable payload order', () => {

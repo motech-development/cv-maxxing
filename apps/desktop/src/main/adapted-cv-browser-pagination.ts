@@ -27,6 +27,7 @@ export type AdaptedCvBrowserSidebarSection =
       items: string[]
       kind: 'list'
       label: string
+      sectionKind: 'certifications' | 'core_skills' | 'focus' | 'languages' | 'tools'
     }
   | {
       entry: {
@@ -42,6 +43,11 @@ export type AdaptedCvBrowserSidebarSection =
       text: 'Available on request'
     }
 
+export interface AdaptedCvBrowserRenderResult {
+  pageCount: number
+  rightSections: AdaptedCvBrowserSidebarSection[]
+}
+
 interface RenderAdaptedCvPagesInBrowserOptions {
   document?: Document
   isPageOverflowing?: (pageElement: HTMLElement, appendedElement: HTMLElement) => boolean
@@ -53,7 +59,7 @@ const PAGE_BOTTOM_CLEARANCE_PX = 24
 export function renderAdaptedCvPagesInBrowser(
   payload: AdaptedCvBrowserRenderPayload,
   options: RenderAdaptedCvPagesInBrowserOptions = {},
-): number {
+): AdaptedCvBrowserRenderResult {
   const documentReference = options.document ?? globalThis.document
   const rootElementId = options.rootElementId ?? 'cv-document-root'
   const pageBottomClearance = 24
@@ -221,11 +227,39 @@ export function renderAdaptedCvPagesInBrowser(
     return sectionElement
   }
 
+  /* eslint-disable unicorn/consistent-function-scoping -- these helpers must stay inside the serialized browser renderer. */
+  const shouldRenderSidebarAsMultiline = (
+    section: Extract<
+      AdaptedCvBrowserSidebarSection,
+      {
+        kind: 'list'
+      }
+    >,
+  ): boolean => {
+    return (
+      section.sectionKind === 'core_skills' ||
+      section.sectionKind === 'focus' ||
+      section.sectionKind === 'languages' ||
+      section.sectionKind === 'tools'
+    )
+  }
+
   const createSidebarSection = (section: AdaptedCvBrowserSidebarSection): HTMLElement => {
     if (section.kind === 'list') {
       const sectionElement = documentReference.createElement('section')
-      sectionElement.className = 'sidebar-section-gap-8'
+      sectionElement.className = shouldRenderSidebarAsMultiline(section)
+        ? 'sidebar-section-gap-10'
+        : 'sidebar-section-gap-8'
       sectionElement.append(createSectionLabelElement(section.label))
+
+      if (shouldRenderSidebarAsMultiline(section)) {
+        const itemElement = documentReference.createElement('p')
+        itemElement.className = 'sidebar-multiline'
+        itemElement.textContent = section.items.join('\n')
+        sectionElement.append(itemElement)
+
+        return sectionElement
+      }
 
       for (const item of section.items) {
         const itemElement = documentReference.createElement('p')
@@ -363,12 +397,148 @@ export function renderAdaptedCvPagesInBrowser(
     return itemElement
   }
 
+  const cloneRightSections = (
+    rightSections: AdaptedCvBrowserSidebarSection[],
+  ): AdaptedCvBrowserSidebarSection[] => {
+    return rightSections.map((section) => {
+      if (section.kind === 'list') {
+        return {
+          ...section,
+          items: [...section.items],
+        }
+      }
+
+      if (section.kind === 'education') {
+        return {
+          ...section,
+          entry: {
+            ...section.entry,
+          },
+        }
+      }
+
+      return {
+        ...section,
+      }
+    })
+  }
+
+  const sidebarOverflowsPage = (pageElement: HTMLElement, sidebarElement: HTMLElement): boolean => {
+    const sidebarElements = [sidebarElement, ...sidebarElement.querySelectorAll<HTMLElement>('*')]
+
+    return sidebarElements.some((sidebarElementNode) => {
+      return isPageOverflowing(pageElement, sidebarElementNode)
+    })
+  }
+
+  const trimSidebarListSection = (
+    rightSections: AdaptedCvBrowserSidebarSection[],
+    sectionKind: Extract<
+      AdaptedCvBrowserSidebarSection,
+      {
+        kind: 'list'
+      }
+    >['sectionKind'],
+    minimumItems: number,
+  ): boolean => {
+    const section = rightSections.find((candidateSection) => {
+      return candidateSection.kind === 'list' && candidateSection.sectionKind === sectionKind
+    })
+
+    if (section?.kind !== 'list' || section.items.length <= minimumItems) {
+      return false
+    }
+
+    section.items.pop()
+
+    if (section.items.length === 0) {
+      const sectionIndex = rightSections.indexOf(section)
+
+      if (sectionIndex !== -1) {
+        rightSections.splice(sectionIndex, 1)
+      }
+    }
+
+    return true
+  }
+
+  const removeSidebarSection = (
+    rightSections: AdaptedCvBrowserSidebarSection[],
+    sectionKind:
+      | 'education'
+      | Extract<
+          AdaptedCvBrowserSidebarSection,
+          {
+            kind: 'list'
+          }
+        >['sectionKind'],
+  ): boolean => {
+    const sectionIndex = rightSections.findIndex((section) => {
+      if (section.kind === 'education') {
+        return sectionKind === 'education'
+      }
+
+      return section.kind === 'list' && section.sectionKind === sectionKind
+    })
+
+    if (sectionIndex === -1) {
+      return false
+    }
+
+    rightSections.splice(sectionIndex, 1)
+
+    return true
+  }
+
+  const applySidebarOmissionStep = (rightSections: AdaptedCvBrowserSidebarSection[]): boolean => {
+    return (
+      trimSidebarListSection(rightSections, 'focus', 0) ||
+      trimSidebarListSection(rightSections, 'certifications', 0) ||
+      trimSidebarListSection(rightSections, 'tools', 2) ||
+      removeSidebarSection(rightSections, 'tools') ||
+      removeSidebarSection(rightSections, 'education') ||
+      trimSidebarListSection(rightSections, 'languages', 1) ||
+      removeSidebarSection(rightSections, 'languages') ||
+      trimSidebarListSection(rightSections, 'core_skills', 3)
+    )
+  }
+
+  const planRightSectionsForFit = ({
+    pageElement,
+    rightSections,
+    sidebarElement,
+  }: {
+    pageElement: HTMLElement
+    rightSections: AdaptedCvBrowserSidebarSection[]
+    sidebarElement: HTMLElement
+  }): AdaptedCvBrowserSidebarSection[] => {
+    const plannedRightSections = cloneRightSections(rightSections)
+
+    for (;;) {
+      sidebarElement.replaceChildren()
+
+      for (const section of plannedRightSections) {
+        sidebarElement.append(createSidebarSection(section))
+      }
+
+      if (!sidebarOverflowsPage(pageElement, sidebarElement)) {
+        return plannedRightSections
+      }
+
+      if (!applySidebarOmissionStep(plannedRightSections)) {
+        throw new Error('Adapted CV sidebar could not fit on page 1.')
+      }
+    }
+  }
+  /* eslint-enable unicorn/consistent-function-scoping */
+
   const firstPage = createMainPage()
   firstPage.contentContainerElement.append(createProfileSection(payload.profileText))
-
-  for (const section of payload.rightSections) {
-    firstPage.sidebarElement.append(createSidebarSection(section))
-  }
+  const plannedRightSections = planRightSectionsForFit({
+    pageElement: firstPage.pageElement,
+    rightSections: payload.rightSections,
+    sidebarElement: firstPage.sidebarElement,
+  })
 
   let currentPage:
     | {
@@ -435,7 +605,10 @@ export function renderAdaptedCvPagesInBrowser(
     }
   }
 
-  return rootElement.querySelectorAll('.cv-page').length
+  return {
+    pageCount: rootElement.querySelectorAll('.cv-page').length,
+    rightSections: plannedRightSections,
+  }
 }
 
 export function doesPageOverflowWithBottomClearance(pageElement: HTMLElement): boolean {

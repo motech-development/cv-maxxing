@@ -429,6 +429,9 @@ test('uses generic location instructions without assuming a specific CV layout',
   expect(capturedPrompt).toContain(
     'Do not assume location appears in any specific section or layout position.',
   )
+  expect(capturedPrompt).toContain(
+    'If multiple professional links are present, prefer a personal portfolio, then LinkedIn, then GitHub.',
+  )
   expect(capturedPrompt).not.toContain('Extract header contact fields into normalizedCv.contact.')
 })
 

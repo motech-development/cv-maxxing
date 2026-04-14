@@ -44,6 +44,49 @@ export function createAdaptedCvRenderPayload(
   }
 }
 
+export function applyPlannedSidebarSectionsToAdaptedCv(
+  adaptedCv: AdaptedCvModel,
+  plannedRightSections: AdaptedCvBrowserSidebarSection[],
+): AdaptedCvModel {
+  const profileSection = getRequiredSection(adaptedCv.sections, 'profile')
+  const experienceSection = getRequiredSection(adaptedCv.sections, 'experience')
+  const selectedWorkSection = getOptionalSection(adaptedCv.sections, 'selected_work')
+  const impactHighlightsSection = getOptionalSection(adaptedCv.sections, 'impact_highlights')
+  const referencesSection = getRequiredSection(adaptedCv.sections, 'references')
+
+  const coreSkillsSection = getPlannedSidebarListSection(plannedRightSections, 'core_skills')
+
+  if (coreSkillsSection === null) {
+    throw new Error('Planned adapted CV sidebar is missing the core skills section.')
+  }
+
+  const nextSections: AdaptedCvSection[] = [
+    profileSection,
+    experienceSection,
+    ...(selectedWorkSection === null ? [] : [selectedWorkSection]),
+    ...(impactHighlightsSection === null ? [] : [impactHighlightsSection]),
+    {
+      items: coreSkillsSection.items.map((item) => {
+        return {
+          text: item,
+        }
+      }),
+      kind: 'core_skills',
+    },
+    ...toOptionalSidebarListSection(plannedRightSections, 'tools'),
+    ...toOptionalEducationSection(plannedRightSections),
+    ...toOptionalSidebarListSection(plannedRightSections, 'certifications'),
+    ...toOptionalSidebarListSection(plannedRightSections, 'languages'),
+    ...toOptionalSidebarListSection(plannedRightSections, 'focus'),
+    referencesSection,
+  ]
+
+  return {
+    ...adaptedCv,
+    sections: nextSections,
+  }
+}
+
 export function buildAdaptedCvPageWarning(pageCount: number): string | null {
   if (pageCount > PAGE_WARNING_THRESHOLD) {
     return `This adapted CV runs to ${String(pageCount)} pages. Export is still available.`
@@ -141,6 +184,7 @@ function buildRightSections(sections: AdaptedCvSection[]): AdaptedCvBrowserSideb
       }),
       kind: 'list',
       label: 'CORE SKILLS',
+      sectionKind: 'core_skills',
     },
     ...createSidebarListSection(toolsSection, 'TOOLS'),
     ...(educationSection?.entry === null || educationSection === null
@@ -185,6 +229,98 @@ function createSidebarListSection(
       }),
       kind: 'list',
       label,
+      sectionKind: toSidebarListSectionKind(label),
+    },
+  ]
+}
+
+function toSidebarListSectionKind(label: string): Extract<
+  AdaptedCvBrowserSidebarSection,
+  {
+    kind: 'list'
+  }
+>['sectionKind'] {
+  if (label === 'CORE SKILLS') {
+    return 'core_skills'
+  }
+
+  if (label === 'TOOLS') {
+    return 'tools'
+  }
+
+  if (label === 'CERTIFICATIONS') {
+    return 'certifications'
+  }
+
+  if (label === 'LANGUAGES') {
+    return 'languages'
+  }
+
+  return 'focus'
+}
+
+function getPlannedSidebarListSection(
+  plannedRightSections: AdaptedCvBrowserSidebarSection[],
+  sectionKind: Extract<
+    AdaptedCvBrowserSidebarSection,
+    {
+      kind: 'list'
+    }
+  >['sectionKind'],
+): Extract<
+  AdaptedCvBrowserSidebarSection,
+  {
+    kind: 'list'
+  }
+> | null {
+  const plannedSection = plannedRightSections.find((section) => {
+    return section.kind === 'list' && section.sectionKind === sectionKind
+  })
+
+  if (plannedSection?.kind !== 'list') {
+    return null
+  }
+
+  return plannedSection
+}
+
+function toOptionalSidebarListSection(
+  plannedRightSections: AdaptedCvBrowserSidebarSection[],
+  sectionKind: 'certifications' | 'focus' | 'languages' | 'tools',
+): AdaptedCvSection[] {
+  const plannedSection = getPlannedSidebarListSection(plannedRightSections, sectionKind)
+
+  if (plannedSection === null) {
+    return []
+  }
+
+  return [
+    {
+      items: plannedSection.items.map((item) => {
+        return {
+          text: item,
+        }
+      }),
+      kind: sectionKind,
+    } as Extract<AdaptedCvSection, { kind: typeof sectionKind }>,
+  ]
+}
+
+function toOptionalEducationSection(
+  plannedRightSections: AdaptedCvBrowserSidebarSection[],
+): AdaptedCvSection[] {
+  const plannedSection = plannedRightSections.find((section) => {
+    return section.kind === 'education'
+  })
+
+  if (plannedSection?.kind !== 'education') {
+    return []
+  }
+
+  return [
+    {
+      entry: plannedSection.entry,
+      kind: 'education',
     },
   ]
 }
@@ -253,9 +389,10 @@ function buildPaginationBootstrapScript(): string {
     'if (!(payloadElement instanceof HTMLScriptElement)) {',
     '  throw new Error("Adapted CV payload script was not found.");',
     '}',
-    'const markReady = (pageCount) => {',
+    'const markReady = (renderResult) => {',
     '  document.body.dataset.cvReady = "true";',
-    '  document.body.dataset.pageCount = String(pageCount);',
+    '  document.body.dataset.pageCount = String(renderResult.pageCount);',
+    '  document.body.dataset.cvRightSections = JSON.stringify(renderResult.rightSections);',
     '  document.dispatchEvent(new Event("adapted-cv-ready"));',
     '};',
     'const markError = (error) => {',
@@ -267,8 +404,8 @@ function buildPaginationBootstrapScript(): string {
     'Promise.resolve(document.fonts?.ready ?? true)',
     '  .then(() => {',
     '    const payload = JSON.parse(payloadElement.textContent ?? "{}");',
-    '    const pageCount = renderPages(payload);',
-    '    markReady(pageCount);',
+    '    const renderResult = renderPages(payload);',
+    '    markReady(renderResult);',
     '  })',
     '  .catch((error) => {',
     '    markError(error);',
@@ -461,8 +598,7 @@ function buildDocumentStyles(): string {
     }
 
     .section-experience-continued,
-    .section-text-block,
-    .sidebar-section-gap-8 {
+    .section-text-block {
       display: flex;
       flex-direction: column;
       gap: 10px;
@@ -519,6 +655,18 @@ function buildDocumentStyles(): string {
       font-weight: 400;
     }
 
+    .sidebar-section-gap-10 {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .sidebar-section-gap-8 {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
     .section-line {
       color: var(--text-primary);
       font-size: 12px;
@@ -531,6 +679,14 @@ function buildDocumentStyles(): string {
       font-size: 12px;
       line-height: 1.333333;
       font-weight: 400;
+    }
+
+    .sidebar-multiline {
+      color: var(--text-primary);
+      font-size: 12px;
+      line-height: 1.666667;
+      font-weight: 400;
+      white-space: pre-line;
     }
 
     .edu-title {

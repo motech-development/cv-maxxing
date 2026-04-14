@@ -4,7 +4,10 @@ import path from 'node:path'
 
 import { afterEach, expect, test, vi } from 'vitest'
 
-import type { TailoredApplicationGenerationResult } from '../../shared/tailored-application.js'
+import type {
+  AdaptedCvModel,
+  TailoredApplicationGenerationResult,
+} from '../../shared/tailored-application.js'
 import { createAiWorkerReadinessStore } from '../ai-worker-readiness-store.js'
 import { createLocalAppDataPaths, openLocalAppData } from '../local-app-data-service.js'
 import {
@@ -440,6 +443,137 @@ test('preserves optional adapted-CV sections through rendering and artifact pers
   >
 
   expect(persistedAdaptedCv.sections).toEqual(expect.arrayContaining(expectedOptionalSections))
+})
+
+test('persists the renderer-applied adapted CV when sidebar fit omits optional items', async () => {
+  const harness = await createHarness()
+
+  await seedOriginalCvAndVacancy(harness)
+
+  const renderAdaptedCvPdf = vi
+    .fn<AdaptedCvRenderer['renderAdaptedCvPdf']>()
+    .mockImplementation(({ adaptedCv }) => {
+      const toolsSection = adaptedCv.sections.find((section) => {
+        return section.kind === 'tools'
+      })
+
+      if (toolsSection?.kind !== 'tools') {
+        throw new Error('Expected tools to be present in the adapted CV fixture.')
+      }
+
+      return Promise.resolve({
+        appliedAdaptedCv: {
+          ...adaptedCv,
+          sections: adaptedCv.sections.map((section: AdaptedCvModel['sections'][number]) => {
+            if (section.kind !== 'tools') {
+              return section
+            }
+
+            return {
+              ...section,
+              items: section.items.slice(0, 1),
+            }
+          }),
+        },
+        pageCount: 1,
+        pageWarning: null,
+        pdfBytes: Buffer.from('%PDF-1.7 adapted cv', 'utf8'),
+      })
+    })
+  const service = createTailoredApplicationSessionService({
+    adaptedCvRenderer: {
+      renderAdaptedCvPdf,
+    },
+    coverLetterRenderer: {
+      renderCoverLetterPdf: vi.fn().mockResolvedValue({
+        pageCount: 1,
+        pageWarning: null,
+        pdfBytes: Buffer.from('%PDF-1.7 cover letter', 'utf8'),
+      }),
+    },
+    aiWorker: {
+      retryAiWorkerPreflight: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+    },
+    generateId: createIdGenerator(['command-123', 'run-123', 'tailored-application-123']),
+    getCurrentTimestamp: () => {
+      return '2026-04-09T09:30:00.000Z'
+    },
+    localAppData: harness.localAppData,
+    readinessStore: harness.readinessStore,
+    runWorkspaceRootPath: path.join(harness.paths.rootDirectoryPath, 'runs'),
+    worker: {
+      runGeneration: () => {
+        const result = createValidGenerationResult()
+
+        return Promise.resolve({
+          ...result,
+          adaptedCv: {
+            ...result.adaptedCv,
+            sections: [
+              ...result.adaptedCv.sections.slice(0, -1),
+              {
+                items: [
+                  {
+                    text: 'Figma',
+                  },
+                  {
+                    text: 'FigJam',
+                  },
+                ],
+                kind: 'tools',
+              },
+              result.adaptedCv.sections.at(-1) ?? {
+                kind: 'references',
+              },
+            ],
+          },
+        })
+      },
+    },
+  })
+
+  await service.startPendingGeneration({
+    originalCvId: 'original-cv-123',
+    originalCvLabel: 'ada-lovelace.pdf',
+    vacancyDraft: {
+      text: 'Senior platform engineer',
+      url: 'https://jobs.example.com/roles/123',
+    },
+  })
+
+  await expect(service.resumePendingGeneration()).resolves.toEqual({
+    generationRunId: 'run-123',
+    tailoredApplicationId: 'tailored-application-123',
+  })
+
+  const persistedAdaptedCvBuffer = await harness.localAppData.artifacts.read({
+    id: 'tailored-application-123',
+    name: 'adapted-cv.json',
+    scope: 'tailored-applications',
+  })
+
+  expect(persistedAdaptedCvBuffer).not.toBeNull()
+  const persistedAdaptedCv = JSON.parse(persistedAdaptedCvBuffer?.toString('utf8') ?? '{}') as Pick<
+    TailoredApplicationGenerationResult['adaptedCv'],
+    'sections'
+  >
+  const persistedToolsSection = persistedAdaptedCv.sections.find((section) => {
+    return section.kind === 'tools'
+  })
+
+  expect(persistedToolsSection).toEqual({
+    items: [
+      {
+        text: 'Figma',
+      },
+    ],
+    kind: 'tools',
+  })
 })
 
 test('passes derived original-CV normalization artifacts through to the tailored-application worker unchanged', async () => {

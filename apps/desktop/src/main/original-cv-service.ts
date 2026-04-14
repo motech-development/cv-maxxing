@@ -518,9 +518,7 @@ function sanitizeGroundedContactFields(
       ? contact.location
       : '',
     phone: isGroundedPhoneInSource(contact.phone, extractedText) ? contact.phone : '',
-    professionalLink: isGroundedProfessionalLinkInSource(contact.professionalLink, extractedText)
-      ? contact.professionalLink
-      : '',
+    professionalLink: resolvePrioritizedProfessionalLink(contact.professionalLink, extractedText),
   }
 }
 
@@ -589,6 +587,106 @@ function isGroundedProfessionalLinkInSource(value: string, extractedText: string
   }
 
   return canonicalizeProfessionalLinkForGrounding(extractedText).includes(canonicalValue)
+}
+
+function resolvePrioritizedProfessionalLink(value: string, extractedText: string): string {
+  const sourceCandidates = extractProfessionalLinkCandidates(extractedText)
+
+  if (sourceCandidates.length > 0) {
+    return (
+      sourceCandidates.toSorted((leftCandidate, rightCandidate) => {
+        return leftCandidate.priority - rightCandidate.priority
+      })[0]?.value ?? ''
+    )
+  }
+
+  return isGroundedProfessionalLinkInSource(value, extractedText) ? value : ''
+}
+
+function extractProfessionalLinkCandidates(extractedText: string): {
+  priority: number
+  value: string
+}[] {
+  const uniqueCandidates = new Map<
+    string,
+    {
+      priority: number
+      value: string
+    }
+  >()
+  for (const line of extractedText.split(/\r?\n/gu)) {
+    const matches =
+      line.match(
+        /\b(?:https?:\/\/)?(?:www\.)?(?:linkedin\.com\/[^\s<>()]+|github\.com\/[^\s<>()]+|[a-z0-9-]+(?:\.[a-z0-9-]+)+(?:\/[^\s<>()]+)?)\b/giu,
+      ) ?? []
+
+    for (const match of matches) {
+      const trimmedMatch = match.trim().replaceAll(/[.,;:!?]+$/gu, '')
+
+      if (trimmedMatch === '' || trimmedMatch.includes('@')) {
+        continue
+      }
+
+      const priority = getProfessionalLinkPriority(trimmedMatch)
+
+      if (priority === null || !isProfessionalLinkCandidateGroundedInLine(trimmedMatch, line)) {
+        continue
+      }
+
+      const canonicalValue = canonicalizeProfessionalLinkForGrounding(trimmedMatch)
+
+      if (canonicalValue === '') {
+        continue
+      }
+
+      uniqueCandidates.set(canonicalValue, {
+        priority,
+        value: trimmedMatch,
+      })
+    }
+  }
+
+  return [...uniqueCandidates.values()]
+}
+
+function isProfessionalLinkCandidateGroundedInLine(candidate: string, line: string): boolean {
+  const trimmedLine = line.trim()
+
+  if (trimmedLine === '') {
+    return false
+  }
+
+  const priority = getProfessionalLinkPriority(candidate)
+
+  if (priority === 2 || priority === 3) {
+    return true
+  }
+
+  return (
+    trimmedLine === candidate || (trimmedLine.endsWith(candidate) && countWords(trimmedLine) <= 3)
+  )
+}
+
+function getProfessionalLinkPriority(value: string): number | null {
+  const canonicalValue = canonicalizeProfessionalLinkForGrounding(value)
+
+  if (canonicalValue === '') {
+    return null
+  }
+
+  if (canonicalValue.includes('linkedin.com/')) {
+    return 2
+  }
+
+  if (canonicalValue.includes('github.com/')) {
+    return 3
+  }
+
+  if (canonicalValue.includes('.')) {
+    return 1
+  }
+
+  return null
 }
 
 function canonicalizePhoneForGrounding(value: string): string {

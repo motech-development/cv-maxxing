@@ -3,7 +3,12 @@ import { createRequire } from 'node:module'
 import { pathToFileURL } from 'node:url'
 
 import type { AdaptedCvRenderer } from './tailored-application-session-service.js'
-import { buildAdaptedCvPageWarning, createAdaptedCvDocument } from './adapted-cv-document.js'
+import {
+  applyPlannedSidebarSectionsToAdaptedCv,
+  buildAdaptedCvPageWarning,
+  createAdaptedCvDocument,
+} from './adapted-cv-document.js'
+import type { AdaptedCvBrowserSidebarSection } from './adapted-cv-browser-pagination.js'
 
 const require = createRequire(import.meta.url)
 const manrope400Url = pathToFileURL(
@@ -37,7 +42,7 @@ export function createElectronAdaptedCvRenderer(): AdaptedCvRenderer {
         const html = injectFontFaceCss(document.html)
 
         await renderWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`)
-        const pageCount = await waitForAdaptedCvPagination(renderWindow)
+        const renderResult = await waitForAdaptedCvPagination(renderWindow)
 
         const pdfBytes = await renderWindow.webContents.printToPDF({
           landscape: false,
@@ -53,8 +58,12 @@ export function createElectronAdaptedCvRenderer(): AdaptedCvRenderer {
         })
 
         return {
-          pageCount,
-          pageWarning: buildAdaptedCvPageWarning(pageCount),
+          appliedAdaptedCv: applyPlannedSidebarSectionsToAdaptedCv(
+            input.adaptedCv,
+            renderResult.rightSections,
+          ),
+          pageCount: renderResult.pageCount,
+          pageWarning: buildAdaptedCvPageWarning(renderResult.pageCount),
           pdfBytes: new Uint8Array(pdfBytes),
         }
       } finally {
@@ -91,13 +100,19 @@ function injectFontFaceCss(html: string): string {
   return html.replace('<style>', `<style>${fontFaceCss}`)
 }
 
-async function waitForAdaptedCvPagination(renderWindow: BrowserWindow): Promise<number> {
+async function waitForAdaptedCvPagination(renderWindow: BrowserWindow): Promise<{
+  pageCount: number
+  rightSections: AdaptedCvBrowserSidebarSection[]
+}> {
   const pageCountResult: unknown = await renderWindow.webContents.executeJavaScript(`
     (() => {
       const readyState = document.body?.dataset?.cvReady
 
       if (readyState === 'true') {
-        return Promise.resolve(Number.parseInt(document.body.dataset.pageCount ?? '0', 10))
+        return Promise.resolve({
+          pageCount: Number.parseInt(document.body.dataset.pageCount ?? '0', 10),
+          rightSections: JSON.parse(document.body.dataset.cvRightSections ?? '[]'),
+        })
       }
 
       if (readyState === 'error') {
@@ -109,7 +124,10 @@ async function waitForAdaptedCvPagination(renderWindow: BrowserWindow): Promise<
       return new Promise((resolve, reject) => {
         const handleReady = () => {
           document.removeEventListener('adapted-cv-error', handleError)
-          resolve(Number.parseInt(document.body?.dataset?.pageCount ?? '0', 10))
+          resolve({
+            pageCount: Number.parseInt(document.body?.dataset?.pageCount ?? '0', 10),
+            rightSections: JSON.parse(document.body?.dataset?.cvRightSections ?? '[]'),
+          })
         }
 
         const handleError = () => {
@@ -124,16 +142,31 @@ async function waitForAdaptedCvPagination(renderWindow: BrowserWindow): Promise<
   `)
 
   if (
-    typeof pageCountResult !== 'number' ||
-    !Number.isInteger(pageCountResult) ||
-    pageCountResult < 1
+    pageCountResult === null ||
+    typeof pageCountResult !== 'object' ||
+    !('pageCount' in pageCountResult) ||
+    !('rightSections' in pageCountResult)
   ) {
     throw new Error(
       `Expected adapted CV pagination to produce at least one page, received ${String(pageCountResult)}.`,
     )
   }
 
-  const pageCount = pageCountResult
+  const pageCount = (pageCountResult as { pageCount: unknown }).pageCount
+  const rightSections = (pageCountResult as { rightSections: unknown }).rightSections
 
-  return pageCount
+  if (typeof pageCount !== 'number' || !Number.isInteger(pageCount) || pageCount < 1) {
+    throw new Error(
+      `Expected adapted CV pagination to produce at least one page, received ${String(pageCount)}.`,
+    )
+  }
+
+  if (!Array.isArray(rightSections)) {
+    throw new TypeError('Expected adapted CV pagination to return applied sidebar sections.')
+  }
+
+  return {
+    pageCount,
+    rightSections: rightSections as AdaptedCvBrowserSidebarSection[],
+  }
 }
