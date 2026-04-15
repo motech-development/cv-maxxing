@@ -45,6 +45,7 @@ import { createVacancyNormalizationWorker } from './vacancy-normalization-worker
 import { createVacancyService, type VacancyService } from './vacancy-service.js'
 
 const CODEX_SETUP_GUIDE_URL = 'https://developers.openai.com/codex/app/'
+const DESKTOP_APP_NAME = 'CV Maxxing'
 const currentDirectory = fileURLToPath(new URL('.', import.meta.url))
 const preloadPath = path.join(currentDirectory, '../preload/preload.js')
 const rendererIndexPath = fileURLToPath(new URL('../renderer/index.html', import.meta.url))
@@ -368,7 +369,7 @@ export function createDesktopAppBootstrap({
         : {}),
       height: 900,
       show: mainWindowShow,
-      title: 'CV Maxxing',
+      title: DESKTOP_APP_NAME,
       useContentSize: true,
       webPreferences: {
         contextIsolation: true,

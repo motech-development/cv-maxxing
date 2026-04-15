@@ -1,5 +1,6 @@
 {
   "name": "@cv-maxxing/desktop",
+  "productName": "CV Maxxing",
   "version": "1.0.0",
   "private": true,
   "main": "./dist/main/main.js",

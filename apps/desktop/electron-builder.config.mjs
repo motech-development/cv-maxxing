@@ -8,6 +8,7 @@ export default {
     main: 'dist/main/main.js',
   },
   files: ['dist/**/*', '!dist/**/__tests__/**', 'package.json'],
+  productName: 'CV Maxxing',
   mac: {
     category: 'public.app-category.productivity',
     hardenedRuntime: false,
