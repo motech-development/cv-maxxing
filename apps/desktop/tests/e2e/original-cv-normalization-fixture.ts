@@ -1,6 +1,11 @@
 export function createOriginalCvNormalizationFixtureOutput(
   overrides?: Partial<{
-    experience: string[]
+    experience: {
+      dateRange: string
+      employer: string
+      roleTitle: string
+      summary: string
+    }[]
     headline: string
     skills: string[]
     summary: string
@@ -15,7 +20,12 @@ export function createOriginalCvNormalizationFixtureOutput(
         professionalLink: '',
       },
       experience: overrides?.experience ?? [
-        'Principal Product Designer | Analytical Engines Ltd | 2022 — Present\nLed product design for AI-assisted desktop tooling.',
+        {
+          dateRange: '2022 — Present',
+          employer: 'Analytical Engines Ltd',
+          roleTitle: 'Principal Product Designer',
+          summary: 'Led product design for AI-assisted desktop tooling.',
+        },
       ],
       fullName: 'Ada Lovelace',
       headline: overrides?.headline ?? 'Principal Product Designer',

@@ -20,6 +20,23 @@ import { createOriginalCvNormalizationWorker } from '../original-cv-normalizatio
 
 const temporaryDirectories: string[] = []
 
+function createNormalizedOriginalCvExperienceEntry(
+  overrides: Partial<{
+    dateRange: string
+    employer: string
+    roleTitle: string
+    summary: string
+  }> = {},
+) {
+  return {
+    dateRange: '2022 — Present',
+    employer: 'Analytical Engines Ltd',
+    roleTitle: 'Principal Product Designer',
+    summary: 'Led product design for AI-assisted desktop tooling.',
+    ...overrides,
+  }
+}
+
 class MockEventTarget extends EventTarget {
   on(eventName: string, listener: (detail: unknown) => void): this {
     this.addEventListener(eventName, (event) => {
@@ -107,7 +124,7 @@ test('returns parsed normalization results from fixture output', async () => {
             phone: '+44 7700 900123',
             professionalLink: 'ada-lovelace.dev',
           },
-          experience: ['Principal Product Designer | Analytical Engines Ltd'],
+          experience: [createNormalizedOriginalCvExperienceEntry()],
           fullName: 'Ada Lovelace',
           headline: 'Principal Product Designer',
           skills: ['Product strategy', 'UX research', 'Prototyping'],
@@ -136,7 +153,7 @@ test('returns parsed normalization results from fixture output', async () => {
         phone: '+44 7700 900123',
         professionalLink: 'ada-lovelace.dev',
       },
-      experience: ['Principal Product Designer | Analytical Engines Ltd'],
+      experience: [createNormalizedOriginalCvExperienceEntry()],
       fullName: 'Ada Lovelace',
       headline: 'Principal Product Designer',
       skills: ['Product strategy', 'UX research', 'Prototyping'],
@@ -156,7 +173,7 @@ test('fills missing AI contact fields with blank strings instead of rejecting no
     environment: {
       CV_MAXXING_AI_WORKER_ORIGINAL_CV_NORMALIZATION_OUTPUT: JSON.stringify({
         normalizedCv: {
-          experience: ['Principal Product Designer | Analytical Engines Ltd'],
+          experience: [createNormalizedOriginalCvExperienceEntry()],
           fullName: 'Ada Lovelace',
           headline: 'Principal Product Designer',
           skills: ['Product strategy', 'UX research', 'Prototyping'],
@@ -185,7 +202,7 @@ test('fills missing AI contact fields with blank strings instead of rejecting no
         phone: '',
         professionalLink: '',
       },
-      experience: ['Principal Product Designer | Analytical Engines Ltd'],
+      experience: [createNormalizedOriginalCvExperienceEntry()],
       fullName: 'Ada Lovelace',
       headline: 'Principal Product Designer',
       skills: ['Product strategy', 'UX research', 'Prototyping'],
@@ -265,7 +282,7 @@ test('writes typed enum fields in the original-CV normalization output schema', 
               phone: '+44 7700 900123',
               professionalLink: 'ada-lovelace.dev',
             },
-            experience: ['Principal Product Designer | Analytical Engines Ltd'],
+            experience: [createNormalizedOriginalCvExperienceEntry()],
             fullName: 'Ada Lovelace',
             headline: 'Principal Product Designer',
             skills: ['Product strategy', 'UX research', 'Prototyping'],
@@ -311,7 +328,7 @@ test('writes typed enum fields in the original-CV normalization output schema', 
         phone: '+44 7700 900123',
         professionalLink: 'ada-lovelace.dev',
       },
-      experience: ['Principal Product Designer | Analytical Engines Ltd'],
+      experience: [createNormalizedOriginalCvExperienceEntry()],
       fullName: 'Ada Lovelace',
       headline: 'Principal Product Designer',
       skills: ['Product strategy', 'UX research', 'Prototyping'],
@@ -380,7 +397,7 @@ test('uses generic location instructions without assuming a specific CV layout',
             phone: '+44 7700 900123',
             professionalLink: 'ada-lovelace.dev',
           },
-          experience: ['Principal Product Designer | Analytical Engines Ltd'],
+          experience: [createNormalizedOriginalCvExperienceEntry()],
           fullName: 'Ada Lovelace',
           headline: 'Principal Product Designer',
           skills: ['Product strategy', 'UX research', 'Prototyping'],

@@ -13,9 +13,16 @@ export interface NormalizedOriginalCvContact {
   professionalLink: string
 }
 
+export interface NormalizedOriginalCvExperienceEntry {
+  dateRange: string
+  employer: string
+  roleTitle: string
+  summary: string
+}
+
 export interface NormalizedOriginalCv {
   contact: NormalizedOriginalCvContact
-  experience: string[]
+  experience: NormalizedOriginalCvExperienceEntry[]
   fullName: string
   headline: string
   skills: string[]
@@ -50,8 +57,13 @@ const ORIGINAL_CV_NORMALIZATION_EXAMPLES = [
         professionalLink: 'ada-lovelace.dev',
       },
       experience: [
-        'Principal Product Designer | Analytical Engines Ltd',
-        'Led product design for AI-assisted desktop tooling across import and export flows.',
+        {
+          dateRange: '2022 — Present',
+          employer: 'Analytical Engines Ltd',
+          roleTitle: 'Principal Product Designer',
+          summary:
+            'Led product design for AI-assisted desktop tooling across import and export flows.',
+        },
       ],
       fullName: 'Ada Lovelace',
       headline: 'Principal Product Designer',
@@ -69,8 +81,12 @@ const ORIGINAL_CV_NORMALIZATION_EXAMPLES = [
         professionalLink: 'linkedin.com/in/ada-lovelace',
       },
       experience: [
-        'Senior Content Strategist | Difference Engines Ltd',
-        'Built content systems and UX research practices for complex workflow products.',
+        {
+          dateRange: '',
+          employer: 'Difference Engines Ltd',
+          roleTitle: 'Senior Content Strategist',
+          summary: 'Built content systems and UX research practices for complex workflow products.',
+        },
       ],
       fullName: 'Ada Lovelace',
       headline: 'Senior Content Strategist',

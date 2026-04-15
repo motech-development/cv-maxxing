@@ -756,10 +756,22 @@ test('instructs Codex to emit a role-only adapted-CV headline', async () => {
     'Retain every source role from the original CV in adaptedCv.experience.items; do not omit earlier roles even when they are less relevant.',
   )
   expect(capturedPrompt).toContain(
+    'Return exactly one adaptedCv.experience.items entry for each role in originalCv.experience.',
+  )
+  expect(capturedPrompt).toContain(
+    'Do not merge multiple source roles into one adaptedCv.experience.items entry and do not drop any role because it feels less relevant.',
+  )
+  expect(capturedPrompt).toContain(
+    'Preserve each experience item roleTitle, employer, and dateRange from the original CV so every source role remains recognisable and mappable.',
+  )
+  expect(capturedPrompt).toContain(
     'Preserve the source experience chronology in adaptedCv.experience.items, with the most recent roles first.',
   )
   expect(capturedPrompt).toContain(
     'Keep older or less relevant roles briefer by using fewer bullets and tighter phrasing instead of dropping those roles.',
+  )
+  expect(capturedPrompt).toContain(
+    'Before returning JSON, check that adaptedCv.experience.items covers all original CV roles in order, from the newest role to the oldest role.',
   )
   expect(capturedPrompt).toContain(
     'Return explicit adaptedCv fields for every template section: profile, experience, selectedWork, impactHighlights, coreSkills, tools, education, certifications, languages, focus, and references.',
@@ -793,6 +805,15 @@ test('instructs Codex to emit a role-only adapted-CV headline', async () => {
   )
   expect(capturedPrompt).toContain(
     'Do not repeat the same label across adaptedCv.coreSkills.items and adaptedCv.tools.items.',
+  )
+  expect(capturedPrompt).toContain(
+    'Use adaptedCv.coreSkills.items for transferable capabilities, methods, and functional strengths such as stakeholder management, roadmapping, service design, mentoring, and experimentation.',
+  )
+  expect(capturedPrompt).toContain(
+    'Use adaptedCv.tools.items for named technologies, programming languages, frameworks, platforms, databases, and software such as TypeScript, React, Node.js, AWS, PostgreSQL, and Figma.',
+  )
+  expect(capturedPrompt).toContain(
+    'If a label is a named technology or product, keep it in adaptedCv.tools.items and do not also list it in adaptedCv.coreSkills.items.',
   )
   expect(capturedPrompt).toContain(
     'Return adaptedCv.impactHighlights.items only for grounded achievement or outcome lines, not for skills or tooling lists.',

@@ -199,7 +199,12 @@ test('replaces the active original CV from the workspace with a DOCX snapshot', 
     CV_MAXXING_AI_WORKER_ORIGINAL_CV_NORMALIZATION_OUTPUT:
       createOriginalCvNormalizationFixtureOutput({
         experience: [
-          'Staff Product Designer | Analytical Engines Ltd | 2022 — Present\nRefined import and adaptation workflows for complex authoring tools.',
+          {
+            dateRange: '2022 — Present',
+            employer: 'Analytical Engines Ltd',
+            roleTitle: 'Staff Product Designer',
+            summary: 'Refined import and adaptation workflows for complex authoring tools.',
+          },
         ],
         headline: 'Staff Product Designer',
         skills: ['Design systems', 'Desktop UX', 'Content strategy'],

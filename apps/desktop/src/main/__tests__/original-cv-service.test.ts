@@ -11,6 +11,7 @@ import { OriginalCvImportError, createOriginalCvService } from '../original-cv-s
 import type { KeychainBoundary, LocalAppDataPaths } from '../local-app-data-service.js'
 import type {
   NormalizedOriginalCvContact,
+  NormalizedOriginalCvExperienceEntry,
   OriginalCvNormalizationInput,
   OriginalCvNormalizationResult,
   OriginalCvNormalizationService,
@@ -112,7 +113,11 @@ function normalizeExtractedTextForTest(extractedText: string) {
         professionalLink: '',
       }),
       experience:
-        experienceIndex === -1 ? [] : lines.slice(experienceIndex + 1, experienceSectionEndIndex),
+        experienceIndex === -1
+          ? []
+          : buildNormalizedExperienceEntriesForTest(
+              lines.slice(experienceIndex + 1, experienceSectionEndIndex),
+            ),
       fullName: lines[0] ?? '',
       headline: lines[1] ?? '',
       skills:
@@ -141,6 +146,41 @@ function normalizeExtractedTextForTest(extractedText: string) {
   } satisfies OriginalCvNormalizationResult
 }
 
+function buildNormalizedExperienceEntriesForTest(
+  lines: string[],
+): NormalizedOriginalCvExperienceEntry[] {
+  const entries: NormalizedOriginalCvExperienceEntry[] = []
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const roleLine = lines[index]
+
+    if (!roleLine?.includes('|')) {
+      continue
+    }
+
+    const [roleTitle = '', employer = '', ...dateParts] = roleLine.split('|').map((part) => {
+      return part.trim()
+    })
+    const nextLine = lines[index + 1]
+    const summary = nextLine !== undefined && !nextLine.includes('|') ? nextLine : ''
+
+    entries.push(
+      createNormalizedExperienceEntry({
+        dateRange: dateParts.join(' | '),
+        employer,
+        roleTitle,
+        summary,
+      }),
+    )
+
+    if (summary !== '') {
+      index += 1
+    }
+  }
+
+  return entries
+}
+
 function createNormalizedContact(
   overrides: Partial<NormalizedOriginalCvContact> = {},
 ): NormalizedOriginalCvContact {
@@ -149,6 +189,18 @@ function createNormalizedContact(
     location: 'London, United Kingdom',
     phone: '+44 7700 900123',
     professionalLink: 'ada-lovelace.dev',
+    ...overrides,
+  }
+}
+
+function createNormalizedExperienceEntry(
+  overrides: Partial<NormalizedOriginalCvExperienceEntry> = {},
+): NormalizedOriginalCvExperienceEntry {
+  return {
+    dateRange: '',
+    employer: 'Analytical Engines Ltd',
+    roleTitle: 'Principal Product Designer',
+    summary: 'Led product design for AI-assisted desktop tooling.',
     ...overrides,
   }
 }
@@ -169,10 +221,7 @@ test('imports the first original CV snapshot and persists encrypted source, text
             phone: '',
             professionalLink: '',
           }),
-          experience: [
-            'Principal Product Designer | Analytical Engines Ltd',
-            'Led product design for AI-assisted desktop tooling.',
-          ],
+          experience: [createNormalizedExperienceEntry()],
           fullName: 'Ada Lovelace',
           headline: 'Principal Product Designer',
           skills: ['Product strategy', 'UX research', 'Prototyping'],
@@ -331,8 +380,11 @@ test('imports a DOCX original CV through the same AI-backed normalization path a
             professionalLink: '',
           }),
           experience: [
-            'Senior Content Strategist | Difference Engines Ltd',
-            'Built truthful CV adaptation workflows for complex desktop software.',
+            createNormalizedExperienceEntry({
+              employer: 'Difference Engines Ltd',
+              roleTitle: 'Senior Content Strategist',
+              summary: 'Built truthful CV adaptation workflows for complex desktop software.',
+            }),
           ],
           fullName: 'Ada Lovelace',
           headline: 'Senior Content Strategist',
@@ -461,10 +513,16 @@ test('imports a heading-variant original CV with grounded high-risk fields plus 
             professionalLink: '',
           }),
           experience: [
-            'Principal Product Designer | Analytical Engines Ltd',
-            'Led product design for AI-assisted desktop tooling across import and export flows.',
-            'Senior Content Strategist | Difference Engines Ltd',
-            'Built content systems and UX research practices for complex workflow products.',
+            createNormalizedExperienceEntry({
+              summary:
+                'Led product design for AI-assisted desktop tooling across import and export flows.',
+            }),
+            createNormalizedExperienceEntry({
+              employer: 'Difference Engines Ltd',
+              roleTitle: 'Senior Content Strategist',
+              summary:
+                'Built content systems and UX research practices for complex workflow products.',
+            }),
           ],
           fullName: 'Ada Lovelace',
           headline: 'Principal Product Designer',
@@ -556,10 +614,15 @@ test('imports a heading-variant original CV with grounded high-risk fields plus 
         professionalLink: '',
       },
       experience: [
-        'Principal Product Designer | Analytical Engines Ltd',
-        'Led product design for AI-assisted desktop tooling across import and export flows.',
-        'Senior Content Strategist | Difference Engines Ltd',
-        'Built content systems and UX research practices for complex workflow products.',
+        createNormalizedExperienceEntry({
+          summary:
+            'Led product design for AI-assisted desktop tooling across import and export flows.',
+        }),
+        createNormalizedExperienceEntry({
+          employer: 'Difference Engines Ltd',
+          roleTitle: 'Senior Content Strategist',
+          summary: 'Built content systems and UX research practices for complex workflow products.',
+        }),
       ],
       fullName: 'Ada Lovelace',
       headline: 'Principal Product Designer',
@@ -589,8 +652,10 @@ test('imports a CV without an explicit skills section when recovered skills stay
             professionalLink: '',
           }),
           experience: [
-            'Principal Product Designer | Analytical Engines Ltd',
-            'Designed workflow systems for AI-assisted desktop tooling and ran UX research across import and export journeys.',
+            createNormalizedExperienceEntry({
+              summary:
+                'Designed workflow systems for AI-assisted desktop tooling and ran UX research across import and export journeys.',
+            }),
           ],
           fullName: 'Ada Lovelace',
           headline: 'Principal Product Designer',
@@ -1189,8 +1254,10 @@ test('rejects normalization that invents unsupported identity or skill content a
             professionalLink: '',
           }),
           experience: [
-            'Principal Product Designer | Analytical Engines Ltd',
-            'Led product design for AI-assisted desktop tooling across import and export flows.',
+            createNormalizedExperienceEntry({
+              summary:
+                'Led product design for AI-assisted desktop tooling across import and export flows.',
+            }),
           ],
           fullName: 'Ada Byron Lovelace',
           headline: 'Staff Product Designer',
@@ -1278,8 +1345,10 @@ test('rejects a recovered skill that is not supported by the experience evidence
             professionalLink: '',
           }),
           experience: [
-            'Principal Product Designer | Analytical Engines Ltd',
-            'Designed workflow systems for AI-assisted desktop tooling and ran UX research across import and export journeys.',
+            createNormalizedExperienceEntry({
+              summary:
+                'Designed workflow systems for AI-assisted desktop tooling and ran UX research across import and export journeys.',
+            }),
           ],
           fullName: 'Ada Lovelace',
           headline: 'Principal Product Designer',
@@ -1437,8 +1506,10 @@ test('imports a substantive original CV when normalization leaves the summary bl
             professionalLink: '',
           }),
           experience: [
-            'Principal Product Designer | Analytical Engines Ltd',
-            'Led product design for AI-assisted desktop tooling across import and export flows.',
+            createNormalizedExperienceEntry({
+              summary:
+                'Led product design for AI-assisted desktop tooling across import and export flows.',
+            }),
           ],
           fullName: 'Ada Lovelace',
           headline: 'Principal Product Designer',
@@ -1517,8 +1588,10 @@ test('accepts AI-extracted contact values when they differ only by URL formattin
             professionalLink: 'linkedin.com/in/ada-lovelace',
           }),
           experience: [
-            'Principal Product Designer | Analytical Engines Ltd',
-            'Led product design for AI-assisted desktop tooling across import and export flows.',
+            createNormalizedExperienceEntry({
+              summary:
+                'Led product design for AI-assisted desktop tooling across import and export flows.',
+            }),
           ],
           fullName: 'Ada Lovelace',
           headline: 'Principal Product Designer',
@@ -1589,8 +1662,10 @@ test('prefers a portfolio link over LinkedIn and GitHub when multiple grounded p
             professionalLink: 'linkedin.com/in/ada-lovelace',
           }),
           experience: [
-            'Principal Product Designer | Analytical Engines Ltd',
-            'Led product design for AI-assisted desktop tooling across import and export flows.',
+            createNormalizedExperienceEntry({
+              summary:
+                'Led product design for AI-assisted desktop tooling across import and export flows.',
+            }),
           ],
           fullName: 'Ada Lovelace',
           headline: 'Principal Product Designer',
@@ -1662,8 +1737,10 @@ test('prefers a portfolio link over LinkedIn and GitHub when multiple grounded p
           professionalLink: 'https://ada-lovelace.dev',
         },
         experience: [
-          'Principal Product Designer | Analytical Engines Ltd',
-          'Led product design for AI-assisted desktop tooling across import and export flows.',
+          createNormalizedExperienceEntry({
+            summary:
+              'Led product design for AI-assisted desktop tooling across import and export flows.',
+          }),
         ],
         fullName: 'Ada Lovelace',
         headline: 'Principal Product Designer',
@@ -1693,8 +1770,10 @@ test('blanks ungrounded AI-extracted contact fields instead of rejecting the ori
             professionalLink: 'linkedin.com/in/ada-lovelace',
           }),
           experience: [
-            'Principal Product Designer | Analytical Engines Ltd',
-            'Led product design for AI-assisted desktop tooling across import and export flows.',
+            createNormalizedExperienceEntry({
+              summary:
+                'Led product design for AI-assisted desktop tooling across import and export flows.',
+            }),
           ],
           fullName: 'Ada Lovelace',
           headline: 'Principal Product Designer',
@@ -1763,8 +1842,10 @@ test('blanks ungrounded AI-extracted contact fields instead of rejecting the ori
           professionalLink: '',
         },
         experience: [
-          'Principal Product Designer | Analytical Engines Ltd',
-          'Led product design for AI-assisted desktop tooling across import and export flows.',
+          createNormalizedExperienceEntry({
+            summary:
+              'Led product design for AI-assisted desktop tooling across import and export flows.',
+          }),
         ],
         fullName: 'Ada Lovelace',
         headline: 'Principal Product Designer',
@@ -1792,8 +1873,10 @@ test('does not preserve a professional link that is only implied by an email add
             professionalLink: 'ada-lovelace.dev',
           }),
           experience: [
-            'Principal Product Designer | Analytical Engines Ltd',
-            'Led product design for AI-assisted desktop tooling across import and export flows.',
+            createNormalizedExperienceEntry({
+              summary:
+                'Led product design for AI-assisted desktop tooling across import and export flows.',
+            }),
           ],
           fullName: 'Ada Lovelace',
           headline: 'Principal Product Designer',
@@ -1862,8 +1945,10 @@ test('does not preserve a professional link that is only implied by an email add
           professionalLink: '',
         },
         experience: [
-          'Principal Product Designer | Analytical Engines Ltd',
-          'Led product design for AI-assisted desktop tooling across import and export flows.',
+          createNormalizedExperienceEntry({
+            summary:
+              'Led product design for AI-assisted desktop tooling across import and export flows.',
+          }),
         ],
         fullName: 'Ada Lovelace',
         headline: 'Principal Product Designer',
@@ -1893,8 +1978,10 @@ test('preserves a location in "location, country" format when the country is inf
             professionalLink: '',
           }),
           experience: [
-            'Principal Product Designer | Analytical Engines Ltd',
-            'Led product design for AI-assisted desktop tooling across import and export flows.',
+            createNormalizedExperienceEntry({
+              summary:
+                'Led product design for AI-assisted desktop tooling across import and export flows.',
+            }),
           ],
           fullName: 'Ada Lovelace',
           headline: 'Principal Product Designer',
@@ -1964,8 +2051,10 @@ test('preserves a location in "location, country" format when the country is inf
           professionalLink: '',
         },
         experience: [
-          'Principal Product Designer | Analytical Engines Ltd',
-          'Led product design for AI-assisted desktop tooling across import and export flows.',
+          createNormalizedExperienceEntry({
+            summary:
+              'Led product design for AI-assisted desktop tooling across import and export flows.',
+          }),
         ],
         fullName: 'Ada Lovelace',
         headline: 'Principal Product Designer',

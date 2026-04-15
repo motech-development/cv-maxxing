@@ -8,6 +8,7 @@ import type {
   AdaptedCvModel,
   TailoredApplicationGenerationResult,
 } from '../../shared/tailored-application.js'
+import type { NormalizedOriginalCvExperienceEntry } from '../original-cv-normalization-service.js'
 import { createAiWorkerReadinessStore } from '../ai-worker-readiness-store.js'
 import { createLocalAppDataPaths, openLocalAppData } from '../local-app-data-service.js'
 import {
@@ -16,6 +17,18 @@ import {
 } from '../tailored-application-session-service.js'
 
 const temporaryDirectories: string[] = []
+
+function createNormalizedOriginalCvExperienceEntry(
+  overrides: Partial<NormalizedOriginalCvExperienceEntry> = {},
+): NormalizedOriginalCvExperienceEntry {
+  return {
+    dateRange: '2022 — Present',
+    employer: 'Analytical Engines Ltd',
+    roleTitle: 'Lead Product Designer',
+    summary: 'Led product design for AI-assisted desktop tooling.',
+    ...overrides,
+  }
+}
 
 afterEach(async () => {
   await Promise.all(
@@ -245,7 +258,13 @@ test('renders adapted-CV header contact from the stored normalized original CV i
           phone: '+44 7700 900123',
           professionalLink: 'ada-lovelace.dev',
         },
-        experience: ['Led product design for AI-assisted desktop tooling.'],
+        experience: [
+          createNormalizedOriginalCvExperienceEntry({
+            dateRange: '',
+            employer: '',
+            roleTitle: '',
+          }),
+        ],
         fullName: 'Ada Lovelace',
         headline: 'Principal Product Designer',
         skills: ['Product strategy', 'UX research', 'prototyping'],
@@ -626,7 +645,10 @@ test('passes derived original-CV normalization artifacts through to the tailored
           professionalLink: 'ada-lovelace.dev',
         },
         experience: [
-          'Lead Product Designer | Analytical Engines Ltd | 2022 — Present\nLed product design for AI-assisted desktop tooling across import and export flows.',
+          createNormalizedOriginalCvExperienceEntry({
+            summary:
+              'Led product design for AI-assisted desktop tooling across import and export flows.',
+          }),
         ],
         fullName: 'Ada Lovelace',
         headline: 'Principal Product Designer',
@@ -702,7 +724,10 @@ test('passes derived original-CV normalization artifacts through to the tailored
         professionalLink: 'ada-lovelace.dev',
       },
       experience: [
-        'Lead Product Designer | Analytical Engines Ltd | 2022 — Present\nLed product design for AI-assisted desktop tooling across import and export flows.',
+        createNormalizedOriginalCvExperienceEntry({
+          summary:
+            'Led product design for AI-assisted desktop tooling across import and export flows.',
+        }),
       ],
       fullName: 'Ada Lovelace',
       headline: 'Principal Product Designer',
@@ -1804,9 +1829,19 @@ test('rejects adapted output when it omits source experience roles from the orig
           professionalLink: 'ada-lovelace.dev',
         },
         experience: [
-          'Lead Product Designer | Analytical Engines Ltd | 2022 — Present\nLed product design for AI-assisted desktop tooling.',
-          'Web Developer | Leighton | January 2016 - November 2017\nBuilt product delivery workflows for client platforms.',
-          'Web Developer | Leighton | October 2014 - April 2015\nCreated and maintained website components for editors.',
+          createNormalizedOriginalCvExperienceEntry(),
+          createNormalizedOriginalCvExperienceEntry({
+            dateRange: 'January 2016 - November 2017',
+            employer: 'Leighton',
+            roleTitle: 'Web Developer',
+            summary: 'Built product delivery workflows for client platforms.',
+          }),
+          createNormalizedOriginalCvExperienceEntry({
+            dateRange: 'October 2014 - April 2015',
+            employer: 'Leighton',
+            roleTitle: 'Web Developer',
+            summary: 'Created and maintained website components for editors.',
+          }),
         ],
         fullName: 'Ada Lovelace',
         headline: 'Principal Product Designer',
@@ -1915,6 +1950,91 @@ test('rejects adapted output when it omits source experience roles from the orig
       'Expected adaptedCv.sections experience items to retain every source role from originalCv.experience. Missing: Web Developer | Leighton | October 2014 - April 2015.',
     path: 'adaptedCv',
   })
+})
+
+test('accepts adapted output when source experience entries are stored as single-line summaries', async () => {
+  const harness = await createHarness()
+
+  await seedOriginalCvAndVacancy(harness)
+  await harness.localAppData.artifacts.write({
+    content: Buffer.from(
+      JSON.stringify({
+        contact: {
+          email: 'ada@lovelace.dev',
+          location: 'London, United Kingdom',
+          phone: '+44 7700 900123',
+          professionalLink: 'ada-lovelace.dev',
+        },
+        experience: [
+          createNormalizedOriginalCvExperienceEntry({
+            summary:
+              'Led product design for AI-assisted desktop tooling across import and export flows.',
+          }),
+        ],
+        fullName: 'Ada Lovelace',
+        headline: 'Principal Product Designer',
+        skills: ['Product strategy', 'UX research', 'prototyping'],
+        summary: 'Design leader focused on complex workflow products for technical users.',
+      }),
+      'utf8',
+    ),
+    id: 'original-cv-123',
+    name: 'normalized.json',
+    scope: 'original-cvs',
+  })
+
+  const renderAdaptedCvPdf = vi.fn().mockResolvedValue({
+    pageCount: 1,
+    pageWarning: null,
+    pdfBytes: new Uint8Array([37, 80, 68, 70]),
+  })
+  const service = createTailoredApplicationSessionService({
+    adaptedCvRenderer: {
+      renderAdaptedCvPdf,
+    },
+    coverLetterRenderer: {
+      renderCoverLetterPdf: vi.fn().mockResolvedValue({
+        pageCount: 1,
+        pageWarning: null,
+        pdfBytes: new Uint8Array([37, 80, 68, 70, 45, 67, 76]),
+      }),
+    },
+    aiWorker: {
+      retryAiWorkerPreflight: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+    },
+    generateId: createIdGenerator(['command-123', 'run-123', 'tailored-application-123']),
+    getCurrentTimestamp: () => {
+      return '2026-04-09T09:30:00.000Z'
+    },
+    localAppData: harness.localAppData,
+    readinessStore: harness.readinessStore,
+    runWorkspaceRootPath: path.join(harness.paths.rootDirectoryPath, 'runs'),
+    worker: {
+      runGeneration: () => {
+        return Promise.resolve(createValidGenerationResult())
+      },
+    },
+  })
+
+  await service.startPendingGeneration({
+    originalCvId: 'original-cv-123',
+    originalCvLabel: 'ada-lovelace.pdf',
+    vacancyDraft: {
+      text: 'Senior platform engineer',
+      url: 'https://jobs.example.com/roles/123',
+    },
+  })
+
+  await expect(service.resumePendingGeneration()).resolves.toEqual({
+    generationRunId: 'run-123',
+    tailoredApplicationId: 'tailored-application-123',
+  })
+  expect(renderAdaptedCvPdf).toHaveBeenCalledTimes(1)
 })
 
 test('rejects adapted output when the headline is not a canonical role label', async () => {
@@ -3495,9 +3615,7 @@ async function seedOriginalCvAndVacancy(harness: {
           phone: '+44 7700 900123',
           professionalLink: 'ada-lovelace.dev',
         },
-        experience: [
-          'Lead Product Designer | Analytical Engines Ltd | 2022 — Present\nLed product design for AI-assisted desktop tooling.',
-        ],
+        experience: [createNormalizedOriginalCvExperienceEntry()],
         fullName: 'Ada Lovelace',
         headline: 'Principal Product Designer',
         skills: ['Product strategy', 'UX research', 'prototyping'],

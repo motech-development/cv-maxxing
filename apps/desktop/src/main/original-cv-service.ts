@@ -399,7 +399,7 @@ function validateNormalizedOriginalCv({
   const hasReadableIdentity =
     countWords(normalizedCv.fullName) >= 2 || countWords(normalizedCv.headline) >= 2
   const hasSubstantiveExperience = normalizedCv.experience.some((entry) => {
-    return countWords(entry) >= 4
+    return countWords(`${entry.roleTitle} ${entry.employer} ${entry.summary}`) >= 4
   })
   const hasSubstantiveSkills = normalizedCv.skills.length >= 3
 

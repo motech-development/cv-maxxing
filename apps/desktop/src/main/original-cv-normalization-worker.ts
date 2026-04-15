@@ -50,7 +50,23 @@ const OUTPUT_SCHEMA = {
         },
         experience: {
           items: {
-            type: 'string',
+            additionalProperties: false,
+            properties: {
+              dateRange: {
+                type: 'string',
+              },
+              employer: {
+                type: 'string',
+              },
+              roleTitle: {
+                type: 'string',
+              },
+              summary: {
+                type: 'string',
+              },
+            },
+            required: ['dateRange', 'employer', 'roleTitle', 'summary'],
+            type: 'object',
           },
           type: 'array',
         },
@@ -177,6 +193,9 @@ async function runCodexCliNormalization({
     'Handle heading variants such as Profile, Core Skills, and Career Highlights.',
     'Derive a faithful summary, headline, skills, and regrouped experience entries when needed.',
     'Keep names, headlines, skills, and experience grounded in the source text.',
+    'Return normalizedCv.experience as structured entries with roleTitle, employer, dateRange, and summary.',
+    'Keep one experience object per source role. Use empty strings for missing employer or dateRange instead of guessing.',
+    'Do not collapse multiple source roles into one normalizedCv.experience entry.',
     'Leave fields empty instead of guessing unsupported facts.',
   ].join(' ')
 
@@ -322,7 +341,10 @@ function isNormalizedOriginalCv(value: unknown): value is NormalizedOriginalCv {
     typeof candidate.fullName === 'string' &&
     typeof candidate.headline === 'string' &&
     typeof candidate.summary === 'string' &&
-    isStringArray(candidate.experience) &&
+    Array.isArray(candidate.experience) &&
+    candidate.experience.every((entry) => {
+      return isNormalizedOriginalCvExperienceEntry(entry)
+    }) &&
     isStringArray(candidate.skills)
   )
 }
@@ -332,10 +354,39 @@ function normalizeOriginalCv(value: unknown): NormalizedOriginalCv {
 
   return {
     contact: normalizeOriginalCvContact(candidate.contact),
-    experience: candidate.experience as string[],
+    experience: (candidate.experience as unknown[]).map((entry) => {
+      return normalizeNormalizedOriginalCvExperienceEntry(entry)
+    }),
     fullName: candidate.fullName as string,
     headline: candidate.headline as string,
     skills: candidate.skills as string[],
+    summary: candidate.summary as string,
+  }
+}
+
+function isNormalizedOriginalCvExperienceEntry(
+  value: unknown,
+): value is NormalizedOriginalCv['experience'][number] {
+  return (
+    value !== null &&
+    typeof value === 'object' &&
+    !Array.isArray(value) &&
+    typeof (value as Record<string, unknown>).dateRange === 'string' &&
+    typeof (value as Record<string, unknown>).employer === 'string' &&
+    typeof (value as Record<string, unknown>).roleTitle === 'string' &&
+    typeof (value as Record<string, unknown>).summary === 'string'
+  )
+}
+
+function normalizeNormalizedOriginalCvExperienceEntry(
+  value: unknown,
+): NormalizedOriginalCv['experience'][number] {
+  const candidate = value as Record<string, unknown>
+
+  return {
+    dateRange: candidate.dateRange as string,
+    employer: candidate.employer as string,
+    roleTitle: candidate.roleTitle as string,
     summary: candidate.summary as string,
   }
 }

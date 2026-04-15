@@ -1438,7 +1438,7 @@ function isNormalizedOriginalCv(value: unknown): value is NormalizedOriginalCv {
     typeof candidate.summary === 'string' &&
     Array.isArray(candidate.experience) &&
     candidate.experience.every((entry) => {
-      return typeof entry === 'string'
+      return isNormalizedOriginalCvExperienceEntry(entry)
     }) &&
     Array.isArray(candidate.skills) &&
     candidate.skills.every((entry) => {
@@ -1448,6 +1448,20 @@ function isNormalizedOriginalCv(value: unknown): value is NormalizedOriginalCv {
     typeof normalizedContact.location === 'string' &&
     typeof normalizedContact.phone === 'string' &&
     typeof normalizedContact.professionalLink === 'string'
+  )
+}
+
+function isNormalizedOriginalCvExperienceEntry(
+  value: unknown,
+): value is NormalizedOriginalCv['experience'][number] {
+  return (
+    value !== null &&
+    typeof value === 'object' &&
+    !Array.isArray(value) &&
+    typeof (value as Record<string, unknown>).dateRange === 'string' &&
+    typeof (value as Record<string, unknown>).employer === 'string' &&
+    typeof (value as Record<string, unknown>).roleTitle === 'string' &&
+    typeof (value as Record<string, unknown>).summary === 'string'
   )
 }
 
@@ -1486,7 +1500,7 @@ function validateTailoredApplicationGenerationResult(
   result: unknown,
   context: {
     originalCvHeadline: string
-    originalCvExperience: string[]
+    originalCvExperience: NormalizedOriginalCv['experience']
     vacancyTitle: string | null
   },
 ): asserts result is TailoredApplicationGenerationResult {
@@ -2135,10 +2149,10 @@ function normalizeRoleLabel(value: string | null): string | null {
 
 function getMissingSourceExperienceEntries(
   sections: unknown[],
-  sourceExperienceEntries: string[],
+  sourceExperienceEntries: NormalizedOriginalCv['experience'],
 ): string[] {
   const sourceIdentities = sourceExperienceEntries.flatMap((entry) => {
-    const identity = parseSourceExperienceIdentity(entry)
+    const identity = createSourceExperienceIdentity(entry)
 
     return identity === null ? [] : [identity]
   })
@@ -2185,35 +2199,22 @@ function extractGeneratedExperienceEntries(sections: unknown[]): AdaptedCvExperi
   })
 }
 
-function parseSourceExperienceIdentity(entry: string): {
+function createSourceExperienceIdentity(entry: NormalizedOriginalCv['experience'][number]): {
   display: string
   key: string
 } | null {
-  const firstLine = entry
-    .split(/\r?\n/u)
-    .map((line) => {
-      return line.trim()
-    })
-    .find((line) => {
-      return line !== ''
-    })
+  const roleTitle = entry.roleTitle.trim()
+  const employer = entry.employer.trim()
+  const dateRange = entry.dateRange.trim()
 
-  if (firstLine === undefined) {
-    return null
-  }
-
-  const [roleTitle = '', employer = '', ...dateParts] = firstLine.split('|').map((part) => {
-    return part.trim()
-  })
-
-  if (roleTitle === '' || employer === '') {
+  if (roleTitle === '' || employer === '' || dateRange === '') {
     return null
   }
 
   return {
-    display: firstLine,
+    display: [roleTitle, employer, dateRange].join(' | '),
     key: createExperienceIdentityKey({
-      dateRange: dateParts.join(' | '),
+      dateRange,
       employer,
       roleTitle,
     }),

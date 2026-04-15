@@ -21,11 +21,28 @@ interface NormalizationExample {
       phone: string
       professionalLink: string
     }
-    experience: string[]
+    experience: {
+      dateRange: string
+      employer: string
+      roleTitle: string
+      summary: string
+    }[]
     headline: string
     summary: string
   }
   title: string
+}
+
+function createNormalizedOriginalCvExperienceEntry(
+  overrides: Partial<NormalizationExample['normalizedCv']['experience'][number]> = {},
+) {
+  return {
+    dateRange: '2022 — Present',
+    employer: 'Analytical Engines Ltd',
+    roleTitle: 'Principal Product Designer',
+    summary: 'Led product design for AI-assisted desktop tooling.',
+    ...overrides,
+  }
 }
 
 afterEach(async () => {
@@ -95,8 +112,14 @@ test('writes a dedicated normalization run workspace with derived-field examples
         expect(headingVariantExample?.normalizedCv.summary).toBe(
           'Design leader focused on complex workflow products for technical users.',
         )
-        expect(fragmentedExperienceExample?.normalizedCv.experience).toContain(
-          'Senior Content Strategist | Difference Engines Ltd',
+        expect(fragmentedExperienceExample?.normalizedCv.experience).toContainEqual(
+          createNormalizedOriginalCvExperienceEntry({
+            dateRange: '',
+            employer: 'Difference Engines Ltd',
+            roleTitle: 'Senior Content Strategist',
+            summary:
+              'Built content systems and UX research practices for complex workflow products.',
+          }),
         )
         expect(originalCvText).toBe('Ada Lovelace\nPrincipal Product Designer')
 
@@ -108,7 +131,7 @@ test('writes a dedicated normalization run workspace with derived-field examples
               phone: '+44 7700 900123',
               professionalLink: 'ada-lovelace.dev',
             },
-            experience: ['Principal Product Designer | Analytical Engines Ltd'],
+            experience: [createNormalizedOriginalCvExperienceEntry()],
             fullName: 'Ada Lovelace',
             headline: 'Principal Product Designer',
             skills: ['Product strategy', 'UX research', 'Prototyping'],
@@ -145,7 +168,7 @@ test('writes a dedicated normalization run workspace with derived-field examples
         phone: '+44 7700 900123',
         professionalLink: 'ada-lovelace.dev',
       },
-      experience: ['Principal Product Designer | Analytical Engines Ltd'],
+      experience: [createNormalizedOriginalCvExperienceEntry()],
       fullName: 'Ada Lovelace',
       headline: 'Principal Product Designer',
       skills: ['Product strategy', 'UX research', 'Prototyping'],
