@@ -28,7 +28,6 @@ These rules always apply. Follow project-local rules first when they are more sp
 - Put package-specific build, dev, test, smoke, and type-check scripts in the owning workspace package. Keep root scripts limited to repo-wide tooling instead of delegating app-specific commands.
 - Use Node 24 as the project runtime version. The repository pins this in `.nvmrc`.
 - Use Conventional Commits for commit messages. Husky runs commitlint on `commit-msg` to enforce this.
-- Craft commit messages with Commitizen via `pnpm commit` so the repository uses the configured `cz-conventional-changelog` flow by default.
 - Keep commit messages within the repository's commitlint line-length constraints. Wrap commit body lines conservatively and avoid overlong subjects.
 - When a commit fully resolves a tracked issue, include a closing footer such as `Closes #14`.
 - Do not change GitHub issue state directly through the API or CLI to mark work complete. Let commit footers and the normal push or merge workflow close issues unless the user explicitly requests a manual issue-state change.
