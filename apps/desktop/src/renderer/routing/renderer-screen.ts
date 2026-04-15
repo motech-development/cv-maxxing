@@ -8,7 +8,6 @@ export type RendererScreenKind =
   | 'first_launch'
   | 'workspace_active'
   | 'workspace_empty'
-  | 'workspace_loading'
 
 export interface ResolveRendererScreenInput {
   originalCvWorkspaceState: OriginalCvWorkspaceState
@@ -31,12 +30,12 @@ export function resolveRendererScreen({
     return 'ai_worker_unavailable'
   }
 
-  if (readinessViewModel.startupDestination === 'workspace_loading') {
-    return 'workspace_loading'
-  }
-
   if (readinessViewModel.startupDestination === 'workspace_active') {
     return 'workspace_active'
+  }
+
+  if (readinessViewModel.startupDestination === 'workspace_loading') {
+    return 'workspace_empty'
   }
 
   if (originalCvWorkspaceState.activeOriginalCv === null) {

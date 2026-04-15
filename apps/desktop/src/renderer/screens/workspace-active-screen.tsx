@@ -36,6 +36,7 @@ interface WorkspaceActiveScreenProperties {
   preview: TailoredApplicationPreview | null
   previewDocumentKind: PreviewDocumentKind
   originalCvFile: File | null
+  workspaceOverlay?: ReactNode
   workspaceError: string | null
 }
 
@@ -61,6 +62,7 @@ export function WorkspaceActiveScreen({
   preview,
   previewDocumentKind,
   originalCvFile,
+  workspaceOverlay,
   workspaceError,
 }: WorkspaceActiveScreenProperties) {
   const resolvedApplicationTitle = preview?.title ?? applicationTitle ?? 'Tailored application'
@@ -142,6 +144,7 @@ export function WorkspaceActiveScreen({
         </>
       }
       subtitle="Workspace"
+      workspaceOverlay={workspaceOverlay}
       workerLabel="Ready"
       workerTone="ready"
     >

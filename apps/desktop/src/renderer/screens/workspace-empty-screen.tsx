@@ -1,4 +1,4 @@
-import type { ChangeEvent } from 'react'
+import type { ChangeEvent, ReactNode } from 'react'
 
 import type { OriginalCvSummary } from '../../shared/original-cv.js'
 import type { TailoredApplicationListItem } from '../../shared/tailored-application.js'
@@ -34,6 +34,7 @@ interface WorkspaceEmptyScreenProperties {
   urlDraft: string
   vacancyPreview: VacancySummary | null
   vacancyReviewError: string | null
+  workspaceOverlay?: ReactNode
   workspaceError: string | null
 }
 
@@ -64,6 +65,7 @@ export function WorkspaceEmptyScreen({
   urlDraft,
   vacancyPreview,
   vacancyReviewError,
+  workspaceOverlay,
   workspaceError,
 }: WorkspaceEmptyScreenProperties) {
   const hasSavedApplications = applications.length > 0
@@ -129,6 +131,7 @@ export function WorkspaceEmptyScreen({
         </>
       }
       subtitle="Workspace"
+      workspaceOverlay={workspaceOverlay}
       workerLabel="Ready"
       workerTone="ready"
     >

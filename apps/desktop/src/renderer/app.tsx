@@ -27,7 +27,6 @@ import { FirstLaunchScreen } from './screens/first-launch-screen.js'
 import { SettingsScreen, type SettingsSection } from './screens/settings-screen.js'
 import { WorkspaceActiveScreen } from './screens/workspace-active-screen.js'
 import { WorkspaceEmptyScreen } from './screens/workspace-empty-screen.js'
-import { WorkspaceLoadingScreen } from './screens/workspace-loading-screen.js'
 import {
   getOriginalCvWorkspaceStateQueryOptions,
   getPendingGenerationCommandQueryOptions,
@@ -39,6 +38,7 @@ import {
   rendererQueryKeys,
 } from './app-queries.js'
 import { resolveRendererLoadingState } from './loading/resolve-renderer-loading-state.js'
+import { WorkspaceBlockingOverlay } from './loading/workspace-blocking-overlay.js'
 import { resolveRendererScreen, type RendererScreenKind } from './routing/renderer-screen.js'
 
 const initialReadinessViewModel: ReadinessRouteViewModel = {
@@ -172,13 +172,10 @@ export function App() {
       : null
   const pendingGenerationQuery = useQuery({
     ...getPendingGenerationCommandQueryOptions(),
-    enabled: viewModel.canEnterWorkspace && viewModel.startupDestination === 'workspace_loading',
+    enabled: viewModel.canEnterWorkspace,
     placeholderData: null,
   })
-  const pendingGenerationCommand =
-    viewModel.startupDestination === 'workspace_loading'
-      ? (pendingGenerationQuery.data ?? null)
-      : null
+  const pendingGenerationCommand = pendingGenerationQuery.data ?? null
 
   const invalidateReadinessQuery = async (): Promise<void> => {
     await queryClient.invalidateQueries({
@@ -790,21 +787,6 @@ export function App() {
     }
   }
 
-  const handleOpenTailoredApplication = async (): Promise<void> => {
-    if (pendingGenerationCommand === null || completePendingGenerationMutation.isPending) {
-      return
-    }
-
-    try {
-      await completePendingGenerationMutation.mutateAsync({
-        commandId: pendingGenerationCommand.commandId,
-        tailoredApplicationId: null,
-      })
-    } catch {
-      setReadinessError(`${readinessErrorMessage} ${readinessErrorAction}`)
-    }
-  }
-
   const handleExportAdaptedCvPdf = async (): Promise<void> => {
     if (tailoredApplicationPreview === null || exportPdfMutation.isPending) {
       return
@@ -914,13 +896,25 @@ export function App() {
       tailoredApplicationPreviewQuery.isFetching,
     isGeneratingTailoredApplication:
       startPendingGenerationMutation.isPending ||
-      viewModel.startupDestination === 'workspace_loading',
+      viewModel.startupDestination === 'workspace_loading' ||
+      pendingGenerationCommand !== null,
     isImportingOriginalCv,
     isResettingLocalAppData,
     isReviewingVacancy: isSubmittingVacancyReview,
   })
   const ambientActivityLabel =
     rendererLoadingState.scope === 'ambient' ? rendererLoadingState.label : null
+  const workspaceOverlay =
+    activeWorkspaceSection === 'workspace' &&
+    rendererLoadingState.kind === 'tailored_application_generation' ? (
+      <WorkspaceBlockingOverlay
+        isSecondaryActionPending={isPendingGenerationActionPending}
+        onSecondaryAction={() => {
+          handleAbandonDraft().catch(() => null)
+        }}
+        secondaryActionLabel="Abandon draft"
+      />
+    ) : null
 
   const resumePendingGeneration = useEffectEvent(async (): Promise<void> => {
     if (pendingGenerationCommand === null) {
@@ -964,7 +958,7 @@ export function App() {
   })
 
   useEffect(() => {
-    if (screenKind !== 'workspace_loading' || pendingGenerationCommand === null) {
+    if (pendingGenerationCommand === null) {
       return
     }
 
@@ -997,7 +991,7 @@ export function App() {
         isResumingPendingGeneration.current = false
       }
     }
-  }, [pendingGenerationCommand, screenKind])
+  }, [pendingGenerationCommand])
 
   const screenRegistry: Record<RendererScreenKind, () => ReactElement> = {
     ai_worker_checking: () => {
@@ -1094,6 +1088,7 @@ export function App() {
           preview={tailoredApplicationPreview}
           previewDocumentKind={previewDocumentKind}
           originalCvFile={originalCvFile}
+          workspaceOverlay={workspaceOverlay}
           workspaceError={readinessError}
         />
       )
@@ -1210,21 +1205,7 @@ export function App() {
           urlDraft={vacancyDraft.url}
           vacancyPreview={vacancyPreview}
           vacancyReviewError={vacancyReviewError}
-          workspaceError={readinessError}
-        />
-      )
-    },
-    workspace_loading: () => {
-      return (
-        <WorkspaceLoadingScreen
-          isPendingAction={isPendingGenerationActionPending}
-          onAbandonDraft={() => {
-            handleAbandonDraft().catch(() => null)
-          }}
-          onOpenTailoredApplication={() => {
-            handleOpenTailoredApplication().catch(() => null)
-          }}
-          pendingGenerationCommand={pendingGenerationCommand}
+          workspaceOverlay={workspaceOverlay}
           workspaceError={readinessError}
         />
       )
@@ -1233,7 +1214,6 @@ export function App() {
 
   if (
     activeWorkspaceSection === 'settings' &&
-    screenKind !== 'workspace_loading' &&
     viewModel.canEnterWorkspace &&
     settingsSnapshot !== null
   ) {

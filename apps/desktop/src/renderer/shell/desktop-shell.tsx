@@ -12,6 +12,7 @@ interface DesktopShellProperties {
   onSelectRailItem?: (item: RailItemId) => void
   sidebar: ReactNode
   subtitle: string
+  workspaceOverlay?: ReactNode
   workerTone: 'danger' | 'muted' | 'ready' | 'warning'
   workerLabel: string
 }
@@ -87,6 +88,7 @@ export function DesktopShell({
   onSelectRailItem,
   sidebar,
   subtitle,
+  workspaceOverlay,
   workerLabel,
   workerTone,
 }: DesktopShellProperties) {
@@ -143,12 +145,20 @@ export function DesktopShell({
             </div>
           </nav>
 
-          <aside className="flex min-h-0 w-[328px] flex-col overflow-hidden border-r border-[var(--color-border)] bg-[var(--color-shell-sidebar)]">
-            <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-5">{sidebar}</div>
-          </aside>
+          <div className="relative flex min-h-0 min-w-0 flex-1">
+            <aside className="flex min-h-0 w-[328px] flex-col overflow-hidden border-r border-[var(--color-border)] bg-[var(--color-shell-sidebar)]">
+              <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-5">
+                {sidebar}
+              </div>
+            </aside>
 
-          <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto bg-[var(--color-surface-0)] p-7">
-            {children}
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto bg-[var(--color-surface-0)] p-7">
+              {children}
+            </div>
+
+            {workspaceOverlay ? (
+              <div className="absolute inset-0 z-10">{workspaceOverlay}</div>
+            ) : null}
           </div>
         </div>
       </section>
