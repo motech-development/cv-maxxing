@@ -13,6 +13,7 @@ export type SettingsSection = 'ai_worker' | 'local_data'
 
 interface SettingsScreenProperties {
   activeSection: SettingsSection
+  ambientActivityLabel?: string | null
   isClearingJobSiteBrowserData: boolean
   isOpeningSetupGuide: boolean
   isResettingLocalAppData: boolean
@@ -42,6 +43,7 @@ const privacyRows = [
 
 export function SettingsScreen({
   activeSection,
+  ambientActivityLabel,
   isClearingJobSiteBrowserData,
   isOpeningSetupGuide,
   isResettingLocalAppData,
@@ -62,6 +64,7 @@ export function SettingsScreen({
   return (
     <DesktopShell
       activeRailItem="settings"
+      ambientActivityLabel={ambientActivityLabel}
       onSelectRailItem={onSelectRailItem}
       sidebar={
         <>
@@ -177,6 +180,7 @@ function AiWorkerSettingsSection({
       </h1>
       <p className="mt-2 max-w-3xl text-[13px] leading-[1.4] text-[var(--color-copy-muted)]">
         Configure the local worker adapter used for CV adaptation and cover-letter generation.
+        Background work surfaces in the shell without blocking the current view.
       </p>
 
       <PanelCard className="mt-6 p-6">

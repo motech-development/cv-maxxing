@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { Briefcase, FileText, Settings, Sparkles } from 'lucide-react'
+import { Briefcase, FileText, LoaderCircle, Settings, Sparkles } from 'lucide-react'
 
 import { StatusPill } from '../ui/status-pill.js'
 
@@ -7,6 +7,7 @@ export type RailItemId = 'job_vacancies' | 'original_cv' | 'settings' | 'setup'
 
 interface DesktopShellProperties {
   activeRailItem: RailItemId
+  ambientActivityLabel?: string | null
   children: ReactNode
   onSelectRailItem?: (item: RailItemId) => void
   sidebar: ReactNode
@@ -62,8 +63,26 @@ function RailButton({ icon, isActive, label, onSelect }: RailButtonProperties) {
   )
 }
 
+function AmbientActivityIndicator({ label }: { label: string }) {
+  return (
+    <div
+      aria-label={label}
+      className="flex h-[14px] w-[14px] items-center justify-center text-[var(--color-copy-subtle)]"
+      role="status"
+      title={label}
+    >
+      <LoaderCircle
+        aria-hidden="true"
+        className="h-[14px] w-[14px] animate-[spin_2.4s_linear_infinite]"
+        strokeWidth={2.1}
+      />
+    </div>
+  )
+}
+
 export function DesktopShell({
   activeRailItem,
+  ambientActivityLabel,
   children,
   onSelectRailItem,
   sidebar,
@@ -81,7 +100,12 @@ export function DesktopShell({
               {subtitle}
             </p>
           </div>
-          <StatusPill label={workerLabel} tone={workerTone} />
+          <div className="flex items-center gap-[10px]">
+            {ambientActivityLabel ? (
+              <AmbientActivityIndicator label={ambientActivityLabel} />
+            ) : null}
+            <StatusPill label={workerLabel} tone={workerTone} />
+          </div>
         </header>
 
         <div className="flex min-h-0 flex-1 bg-[var(--color-shell-canvas)]">

@@ -51,3 +51,22 @@ test('renders a full-bleed app shell that aligns with macOS window chrome', () =
   expect(screen.queryByText('JV')).toBeNull()
   expect(screen.getByText('CV Maxxing')).toBeDefined()
 })
+
+test('renders ambient shell activity separately from AI-worker health', () => {
+  render(
+    <DesktopShell
+      activeRailItem="job_vacancies"
+      ambientActivityLabel="Background activity"
+      sidebar={<div>Sidebar</div>}
+      subtitle="Workspace"
+      workerLabel="Local"
+      workerTone="ready"
+    >
+      <div>Body</div>
+    </DesktopShell>,
+  )
+
+  expect(screen.getByRole('status', { name: 'Background activity' })).toBeDefined()
+  expect(screen.getByText('Local')).toBeDefined()
+  expect(screen.queryByText('Background activity')).toBeNull()
+})

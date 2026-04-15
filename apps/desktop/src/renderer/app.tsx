@@ -38,6 +38,7 @@ import {
   getVacancyWorkspaceStateQueryOptions,
   rendererQueryKeys,
 } from './app-queries.js'
+import { resolveRendererLoadingState } from './loading/resolve-renderer-loading-state.js'
 import { resolveRendererScreen, type RendererScreenKind } from './routing/renderer-screen.js'
 
 const initialReadinessViewModel: ReadinessRouteViewModel = {
@@ -161,6 +162,9 @@ export function App() {
       viewModel.canEnterWorkspace &&
       viewModel.startupDestination === 'workspace_active' &&
       resolvedTailoredApplicationId !== null,
+    placeholderData: (previousPreview) => {
+      return previousPreview
+    },
   })
   const tailoredApplicationPreview =
     viewModel.startupDestination === 'workspace_active'
@@ -902,6 +906,21 @@ export function App() {
 
   const workerStatusLabel = resolveWorkerStatusLabel(viewModel.status)
   const workerStatusTone = resolveWorkerStatusTone(viewModel.status)
+  const rendererLoadingState = resolveRendererLoadingState({
+    isCheckingAiWorkerReadiness: viewModel.status === 'checking',
+    isFetchingTailoredApplicationPreview:
+      viewModel.startupDestination === 'workspace_active' &&
+      resolvedTailoredApplicationId !== null &&
+      tailoredApplicationPreviewQuery.isFetching,
+    isGeneratingTailoredApplication:
+      startPendingGenerationMutation.isPending ||
+      viewModel.startupDestination === 'workspace_loading',
+    isImportingOriginalCv,
+    isResettingLocalAppData,
+    isReviewingVacancy: isSubmittingVacancyReview,
+  })
+  const ambientActivityLabel =
+    rendererLoadingState.scope === 'ambient' ? rendererLoadingState.label : null
 
   const resumePendingGeneration = useEffectEvent(async (): Promise<void> => {
     if (pendingGenerationCommand === null) {
@@ -1043,6 +1062,7 @@ export function App() {
       return (
         <WorkspaceActiveScreen
           activeOriginalCv={originalCvWorkspaceState.activeOriginalCv}
+          ambientActivityLabel={ambientActivityLabel}
           applicationTitle={null}
           applications={tailoredApplicationWorkspaceState.applications}
           importError={importError}
@@ -1220,6 +1240,7 @@ export function App() {
     return (
       <SettingsScreen
         activeSection={settingsSection}
+        ambientActivityLabel={ambientActivityLabel}
         isClearingJobSiteBrowserData={isClearingJobSiteBrowserData}
         isOpeningSetupGuide={isSecondaryActionPending}
         isResettingLocalAppData={isResettingLocalAppData}

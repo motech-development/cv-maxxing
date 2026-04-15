@@ -16,6 +16,7 @@ type PreviewDocumentKind = 'adapted_cv' | 'cover_letter'
 
 interface WorkspaceActiveScreenProperties {
   activeOriginalCv: OriginalCvSummary | null
+  ambientActivityLabel?: string | null
   applicationTitle: string | null
   applications: TailoredApplicationListItem[]
   importError: string | null
@@ -40,6 +41,7 @@ interface WorkspaceActiveScreenProperties {
 
 export function WorkspaceActiveScreen({
   activeOriginalCv,
+  ambientActivityLabel,
   applicationTitle,
   applications,
   importError,
@@ -86,6 +88,7 @@ export function WorkspaceActiveScreen({
   return (
     <DesktopShell
       activeRailItem="job_vacancies"
+      ambientActivityLabel={ambientActivityLabel}
       onSelectRailItem={onSelectRailItem}
       sidebar={
         <>

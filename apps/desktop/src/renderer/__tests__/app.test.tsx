@@ -261,6 +261,90 @@ function renderApp({
   )
 }
 
+function createDeferredPromise<T>() {
+  let resolvePromise!: (value: T) => void
+
+  const promise = new Promise<T>((resolve) => {
+    resolvePromise = resolve
+  })
+
+  return {
+    promise,
+    resolve: resolvePromise,
+  }
+}
+
+function createTailoredApplicationPreviewFixture(
+  overrides: Partial<TailoredApplicationPreview> = {},
+): TailoredApplicationPreview {
+  return {
+    adaptedCv: {
+      pageCount: 4,
+      pageWarning: 'This adapted CV runs to 4 pages. Export is still available.',
+      pdfBytes: new Uint8Array([37, 80, 68, 70]),
+    },
+    adaptationSummary: {
+      emphasized: [
+        {
+          text: 'Emphasises desktop workflow leadership for the job vacancy.',
+        },
+      ],
+      gaps: ['Add stronger quantified delivery evidence from the original CV snapshot.'],
+      omitted: [
+        {
+          text: 'Compresses broader communication language so the adapted CV stays vacancy-specific.',
+        },
+      ],
+      validationHints: ['Validate performance claims against the original CV snapshot.'],
+    },
+    coverLetter: {
+      pageCount: 2,
+      pageWarning: 'This cover letter runs to 2 pages. Export and copy remain available.',
+      pdfBytes: new Uint8Array([37, 80, 68, 70, 45, 67, 76]),
+      plainText: 'Dear Hiring Manager,\n\nAda Lovelace',
+    },
+    createdAt: '2026-04-09T09:30:00.000Z',
+    employer: 'Example Labs',
+    id: 'tailored-application-123',
+    originalCv: {
+      fileType: 'pdf',
+      headline: 'Principal Product Designer',
+      id: 'original-cv-123',
+      importedAt: '2026-04-08T14:30:00.000Z',
+      originalFilename: 'ada-lovelace.pdf',
+      pageCount: 1,
+      snapshotCount: 1,
+      summary: 'Design leader focused on complex workflow products.',
+      writingStyle: {
+        averageSentenceLength: 7,
+        clicheDetections: [],
+        firstPersonUsage: 'absent',
+        formality: 'direct',
+      },
+    },
+    title: 'Senior platform engineer · Example Labs',
+    vacancy: {
+      blockingReason: null,
+      canGenerate: true,
+      employer: 'Example Labs',
+      fetchedAt: '2026-04-09T08:30:00.000Z',
+      id: 'vacancy-123',
+      inputType: 'url',
+      location: 'London, United Kingdom',
+      originalUrl: 'https://jobs.example.com/roles/123',
+      requirements: ['Experience shipping workflow software.'],
+      resolvedUrl: 'https://jobs.example.com/roles/123',
+      responsibilities: ['Lead desktop workflow delivery across product and engineering.'],
+      source: 'generic',
+      status: 'ready',
+      textPreview: 'Lead desktop workflow delivery across product and engineering.',
+      title: 'Senior platform engineer',
+    },
+    vacancyTitle: 'Senior platform engineer',
+    ...overrides,
+  }
+}
+
 test('renders the dedicated checking setup screen before workspace entry', async () => {
   renderApp()
 
@@ -695,6 +779,114 @@ test('loads a persisted vacancy preview and keeps Adapt CV enabled for a reviewa
   expect(screen.getByText('Senior Product Designer')).toBeDefined()
   expect(screen.getByText('Example Labs · London, United Kingdom')).toBeDefined()
   expect(screen.getByRole('button', { name: 'Adapt CV' })).toHaveProperty('disabled', false)
+})
+
+test('shows shell-level ambient activity while a tailored-application preview refreshes in the background', async () => {
+  const deferredPreview = createDeferredPromise<TailoredApplicationPreview | null>()
+  const firstPreview = createTailoredApplicationPreviewFixture()
+  const secondPreview = createTailoredApplicationPreviewFixture({
+    employer: 'Nebula Labs',
+    id: 'tailored-application-456',
+    title: 'Platform Product Manager · Nebula Labs',
+    vacancy: {
+      ...firstPreview.vacancy,
+      employer: 'Nebula Labs',
+      id: 'vacancy-456',
+      title: 'Platform Product Manager',
+    },
+    vacancyTitle: 'Platform Product Manager',
+  })
+  const getTailoredApplicationPreview = vi
+    .fn()
+    .mockResolvedValueOnce(firstPreview)
+    .mockImplementationOnce(() => deferredPreview.promise)
+
+  renderApp({
+    aiWorker: createAiWorkerApi({
+      getAiWorkerPreflight: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+      getStartupDestination: vi.fn().mockResolvedValue('workspace_active'),
+    }),
+    originalCv: createOriginalCvApi({
+      getOriginalCvWorkspaceState: vi.fn().mockResolvedValue({
+        activeOriginalCv: firstPreview.originalCv,
+        snapshotCount: 1,
+      }),
+    }),
+    tailoredApplication: createTailoredApplicationApi({
+      getTailoredApplicationPreview,
+      getWorkspaceState: vi.fn().mockResolvedValue({
+        activeApplicationId: 'tailored-application-123',
+        applications: [
+          {
+            createdAt: '2026-04-09T09:30:00.000Z',
+            employer: 'Example Labs',
+            id: 'tailored-application-123',
+            pageCount: 4,
+            pageWarning: 'This adapted CV runs to 4 pages. Export is still available.',
+            title: 'Senior platform engineer · Example Labs',
+            vacancyTitle: 'Senior platform engineer',
+          },
+          {
+            createdAt: '2026-04-10T09:30:00.000Z',
+            employer: 'Nebula Labs',
+            id: 'tailored-application-456',
+            pageCount: 3,
+            pageWarning: null,
+            title: 'Platform Product Manager · Nebula Labs',
+            vacancyTitle: 'Platform Product Manager',
+          },
+        ],
+      }),
+    }),
+  })
+
+  await waitFor(() => {
+    expect(
+      screen.getByRole('heading', { name: 'Senior platform engineer · Example Labs' }),
+    ).toBeDefined()
+  })
+
+  fireEvent.click(
+    screen.getByRole('button', { name: 'Open tailored application Platform Product Manager' }),
+  )
+
+  await waitFor(() => {
+    expect(getTailoredApplicationPreview).toHaveBeenLastCalledWith('tailored-application-456')
+  })
+
+  expect(screen.getByRole('status', { name: 'Background activity' })).toBeDefined()
+  expect(screen.getByText('Ready')).toBeDefined()
+  expect(
+    screen.getByRole('heading', { name: 'Senior platform engineer · Example Labs' }),
+  ).toBeDefined()
+
+  fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'AI worker' })).toBeDefined()
+  })
+
+  expect(screen.getByRole('status', { name: 'Background activity' })).toBeDefined()
+  expect(screen.getAllByText('Local')).toHaveLength(2)
+
+  deferredPreview.resolve(secondPreview)
+
+  await waitFor(() => {
+    expect(screen.queryByRole('status', { name: 'Background activity' })).toBeNull()
+  })
+
+  fireEvent.click(screen.getByRole('button', { name: 'Job vacancies' }))
+
+  await waitFor(() => {
+    expect(
+      screen.getByRole('heading', { name: 'Platform Product Manager · Nebula Labs' }),
+    ).toBeDefined()
+  })
 })
 
 test('replaces the active original CV from the workspace-empty screen and keeps the workspace open', async () => {
