@@ -8,9 +8,21 @@ on:
 
 jobs:
   desktop:
-    name: Desktop Verification
-    runs-on: macos-15-intel
+    name: Desktop Verification (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: intel
+            package_command: package:mac:x64
+            package_label: Intel
+            runner: macos-15-intel
+          - arch: apple-silicon
+            package_command: package:mac:arm64
+            package_label: Apple Silicon
+            runner: macos-15
 
     steps:
       - name: Check out repository
@@ -53,8 +65,8 @@ jobs:
           CI: 'true'
         run: pnpm --filter @cv-maxxing/desktop test:visual
 
-      - name: Verify macOS Intel package
-        run: pnpm --filter @cv-maxxing/desktop package:mac
+      - name: Verify macOS ${{ matrix.package_label }} package
+        run: pnpm --filter @cv-maxxing/desktop ${{ matrix.package_command }}
 
       - name: Upload Playwright artifacts
         if: failure()
@@ -71,5 +83,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           if-no-files-found: ignore
-          name: desktop-package
+          name: desktop-package-${{ matrix.arch }}
           path: apps/desktop/release

@@ -14,7 +14,7 @@ export default {
     identity: null,
     target: [
       {
-        arch: ['x64'],
+        arch: ['x64', 'arm64'],
         target: 'dir',
       },
     ],

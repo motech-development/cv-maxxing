@@ -36,7 +36,7 @@ These are now fixed inputs to the architecture.
 - v1 must ship with a bring-your-own Codex CLI adapter as the only AI worker adapter, in a pattern similar to OpenClaw’s Codex-backed workflows.
 - The app must fetch vacancy data from live job URLs and support pasted job descriptions as the fallback.
 - v1 must not support saved page/file vacancy imports.
-- v1 target platform is macOS Intel.
+- v1 target platforms are macOS Intel and Apple Silicon.
 - CV adaptation may strengthen phrasing if it remains truthful.
 - Adapted CVs and cover letters are immutable once generated.
 - The app should also generate cover letters.
@@ -1192,7 +1192,7 @@ The scaffold should expose explicit scripts for:
 - integration tests
 - end-to-end tests
 - production build
-- packaged desktop build for macOS Intel
+- packaged desktop builds for macOS Intel and Apple Silicon
 
 Representative script surface:
 
@@ -1271,12 +1271,12 @@ CI rules:
 
 ### 19.6 Packaging architecture
 
-The architecture should anticipate distributable macOS Intel builds early.
+The architecture should anticipate distributable macOS Intel and Apple Silicon builds early.
 
 Baseline packaging requirements:
 
 - signed notarization is not required for the first local-development milestone unless distribution work explicitly starts
-- the build system must still produce a runnable packaged app artifact for macOS Intel
+- the build system must still produce runnable packaged app artifacts for macOS Intel and Apple Silicon
 - preload hardening and asset path resolution must work in both dev and packaged modes
 - app versioning should be disciplined from the start so GitHub Releases auto-update can be added after v1
 - v1 should not include automatic update checks, but release packaging should not make a future updater hard to introduce
@@ -1289,7 +1289,7 @@ Baseline packaging requirements:
 - configure linting, formatting, and type-checking
 - configure Vitest and Playwright harnesses
 - establish CI workflow for lint, type-check, tests, and build verification
-- establish packaged-build path for macOS Intel
+- establish packaged-build paths for macOS Intel and Apple Silicon
 
 ### Phase 1. Foundation
 
@@ -1410,7 +1410,7 @@ Baseline packaging requirements:
 
 ### Recommended optional CI checks
 
-- packaging verification for macOS Intel on protected branches
+- packaging verification for macOS Intel and Apple Silicon on protected branches
 
 ### Release baseline
 
@@ -1422,7 +1422,7 @@ Baseline packaging requirements:
 
 Build v1 as:
 
-- a macOS Intel Electron desktop app
+- a macOS Intel and Apple Silicon Electron desktop app
 - React + TypeScript + pnpm
 - SQLCipher-backed SQLite + encrypted local filesystem artifacts
 - no required backend

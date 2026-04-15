@@ -38,7 +38,7 @@ These rules always apply. Follow project-local rules first when they are more sp
 - Implement new behavior and bug fixes using TDD: start with a failing automated test, make it pass with the minimal change, then refactor while keeping the test suite green.
 - Use `CV_MAXXING_LOCAL_APP_DATA_ROOT` in desktop smoke/Electron tests when deterministic local encrypted storage paths are required; point it at a disposable temp directory instead of the user profile.
 - Treat `CV_MAXXING_VACANCY_BROWSER_SESSION_CLOSE_AFTER_LOAD` as a synthetic browser-session fixture aid only; it should only auto-close sessions when paired with `CV_MAXXING_VACANCY_BROWSER_SESSION_HTML`, never for real interactive auth windows.
-- Run required desktop CI on `macos-15-intel` so Electron smoke, visual baselines, and packaged build verification stay aligned with the v1 macOS Intel target.
+- Run required desktop CI on both `macos-15-intel` and `macos-15` so Electron smoke, visual baselines, and packaged build verification stay aligned across Intel and Apple Silicon macOS targets.
 - When building new functionality or making material refactors, consult `ARCHITECTURE.md` and align implementation with its current decisions unless a newer explicit decision supersedes it.
 - Treat `design/app.pen` as the authoritative reference for desktop app UI states and layout.
 - Keep the desktop UI aligned with `design/app.pen`. If the implementation must diverge, update `design/app.pen` first so the design and shipped UI remain in sync.
@@ -47,7 +47,7 @@ These rules always apply. Follow project-local rules first when they are more sp
 - Treat `design/cv.pen` as the authoritative reference for CV/PDF visual layout, with `design/cv.html` as the implementation reference for HTML-based rendering and PDF export.
 - Keep browser functions serialized into injected CV/PDF HTML fully self-contained. Do not reference module-scope helpers or constants from code embedded via `String(fn)` in the Electron print pipeline.
 - The product is Electron-first and local desktop-first; do not introduce a required web backend unless a later task proves it necessary.
-- V1 targets macOS Intel.
+- V1 targets both macOS Intel and Apple Silicon.
 - Use a provider-neutral local AI worker architecture for generation workflows; v1 ships a bring-your-own Codex CLI adapter only.
 - Treat local AI worker setup as a required startup readiness gate before the user can enter the workspace, import the first CV, or create vacancy drafts.
 - Use provider-neutral product language such as `AI worker` except in provider-specific Codex setup details.
