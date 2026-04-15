@@ -1,0 +1,325 @@
+{
+  "version": "2.11",
+  "children": [
+    {
+      "type": "frame",
+      "id": "UMyHB",
+      "x": 0,
+      "y": 0,
+      "name": "App Icon / Master",
+      "clip": true,
+      "width": 1024,
+      "height": 1024,
+      "fill": {
+        "type": "gradient",
+        "gradientType": "linear",
+        "enabled": true,
+        "rotation": 180,
+        "size": {
+          "height": 1
+        },
+        "colors": [
+          {
+            "color": "$icon.bg.top",
+            "position": 0
+          },
+          {
+            "color": "$icon.bg.bottom",
+            "position": 1
+          }
+        ]
+      },
+      "cornerRadius": 224,
+      "effect": [
+        {
+          "type": "shadow",
+          "shadowType": "outer",
+          "color": "#0000003D",
+          "offset": {
+            "x": 0,
+            "y": 26
+          },
+          "blur": 80
+        },
+        {
+          "type": "shadow",
+          "shadowType": "outer",
+          "color": "#FFFFFF14",
+          "offset": {
+            "x": 0,
+            "y": 1
+          }
+        }
+      ],
+      "layout": "none",
+      "children": [
+        {
+          "type": "rectangle",
+          "cornerRadius": 196,
+          "id": "YVpcz",
+          "x": 28,
+          "y": 28,
+          "name": "Inner Rim",
+          "fill": {
+            "type": "color",
+            "color": "#00000000",
+            "enabled": false
+          },
+          "width": 968,
+          "height": 968,
+          "stroke": {
+            "align": "inside",
+            "thickness": 2,
+            "fill": "#FFFFFF12"
+          }
+        },
+        {
+          "type": "ellipse",
+          "id": "4PKWI",
+          "x": 154,
+          "y": 126,
+          "name": "Ambient Glow",
+          "fill": {
+            "type": "gradient",
+            "gradientType": "radial",
+            "enabled": true,
+            "opacity": 0.34,
+            "rotation": 0,
+            "size": {
+              "width": 1,
+              "height": 1
+            },
+            "colors": [
+              {
+                "color": "$icon.glow",
+                "position": 0
+              },
+              {
+                "color": "#93A29A00",
+                "position": 1
+              }
+            ]
+          },
+          "width": 716,
+          "height": 716
+        },
+        {
+          "type": "rectangle",
+          "cornerRadius": [
+            122,
+            122,
+            78,
+            78
+          ],
+          "id": "0eJb2",
+          "x": 252,
+          "y": 248,
+          "name": "Back Sheet",
+          "fill": {
+            "type": "gradient",
+            "gradientType": "linear",
+            "enabled": true,
+            "rotation": 180,
+            "size": {
+              "height": 1
+            },
+            "colors": [
+              {
+                "color": "#CDD6D1",
+                "position": 0
+              },
+              {
+                "color": "#A7B6AF",
+                "position": 1
+              }
+            ]
+          },
+          "width": 452,
+          "height": 632,
+          "effect": {
+            "type": "shadow",
+            "shadowType": "outer",
+            "color": "#00000026",
+            "offset": {
+              "x": 0,
+              "y": 24
+            },
+            "blur": 60
+          }
+        },
+        {
+          "type": "frame",
+          "id": "Fua6U",
+          "x": 320,
+          "y": 180,
+          "name": "Paper",
+          "width": 452,
+          "height": 632,
+          "fill": "$icon.paper",
+          "cornerRadius": [
+            122,
+            122,
+            78,
+            78
+          ],
+          "effect": [
+            {
+              "type": "shadow",
+              "shadowType": "outer",
+              "color": "#00000030",
+              "offset": {
+                "x": 0,
+                "y": 30
+              },
+              "blur": 72
+            },
+            {
+              "type": "shadow",
+              "shadowType": "outer",
+              "color": "#FFFFFFB8",
+              "offset": {
+                "x": 0,
+                "y": 1
+              }
+            }
+          ],
+          "layout": "none"
+        },
+        {
+          "type": "rectangle",
+          "cornerRadius": 14,
+          "id": "OBloF",
+          "x": 390,
+          "y": 276,
+          "name": "Title Pill",
+          "fill": "$icon.accent.soft",
+          "width": 196,
+          "height": 28
+        },
+        {
+          "type": "rectangle",
+          "cornerRadius": 10,
+          "id": "2Me3R",
+          "x": 390,
+          "y": 334,
+          "name": "Line 1",
+          "fill": "$icon.divider",
+          "width": 250,
+          "height": 20
+        },
+        {
+          "type": "rectangle",
+          "cornerRadius": 10,
+          "id": "1aH9g",
+          "x": 390,
+          "y": 370,
+          "name": "Line 2",
+          "fill": "$icon.divider",
+          "width": 198,
+          "height": 20
+        },
+        {
+          "type": "rectangle",
+          "cornerRadius": 10,
+          "id": "iRS2C",
+          "x": 390,
+          "y": 406,
+          "name": "Line 3",
+          "fill": "#E5E9E6",
+          "width": 132,
+          "height": 20
+        },
+        {
+          "type": "path",
+          "id": "FWZjy",
+          "x": 364,
+          "y": 468,
+          "name": "Max Arrow",
+          "geometry": "M0 226l108-108 62 62 90-90-46-46 150 0 0 150-46-46 0-30-148 148-62-62-56 56z",
+          "viewBox": [
+            0,
+            0,
+            364,
+            316
+          ],
+          "fill": "$icon.accent",
+          "width": 364,
+          "height": 316,
+          "effect": {
+            "type": "shadow",
+            "shadowType": "outer",
+            "color": "#4D5A543D",
+            "offset": {
+              "x": 0,
+              "y": 18
+            },
+            "blur": 28
+          }
+        },
+        {
+          "type": "rectangle",
+          "cornerRadius": 9,
+          "id": "4BHId",
+          "x": 390,
+          "y": 722,
+          "name": "Footer Line",
+          "fill": "#E7EBE8",
+          "width": 286,
+          "height": 18
+        },
+        {
+          "type": "ellipse",
+          "id": "R9Mv9",
+          "x": 694,
+          "y": 717,
+          "name": "Footer Dot",
+          "fill": "$icon.accent.soft",
+          "width": 28,
+          "height": 28
+        }
+      ]
+    }
+  ],
+  "variables": {
+    "icon.bg.top": {
+      "type": "color",
+      "value": "#2D3B43"
+    },
+    "icon.bg.bottom": {
+      "type": "color",
+      "value": "#1E2428"
+    },
+    "icon.glow": {
+      "type": "color",
+      "value": "#93A29A"
+    },
+    "icon.paper": {
+      "type": "color",
+      "value": "#FFFFFF"
+    },
+    "icon.paper.soft": {
+      "type": "color",
+      "value": "#F7F8F6"
+    },
+    "icon.ink": {
+      "type": "color",
+      "value": "#1E2428"
+    },
+    "icon.muted": {
+      "type": "color",
+      "value": "#5E6872"
+    },
+    "icon.divider": {
+      "type": "color",
+      "value": "#D9DEDA"
+    },
+    "icon.accent": {
+      "type": "color",
+      "value": "#93A29A"
+    },
+    "icon.accent.soft": {
+      "type": "color",
+      "value": "#EEF2EF"
+    }
+  }
+}

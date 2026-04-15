@@ -24,6 +24,8 @@ describe('mac packaging support', () => {
 
     expect(electronBuilderConfigSource).toContain("arch: ['x64', 'arm64']")
     expect(electronBuilderConfigSource).toContain("target: 'dir'")
+    expect(electronBuilderConfigSource).toContain("icon: 'assets/app-icon.png'")
+    expect(electronBuilderConfigSource).toContain("'assets/**/*'")
   })
 
   test('exposes explicit packaging scripts for default, Intel, and Apple Silicon builds', () => {

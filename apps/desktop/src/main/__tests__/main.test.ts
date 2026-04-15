@@ -1,3 +1,5 @@
+import { fileURLToPath } from 'node:url'
+
 import { beforeEach, expect, test, vi } from 'vitest'
 
 import {
@@ -14,6 +16,8 @@ import {
 } from '../main.js'
 
 type AppEvent = 'activate' | 'window-all-closed'
+
+const appIconPath = fileURLToPath(new URL('../../../assets/app-icon.png', import.meta.url))
 
 function createAppDouble() {
   const eventHandlers = new Map<AppEvent, () => void>()
@@ -1420,4 +1424,75 @@ test('runtime dependencies adapt Electron primitives for the bootstrap contract'
   await expect(runtimeDependencies.aiWorker.getStartupDestination()).resolves.toBe(
     'workspace_active',
   )
+})
+
+test('createElectronRuntimeDependencies exposes a Darwin dock icon setter backed by the app asset', () => {
+  const setIcon = vi.fn()
+  const loadFile = vi.fn(() => Promise.resolve())
+  const loadURL = vi.fn(() => Promise.resolve())
+  const getAllWindows = vi.fn().mockReturnValue([{ loadFile, loadURL }])
+  const constructor = vi.fn(() => {
+    return {
+      loadFile,
+      loadURL,
+    }
+  })
+
+  const runtimeDependencies = createElectronRuntimeDependencies({
+    aiWorker: {
+      getAiWorkerPreflight: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+      getStartupDestination: vi.fn().mockResolvedValue('workspace_active'),
+      openAiWorkerSetupGuide: vi.fn().mockImplementation(() => Promise.resolve()),
+      retryAiWorkerPreflight: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+      startAiWorkerSignIn: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+    },
+    app: {
+      dock: {
+        setIcon,
+      },
+      on: vi.fn(),
+      quit: vi.fn(),
+      whenReady: vi.fn(() => Promise.resolve()),
+    },
+    browserWindowConstructor: Object.assign(constructor, {
+      getAllWindows,
+    }),
+    ipcMain: {
+      handle: vi.fn(),
+    },
+    onOriginalCvImported: vi.fn().mockImplementation(() => Promise.resolve()),
+    originalCv: {
+      getWorkspaceState: vi.fn().mockResolvedValue({
+        activeOriginalCv: null,
+        snapshotCount: 0,
+      }),
+      importOriginalCv: vi.fn(),
+    },
+    settings: createSettingsDouble(),
+    tailoredApplication: createTailoredApplicationDouble(),
+    vacancy: createVacancyDouble(),
+    platform: 'darwin',
+    preloadPath: '/tmp/preload.js',
+    rendererDevelopmentUrl: undefined,
+    rendererIndexPath: '/tmp/index.html',
+  })
+
+  runtimeDependencies.app.setDockIcon?.()
+
+  expect(setIcon).toHaveBeenCalledWith(appIconPath)
 })

@@ -7,11 +7,12 @@ export default {
   extraMetadata: {
     main: 'dist/main/main.js',
   },
-  files: ['dist/**/*', '!dist/**/__tests__/**', 'package.json'],
+  files: ['dist/**/*', '!dist/**/__tests__/**', 'package.json', 'assets/**/*'],
   productName: 'CV Maxxing',
   mac: {
     category: 'public.app-category.productivity',
     hardenedRuntime: false,
+    icon: 'assets/app-icon.png',
     identity: null,
     target: [
       {

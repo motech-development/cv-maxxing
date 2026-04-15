@@ -47,6 +47,7 @@ import { createVacancyService, type VacancyService } from './vacancy-service.js'
 const CODEX_SETUP_GUIDE_URL = 'https://developers.openai.com/codex/app/'
 const DESKTOP_APP_NAME = 'CV Maxxing'
 const currentDirectory = fileURLToPath(new URL('.', import.meta.url))
+const desktopAppIconPath = path.resolve(currentDirectory, '../../assets/app-icon.png')
 const preloadPath = path.join(currentDirectory, '../preload/preload.js')
 const rendererIndexPath = fileURLToPath(new URL('../renderer/index.html', import.meta.url))
 const rendererDevelopmentUrl = process.env.CV_MAXXING_RENDERER_URL
@@ -55,6 +56,7 @@ const require = createRequire(import.meta.url)
 interface AppLike {
   on: (event: 'activate' | 'window-all-closed', handler: () => void) => unknown
   quit: () => void
+  setDockIcon?: () => void
   whenReady: () => Promise<void>
 }
 
@@ -122,6 +124,17 @@ interface ElectronAppLike {
   whenReady: () => Promise<void>
 }
 
+interface ElectronDockLike {
+  setIcon: (iconPath: string) => void
+}
+
+type ElectronDesktopApp = ElectronAppLike & {
+  dock?: ElectronDockLike
+  getPath: (name: 'userData') => string
+  getVersion: () => string
+  relaunch: () => void
+}
+
 interface ElectronBrowserWindowConstructor {
   new (options: DesktopBrowserWindowOptions): BrowserWindowLike
   getAllWindows: () => BrowserWindowLike[]
@@ -129,7 +142,9 @@ interface ElectronBrowserWindowConstructor {
 
 interface RuntimeDependencyOptions {
   aiWorker: AiWorkerPreflightService
-  app: ElectronAppLike
+  app: ElectronAppLike & {
+    dock?: ElectronDockLike
+  }
   browserWindowConstructor: ElectronBrowserWindowConstructor
   ipcMain: IpcMainLike
   mainWindowShow?: boolean
@@ -181,11 +196,7 @@ interface RuntimeEnvironment {
 
 interface ElectronRuntimeModule {
   BrowserWindow: ElectronBrowserWindowConstructor
-  app: ElectronAppLike & {
-    getPath: (name: 'userData') => string
-    getVersion: () => string
-    relaunch: () => void
-  }
+  app: ElectronDesktopApp
   dialog: {
     showSaveDialog: (options: unknown) => Promise<{
       canceled: boolean
@@ -391,6 +402,11 @@ export function createDesktopAppBootstrap({
 
   async function start(): Promise<void> {
     await app.whenReady()
+
+    if (platform === 'darwin') {
+      app.setDockIcon?.()
+    }
+
     registerIpcHandlers()
     await createMainWindow()
 
@@ -446,6 +462,9 @@ export function createElectronRuntimeDependencies({
       },
       quit: () => {
         app.quit()
+      },
+      setDockIcon: () => {
+        app.dock?.setIcon(desktopAppIconPath)
       },
       whenReady: () => {
         return app.whenReady()
