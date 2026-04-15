@@ -30,13 +30,22 @@
   font-family: 'Manrope', 'Avenir Next', 'Segoe UI', sans-serif;
 }
 
+html,
+body {
+  height: 100%;
+}
+
+body,
+#root {
+  overflow: hidden;
+}
+
 body {
   background: var(--color-shell-frame);
   color: var(--color-copy-strong);
   margin: 0;
-  min-height: 100vh;
 }
 
 #root {
-  min-height: 100vh;
+  height: 100%;
 }

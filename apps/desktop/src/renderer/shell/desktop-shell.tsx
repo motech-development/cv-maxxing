@@ -72,8 +72,8 @@ export function DesktopShell({
   workerTone,
 }: DesktopShellProperties) {
   return (
-    <main className="min-h-screen overflow-hidden bg-[var(--color-shell-topbar)] text-[var(--color-copy-strong)]">
-      <section className="flex min-h-screen w-full flex-col overflow-hidden bg-[var(--color-shell-canvas)]">
+    <main className="h-screen overflow-hidden bg-[var(--color-shell-topbar)] text-[var(--color-copy-strong)]">
+      <section className="flex h-screen w-full flex-col overflow-hidden bg-[var(--color-shell-canvas)]">
         <header className="flex h-[52px] items-center gap-[14px] bg-[var(--color-shell-topbar)] pl-[84px] pr-[18px] [-webkit-app-region:drag]">
           <div className="min-w-0 flex-1">
             <p className="m-0 text-sm font-bold text-[var(--color-surface-3)]">CV Maxxing</p>
@@ -119,11 +119,11 @@ export function DesktopShell({
             </div>
           </nav>
 
-          <aside className="w-[328px] border-r border-[var(--color-border)] bg-[var(--color-shell-sidebar)]">
-            <div className="flex h-full flex-col gap-4 p-5">{sidebar}</div>
+          <aside className="flex min-h-0 w-[328px] flex-col overflow-hidden border-r border-[var(--color-border)] bg-[var(--color-shell-sidebar)]">
+            <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-5">{sidebar}</div>
           </aside>
 
-          <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[var(--color-surface-0)] p-7">
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto bg-[var(--color-surface-0)] p-7">
             {children}
           </div>
         </div>
