@@ -770,6 +770,7 @@ test('bootstrap registers the full AI worker onboarding IPC surface and opens th
     height: 900,
     show: true,
     title: 'CV Maxxing',
+    useContentSize: true,
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
@@ -1229,6 +1230,67 @@ test('bootstrap hides the native macOS title bar chrome when opening the main wi
         y: 20,
       },
       titleBarStyle: 'hiddenInset',
+      useContentSize: true,
+    }),
+  )
+})
+
+test('bootstrap can keep the desktop window hidden for deterministic visual captures', async () => {
+  const { app } = createAppDouble()
+  const { browserWindow, constructor } = createBrowserWindowDouble()
+
+  const bootstrap = createDesktopAppBootstrap({
+    aiWorker: {
+      getAiWorkerPreflight: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+      getStartupDestination: vi.fn().mockResolvedValue('first_launch'),
+      openAiWorkerSetupGuide: vi.fn().mockImplementation(() => Promise.resolve()),
+      retryAiWorkerPreflight: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+      startAiWorkerSignIn: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+    },
+    app,
+    browserWindow,
+    ipcMain: {
+      handle: vi.fn(),
+    },
+    mainWindowShow: false,
+    onOriginalCvImported: vi.fn().mockImplementation(() => Promise.resolve()),
+    originalCv: {
+      getWorkspaceState: vi.fn().mockResolvedValue({
+        activeOriginalCv: null,
+        snapshotCount: 0,
+      }),
+      importOriginalCv: vi.fn(),
+    },
+    settings: createSettingsDouble(),
+    tailoredApplication: createTailoredApplicationDouble(),
+    vacancy: createVacancyDouble(),
+    platform: 'darwin',
+    preloadPath: '/tmp/preload.js',
+    rendererDevelopmentUrl: undefined,
+    rendererIndexPath: '/tmp/index.html',
+  })
+
+  await bootstrap.start()
+
+  expect(constructor).toHaveBeenCalledWith(
+    expect.objectContaining({
+      show: false,
+      useContentSize: true,
     }),
   )
 })
@@ -1330,6 +1392,7 @@ test('runtime dependencies adapt Electron primitives for the bootstrap contract'
     height: 900,
     show: true,
     title: 'CV Maxxing',
+    useContentSize: true,
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,

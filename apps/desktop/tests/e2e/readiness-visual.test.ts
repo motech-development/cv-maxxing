@@ -54,6 +54,7 @@ test('captures the first-launch screen', async () => {
   const electronApp = await launchDesktopApp({
     CV_MAXXING_AI_WORKER_PREFLIGHT_STATUS: 'ready',
     CV_MAXXING_LOCAL_APP_DATA_ROOT: testPaths.appDataRoot,
+    CV_MAXXING_MAIN_WINDOW_SHOW: 'false',
     CV_MAXXING_STARTUP_DESTINATION: 'first_launch',
   })
 
@@ -73,6 +74,7 @@ test('captures the first-launch screen', async () => {
 test('captures the AI worker repair screen', async () => {
   const electronApp = await launchDesktopApp({
     CV_MAXXING_AI_WORKER_PREFLIGHT_STATUS: 'runtime_missing',
+    CV_MAXXING_MAIN_WINDOW_SHOW: 'false',
     CV_MAXXING_STARTUP_DESTINATION: 'workspace_empty',
   })
 
@@ -110,6 +112,7 @@ test('captures the workspace-empty state after the original CV import', async ()
   const electronApp = await launchDesktopApp({
     CV_MAXXING_AI_WORKER_PREFLIGHT_STATUS: 'ready',
     CV_MAXXING_LOCAL_APP_DATA_ROOT: testPaths.appDataRoot,
+    CV_MAXXING_MAIN_WINDOW_SHOW: 'false',
     CV_MAXXING_STARTUP_DESTINATION: 'first_launch',
   })
 
@@ -150,6 +153,7 @@ test('captures the workspace-active adapted CV preview', async () => {
     CV_MAXXING_AI_WORKER_GENERATION_OUTPUT: JSON.stringify(createGenerationResultFixture()),
     CV_MAXXING_AI_WORKER_PREFLIGHT_STATUS: 'ready',
     CV_MAXXING_LOCAL_APP_DATA_ROOT: testPaths.appDataRoot,
+    CV_MAXXING_MAIN_WINDOW_SHOW: 'false',
     CV_MAXXING_STARTUP_DESTINATION: 'first_launch',
   })
 

@@ -73,6 +73,7 @@ interface DesktopBrowserWindowOptions {
     y: number
   }
   titleBarStyle?: 'customButtonsOnHover' | 'default' | 'hidden' | 'hiddenInset'
+  useContentSize?: boolean
   webPreferences: {
     contextIsolation: boolean
     nodeIntegration: boolean
@@ -99,6 +100,7 @@ interface DesktopAppBootstrapDependencies {
   app: AppLike
   browserWindow: BrowserWindowModule
   ipcMain: IpcMainLike
+  mainWindowShow?: boolean
   onOriginalCvImported: () => Promise<void>
   originalCv: OriginalCvService
   platform: NodeJS.Platform
@@ -129,6 +131,7 @@ interface RuntimeDependencyOptions {
   app: ElectronAppLike
   browserWindowConstructor: ElectronBrowserWindowConstructor
   ipcMain: IpcMainLike
+  mainWindowShow?: boolean
   onOriginalCvImported: () => Promise<void>
   originalCv: OriginalCvService
   platform: NodeJS.Platform
@@ -163,6 +166,7 @@ interface RuntimeEnvironment {
   CV_MAXXING_AI_WORKER_VACANCY_NORMALIZATION_OUTPUT?: string
   CV_MAXXING_AI_WORKER_VACANCY_NORMALIZATION_TIMEOUT_MS?: string
   CV_MAXXING_LOCAL_APP_DATA_ROOT?: string
+  CV_MAXXING_MAIN_WINDOW_SHOW?: string
   CV_MAXXING_AI_WORKER_RETRY_STATUS?: string
   CV_MAXXING_AI_WORKER_SIGN_IN_STATUS?: string
   CV_MAXXING_DISABLE_APP_RELAUNCH_ON_RESET?: string
@@ -203,6 +207,7 @@ export function createDesktopAppBootstrap({
   app,
   browserWindow,
   ipcMain,
+  mainWindowShow = true,
   onOriginalCvImported,
   originalCv,
   platform,
@@ -362,8 +367,9 @@ export function createDesktopAppBootstrap({
           }
         : {}),
       height: 900,
-      show: true,
+      show: mainWindowShow,
       title: 'CV Maxxing',
+      useContentSize: true,
       webPreferences: {
         contextIsolation: true,
         nodeIntegration: false,
@@ -412,6 +418,7 @@ export function createElectronRuntimeDependencies({
   app,
   browserWindowConstructor,
   ipcMain,
+  mainWindowShow,
   onOriginalCvImported,
   originalCv,
   platform,
@@ -452,6 +459,7 @@ export function createElectronRuntimeDependencies({
       },
     },
     ipcMain,
+    mainWindowShow,
     onOriginalCvImported,
     originalCv,
     platform,
@@ -686,8 +694,13 @@ function parseTimeoutOverride(value: string | undefined): number | undefined {
   return Math.trunc(parsedValue)
 }
 
+function parseMainWindowShow(value: string | undefined): boolean {
+  return value !== 'false'
+}
+
 async function startDesktopAppRuntime(): Promise<void> {
   const electronRuntime = loadElectronRuntime()
+  const environment = process.env as RuntimeEnvironment
   const runtimeServices = await createRuntimeServices(electronRuntime)
 
   await createDesktopAppBootstrap(
@@ -696,6 +709,7 @@ async function startDesktopAppRuntime(): Promise<void> {
       app: electronRuntime.app,
       browserWindowConstructor: electronRuntime.BrowserWindow,
       ipcMain: electronRuntime.ipcMain,
+      mainWindowShow: parseMainWindowShow(environment.CV_MAXXING_MAIN_WINDOW_SHOW),
       onOriginalCvImported: runtimeServices.onOriginalCvImported,
       originalCv: runtimeServices.originalCv,
       platform: process.platform,
