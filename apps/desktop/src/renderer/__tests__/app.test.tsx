@@ -2664,6 +2664,65 @@ test('renders the workspace overlay when startup restores pending generation', a
   expect(screen.getByRole('button', { name: 'Settings' })).toBeDefined()
 })
 
+test('restores the workspace overlay after returning from settings during pending generation', async () => {
+  const resumePendingGeneration = vi.fn().mockImplementation(() => {
+    return new Promise<never>((resolve) => {
+      void resolve
+    })
+  })
+
+  renderApp({
+    aiWorker: createAiWorkerApi({
+      getAiWorkerPreflight: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+      getStartupDestination: vi.fn().mockResolvedValue('workspace_empty'),
+    }),
+    tailoredApplication: createTailoredApplicationApi({
+      getPendingGenerationCommand: vi.fn().mockResolvedValue({
+        commandId: 'command-123',
+        originalCvId: 'original-cv-123',
+        originalCvLabel: 'ada-lovelace.pdf',
+        vacancyId: 'vacancy-123',
+        vacancyDraft: {
+          text: 'Senior platform engineer',
+          url: 'https://jobs.example.com/roles/123',
+        },
+      }),
+      resumePendingGeneration,
+    }),
+  })
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Create a tailored application' })).toBeDefined()
+  })
+
+  expect(screen.getByRole('status', { name: 'Loading workspace' })).toBeDefined()
+  expect(screen.getByRole('button', { name: 'Cancel' })).toBeDefined()
+
+  fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'AI worker' })).toBeDefined()
+  })
+
+  fireEvent.click(screen.getByRole('button', { name: 'Job vacancies' }))
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Create a tailored application' })).toBeDefined()
+  })
+
+  expect(screen.getByRole('status', { name: 'Loading workspace' })).toBeDefined()
+  expect(screen.getByRole('button', { name: 'Cancel' })).toBeDefined()
+
+  await waitFor(() => {
+    expect(resumePendingGeneration).toHaveBeenCalledTimes(1)
+  })
+})
+
 test('keeps settings open when restored generation completes in the background', async () => {
   const getStartupDestination = vi
     .fn()

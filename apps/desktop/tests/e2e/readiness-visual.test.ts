@@ -14,8 +14,10 @@ const defaultOriginalCvNormalizationOutput = createOriginalCvNormalizationFixtur
 const visualScreenshotBudgets = {
   'ai-worker-repair-screen.png': 2000,
   'first-launch-screen.png': 4000,
+  'workspace-active-ambient-activity-screen.png': 28_000,
   'workspace-active-adapted-cv-screen.png': 24_000,
   'workspace-empty-screen.png': 8000,
+  'workspace-generation-overlay-screen.png': 16_000,
 } as const
 
 async function launchDesktopApp(environment: NodeJS.ProcessEnv = {}) {
@@ -189,6 +191,118 @@ test('captures the workspace-active adapted CV preview', async () => {
     caret: 'hide',
     mask: [page.getByText(/^Imported /u)],
     maxDiffPixels: visualScreenshotBudgets['workspace-active-adapted-cv-screen.png'],
+  })
+
+  await electronApp.close()
+})
+
+test('captures the workspace generation overlay', async () => {
+  const testPaths = await createOriginalCvTestPaths()
+
+  await writeFile(
+    testPaths.pdfPath,
+    createPdfDocumentBuffer([
+      'Ada Lovelace',
+      'Principal Product Designer',
+      'Summary',
+      'Design leader focused on complex workflow products for technical users.',
+      'Experience',
+      'Principal Product Designer | Analytical Engines Ltd',
+      'Led product design for AI-assisted desktop tooling.',
+      'Skills',
+      'Product strategy, UX research, prototyping',
+    ]),
+  )
+
+  const electronApp = await launchDesktopApp({
+    CV_MAXXING_AI_WORKER_GENERATION_DELAY_MS: '5000',
+    CV_MAXXING_AI_WORKER_GENERATION_OUTPUT: JSON.stringify(createGenerationResultFixture()),
+    CV_MAXXING_AI_WORKER_PREFLIGHT_STATUS: 'ready',
+    CV_MAXXING_LOCAL_APP_DATA_ROOT: testPaths.appDataRoot,
+    CV_MAXXING_MAIN_WINDOW_SHOW: 'false',
+    CV_MAXXING_STARTUP_DESTINATION: 'first_launch',
+  })
+
+  const page = await electronApp.firstWindow()
+
+  await page.getByLabel('Original CV file').setInputFiles(testPaths.pdfPath)
+  await page.getByRole('button', { name: 'Import original CV' }).click()
+  await page.getByLabel('Job vacancy text').fill(createPastedVacancyFixture())
+  await page.getByLabel('Job vacancy text').press('Tab')
+  await page.getByRole('button', { name: 'Review pasted vacancy' }).dispatchEvent('click')
+  await expect(page.getByText('Vacancy preview', { exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'Adapt CV' }).click()
+  await expect(page.getByRole('status', { name: 'Loading workspace' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Cancel' })).toBeVisible()
+  await hideScrollbars(page)
+  await expect(page).toHaveScreenshot('workspace-generation-overlay-screen.png', {
+    animations: 'disabled',
+    caret: 'hide',
+    maxDiffPixels: visualScreenshotBudgets['workspace-generation-overlay-screen.png'],
+  })
+
+  await electronApp.close()
+})
+
+test('captures ambient shell activity while reopening a saved tailored application', async () => {
+  const testPaths = await createOriginalCvTestPaths()
+
+  await writeFile(
+    testPaths.pdfPath,
+    createPdfDocumentBuffer([
+      'Ada Lovelace',
+      'Principal Product Designer',
+      'Summary',
+      'Design leader focused on complex workflow products for technical users.',
+      'Experience',
+      'Principal Product Designer | Analytical Engines Ltd',
+      'Led product design for AI-assisted desktop tooling.',
+      'Skills',
+      'Product strategy, UX research, prototyping',
+    ]),
+  )
+
+  let electronApp = await launchDesktopApp({
+    CV_MAXXING_AI_WORKER_GENERATION_OUTPUT: JSON.stringify(createGenerationResultFixture()),
+    CV_MAXXING_AI_WORKER_PREFLIGHT_STATUS: 'ready',
+    CV_MAXXING_LOCAL_APP_DATA_ROOT: testPaths.appDataRoot,
+    CV_MAXXING_MAIN_WINDOW_SHOW: 'false',
+    CV_MAXXING_STARTUP_DESTINATION: 'first_launch',
+  })
+
+  let page = await electronApp.firstWindow()
+
+  await page.getByLabel('Original CV file').setInputFiles(testPaths.pdfPath)
+  await page.getByRole('button', { name: 'Import original CV' }).click()
+  await page.getByLabel('Job vacancy text').fill(createPastedVacancyFixture())
+  await page.getByLabel('Job vacancy text').press('Tab')
+  await page.getByRole('button', { name: 'Review pasted vacancy' }).dispatchEvent('click')
+  await expect(page.getByText('Vacancy preview', { exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'Adapt CV' }).click()
+  await expect(page.getByLabel('Adapted CV PDF preview')).toBeVisible({
+    timeout: 15_000,
+  })
+
+  await electronApp.close()
+
+  electronApp = await launchDesktopApp({
+    CV_MAXXING_AI_WORKER_PREFLIGHT_STATUS: 'ready',
+    CV_MAXXING_LOCAL_APP_DATA_ROOT: testPaths.appDataRoot,
+    CV_MAXXING_MAIN_WINDOW_SHOW: 'false',
+    CV_MAXXING_STARTUP_DESTINATION: 'workspace_active',
+    CV_MAXXING_TAILORED_APPLICATION_PREVIEW_DELAY_MS: '5000',
+  })
+
+  page = await electronApp.firstWindow()
+
+  await expect(page.getByRole('heading', { name: 'Tailored application' })).toBeVisible()
+  await expect(page.getByRole('status', { name: 'Background activity' })).toBeVisible()
+  await hideScrollbars(page)
+  await expect(page).toHaveScreenshot('workspace-active-ambient-activity-screen.png', {
+    animations: 'disabled',
+    caret: 'hide',
+    mask: [page.getByText(/^Imported /u)],
+    maxDiffPixels: visualScreenshotBudgets['workspace-active-ambient-activity-screen.png'],
   })
 
   await electronApp.close()

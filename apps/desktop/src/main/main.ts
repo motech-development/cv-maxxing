@@ -111,6 +111,7 @@ interface DesktopAppBootstrapDependencies {
   rendererDevelopmentUrl?: string
   rendererIndexPath: string
   settings: SettingsService
+  tailoredApplicationPreviewDelayMs?: number
   tailoredApplication: TailoredApplicationSessionService
   vacancy: VacancyService
 }
@@ -155,6 +156,7 @@ interface RuntimeDependencyOptions {
   rendererDevelopmentUrl?: string
   rendererIndexPath: string
   settings: SettingsService
+  tailoredApplicationPreviewDelayMs?: number
   tailoredApplication: TailoredApplicationSessionService
   vacancy: VacancyService
 }
@@ -188,6 +190,7 @@ interface RuntimeEnvironment {
   CV_MAXXING_DISABLE_APP_RELAUNCH_ON_RESET?: string
   CV_MAXXING_PENDING_GENERATION_COMMAND?: string
   CV_MAXXING_STARTUP_DESTINATION?: string
+  CV_MAXXING_TAILORED_APPLICATION_PREVIEW_DELAY_MS?: string
   CV_MAXXING_TEST_ADAPTED_CV_EXPORT_PATH?: string
   CV_MAXXING_VACANCY_BROWSER_SESSION_CLOSE_AFTER_LOAD?: string
   CV_MAXXING_VACANCY_BROWSER_SESSION_HTML?: string
@@ -227,6 +230,7 @@ export function createDesktopAppBootstrap({
   rendererDevelopmentUrl,
   rendererIndexPath,
   settings,
+  tailoredApplicationPreviewDelayMs = 0,
   tailoredApplication,
   vacancy,
 }: DesktopAppBootstrapDependencies): { start: () => Promise<void> } {
@@ -317,6 +321,10 @@ export function createDesktopAppBootstrap({
       return await tailoredApplication.getWorkspaceState()
     })
     ipcMain.handle(TAILORED_APPLICATION_IPC_CHANNELS.getPreview, async (_event, payload) => {
+      if (tailoredApplicationPreviewDelayMs > 0) {
+        await waitForDelay(tailoredApplicationPreviewDelayMs)
+      }
+
       return await tailoredApplication.getTailoredApplicationPreview(
         parseTailoredApplicationIdInput(payload).tailoredApplicationId,
       )
@@ -443,6 +451,7 @@ export function createElectronRuntimeDependencies({
   rendererDevelopmentUrl,
   rendererIndexPath,
   settings,
+  tailoredApplicationPreviewDelayMs,
   tailoredApplication,
   vacancy,
 }: RuntimeDependencyOptions): DesktopAppBootstrapDependencies {
@@ -487,6 +496,7 @@ export function createElectronRuntimeDependencies({
     rendererDevelopmentUrl,
     rendererIndexPath,
     settings,
+    tailoredApplicationPreviewDelayMs,
     tailoredApplication,
     vacancy,
   }
@@ -713,8 +723,28 @@ function parseTimeoutOverride(value: string | undefined): number | undefined {
   return Math.trunc(parsedValue)
 }
 
+function parseDelay(value: string | undefined): number {
+  if (value === undefined || value.trim() === '') {
+    return 0
+  }
+
+  const parsedValue = Number(value)
+
+  if (!Number.isFinite(parsedValue) || parsedValue <= 0) {
+    return 0
+  }
+
+  return Math.trunc(parsedValue)
+}
+
 function parseMainWindowShow(value: string | undefined): boolean {
   return value !== 'false'
+}
+
+async function waitForDelay(delayMs: number): Promise<void> {
+  await new Promise((resolve) => {
+    globalThis.setTimeout(resolve, delayMs)
+  })
 }
 
 async function startDesktopAppRuntime(): Promise<void> {
@@ -736,6 +766,9 @@ async function startDesktopAppRuntime(): Promise<void> {
       rendererDevelopmentUrl,
       rendererIndexPath,
       settings: runtimeServices.settings,
+      tailoredApplicationPreviewDelayMs: parseDelay(
+        environment.CV_MAXXING_TAILORED_APPLICATION_PREVIEW_DELAY_MS,
+      ),
       tailoredApplication: runtimeServices.tailoredApplication,
       vacancy: runtimeServices.vacancy,
     }),

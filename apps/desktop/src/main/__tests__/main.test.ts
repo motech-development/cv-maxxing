@@ -184,6 +184,8 @@ test('abandon pending tailored-application state after an original CV import suc
 })
 
 test('bootstrap registers the full AI worker onboarding IPC surface and opens the packaged shell on startup', async () => {
+  vi.useFakeTimers()
+
   const { app, eventHandlers } = createAppDouble()
   const { browserWindow, constructor, loadFile, loadURL } = createBrowserWindowDouble()
   const registeredHandlers = new Map<
@@ -394,6 +396,7 @@ test('bootstrap registers the full AI worker onboarding IPC surface and opens th
     onOriginalCvImported,
     originalCv,
     settings,
+    tailoredApplicationPreviewDelayMs: 25,
     tailoredApplication,
     vacancy,
     platform: 'linux',
@@ -706,6 +709,19 @@ test('bootstrap registers the full AI worker onboarding IPC surface and opens th
       url: 'https://jobs.example.com/roles/123',
     },
   })
+  const previewRequestPromise = registeredHandlers.get(
+    TAILORED_APPLICATION_IPC_CHANNELS.getPreview,
+  )?.(undefined, {
+    tailoredApplicationId: 'tailored-application-123',
+  })
+
+  await vi.advanceTimersByTimeAsync(24)
+
+  expect(tailoredApplication.getTailoredApplicationPreview).not.toHaveBeenCalled()
+
+  await vi.advanceTimersByTimeAsync(1)
+
+  await expect(previewRequestPromise).resolves.toBeNull()
   await expect(
     registeredHandlers.get(TAILORED_APPLICATION_IPC_CHANNELS.resumePendingGeneration)?.(),
   ).resolves.toEqual({
@@ -787,6 +803,8 @@ test('bootstrap registers the full AI worker onboarding IPC surface and opens th
   expect(loadURL).not.toHaveBeenCalled()
   expect(eventHandlers.has('activate')).toBe(true)
   expect(eventHandlers.has('window-all-closed')).toBe(true)
+
+  vi.useRealTimers()
 })
 
 test('original CV import IPC returns the shared readiness model when the AI worker sign-in has expired', async () => {
