@@ -22,7 +22,6 @@ const baseProperties = {
   draftReviewState: 'editable' as const,
   importError: null,
   isAdaptingCv: false,
-  isConfirmingDeleteTailoredApplication: false,
   isCopyingCoverLetterText: false,
   isCurrentDraftMeaningful: true,
   isExportingPdf: false,

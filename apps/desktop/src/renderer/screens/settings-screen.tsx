@@ -2,7 +2,6 @@ import type { ReactNode } from 'react'
 import { Shield, Sparkles } from 'lucide-react'
 
 import type { SettingsSnapshot } from '../../shared/settings.js'
-import { SETTINGS_RESET_CONFIRMATION_PHRASE } from '../../shared/settings.js'
 import { DesktopShell, type RailItemId } from '../shell/desktop-shell.js'
 import { SidebarContainer } from '../shell/sidebar-container.js'
 import { Button } from '../ui/button.js'
@@ -20,14 +19,12 @@ interface SettingsScreenProperties {
   isOpeningSetupGuide: boolean
   isResettingLocalAppData: boolean
   isRetryingAiWorker: boolean
-  onChangeResetConfirmationPhrase: (value: string) => void
   onClearJobSiteBrowserData: () => void
   onOpenSetupGuide: () => void
   onResetLocalAppData: () => void
   onRetryAiWorker: () => void
   onSelectRailItem: (item: RailItemId) => void
   onSelectSection: (section: SettingsSection) => void
-  resetConfirmationPhrase: string
   settingsMessage: string | null
   snapshot: SettingsSnapshot
   workerStatusLabel: string
@@ -51,14 +48,12 @@ export function SettingsScreen({
   isOpeningSetupGuide,
   isResettingLocalAppData,
   isRetryingAiWorker,
-  onChangeResetConfirmationPhrase,
   onClearJobSiteBrowserData,
   onOpenSetupGuide,
   onResetLocalAppData,
   onRetryAiWorker,
   onSelectRailItem,
   onSelectSection,
-  resetConfirmationPhrase,
   settingsMessage,
   snapshot,
   workerStatusLabel,
@@ -116,10 +111,8 @@ export function SettingsScreen({
         <LocalDataSettingsSection
           isClearingJobSiteBrowserData={isClearingJobSiteBrowserData}
           isResettingLocalAppData={isResettingLocalAppData}
-          onChangeResetConfirmationPhrase={onChangeResetConfirmationPhrase}
           onClearJobSiteBrowserData={onClearJobSiteBrowserData}
           onResetLocalAppData={onResetLocalAppData}
-          resetConfirmationPhrase={resetConfirmationPhrase}
           settingsMessage={settingsMessage}
           snapshot={snapshot}
         />
@@ -227,24 +220,18 @@ function AiWorkerSettingsSection({
 function LocalDataSettingsSection({
   isClearingJobSiteBrowserData,
   isResettingLocalAppData,
-  onChangeResetConfirmationPhrase,
   onClearJobSiteBrowserData,
   onResetLocalAppData,
-  resetConfirmationPhrase,
   settingsMessage,
   snapshot,
 }: {
   isClearingJobSiteBrowserData: boolean
   isResettingLocalAppData: boolean
-  onChangeResetConfirmationPhrase: (value: string) => void
   onClearJobSiteBrowserData: () => void
   onResetLocalAppData: () => void
-  resetConfirmationPhrase: string
   settingsMessage: string | null
   snapshot: SettingsSnapshot
 }) {
-  const isResetEnabled = resetConfirmationPhrase === SETTINGS_RESET_CONFIRMATION_PHRASE
-
   return (
     <>
       <h1 className="m-0 text-[30px] font-extrabold tracking-[-0.03em] text-[var(--color-copy-strong)]">
@@ -282,28 +269,8 @@ function LocalDataSettingsSection({
             This permanently removes encrypted metadata, app-managed artifacts, run workspaces, and
             browser session data. Bulk backup or export is not available in v1.
           </p>
-          <label
-            className="mt-4 block text-[11px] font-extrabold uppercase tracking-[0.12em] text-[var(--color-status-danger)]"
-            htmlFor="reset-local-app-data-confirmation"
-          >
-            Type RESET to confirm destructive reset
-          </label>
-          <input
-            aria-label="Type RESET to confirm destructive reset"
-            className="mt-2 w-full rounded-[8px] border border-[var(--color-border)] bg-white px-[14px] py-3 text-[13px] font-medium text-[var(--color-copy-strong)] outline-none transition focus:border-[var(--color-ink-900)]"
-            id="reset-local-app-data-confirmation"
-            onChange={(event) => {
-              onChangeResetConfirmationPhrase(event.target.value)
-            }}
-            type="text"
-            value={resetConfirmationPhrase}
-          />
           <div className="mt-5">
-            <Button
-              disabled={!isResetEnabled || isResettingLocalAppData}
-              onClick={onResetLocalAppData}
-              tone="primary"
-            >
+            <Button disabled={isResettingLocalAppData} onClick={onResetLocalAppData} tone="primary">
               {isResettingLocalAppData ? 'Resetting local app data...' : 'Reset local app data'}
             </Button>
           </div>

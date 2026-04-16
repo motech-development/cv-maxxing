@@ -14,7 +14,6 @@ test('keeps the document preview column shrinkable beside the vacancy panel', ()
   render(
     <WorkspaceApplicationView
       applicationTitle="Tailored application"
-      isConfirmingDeleteTailoredApplication={false}
       isCopyingCoverLetterText={false}
       isExportingPdf={false}
       onCopyCoverLetterText={onCopyCoverLetterText}

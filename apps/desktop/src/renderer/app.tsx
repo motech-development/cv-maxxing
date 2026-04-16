@@ -20,6 +20,7 @@ import type {
   CompletePendingGenerationResult,
   PendingGenerationCommand,
 } from '../shared/pending-generation.js'
+import { SETTINGS_RESET_CONFIRMATION_PHRASE } from '../shared/settings.js'
 import type { StartupDestination } from '../shared/startup-destination.js'
 import type { TailoredApplicationWorkspaceState } from '../shared/tailored-application.js'
 import type { WorkspaceSelection } from '../shared/workspace-selection.js'
@@ -105,11 +106,12 @@ export function App() {
   const queryClient = useQueryClient()
   const [activeWorkspaceSection, setActiveWorkspaceSection] =
     useState<WorkspaceSection>('workspace')
-  const [isConfirmingDraftDiscard, setIsConfirmingDraftDiscard] = useState(false)
-  const [isConfirmingDeleteTailoredApplication, setIsConfirmingDeleteTailoredApplication] =
+  const [isDeleteTailoredApplicationDialogOpen, setIsDeleteTailoredApplicationDialogOpen] =
     useState(false)
+  const [isConfirmingDraftDiscard, setIsConfirmingDraftDiscard] = useState(false)
   const [isCopyingCoverLetterText, setIsCopyingCoverLetterText] = useState(false)
   const [importError, setImportError] = useState<string | null>(null)
+  const [isResetLocalAppDataDialogOpen, setIsResetLocalAppDataDialogOpen] = useState(false)
   const [isSecondaryActionPending, setIsSecondaryActionPending] = useState(false)
   const [originalCvFile, setOriginalCvFile] = useState<File | null>(null)
   const [previewDocumentKind, setPreviewDocumentKind] = useState<PreviewDocumentKind>('adapted_cv')
@@ -305,9 +307,10 @@ export function App() {
     },
     onSuccess: async (): Promise<void> => {
       setActiveWorkspaceSection('workspace')
+      setIsDeleteTailoredApplicationDialogOpen(false)
       setIsConfirmingDraftDiscard(false)
       setImportError(null)
-      setIsConfirmingDeleteTailoredApplication(false)
+      setIsResetLocalAppDataDialogOpen(false)
       setOriginalCvFile(null)
       setPreviewDocumentKind('adapted_cv')
       setReadinessError(null)
@@ -526,7 +529,7 @@ export function App() {
         workspaceState.activeApplicationId ?? tailoredApplicationId
 
       flushSync(() => {
-        setIsConfirmingDeleteTailoredApplication(false)
+        setIsDeleteTailoredApplicationDialogOpen(false)
         setPreviewDocumentKind('adapted_cv')
         setReadinessError(null)
         setSelectedTailoredApplicationId(nextSelectedTailoredApplicationId)
@@ -577,7 +580,7 @@ export function App() {
         setSelectedTailoredApplicationId(null)
       }
 
-      setIsConfirmingDeleteTailoredApplication(false)
+      setIsDeleteTailoredApplicationDialogOpen(false)
       setPreviewDocumentKind('adapted_cv')
       setReadinessError(null)
       await Promise.all([
@@ -676,7 +679,7 @@ export function App() {
       return
     }
 
-    setIsConfirmingDeleteTailoredApplication(false)
+    setIsDeleteTailoredApplicationDialogOpen(false)
     setPreviewDocumentKind('adapted_cv')
   }, [workspaceSelection.kind])
 
@@ -774,10 +777,20 @@ export function App() {
     }
   }
 
+  const handleOpenResetLocalAppDataDialog = (): void => {
+    if (resetLocalAppDataMutation.isPending) {
+      return
+    }
+
+    setIsResetLocalAppDataDialogOpen(true)
+  }
+
   const handleResetLocalAppData = async (): Promise<void> => {
     if (resetLocalAppDataMutation.isPending) {
       return
     }
+
+    setIsResetLocalAppDataDialogOpen(false)
 
     try {
       await resetLocalAppDataMutation.mutateAsync()
@@ -871,11 +884,19 @@ export function App() {
       return
     }
 
-    setIsConfirmingDeleteTailoredApplication(false)
+    setIsDeleteTailoredApplicationDialogOpen(false)
     setPreviewDocumentKind('adapted_cv')
     setReadinessError(null)
     setSelectedTailoredApplicationId(tailoredApplicationId)
     setWorkspaceSelectionOverride(null)
+  }
+
+  const handleOpenDeleteTailoredApplicationDialog = (): void => {
+    if (tailoredApplicationPreview === null || deleteTailoredApplicationMutation.isPending) {
+      return
+    }
+
+    setIsDeleteTailoredApplicationDialogOpen(true)
   }
 
   const handleDeleteTailoredApplication = async (): Promise<void> => {
@@ -883,21 +904,15 @@ export function App() {
       return
     }
 
-    if (isConfirmingDeleteTailoredApplication) {
-      try {
-        await deleteTailoredApplicationMutation.mutateAsync(tailoredApplicationPreview.id)
-      } catch {
-        setReadinessError(`${readinessErrorMessage} ${readinessErrorAction}`)
-      }
-
-      return
+    try {
+      await deleteTailoredApplicationMutation.mutateAsync(tailoredApplicationPreview.id)
+    } catch {
+      setReadinessError(`${readinessErrorMessage} ${readinessErrorAction}`)
     }
-
-    setIsConfirmingDeleteTailoredApplication(true)
   }
 
   const showBlankDraftWorkspace = (): void => {
-    setIsConfirmingDeleteTailoredApplication(false)
+    setIsDeleteTailoredApplicationDialogOpen(false)
     setIsConfirmingDraftDiscard(false)
     setPreviewDocumentKind('adapted_cv')
     setReadinessError(null)
@@ -1178,7 +1193,6 @@ export function App() {
             draftReviewState={draftReviewState}
             importError={importError}
             isAdaptingCv={isPendingGenerationActionPending}
-            isConfirmingDeleteTailoredApplication={isConfirmingDeleteTailoredApplication}
             isCopyingCoverLetterText={isCopyingCoverLetterText}
             isCurrentDraftMeaningful={isCurrentDraftMeaningful}
             isExportingPdf={isPendingGenerationActionPending}
@@ -1218,7 +1232,7 @@ export function App() {
               handleCreateVacancy().catch(() => null)
             }}
             onDeleteTailoredApplication={() => {
-              handleDeleteTailoredApplication().catch(() => null)
+              handleOpenDeleteTailoredApplicationDialog()
             }}
             onExportPdf={() => {
               handleExportAdaptedCvPdf().catch(() => null)
@@ -1267,7 +1281,7 @@ export function App() {
                 })
             }}
             onSelectDraft={() => {
-              setIsConfirmingDeleteTailoredApplication(false)
+              setIsDeleteTailoredApplicationDialogOpen(false)
               setPreviewDocumentKind('adapted_cv')
               setReadinessError(null)
               setSelectedTailoredApplicationId(null)
@@ -1374,6 +1388,45 @@ export function App() {
             </p>
             <p className="m-0">Cancel leaves the workspace exactly as it is now.</p>
           </Dialog>
+          <Dialog
+            actions={
+              <>
+                <Button
+                  disabled={deleteTailoredApplicationMutation.isPending}
+                  onClick={() => {
+                    setIsDeleteTailoredApplicationDialogOpen(false)
+                  }}
+                  tone="secondary"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  disabled={deleteTailoredApplicationMutation.isPending}
+                  onClick={() => {
+                    handleDeleteTailoredApplication().catch(() => null)
+                  }}
+                  tone="danger"
+                >
+                  Delete tailored application
+                </Button>
+              </>
+            }
+            eyebrow="Saved tailored application"
+            isDismissable={false}
+            isOpen={isDeleteTailoredApplicationDialogOpen}
+            onOpenChange={(nextIsOpen) => {
+              if (!nextIsOpen) {
+                setIsDeleteTailoredApplicationDialogOpen(false)
+              }
+            }}
+            title="Delete tailored application?"
+          >
+            <p className="m-0">
+              This permanently removes the selected adapted CV and cover letter PDFs from the
+              workspace sidebar.
+            </p>
+            <p className="m-0">Cancel keeps the tailored application exactly as it is now.</p>
+          </Dialog>
         </>
       )
     },
@@ -1385,44 +1438,101 @@ export function App() {
     settingsSnapshot !== null
   ) {
     return (
-      <SettingsScreen
-        activeSection={settingsSection}
-        appOverlay={appOverlay}
-        ambientActivityLabel={ambientActivityLabel}
-        isClearingJobSiteBrowserData={isClearingJobSiteBrowserData}
-        isOpeningSetupGuide={isSecondaryActionPending}
-        isResettingLocalAppData={isResettingLocalAppData}
-        isRetryingAiWorker={isSubmittingPrimaryAction}
-        onChangeResetConfirmationPhrase={setResetConfirmationPhrase}
-        onClearJobSiteBrowserData={() => {
-          handleClearJobSiteBrowserData().catch(() => null)
-        }}
-        onOpenSetupGuide={() => {
-          handleSecondaryAction().catch(() => null)
-        }}
-        onResetLocalAppData={() => {
-          handleResetLocalAppData().catch(() => null)
-        }}
-        onRetryAiWorker={() => {
-          setSettingsMessage(null)
+      <>
+        <SettingsScreen
+          activeSection={settingsSection}
+          appOverlay={appOverlay}
+          ambientActivityLabel={ambientActivityLabel}
+          isClearingJobSiteBrowserData={isClearingJobSiteBrowserData}
+          isOpeningSetupGuide={isSecondaryActionPending}
+          isResettingLocalAppData={isResettingLocalAppData}
+          isRetryingAiWorker={isSubmittingPrimaryAction}
+          onClearJobSiteBrowserData={() => {
+            handleClearJobSiteBrowserData().catch(() => null)
+          }}
+          onOpenSetupGuide={() => {
+            handleSecondaryAction().catch(() => null)
+          }}
+          onResetLocalAppData={handleOpenResetLocalAppDataDialog}
+          onRetryAiWorker={() => {
+            setSettingsMessage(null)
 
-          aiWorkerStatusMutation.mutateAsync('retry').catch((error: unknown) => {
-            setSettingsMessage(
-              resolveErrorMessage(error, `${readinessErrorMessage} ${readinessErrorAction}`),
-            )
-          })
-        }}
-        onSelectRailItem={handleSelectRailItem}
-        onSelectSection={(section) => {
-          setSettingsMessage(null)
-          setSettingsSection(section)
-        }}
-        resetConfirmationPhrase={resetConfirmationPhrase}
-        settingsMessage={settingsMessage}
-        snapshot={settingsSnapshot}
-        workerStatusLabel={workerStatusLabel}
-        workerStatusTone={workerStatusTone}
-      />
+            aiWorkerStatusMutation.mutateAsync('retry').catch((error: unknown) => {
+              setSettingsMessage(
+                resolveErrorMessage(error, `${readinessErrorMessage} ${readinessErrorAction}`),
+              )
+            })
+          }}
+          onSelectRailItem={handleSelectRailItem}
+          onSelectSection={(section) => {
+            setSettingsMessage(null)
+            setSettingsSection(section)
+          }}
+          settingsMessage={settingsMessage}
+          snapshot={settingsSnapshot}
+          workerStatusLabel={workerStatusLabel}
+          workerStatusTone={workerStatusTone}
+        />
+        <Dialog
+          actions={
+            <>
+              <Button
+                disabled={isResettingLocalAppData}
+                onClick={() => {
+                  setIsResetLocalAppDataDialogOpen(false)
+                  setResetConfirmationPhrase('')
+                }}
+                tone="secondary"
+              >
+                Cancel
+              </Button>
+              <Button
+                disabled={
+                  isResettingLocalAppData ||
+                  resetConfirmationPhrase !== SETTINGS_RESET_CONFIRMATION_PHRASE
+                }
+                onClick={() => {
+                  handleResetLocalAppData().catch(() => null)
+                }}
+                tone="danger"
+              >
+                {isResettingLocalAppData ? 'Resetting local app data...' : 'Reset local app data'}
+              </Button>
+            </>
+          }
+          eyebrow="Local data"
+          isDismissable={false}
+          isOpen={isResetLocalAppDataDialogOpen}
+          onOpenChange={(nextIsOpen) => {
+            if (!nextIsOpen) {
+              setIsResetLocalAppDataDialogOpen(false)
+              setResetConfirmationPhrase('')
+            }
+          }}
+          title="Reset local app data?"
+        >
+          <p className="m-0">
+            This permanently removes encrypted metadata, app-managed artifacts, run workspaces, and
+            browser session data from this machine.
+          </p>
+          <label
+            className="block text-[11px] font-extrabold uppercase tracking-[0.12em] text-[var(--color-status-danger)]"
+            htmlFor="reset-local-app-data-confirmation"
+          >
+            Type RESET to confirm destructive reset
+          </label>
+          <input
+            aria-label="Type RESET to confirm destructive reset"
+            className="w-full rounded-[8px] border border-[var(--color-border)] bg-white px-[14px] py-3 text-[13px] font-medium text-[var(--color-copy-strong)] outline-none transition focus:border-[var(--color-ink-900)]"
+            id="reset-local-app-data-confirmation"
+            onChange={(event) => {
+              setResetConfirmationPhrase(event.target.value)
+            }}
+            type="text"
+            value={resetConfirmationPhrase}
+          />
+        </Dialog>
+      </>
     )
   }
 

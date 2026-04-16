@@ -26,7 +26,6 @@ interface WorkspaceScreenProperties {
   draftReviewState: VacancyReviewState
   importError: string | null
   isAdaptingCv: boolean
-  isConfirmingDeleteTailoredApplication: boolean
   isCopyingCoverLetterText: boolean
   isCurrentDraftMeaningful: boolean
   isExportingPdf: boolean
@@ -70,7 +69,6 @@ export function WorkspaceScreen({
   draftReviewState,
   importError,
   isAdaptingCv,
-  isConfirmingDeleteTailoredApplication,
   isCopyingCoverLetterText,
   isCurrentDraftMeaningful,
   isExportingPdf,
@@ -176,7 +174,6 @@ export function WorkspaceScreen({
       {selectedWorkspaceItem === 'tailored_application' ? (
         <WorkspaceApplicationView
           applicationTitle={applicationTitle}
-          isConfirmingDeleteTailoredApplication={isConfirmingDeleteTailoredApplication}
           isCopyingCoverLetterText={isCopyingCoverLetterText}
           isExportingPdf={isExportingPdf}
           onCopyCoverLetterText={onCopyCoverLetterText}

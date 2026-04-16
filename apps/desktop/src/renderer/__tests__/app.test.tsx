@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, expect, test, vi } from 'vitest'
 
 import type { OriginalCvImportInput, OriginalCvImportResult } from '../../shared/original-cv.js'
@@ -4141,7 +4141,12 @@ test('browses saved tailored applications, reopens an older detail view, and del
   expect(screen.getByText('Lead platform product direction.')).toBeDefined()
 
   fireEvent.click(screen.getByRole('button', { name: 'Delete tailored application' }))
-  fireEvent.click(screen.getByRole('button', { name: 'Confirm delete tailored application' }))
+
+  const deleteDialog = screen.getByRole('dialog', { name: 'Delete tailored application?' })
+
+  expect(deleteDialog).toBeDefined()
+
+  fireEvent.click(within(deleteDialog).getByRole('button', { name: 'Delete tailored application' }))
 
   await waitFor(() => {
     expect(deleteTailoredApplication).toHaveBeenCalledWith('tailored-application-456')
@@ -4395,7 +4400,12 @@ test('deleting the selected saved tailored application returns to the current dr
   })
 
   fireEvent.click(screen.getByRole('button', { name: 'Delete tailored application' }))
-  fireEvent.click(screen.getByRole('button', { name: 'Confirm delete tailored application' }))
+
+  const deleteDialog = screen.getByRole('dialog', { name: 'Delete tailored application?' })
+
+  expect(deleteDialog).toBeDefined()
+
+  fireEvent.click(within(deleteDialog).getByRole('button', { name: 'Delete tailored application' }))
 
   await waitFor(() => {
     expect(deleteTailoredApplication).toHaveBeenCalledWith('tailored-application-123')
@@ -4929,16 +4939,24 @@ test('requires the destructive confirmation phrase before resetting local app da
     expect(screen.getByRole('heading', { name: 'Local data' })).toBeDefined()
   })
 
-  const resetButton = screen.getByRole('button', { name: 'Reset local app data' })
+  fireEvent.click(screen.getByRole('button', { name: 'Reset local app data' }))
 
-  expect(resetButton).toHaveProperty('disabled', true)
+  const resetDialog = screen.getByRole('dialog', { name: 'Reset local app data?' })
 
-  fireEvent.change(screen.getByLabelText('Type RESET to confirm destructive reset'), {
+  expect(resetDialog).toBeDefined()
+
+  const confirmResetButton = within(resetDialog).getByRole('button', {
+    name: 'Reset local app data',
+  })
+
+  expect(confirmResetButton).toHaveProperty('disabled', true)
+
+  fireEvent.change(within(resetDialog).getByLabelText('Type RESET to confirm destructive reset'), {
     target: {
       value: SETTINGS_RESET_CONFIRMATION_PHRASE,
     },
   })
-  fireEvent.click(resetButton)
+  fireEvent.click(confirmResetButton)
 
   await waitFor(() => {
     expect(resetLocalAppData).toHaveBeenCalledWith({
@@ -5007,12 +5025,18 @@ test('shows an app-blocking overlay while resetting local app data', async () =>
     expect(screen.getByRole('heading', { name: 'Local data' })).toBeDefined()
   })
 
-  fireEvent.change(screen.getByLabelText('Type RESET to confirm destructive reset'), {
+  fireEvent.click(screen.getByRole('button', { name: 'Reset local app data' }))
+
+  const resetDialog = screen.getByRole('dialog', { name: 'Reset local app data?' })
+
+  expect(resetDialog).toBeDefined()
+
+  fireEvent.change(within(resetDialog).getByLabelText('Type RESET to confirm destructive reset'), {
     target: {
       value: SETTINGS_RESET_CONFIRMATION_PHRASE,
     },
   })
-  fireEvent.click(screen.getByRole('button', { name: 'Reset local app data' }))
+  fireEvent.click(within(resetDialog).getByRole('button', { name: 'Reset local app data' }))
 
   await waitFor(() => {
     expect(resetLocalAppData).toHaveBeenCalledWith({

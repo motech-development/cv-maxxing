@@ -9,7 +9,6 @@ type PreviewDocumentKind = 'adapted_cv' | 'cover_letter'
 
 interface WorkspaceApplicationViewProperties {
   applicationTitle: string | null
-  isConfirmingDeleteTailoredApplication: boolean
   isCopyingCoverLetterText: boolean
   isExportingPdf: boolean
   onCopyCoverLetterText: () => void
@@ -23,7 +22,6 @@ interface WorkspaceApplicationViewProperties {
 
 export function WorkspaceApplicationView({
   applicationTitle,
-  isConfirmingDeleteTailoredApplication,
   isCopyingCoverLetterText,
   isExportingPdf,
   onCopyCoverLetterText,
@@ -193,9 +191,7 @@ export function WorkspaceApplicationView({
             onClick={onDeleteTailoredApplication}
             tone="secondary"
           >
-            {isConfirmingDeleteTailoredApplication
-              ? 'Confirm delete tailored application'
-              : 'Delete tailored application'}
+            Delete tailored application
           </Button>
         </PanelCard>
       </div>
