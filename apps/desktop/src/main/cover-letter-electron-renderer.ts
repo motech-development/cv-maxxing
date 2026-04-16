@@ -28,7 +28,6 @@ export function createElectronCoverLetterRenderer(): CoverLetterRenderer {
         webPreferences: {
           contextIsolation: true,
           nodeIntegration: false,
-          preload: '',
           sandbox: false,
         },
         width: 900,

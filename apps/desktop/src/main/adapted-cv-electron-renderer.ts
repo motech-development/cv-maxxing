@@ -32,7 +32,6 @@ export function createElectronAdaptedCvRenderer(): AdaptedCvRenderer {
         webPreferences: {
           contextIsolation: true,
           nodeIntegration: false,
-          preload: '',
           sandbox: false,
         },
         width: 900,
