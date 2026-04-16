@@ -46,6 +46,14 @@ body {
   margin: 0;
 }
 
+.app-dialog {
+  color: inherit;
+}
+
+.app-dialog::backdrop {
+  background: rgb(30 36 40 / 38%);
+}
+
 #root {
   height: 100%;
 }

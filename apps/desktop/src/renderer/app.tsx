@@ -43,6 +43,8 @@ import {
 import { resolveRendererLoadingState } from './loading/resolve-renderer-loading-state.js'
 import { WorkspaceBlockingOverlay } from './loading/workspace-blocking-overlay.js'
 import { resolveRendererScreen, type RendererScreenKind } from './routing/renderer-screen.js'
+import { Button } from './ui/button.js'
+import { Dialog } from './ui/dialog.js'
 
 const initialReadinessViewModel: ReadinessRouteViewModel = {
   body: 'Checking the local AI worker before opening your workspace.',
@@ -102,6 +104,7 @@ export function App() {
   const queryClient = useQueryClient()
   const [activeWorkspaceSection, setActiveWorkspaceSection] =
     useState<WorkspaceSection>('workspace')
+  const [isConfirmingDraftDiscard, setIsConfirmingDraftDiscard] = useState(false)
   const [isConfirmingDeleteTailoredApplication, setIsConfirmingDeleteTailoredApplication] =
     useState(false)
   const [isCopyingCoverLetterText, setIsCopyingCoverLetterText] = useState(false)
@@ -301,6 +304,7 @@ export function App() {
     },
     onSuccess: async (): Promise<void> => {
       setActiveWorkspaceSection('workspace')
+      setIsConfirmingDraftDiscard(false)
       setImportError(null)
       setIsConfirmingDeleteTailoredApplication(false)
       setOriginalCvFile(null)
@@ -370,6 +374,7 @@ export function App() {
       }
 
       setImportError(null)
+      setIsConfirmingDraftDiscard(false)
       setOriginalCvFile(null)
       setPreviewDocumentKind('adapted_cv')
       setReadinessError(null)
@@ -671,6 +676,14 @@ export function App() {
   }, [workspaceSelection.kind])
 
   useEffect(() => {
+    if (isCurrentDraftMeaningful) {
+      return
+    }
+
+    setIsConfirmingDraftDiscard(false)
+  }, [isCurrentDraftMeaningful])
+
+  useEffect(() => {
     const nextError =
       readinessQuery.error ??
       settingsQuery.error ??
@@ -878,22 +891,48 @@ export function App() {
     setIsConfirmingDeleteTailoredApplication(true)
   }
 
+  const showBlankDraftWorkspace = (): void => {
+    setIsConfirmingDeleteTailoredApplication(false)
+    setIsConfirmingDraftDiscard(false)
+    setPreviewDocumentKind('adapted_cv')
+    setReadinessError(null)
+    setSelectedTailoredApplicationId(null)
+    setStartupDestinationOverride('workspace')
+    setWorkspaceSelectionOverride('draft')
+    setVacancyDraft(initialVacancyDraft)
+    setVacancyPreviewOverride(null)
+    setVacancyReviewError(null)
+  }
+
   const handleCreateVacancy = async (): Promise<void> => {
+    if (clearVacancyWorkspaceMutation.isPending) {
+      return
+    }
+
+    if (isCurrentDraftMeaningful) {
+      setIsConfirmingDraftDiscard(true)
+
+      return
+    }
+
+    try {
+      await clearVacancyWorkspaceMutation.mutateAsync()
+      showBlankDraftWorkspace()
+    } catch (error) {
+      setVacancyReviewError(
+        resolveErrorMessage(error, 'Unable to clear the current vacancy draft.'),
+      )
+    }
+  }
+
+  const handleConfirmDraftDiscard = async (): Promise<void> => {
     if (clearVacancyWorkspaceMutation.isPending) {
       return
     }
 
     try {
       await clearVacancyWorkspaceMutation.mutateAsync()
-
-      setIsConfirmingDeleteTailoredApplication(false)
-      setPreviewDocumentKind('adapted_cv')
-      setReadinessError(null)
-      setSelectedTailoredApplicationId(null)
-      setStartupDestinationOverride('workspace')
-      setWorkspaceSelectionOverride('draft')
-      setVacancyDraft(initialVacancyDraft)
-      setVacancyPreviewOverride(null)
+      showBlankDraftWorkspace()
     } catch (error) {
       setVacancyReviewError(
         resolveErrorMessage(error, 'Unable to clear the current vacancy draft.'),
@@ -1125,169 +1164,211 @@ export function App() {
     },
     workspace: () => {
       return (
-        <WorkspaceScreen
-          activeOriginalCv={originalCvWorkspaceState.activeOriginalCv}
-          ambientActivityLabel={ambientActivityLabel}
-          applicationTitle={selectedTailoredApplication?.title ?? null}
-          applications={tailoredApplicationWorkspaceState.applications}
-          importError={importError}
-          isAdaptingCv={isPendingGenerationActionPending}
-          isConfirmingDeleteTailoredApplication={isConfirmingDeleteTailoredApplication}
-          isCopyingCoverLetterText={isCopyingCoverLetterText}
-          isCurrentDraftMeaningful={isCurrentDraftMeaningful}
-          isExportingPdf={isPendingGenerationActionPending}
-          isImportingOriginalCv={isImportingOriginalCv}
-          isOpeningVacancyBrowser={isOpeningVacancyBrowser}
-          isReviewingVacancy={isSubmittingVacancyReview}
-          onAdaptCv={() => {
-            if (previewedVacancyDraft === null || vacancyPreview?.canGenerate !== true) {
-              return
+        <>
+          <WorkspaceScreen
+            activeOriginalCv={originalCvWorkspaceState.activeOriginalCv}
+            ambientActivityLabel={ambientActivityLabel}
+            applicationTitle={selectedTailoredApplication?.title ?? null}
+            applications={tailoredApplicationWorkspaceState.applications}
+            importError={importError}
+            isAdaptingCv={isPendingGenerationActionPending}
+            isConfirmingDeleteTailoredApplication={isConfirmingDeleteTailoredApplication}
+            isCopyingCoverLetterText={isCopyingCoverLetterText}
+            isCurrentDraftMeaningful={isCurrentDraftMeaningful}
+            isExportingPdf={isPendingGenerationActionPending}
+            isImportingOriginalCv={isImportingOriginalCv}
+            isOpeningVacancyBrowser={isOpeningVacancyBrowser}
+            isReviewingVacancy={isSubmittingVacancyReview}
+            onAdaptCv={() => {
+              if (previewedVacancyDraft === null || vacancyPreview?.canGenerate !== true) {
+                return
+              }
+
+              handleStartPendingGeneration(previewedVacancyDraft).catch(() => null)
+            }}
+            onOpenVacancyBrowserSession={() => {
+              const originalUrl = vacancyPreview?.originalUrl
+
+              if (originalUrl === undefined || originalUrl === null || isOpeningVacancyBrowser) {
+                return
+              }
+
+              setReadinessError(null)
+              setVacancyReviewError(null)
+
+              openVacancyBrowserSessionMutation.mutateAsync(originalUrl).catch((error: unknown) => {
+                setVacancyReviewError(
+                  resolveErrorMessage(
+                    error,
+                    'Unable to open the internal browser session for this vacancy.',
+                  ),
+                )
+              })
+            }}
+            onCopyCoverLetterText={() => {
+              handleCopyCoverLetterText().catch(() => null)
+            }}
+            onCreateVacancy={() => {
+              handleCreateVacancy().catch(() => null)
+            }}
+            onDeleteTailoredApplication={() => {
+              handleDeleteTailoredApplication().catch(() => null)
+            }}
+            onExportPdf={() => {
+              handleExportAdaptedCvPdf().catch(() => null)
+            }}
+            onReviewPastedVacancy={() => {
+              if (isSubmittingVacancyReview) {
+                return
+              }
+
+              setReadinessError(null)
+              setVacancyReviewError(null)
+
+              reviewPastedVacancyMutation.mutateAsync().catch((error: unknown) => {
+                setVacancyReviewError(
+                  resolveErrorMessage(error, 'Unable to review the pasted vacancy text.'),
+                )
+              })
+            }}
+            onReviewVacancyUrl={() => {
+              if (isSubmittingVacancyReview) {
+                return
+              }
+
+              setReadinessError(null)
+              setVacancyReviewError(null)
+
+              reviewVacancyUrlMutation.mutateAsync().catch((error: unknown) => {
+                setVacancyReviewError(
+                  resolveErrorMessage(error, 'Unable to review this vacancy URL.'),
+                )
+              })
+            }}
+            onOriginalCvFileSelection={handleOriginalCvSelection}
+            onReplaceOriginalCv={() => {
+              handleOriginalCvImport('workspace').catch(() => null)
+            }}
+            onSelectApplication={(tailoredApplicationId) => {
+              handleSelectTailoredApplication(tailoredApplicationId)
+              persistWorkspaceSelectionMutation
+                .mutateAsync({
+                  kind: 'tailored_application',
+                  tailoredApplicationId,
+                })
+                .catch(() => {
+                  setReadinessError('Unable to persist the current workspace selection.')
+                })
+            }}
+            onSelectDraft={() => {
+              setIsConfirmingDeleteTailoredApplication(false)
+              setPreviewDocumentKind('adapted_cv')
+              setReadinessError(null)
+              setSelectedTailoredApplicationId(null)
+              setWorkspaceSelectionOverride('draft')
+              persistWorkspaceSelectionMutation
+                .mutateAsync({
+                  kind: 'draft',
+                })
+                .catch(() => {
+                  setReadinessError('Unable to persist the current workspace selection.')
+                })
+            }}
+            onSelectPreviewDocument={setPreviewDocumentKind}
+            onSelectRailItem={handleSelectRailItem}
+            onTextDraftChange={(event) => {
+              const nextDraft = {
+                text: event.target.value,
+                url: vacancyDraft.url,
+              }
+
+              setVacancyDraft(nextDraft)
+              setSelectedTailoredApplicationId(null)
+              setWorkspaceSelectionOverride('draft')
+              setVacancyPreviewOverride(null)
+              setReadinessError(null)
+              setVacancyReviewError(null)
+              persistWorkspaceSelectionMutation
+                .mutateAsync({
+                  kind: 'draft',
+                })
+                .catch(() => {
+                  setReadinessError('Unable to persist the current workspace selection.')
+                })
+            }}
+            onUrlDraftChange={(event) => {
+              const nextDraft = {
+                text: vacancyDraft.text,
+                url: event.target.value,
+              }
+
+              setVacancyDraft(nextDraft)
+              setSelectedTailoredApplicationId(null)
+              setWorkspaceSelectionOverride('draft')
+              setVacancyPreviewOverride(null)
+              setReadinessError(null)
+              setVacancyReviewError(null)
+              persistWorkspaceSelectionMutation
+                .mutateAsync({
+                  kind: 'draft',
+                })
+                .catch(() => {
+                  setReadinessError('Unable to persist the current workspace selection.')
+                })
+            }}
+            originalCvFile={originalCvFile}
+            preview={tailoredApplicationPreview}
+            previewDocumentKind={previewDocumentKind}
+            selectedTailoredApplicationId={resolvedTailoredApplicationId}
+            selectedWorkspaceItem={workspaceSelection.kind}
+            textDraft={vacancyDraft.text}
+            urlDraft={vacancyDraft.url}
+            vacancyPreview={vacancyPreview}
+            vacancyReviewError={vacancyReviewError}
+            workspaceOverlay={workspaceOverlay}
+            workspaceError={readinessError}
+          />
+          <Dialog
+            actions={
+              <>
+                <Button
+                  disabled={clearVacancyWorkspaceMutation.isPending}
+                  onClick={() => {
+                    setIsConfirmingDraftDiscard(false)
+                  }}
+                  tone="secondary"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  disabled={clearVacancyWorkspaceMutation.isPending}
+                  onClick={() => {
+                    handleConfirmDraftDiscard().catch(() => null)
+                  }}
+                  tone="danger"
+                >
+                  Discard draft
+                </Button>
+              </>
             }
-
-            handleStartPendingGeneration(previewedVacancyDraft).catch(() => null)
-          }}
-          onOpenVacancyBrowserSession={() => {
-            const originalUrl = vacancyPreview?.originalUrl
-
-            if (originalUrl === undefined || originalUrl === null || isOpeningVacancyBrowser) {
-              return
-            }
-
-            setReadinessError(null)
-            setVacancyReviewError(null)
-
-            openVacancyBrowserSessionMutation.mutateAsync(originalUrl).catch((error: unknown) => {
-              setVacancyReviewError(
-                resolveErrorMessage(
-                  error,
-                  'Unable to open the internal browser session for this vacancy.',
-                ),
-              )
-            })
-          }}
-          onCopyCoverLetterText={() => {
-            handleCopyCoverLetterText().catch(() => null)
-          }}
-          onCreateVacancy={() => {
-            handleCreateVacancy().catch(() => null)
-          }}
-          onDeleteTailoredApplication={() => {
-            handleDeleteTailoredApplication().catch(() => null)
-          }}
-          onExportPdf={() => {
-            handleExportAdaptedCvPdf().catch(() => null)
-          }}
-          onReviewPastedVacancy={() => {
-            if (isSubmittingVacancyReview) {
-              return
-            }
-
-            setReadinessError(null)
-            setVacancyReviewError(null)
-
-            reviewPastedVacancyMutation.mutateAsync().catch((error: unknown) => {
-              setVacancyReviewError(
-                resolveErrorMessage(error, 'Unable to review the pasted vacancy text.'),
-              )
-            })
-          }}
-          onReviewVacancyUrl={() => {
-            if (isSubmittingVacancyReview) {
-              return
-            }
-
-            setReadinessError(null)
-            setVacancyReviewError(null)
-
-            reviewVacancyUrlMutation.mutateAsync().catch((error: unknown) => {
-              setVacancyReviewError(
-                resolveErrorMessage(error, 'Unable to review this vacancy URL.'),
-              )
-            })
-          }}
-          onOriginalCvFileSelection={handleOriginalCvSelection}
-          onReplaceOriginalCv={() => {
-            handleOriginalCvImport('workspace').catch(() => null)
-          }}
-          onSelectApplication={(tailoredApplicationId) => {
-            handleSelectTailoredApplication(tailoredApplicationId)
-            persistWorkspaceSelectionMutation
-              .mutateAsync({
-                kind: 'tailored_application',
-                tailoredApplicationId,
-              })
-              .catch(() => {
-                setReadinessError('Unable to persist the current workspace selection.')
-              })
-          }}
-          onSelectDraft={() => {
-            setIsConfirmingDeleteTailoredApplication(false)
-            setPreviewDocumentKind('adapted_cv')
-            setReadinessError(null)
-            setSelectedTailoredApplicationId(null)
-            setWorkspaceSelectionOverride('draft')
-            persistWorkspaceSelectionMutation
-              .mutateAsync({
-                kind: 'draft',
-              })
-              .catch(() => {
-                setReadinessError('Unable to persist the current workspace selection.')
-              })
-          }}
-          onSelectPreviewDocument={setPreviewDocumentKind}
-          onSelectRailItem={handleSelectRailItem}
-          onTextDraftChange={(event) => {
-            const nextDraft = {
-              text: event.target.value,
-              url: vacancyDraft.url,
-            }
-
-            setVacancyDraft(nextDraft)
-            setSelectedTailoredApplicationId(null)
-            setWorkspaceSelectionOverride('draft')
-            setVacancyPreviewOverride(null)
-            setReadinessError(null)
-            setVacancyReviewError(null)
-            persistWorkspaceSelectionMutation
-              .mutateAsync({
-                kind: 'draft',
-              })
-              .catch(() => {
-                setReadinessError('Unable to persist the current workspace selection.')
-              })
-          }}
-          onUrlDraftChange={(event) => {
-            const nextDraft = {
-              text: vacancyDraft.text,
-              url: event.target.value,
-            }
-
-            setVacancyDraft(nextDraft)
-            setSelectedTailoredApplicationId(null)
-            setWorkspaceSelectionOverride('draft')
-            setVacancyPreviewOverride(null)
-            setReadinessError(null)
-            setVacancyReviewError(null)
-            persistWorkspaceSelectionMutation
-              .mutateAsync({
-                kind: 'draft',
-              })
-              .catch(() => {
-                setReadinessError('Unable to persist the current workspace selection.')
-              })
-          }}
-          originalCvFile={originalCvFile}
-          preview={tailoredApplicationPreview}
-          previewDocumentKind={previewDocumentKind}
-          selectedTailoredApplicationId={resolvedTailoredApplicationId}
-          selectedWorkspaceItem={workspaceSelection.kind}
-          textDraft={vacancyDraft.text}
-          urlDraft={vacancyDraft.url}
-          vacancyPreview={vacancyPreview}
-          vacancyReviewError={vacancyReviewError}
-          workspaceOverlay={workspaceOverlay}
-          workspaceError={readinessError}
-        />
+            eyebrow="New vacancy"
+            isDismissable={false}
+            isOpen={isConfirmingDraftDiscard}
+            onOpenChange={(nextIsOpen) => {
+              if (!nextIsOpen) {
+                setIsConfirmingDraftDiscard(false)
+              }
+            }}
+            title="Discard current vacancy draft?"
+          >
+            <p className="m-0">
+              Starting a new vacancy will remove the current draft from the workspace. If this draft
+              already has a reviewed vacancy, that reviewed result will be removed too. Saved
+              tailored applications stay in the sidebar.
+            </p>
+            <p className="m-0">Cancel leaves the workspace exactly as it is now.</p>
+          </Dialog>
+        </>
       )
     },
   }

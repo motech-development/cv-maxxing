@@ -4132,7 +4132,7 @@ test('deleting the selected saved tailored application returns to the current dr
   await waitForVacancyDraftValues(draft)
 })
 
-test('starts a new vacancy draft from the active tailored application workspace', async () => {
+test('starts a new blank vacancy draft from the active tailored application workspace when no meaningful draft exists', async () => {
   const clearVacancyWorkspaceState = vi.fn().mockImplementation(() => Promise.resolve())
 
   renderApp({
@@ -4255,6 +4255,136 @@ test('starts a new vacancy draft from the active tailored application workspace'
   })
 
   fireEvent.click(screen.getByRole('button', { name: 'New vacancy' }))
+
+  await waitFor(() => {
+    expect(clearVacancyWorkspaceState).toHaveBeenCalledTimes(1)
+  })
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Create a tailored application' })).toBeDefined()
+  })
+
+  expect(screen.getByLabelText('Vacancy URL')).toBeDefined()
+  expect(screen.getByLabelText('Job vacancy text')).toBeDefined()
+  expect(screen.getByRole('button', { name: 'Open senior platform engineer' })).toBeDefined()
+})
+
+test('requires confirmation before discarding a meaningful draft from the active tailored application workspace', async () => {
+  const draft = {
+    text: 'Senior platform engineer',
+    url: 'https://jobs.example.com/roles/123',
+  }
+  const clearVacancyWorkspaceState = vi.fn().mockImplementation(() => Promise.resolve())
+  const getVacancyWorkspaceState = vi
+    .fn()
+    .mockResolvedValueOnce({
+      draft,
+      vacancy: {
+        blockingReason: null,
+        canGenerate: true,
+        employer: 'Example Labs',
+        fetchedAt: '2026-04-09T08:30:00.000Z',
+        id: 'vacancy-123',
+        inputType: 'url',
+        location: 'London, United Kingdom',
+        originalUrl: 'https://jobs.example.com/roles/123',
+        requirements: ['Experience shipping workflow software.'],
+        resolvedUrl: 'https://jobs.example.com/roles/123',
+        responsibilities: ['Lead desktop workflow delivery across product and engineering.'],
+        source: 'generic',
+        status: 'ready',
+        textPreview: 'Lead desktop workflow delivery across product and engineering.',
+        title: 'Senior platform engineer',
+      },
+    })
+    .mockResolvedValue({
+      draft: {
+        text: '',
+        url: '',
+      },
+      vacancy: null,
+    })
+
+  renderApp({
+    aiWorker: createAiWorkerApi({
+      getAiWorkerPreflight: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+      getStartupDestination: vi.fn().mockResolvedValue('workspace_active'),
+    }),
+    originalCv: createOriginalCvApi({
+      getOriginalCvWorkspaceState: vi.fn().mockResolvedValue({
+        activeOriginalCv: {
+          fileType: 'pdf',
+          headline: 'Principal Product Designer',
+          id: 'original-cv-123',
+          importedAt: '2026-04-08T14:30:00.000Z',
+          originalFilename: 'ada-lovelace.pdf',
+          pageCount: 1,
+          snapshotCount: 1,
+          summary: 'Design leader focused on complex workflow products.',
+          writingStyle: {
+            averageSentenceLength: 7,
+            clicheDetections: [],
+            firstPersonUsage: 'absent',
+            formality: 'direct',
+          },
+        },
+        snapshotCount: 1,
+      }),
+    }),
+    tailoredApplication: createTailoredApplicationApi({
+      getTailoredApplicationPreview: vi
+        .fn()
+        .mockResolvedValue(createTailoredApplicationPreviewFixture()),
+      getWorkspaceState: vi.fn().mockResolvedValue({
+        activeApplicationId: 'tailored-application-123',
+        applications: [
+          {
+            createdAt: '2026-04-09T09:30:00.000Z',
+            employer: 'Example Labs',
+            id: 'tailored-application-123',
+            pageCount: 4,
+            pageWarning: 'This adapted CV runs to 4 pages. Export is still available.',
+            title: 'Senior platform engineer · Example Labs',
+            vacancyTitle: 'Senior platform engineer',
+          },
+        ],
+      }),
+    }),
+    vacancy: createVacancyApi({
+      clearVacancyWorkspaceState,
+      getVacancyWorkspaceState,
+    }),
+  })
+
+  await waitFor(() => {
+    expect(
+      screen.getByRole('heading', { name: 'Senior platform engineer · Example Labs' }),
+    ).toBeDefined()
+  })
+
+  fireEvent.click(screen.getByRole('button', { name: 'New vacancy' }))
+
+  expect(clearVacancyWorkspaceState).not.toHaveBeenCalled()
+  expect(screen.getByRole('dialog', { name: 'Discard current vacancy draft?' })).toBeDefined()
+
+  fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+
+  await waitFor(() => {
+    expect(screen.queryByRole('dialog', { name: 'Discard current vacancy draft?' })).toBeNull()
+  })
+
+  expect(clearVacancyWorkspaceState).not.toHaveBeenCalled()
+  expect(
+    screen.getByRole('heading', { name: 'Senior platform engineer · Example Labs' }),
+  ).toBeDefined()
+
+  fireEvent.click(screen.getByRole('button', { name: 'New vacancy' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Discard draft' }))
 
   await waitFor(() => {
     expect(clearVacancyWorkspaceState).toHaveBeenCalledTimes(1)
