@@ -3879,6 +3879,259 @@ test('browses saved tailored applications, reopens an older detail view, and del
   })
 })
 
+test('switches between saved tailored applications without discarding the current draft', async () => {
+  const draft = {
+    text: 'Senior platform engineer',
+    url: 'https://jobs.example.com/roles/123',
+  }
+  const firstPreview = createTailoredApplicationPreviewFixture()
+  const secondPreview = createTailoredApplicationPreviewFixture({
+    employer: 'Nebula Labs',
+    id: 'tailored-application-456',
+    title: 'Platform Product Manager · Nebula Labs',
+    vacancy: {
+      ...createTailoredApplicationPreviewFixture().vacancy,
+      employer: 'Nebula Labs',
+      id: 'vacancy-456',
+      location: 'Remote',
+      originalUrl: 'https://jobs.example.com/platform-product-manager',
+      resolvedUrl: 'https://jobs.example.com/platform-product-manager',
+      responsibilities: ['Lead platform product direction.'],
+      title: 'Platform Product Manager',
+    },
+    vacancyTitle: 'Platform Product Manager',
+  })
+  const getTailoredApplicationPreview = vi.fn().mockImplementation((tailoredApplicationId) => {
+    return Promise.resolve(
+      tailoredApplicationId === 'tailored-application-456' ? secondPreview : firstPreview,
+    )
+  })
+
+  renderApp({
+    aiWorker: createAiWorkerApi({
+      getAiWorkerPreflight: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+      getStartupDestination: vi.fn().mockResolvedValue('workspace_active'),
+    }),
+    originalCv: createOriginalCvApi({
+      getOriginalCvWorkspaceState: vi.fn().mockResolvedValue({
+        activeOriginalCv: {
+          fileType: 'pdf',
+          headline: 'Principal Product Designer',
+          id: 'original-cv-123',
+          importedAt: '2026-04-08T14:30:00.000Z',
+          originalFilename: 'ada-lovelace.pdf',
+          pageCount: 1,
+          snapshotCount: 1,
+          summary: 'Design leader focused on complex workflow products.',
+          writingStyle: {
+            averageSentenceLength: 7,
+            clicheDetections: [],
+            firstPersonUsage: 'absent',
+            formality: 'direct',
+          },
+        },
+        snapshotCount: 1,
+      }),
+    }),
+    tailoredApplication: createTailoredApplicationApi({
+      getTailoredApplicationPreview,
+      getWorkspaceState: vi.fn().mockResolvedValue({
+        activeApplicationId: null,
+        applications: [
+          {
+            createdAt: '2026-04-09T09:30:00.000Z',
+            employer: 'Example Labs',
+            id: 'tailored-application-123',
+            pageCount: 4,
+            pageWarning: 'This adapted CV runs to 4 pages. Export is still available.',
+            title: 'Senior platform engineer · Example Labs',
+            vacancyTitle: 'Senior platform engineer',
+          },
+          {
+            createdAt: '2026-04-08T09:30:00.000Z',
+            employer: 'Nebula Labs',
+            id: 'tailored-application-456',
+            pageCount: 2,
+            pageWarning: null,
+            title: 'Platform Product Manager · Nebula Labs',
+            vacancyTitle: 'Platform Product Manager',
+          },
+        ],
+      }),
+    }),
+    vacancy: createVacancyApi({
+      getVacancyWorkspaceState: vi.fn().mockResolvedValue({
+        draft,
+        vacancy: {
+          blockingReason: null,
+          canGenerate: true,
+          employer: 'Example Labs',
+          fetchedAt: '2026-04-09T08:30:00.000Z',
+          id: 'vacancy-123',
+          inputType: 'url',
+          location: 'London, United Kingdom',
+          originalUrl: 'https://jobs.example.com/roles/123',
+          requirements: ['Experience shipping workflow software.'],
+          resolvedUrl: 'https://jobs.example.com/roles/123',
+          responsibilities: ['Lead desktop workflow delivery across product and engineering.'],
+          source: 'generic',
+          status: 'ready',
+          textPreview: 'Lead desktop workflow delivery across product and engineering.',
+          title: 'Senior platform engineer',
+        },
+      }),
+    }),
+  })
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Current vacancy draft' })).toBeDefined()
+  })
+  await waitForVacancyDraftValues(draft)
+
+  fireEvent.click(screen.getByRole('button', { name: 'Open platform product manager' }))
+
+  await waitFor(() => {
+    expect(
+      screen.getByRole('heading', { name: 'Platform Product Manager · Nebula Labs' }),
+    ).toBeDefined()
+  })
+
+  expect(screen.getByRole('button', { name: 'Open current vacancy draft' })).toBeDefined()
+
+  fireEvent.click(screen.getByRole('button', { name: 'Open senior platform engineer' }))
+
+  await waitFor(() => {
+    expect(
+      screen.getByRole('heading', { name: 'Senior platform engineer · Example Labs' }),
+    ).toBeDefined()
+  })
+
+  fireEvent.click(screen.getByRole('button', { name: 'Open current vacancy draft' }))
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Current vacancy draft' })).toBeDefined()
+  })
+  await waitForVacancyDraftValues(draft)
+})
+
+test('deleting the selected saved tailored application returns to the current draft when it exists', async () => {
+  const draft = {
+    text: 'Senior platform engineer',
+    url: 'https://jobs.example.com/roles/123',
+  }
+  const deleteTailoredApplication = vi.fn().mockImplementation(() => Promise.resolve())
+
+  renderApp({
+    aiWorker: createAiWorkerApi({
+      getAiWorkerPreflight: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+      getStartupDestination: vi.fn().mockResolvedValue('workspace_active'),
+    }),
+    originalCv: createOriginalCvApi({
+      getOriginalCvWorkspaceState: vi.fn().mockResolvedValue({
+        activeOriginalCv: {
+          fileType: 'pdf',
+          headline: 'Principal Product Designer',
+          id: 'original-cv-123',
+          importedAt: '2026-04-08T14:30:00.000Z',
+          originalFilename: 'ada-lovelace.pdf',
+          pageCount: 1,
+          snapshotCount: 1,
+          summary: 'Design leader focused on complex workflow products.',
+          writingStyle: {
+            averageSentenceLength: 7,
+            clicheDetections: [],
+            firstPersonUsage: 'absent',
+            formality: 'direct',
+          },
+        },
+        snapshotCount: 1,
+      }),
+    }),
+    tailoredApplication: createTailoredApplicationApi({
+      deleteTailoredApplication,
+      getTailoredApplicationPreview: vi
+        .fn()
+        .mockResolvedValue(createTailoredApplicationPreviewFixture()),
+      getWorkspaceState: vi
+        .fn()
+        .mockResolvedValueOnce({
+          activeApplicationId: null,
+          applications: [
+            {
+              createdAt: '2026-04-09T09:30:00.000Z',
+              employer: 'Example Labs',
+              id: 'tailored-application-123',
+              pageCount: 4,
+              pageWarning: 'This adapted CV runs to 4 pages. Export is still available.',
+              title: 'Senior platform engineer · Example Labs',
+              vacancyTitle: 'Senior platform engineer',
+            },
+          ],
+        })
+        .mockResolvedValueOnce({
+          activeApplicationId: null,
+          applications: [],
+        }),
+    }),
+    vacancy: createVacancyApi({
+      getVacancyWorkspaceState: vi.fn().mockResolvedValue({
+        draft,
+        vacancy: {
+          blockingReason: null,
+          canGenerate: true,
+          employer: 'Example Labs',
+          fetchedAt: '2026-04-09T08:30:00.000Z',
+          id: 'vacancy-123',
+          inputType: 'url',
+          location: 'London, United Kingdom',
+          originalUrl: 'https://jobs.example.com/roles/123',
+          requirements: ['Experience shipping workflow software.'],
+          resolvedUrl: 'https://jobs.example.com/roles/123',
+          responsibilities: ['Lead desktop workflow delivery across product and engineering.'],
+          source: 'generic',
+          status: 'ready',
+          textPreview: 'Lead desktop workflow delivery across product and engineering.',
+          title: 'Senior platform engineer',
+        },
+      }),
+    }),
+  })
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Current vacancy draft' })).toBeDefined()
+  })
+
+  fireEvent.click(screen.getByRole('button', { name: 'Open senior platform engineer' }))
+
+  await waitFor(() => {
+    expect(
+      screen.getByRole('heading', { name: 'Senior platform engineer · Example Labs' }),
+    ).toBeDefined()
+  })
+
+  fireEvent.click(screen.getByRole('button', { name: 'Delete tailored application' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Confirm delete tailored application' }))
+
+  await waitFor(() => {
+    expect(deleteTailoredApplication).toHaveBeenCalledWith('tailored-application-123')
+  })
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Current vacancy draft' })).toBeDefined()
+  })
+  await waitForVacancyDraftValues(draft)
+})
+
 test('starts a new vacancy draft from the active tailored application workspace', async () => {
   const clearVacancyWorkspaceState = vi.fn().mockImplementation(() => Promise.resolve())
 

@@ -1447,7 +1447,7 @@ function resolveWorkspaceSelection({
 }): {
   kind: WorkspaceSelectionKind
 } {
-  if (forcedSelection === 'draft' || hasMeaningfulDraft || hasPendingGeneration) {
+  if (forcedSelection === 'draft' || hasPendingGeneration) {
     return {
       kind: 'draft',
     }
@@ -1456,6 +1456,12 @@ function resolveWorkspaceSelection({
   if (resolvedTailoredApplicationId !== null) {
     return {
       kind: 'tailored_application',
+    }
+  }
+
+  if (hasMeaningfulDraft) {
+    return {
+      kind: 'draft',
     }
   }
 
