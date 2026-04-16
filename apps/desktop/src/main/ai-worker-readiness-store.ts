@@ -64,7 +64,7 @@ export function createAiWorkerReadinessStore({
         scope: STARTUP_SCOPE,
       })
 
-      return isStartupDestination(value) ? value : null
+      return normalizeStartupDestination(value)
     },
     savePendingGenerationCommand: async (command) => {
       await localAppData.metadata.put({
@@ -124,11 +124,12 @@ function isPendingGenerationCommand(value: unknown): value is PendingGenerationC
   )
 }
 
-function isStartupDestination(value: unknown): value is StartupDestination {
-  return (
-    value === 'first_launch' ||
-    value === 'workspace_active' ||
-    value === 'workspace_empty' ||
-    value === 'workspace_loading'
-  )
+function normalizeStartupDestination(value: unknown): StartupDestination | null {
+  if (value === 'workspace_loading') {
+    return 'workspace_empty'
+  }
+
+  return value === 'first_launch' || value === 'workspace_active' || value === 'workspace_empty'
+    ? value
+    : null
 }

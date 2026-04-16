@@ -34,10 +34,6 @@ export function resolveRendererScreen({
     return 'workspace_active'
   }
 
-  if (readinessViewModel.startupDestination === 'workspace_loading') {
-    return 'workspace_empty'
-  }
-
   if (originalCvWorkspaceState.activeOriginalCv === null) {
     return 'first_launch'
   }

@@ -3433,7 +3433,7 @@ test('cleans interrupted running sessions on startup recovery without deleting t
     },
     vacancyId: 'vacancy-123',
   })
-  await harness.readinessStore.setStartupDestination('workspace_loading')
+  await harness.readinessStore.setStartupDestination('workspace_empty')
   await harness.localAppData.metadata.put({
     id: 'active-session',
     scope: 'pending-generation-session',

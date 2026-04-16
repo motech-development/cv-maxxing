@@ -1379,7 +1379,7 @@ export function createTailoredApplicationSessionService({
         stage: 'queued',
         tailoredApplicationId: null,
       })
-      await readinessStore.setStartupDestination('workspace_loading')
+      await readinessStore.setStartupDestination('workspace_empty')
 
       return await aiWorker.retryAiWorkerPreflight()
     },

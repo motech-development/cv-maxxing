@@ -262,6 +262,19 @@ function renderApp({
   )
 }
 
+async function waitForVacancyDraftValues({
+  text,
+  url,
+}: {
+  text: string
+  url: string
+}): Promise<void> {
+  await waitFor(() => {
+    expect(screen.getByLabelText('Vacancy URL')).toHaveProperty('value', url)
+    expect(screen.getByLabelText('Job vacancy text')).toHaveProperty('value', text)
+  })
+}
+
 function createDeferredPromise<T>() {
   let resolvePromise!: (value: T) => void
 
@@ -846,10 +859,12 @@ test('loads a persisted vacancy preview and keeps Adapt CV enabled for a reviewa
     expect(screen.getByRole('heading', { name: 'Create a tailored application' })).toBeDefined()
   })
 
-  expect(screen.getByText('Vacancy preview')).toBeDefined()
-  expect(screen.getByText('Senior Product Designer')).toBeDefined()
-  expect(screen.getByText('Example Labs · London, United Kingdom')).toBeDefined()
-  expect(screen.getByRole('button', { name: 'Adapt CV' })).toHaveProperty('disabled', false)
+  await waitFor(() => {
+    expect(screen.getByText('Vacancy preview')).toBeDefined()
+    expect(screen.getByText('Senior Product Designer')).toBeDefined()
+    expect(screen.getByText('Example Labs · London, United Kingdom')).toBeDefined()
+    expect(screen.getByRole('button', { name: 'Adapt CV' })).toHaveProperty('disabled', false)
+  })
 })
 
 test('shows shell-level ambient activity while a tailored-application preview refreshes in the background', async () => {
@@ -1666,7 +1681,20 @@ test('reviews a ready vacancy URL and only starts tailoring after Adapt CV is cl
   const getStartupDestination = vi
     .fn()
     .mockResolvedValueOnce('workspace_empty')
-    .mockResolvedValueOnce('workspace_loading')
+    .mockResolvedValueOnce('workspace_empty')
+  const getPendingGenerationCommand = vi
+    .fn()
+    .mockResolvedValueOnce(null)
+    .mockResolvedValue({
+      commandId: 'command-123',
+      originalCvId: 'original-cv-123',
+      originalCvLabel: 'ada-lovelace.pdf',
+      vacancyId: 'vacancy-123',
+      vacancyDraft: {
+        text: '',
+        url: 'https://boards.greenhouse.io/example/jobs/123',
+      },
+    })
   const resumePendingGeneration = vi.fn().mockImplementation(() => {
     return new Promise<never>((resolve) => {
       void resolve
@@ -1745,16 +1773,7 @@ test('reviews a ready vacancy URL and only starts tailoring after Adapt CV is cl
         }),
     }),
     tailoredApplication: createTailoredApplicationApi({
-      getPendingGenerationCommand: vi.fn().mockResolvedValue({
-        commandId: 'command-123',
-        originalCvId: 'original-cv-123',
-        originalCvLabel: 'ada-lovelace.pdf',
-        vacancyId: 'vacancy-123',
-        vacancyDraft: {
-          text: '',
-          url: 'https://jobs.example.com/roles/123',
-        },
-      }),
+      getPendingGenerationCommand,
       resumePendingGeneration,
       startPendingGeneration,
     }),
@@ -1762,6 +1781,10 @@ test('reviews a ready vacancy URL and only starts tailoring after Adapt CV is cl
 
   await waitFor(() => {
     expect(screen.getByRole('heading', { name: 'Create a tailored application' })).toBeDefined()
+  })
+  await waitForVacancyDraftValues({
+    text: '',
+    url: '',
   })
 
   fireEvent.change(screen.getByLabelText('Vacancy URL'), {
@@ -1854,6 +1877,10 @@ test('shows the workspace overlay while reviewing a vacancy URL without surfacin
   await waitFor(() => {
     expect(screen.getByRole('heading', { name: 'Create a tailored application' })).toBeDefined()
   })
+  await waitForVacancyDraftValues({
+    text: '',
+    url: '',
+  })
 
   fireEvent.change(screen.getByLabelText('Vacancy URL'), {
     target: {
@@ -1931,6 +1958,23 @@ test('routes to AI worker repair when starting adaptation returns a sign-in requ
     provider: 'codex',
     status: 'sign_in_required',
   })
+  const resumePendingGeneration = vi.fn().mockResolvedValue({
+    generationRunId: 'run-123',
+    tailoredApplicationId: 'tailored-application-123',
+  })
+  const getPendingGenerationCommand = vi
+    .fn()
+    .mockResolvedValueOnce(null)
+    .mockResolvedValue({
+      commandId: 'command-123',
+      originalCvId: 'original-cv-123',
+      originalCvLabel: 'ada-lovelace.pdf',
+      vacancyId: 'vacancy-002',
+      vacancyDraft: {
+        text: '',
+        url: 'https://boards.greenhouse.io/example/jobs/123',
+      },
+    })
 
   renderApp({
     aiWorker: createAiWorkerApi({
@@ -1964,6 +2008,8 @@ test('routes to AI worker repair when starting adaptation returns a sign-in requ
       }),
     }),
     tailoredApplication: createTailoredApplicationApi({
+      getPendingGenerationCommand,
+      resumePendingGeneration,
       startPendingGeneration,
     }),
     vacancy: createVacancyApi({
@@ -1996,6 +2042,9 @@ test('routes to AI worker repair when starting adaptation returns a sign-in requ
   await waitFor(() => {
     expect(screen.getByRole('heading', { name: 'Create a tailored application' })).toBeDefined()
   })
+  await waitFor(() => {
+    expect(screen.getByRole('button', { name: 'Adapt CV' })).toHaveProperty('disabled', false)
+  })
 
   fireEvent.click(screen.getByRole('button', { name: 'Adapt CV' }))
 
@@ -2006,6 +2055,8 @@ test('routes to AI worker repair when starting adaptation returns a sign-in requ
   await waitFor(() => {
     expect(screen.getByRole('heading', { name: 'Connect the local AI worker' })).toBeDefined()
   })
+
+  expect(resumePendingGeneration).not.toHaveBeenCalled()
 })
 
 test('preserves pasted vacancy context in a blocking preview and keeps Adapt CV disabled', async () => {
@@ -2124,6 +2175,10 @@ test('preserves pasted vacancy context in a blocking preview and keeps Adapt CV 
 
   await waitFor(() => {
     expect(screen.getByRole('heading', { name: 'Create a tailored application' })).toBeDefined()
+  })
+  await waitForVacancyDraftValues({
+    text: '',
+    url: '',
   })
 
   fireEvent.change(screen.getByLabelText('Vacancy URL'), {
@@ -2276,6 +2331,10 @@ test('refreshes the vacancy workspace query after review instead of rendering th
 
   await waitFor(() => {
     expect(screen.getByRole('heading', { name: 'Create a tailored application' })).toBeDefined()
+  })
+  await waitForVacancyDraftValues({
+    text: '',
+    url: '',
   })
 
   fireEvent.change(screen.getByLabelText('Vacancy URL'), {
@@ -2454,6 +2513,10 @@ test('submitting a LinkedIn vacancy URL automatically continues into the interna
   await waitFor(() => {
     expect(screen.getByRole('heading', { name: 'Create a tailored application' })).toBeDefined()
   })
+  await waitForVacancyDraftValues({
+    text: '',
+    url: '',
+  })
 
   fireEvent.change(screen.getByLabelText('Vacancy URL'), {
     target: {
@@ -2496,7 +2559,7 @@ test('resumes the pending flow into the workspace overlay after sign-in repair',
         provider: 'codex',
         status: 'sign_in_required',
       }),
-      getStartupDestination: vi.fn().mockResolvedValue('workspace_loading'),
+      getStartupDestination: vi.fn().mockResolvedValue('workspace_empty'),
       startAiWorkerSignIn: vi.fn().mockResolvedValue({
         canResumeGeneration: true,
         message: 'The local AI worker is ready.',
@@ -2574,7 +2637,7 @@ test('renders the workspace overlay when startup restores pending generation', a
         provider: 'codex',
         status: 'ready',
       }),
-      getStartupDestination: vi.fn().mockResolvedValue('workspace_loading'),
+      getStartupDestination: vi.fn().mockResolvedValue('workspace_empty'),
     }),
     tailoredApplication: createTailoredApplicationApi({
       getPendingGenerationCommand: vi.fn().mockResolvedValue({
@@ -2604,8 +2667,21 @@ test('renders the workspace overlay when startup restores pending generation', a
 test('keeps settings open when restored generation completes in the background', async () => {
   const getStartupDestination = vi
     .fn()
-    .mockResolvedValueOnce('workspace_loading')
+    .mockResolvedValueOnce('workspace_empty')
     .mockResolvedValueOnce('workspace_active')
+  const getPendingGenerationCommand = vi
+    .fn()
+    .mockResolvedValueOnce({
+      commandId: 'command-123',
+      originalCvId: 'original-cv-123',
+      originalCvLabel: 'ada-lovelace.pdf',
+      vacancyId: 'vacancy-123',
+      vacancyDraft: {
+        text: 'Senior platform engineer',
+        url: 'https://jobs.example.com/roles/123',
+      },
+    })
+    .mockResolvedValue(null)
   const completePendingGeneration = vi.fn().mockImplementation(() => Promise.resolve())
   let resolveResumePendingGeneration:
     | ((value: { generationRunId: string; tailoredApplicationId: string }) => void)
@@ -2650,16 +2726,7 @@ test('keeps settings open when restored generation completes in the background',
     }),
     tailoredApplication: createTailoredApplicationApi({
       completePendingGeneration,
-      getPendingGenerationCommand: vi.fn().mockResolvedValue({
-        commandId: 'command-123',
-        originalCvId: 'original-cv-123',
-        originalCvLabel: 'ada-lovelace.pdf',
-        vacancyId: 'vacancy-123',
-        vacancyDraft: {
-          text: 'Senior platform engineer',
-          url: 'https://jobs.example.com/roles/123',
-        },
-      }),
+      getPendingGenerationCommand,
       getTailoredApplicationPreview: vi.fn().mockResolvedValue({
         adaptedCv: {
           pageCount: 4,
@@ -2783,7 +2850,7 @@ test('keeps settings open when restored generation completes in the background',
 test('returns to the workspace with a visible error when generation fails contract validation from the overlay flow', async () => {
   const getStartupDestination = vi
     .fn()
-    .mockResolvedValueOnce('workspace_loading')
+    .mockResolvedValueOnce('workspace_empty')
     .mockResolvedValueOnce('workspace_empty')
 
   renderApp({
@@ -2849,7 +2916,7 @@ test('returns to the workspace with a visible error when generation fails contra
 })
 
 test('returns to the workspace immediately when overlay recovery stalls after generation failure', async () => {
-  const getStartupDestination = vi.fn().mockResolvedValueOnce('workspace_loading')
+  const getStartupDestination = vi.fn().mockResolvedValueOnce('workspace_empty')
   const getAiWorkerPreflight = vi
     .fn()
     .mockResolvedValueOnce({
@@ -2923,8 +2990,21 @@ test('returns to the workspace immediately when overlay recovery stalls after ge
 test('opens the tailored application when generation completes from the workspace overlay', async () => {
   const getStartupDestination = vi
     .fn()
-    .mockResolvedValueOnce('workspace_loading')
+    .mockResolvedValueOnce('workspace_empty')
     .mockResolvedValueOnce('workspace_active')
+  const getPendingGenerationCommand = vi
+    .fn()
+    .mockResolvedValueOnce({
+      commandId: 'command-123',
+      originalCvId: 'original-cv-123',
+      originalCvLabel: 'ada-lovelace.pdf',
+      vacancyId: 'vacancy-123',
+      vacancyDraft: {
+        text: 'Senior platform engineer',
+        url: 'https://jobs.example.com/roles/123',
+      },
+    })
+    .mockResolvedValue(null)
   const completePendingGeneration = vi.fn().mockImplementation(() => Promise.resolve())
   const clipboardWriteText = vi.fn().mockImplementation(() => Promise.resolve())
   const exportAdaptedCvPdf = vi.fn().mockResolvedValue({
@@ -3035,19 +3115,10 @@ test('opens the tailored application when generation completes from the workspac
       completePendingGeneration,
       exportAdaptedCvPdf,
       exportCoverLetterPdf,
+      getPendingGenerationCommand,
       getTailoredApplicationPreview,
       getWorkspaceState,
       resumePendingGeneration,
-      getPendingGenerationCommand: vi.fn().mockResolvedValue({
-        commandId: 'command-123',
-        originalCvId: 'original-cv-123',
-        originalCvLabel: 'ada-lovelace.pdf',
-        vacancyId: 'vacancy-123',
-        vacancyDraft: {
-          text: 'Senior platform engineer',
-          url: 'https://jobs.example.com/roles/123',
-        },
-      }),
     }),
   })
 
@@ -3118,8 +3189,21 @@ test('opens the tailored application when generation completes from the workspac
 test('transitions to the tailored application even when vacancy cleanup is still pending', async () => {
   const getStartupDestination = vi
     .fn()
-    .mockResolvedValueOnce('workspace_loading')
+    .mockResolvedValueOnce('workspace_empty')
     .mockResolvedValueOnce('workspace_active')
+  const getPendingGenerationCommand = vi
+    .fn()
+    .mockResolvedValueOnce({
+      commandId: 'command-123',
+      originalCvId: 'original-cv-123',
+      originalCvLabel: 'ada-lovelace.pdf',
+      vacancyId: 'vacancy-123',
+      vacancyDraft: {
+        text: 'Senior platform engineer',
+        url: 'https://jobs.example.com/roles/123',
+      },
+    })
+    .mockResolvedValue(null)
   const completePendingGeneration = vi.fn().mockImplementation(() => Promise.resolve())
   const getTailoredApplicationPreview = vi.fn().mockResolvedValue({
     adaptedCv: {
@@ -3217,16 +3301,7 @@ test('transitions to the tailored application even when vacancy cleanup is still
     }),
     tailoredApplication: createTailoredApplicationApi({
       completePendingGeneration,
-      getPendingGenerationCommand: vi.fn().mockResolvedValue({
-        commandId: 'command-123',
-        originalCvId: 'original-cv-123',
-        originalCvLabel: 'ada-lovelace.pdf',
-        vacancyId: 'vacancy-123',
-        vacancyDraft: {
-          text: 'Senior platform engineer',
-          url: 'https://jobs.example.com/roles/123',
-        },
-      }),
+      getPendingGenerationCommand,
       getTailoredApplicationPreview,
       getWorkspaceState,
       resumePendingGeneration,
@@ -3640,7 +3715,7 @@ test('starts a new vacancy draft from the active tailored application workspace'
 test('abandons the pending draft from the workspace overlay and returns to workspace empty', async () => {
   const getStartupDestination = vi
     .fn()
-    .mockResolvedValueOnce('workspace_loading')
+    .mockResolvedValueOnce('workspace_empty')
     .mockResolvedValueOnce('workspace_empty')
   const abandonPendingGeneration = vi.fn().mockImplementation(() => Promise.resolve())
   const resumePendingGeneration = vi.fn().mockImplementation(() => {

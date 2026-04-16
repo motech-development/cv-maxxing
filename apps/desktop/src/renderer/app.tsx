@@ -88,7 +88,7 @@ function isSupportedOriginalCvFile(file: File): boolean {
 }
 
 type OriginalCvImportDestination = 'workspace_active' | 'workspace_empty'
-type RendererStartupDestinationOverride = OriginalCvImportDestination | 'workspace_loading'
+type RendererStartupDestinationOverride = OriginalCvImportDestination
 type PreviewDocumentKind = 'adapted_cv' | 'cover_letter'
 type WorkspaceSection = 'settings' | 'workspace'
 type ImportOriginalCvMutationResult = OriginalCvImportResult
@@ -449,13 +449,13 @@ export function App() {
       flushSync(() => {
         setReadinessError(null)
         setSelectedTailoredApplicationId(null)
-        setStartupDestinationOverride('workspace_loading')
+        setStartupDestinationOverride('workspace_empty')
         setVacancyPreviewOverride(null)
       })
 
       await seedReadinessQuery({
         preflightResult,
-        startupDestination: preflightResult.status === 'ready' ? 'workspace_loading' : undefined,
+        startupDestination: preflightResult.status === 'ready' ? 'workspace_empty' : undefined,
       })
       await Promise.all([
         queryClient.invalidateQueries({
@@ -881,10 +881,13 @@ export function App() {
     }
   }
 
-  const screenKind = resolveRendererScreen({
-    originalCvWorkspaceState,
-    readinessViewModel: viewModel,
-  })
+  const screenKind =
+    viewModel.canEnterWorkspace && pendingGenerationCommand !== null
+      ? 'workspace_empty'
+      : resolveRendererScreen({
+          originalCvWorkspaceState,
+          readinessViewModel: viewModel,
+        })
 
   const workerStatusLabel = resolveWorkerStatusLabel(viewModel.status)
   const workerStatusTone = resolveWorkerStatusTone(viewModel.status)
@@ -895,9 +898,7 @@ export function App() {
       resolvedTailoredApplicationId !== null &&
       tailoredApplicationPreviewQuery.isFetching,
     isGeneratingTailoredApplication:
-      startPendingGenerationMutation.isPending ||
-      viewModel.startupDestination === 'workspace_loading' ||
-      pendingGenerationCommand !== null,
+      startPendingGenerationMutation.isPending || pendingGenerationCommand !== null,
     isImportingOriginalCv,
     isResettingLocalAppData,
     isReviewingVacancy: isSubmittingVacancyReview,
@@ -926,7 +927,11 @@ export function App() {
   }
 
   const resumePendingGeneration = useEffectEvent(async (): Promise<void> => {
-    if (pendingGenerationCommand === null) {
+    if (
+      !viewModel.canEnterWorkspace ||
+      viewModel.status !== 'ready' ||
+      pendingGenerationCommand === null
+    ) {
       return
     }
 
@@ -967,7 +972,11 @@ export function App() {
   })
 
   useEffect(() => {
-    if (pendingGenerationCommand === null) {
+    if (
+      !viewModel.canEnterWorkspace ||
+      viewModel.status !== 'ready' ||
+      pendingGenerationCommand === null
+    ) {
       return
     }
 
@@ -1000,7 +1009,7 @@ export function App() {
         isResumingPendingGeneration.current = false
       }
     }
-  }, [pendingGenerationCommand])
+  }, [pendingGenerationCommand, viewModel.canEnterWorkspace, viewModel.status])
 
   const screenRegistry: Record<RendererScreenKind, () => ReactElement> = {
     ai_worker_checking: () => {

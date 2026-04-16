@@ -121,10 +121,6 @@ function buildReadyBody(startupDestination: StartupDestination): string {
     return 'The local AI worker is ready. Restoring your last tailored application.'
   }
 
-  if (startupDestination === 'workspace_loading') {
-    return 'The local AI worker is ready. Resuming your pending tailored application.'
-  }
-
   if (startupDestination === 'workspace_empty') {
     return 'The local AI worker is ready. Returning you to your workspace.'
   }
@@ -135,10 +131,6 @@ function buildReadyBody(startupDestination: StartupDestination): string {
 function buildReadyHeading(startupDestination: StartupDestination): string {
   if (startupDestination === 'first_launch') {
     return 'First launch'
-  }
-
-  if (startupDestination === 'workspace_loading') {
-    return 'Resuming tailored application'
   }
 
   return 'Workspace restored'

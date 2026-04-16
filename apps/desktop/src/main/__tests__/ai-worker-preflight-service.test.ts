@@ -169,7 +169,7 @@ test('maps a hanging health probe to an unavailable timeout failure using the re
   })
 })
 
-test('restores workspace loading ahead of saved startup state when a pending generation is ready to resume', async () => {
+test('restores the workspace destination when a pending generation is ready to resume', async () => {
   const service = createAiWorkerPreflightService({
     environment: {
       CV_MAXXING_AI_WORKER_PREFLIGHT_STATUS: 'ready',
@@ -185,9 +185,9 @@ test('restores workspace loading ahead of saved startup state when a pending gen
       },
     }),
     getPersistedCheckingTimeout: vi.fn().mockResolvedValue(null),
-    getPersistedStartupDestination: vi.fn().mockResolvedValue('workspace_active'),
+    getPersistedStartupDestination: vi.fn().mockResolvedValue('workspace_empty'),
     probeAiWorker: vi.fn().mockResolvedValue('ready'),
   })
 
-  await expect(service.getStartupDestination()).resolves.toBe('workspace_loading')
+  await expect(service.getStartupDestination()).resolves.toBe('workspace_empty')
 })

@@ -58,6 +58,22 @@ test('prefers workspace-blocking loading over ambient activity', () => {
   })
 })
 
+test('prefers reset app-blocking loading over workspace-blocking and ambient activity', () => {
+  expect(
+    resolveRendererLoadingState(
+      createLoadingInput({
+        isFetchingTailoredApplicationPreview: true,
+        isGeneratingTailoredApplication: true,
+        isResettingLocalAppData: true,
+      }),
+    ),
+  ).toEqual({
+    kind: 'reset_local_app_data',
+    label: 'Preparing app',
+    scope: 'app_blocking',
+  })
+})
+
 test('surfaces ambient activity for tailored-application preview fetches', () => {
   expect(
     resolveRendererLoadingState(

@@ -688,12 +688,11 @@ function isPendingGenerationCommand(value: unknown): value is PendingGenerationC
 }
 
 function parseStartupDestination(value: string | undefined): StartupDestination | null {
-  if (
-    value === 'first_launch' ||
-    value === 'workspace_active' ||
-    value === 'workspace_empty' ||
-    value === 'workspace_loading'
-  ) {
+  if (value === 'workspace_loading') {
+    return 'workspace_empty'
+  }
+
+  if (value === 'first_launch' || value === 'workspace_active' || value === 'workspace_empty') {
     return value
   }
 

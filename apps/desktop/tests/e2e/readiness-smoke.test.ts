@@ -502,30 +502,68 @@ test('retries from an unavailable startup state and returns to first launch afte
   await electronApp.close()
 })
 
-test('keeps workspace_loading explicit after sign-in repair for a pending generation command', async () => {
+test('returns to the workspace overlay after sign-in repair for a pending generation command', async () => {
+  const testPaths = await createOriginalCvTestPaths()
+
+  await writeFile(
+    testPaths.pdfPath,
+    createPdfDocumentBuffer([
+      'Ada Lovelace',
+      'Principal Product Designer',
+      'Summary',
+      'Design leader focused on complex workflow products for technical users.',
+      'Experience',
+      'Principal Product Designer | Analytical Engines Ltd',
+      'Led product design for AI-assisted desktop tooling.',
+      'Skills',
+      'Product strategy, UX research, prototyping',
+    ]),
+  )
+
   const electronApp = await launchDesktopApp({
-    CV_MAXXING_AI_WORKER_PREFLIGHT_STATUS: 'auth_missing',
+    CV_MAXXING_AI_WORKER_GENERATION_DELAY_MS: '5000',
+    CV_MAXXING_AI_WORKER_GENERATION_OUTPUT: JSON.stringify(createGenerationResultFixture()),
+    CV_MAXXING_AI_WORKER_PREFLIGHT_STATUS: 'ready',
+    CV_MAXXING_AI_WORKER_RETRY_STATUS: 'auth_missing',
     CV_MAXXING_AI_WORKER_SIGN_IN_STATUS: 'ready',
-    CV_MAXXING_PENDING_GENERATION_COMMAND: JSON.stringify({
-      commandId: 'command-123',
-      originalCvId: 'original-cv-123',
-      originalCvLabel: 'ada-lovelace.pdf',
-      vacancyId: 'vacancy-123',
-      vacancyDraft: {
-        text: 'Senior platform engineer',
-        url: 'https://jobs.example.com/roles/123',
-      },
-    }),
+    CV_MAXXING_LOCAL_APP_DATA_ROOT: testPaths.appDataRoot,
+    CV_MAXXING_STARTUP_DESTINATION: 'first_launch',
   })
 
   const page = await electronApp.firstWindow()
 
+  await expect(page.getByRole('heading', { name: 'Import your original CV' })).toBeVisible()
+  await page.getByLabel('Original CV file').setInputFiles(testPaths.pdfPath)
+  await page.getByRole('button', { name: 'Import original CV' }).click()
+  await expect(page.getByRole('heading', { name: 'Create a tailored application' })).toBeVisible()
+  await page
+    .getByLabel('Job vacancy text')
+    .fill(
+      [
+        'Senior platform engineer',
+        'Analytical Engines Ltd',
+        'London, United Kingdom',
+        '',
+        'Responsibilities',
+        '- Build reliable desktop tooling for technical users.',
+        '- Partner with design and infrastructure teams.',
+        '',
+        'Requirements',
+        '- Experience shipping workflow software.',
+        '- Strong written communication.',
+      ].join('\n'),
+    )
+  await page.getByLabel('Job vacancy text').press('Tab')
+  await expect(page.getByRole('button', { name: 'Review pasted vacancy' })).toBeEnabled()
+  await page.getByRole('button', { name: 'Review pasted vacancy' }).dispatchEvent('click')
+  await expect(page.getByText('Vacancy preview', { exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'Adapt CV' }).click()
   await expect(page.getByRole('heading', { name: 'Connect the local AI worker' })).toBeVisible()
   await page.getByRole('button', { name: 'Continue sign-in' }).click()
-  await expect(page.getByRole('heading', { name: 'Generating tailored application' })).toBeVisible()
-  await expect(page.getByText('Tailoring in progress')).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Open tailored application' })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Abandon draft' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Create a tailored application' })).toBeVisible()
+  await expect(page.getByRole('status', { name: 'Loading workspace' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Cancel' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Open tailored application' })).toHaveCount(0)
 
   await electronApp.close()
 })
