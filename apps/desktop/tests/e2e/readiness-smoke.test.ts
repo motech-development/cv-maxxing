@@ -489,7 +489,7 @@ test('retries from an unavailable startup state and returns to first launch afte
   const electronApp = await launchDesktopApp({
     CV_MAXXING_AI_WORKER_PREFLIGHT_STATUS: 'runtime_missing',
     CV_MAXXING_AI_WORKER_RETRY_STATUS: 'ready',
-    CV_MAXXING_STARTUP_DESTINATION: 'workspace_empty',
+    CV_MAXXING_STARTUP_DESTINATION: 'workspace',
   })
 
   const page = await electronApp.firstWindow()
@@ -854,15 +854,15 @@ test('renders the stored adapted CV PDF artifact and exports a readable non-over
   await electronApp.close()
 })
 
-test('keeps workspace_active explicit when the saved startup destination requests it', async () => {
+test('does not infer a saved tailored application from the unified workspace startup destination', async () => {
   const electronApp = await launchDesktopApp({
     CV_MAXXING_AI_WORKER_PREFLIGHT_STATUS: 'ready',
-    CV_MAXXING_STARTUP_DESTINATION: 'workspace_active',
+    CV_MAXXING_STARTUP_DESTINATION: 'workspace',
   })
 
   const page = await electronApp.firstWindow()
 
-  await expect(page.getByRole('heading', { name: 'Tailored application' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Import your original CV' })).toBeVisible()
 
   await electronApp.close()
 })

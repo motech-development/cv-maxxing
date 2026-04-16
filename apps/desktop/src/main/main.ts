@@ -711,11 +711,7 @@ function isPendingGenerationCommand(value: unknown): value is PendingGenerationC
 }
 
 function parseStartupDestination(value: string | undefined): StartupDestination | null {
-  if (
-    value === 'workspace_loading' ||
-    value === 'workspace_active' ||
-    value === 'workspace_empty'
-  ) {
+  if (value === 'workspace_loading') {
     return 'workspace'
   }
 

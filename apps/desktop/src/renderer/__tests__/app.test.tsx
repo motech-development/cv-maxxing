@@ -771,7 +771,7 @@ test('renders the design-aligned workspace-empty screen when an original CV alre
         provider: 'codex',
         status: 'ready',
       }),
-      getStartupDestination: vi.fn().mockResolvedValue('workspace_empty'),
+      getStartupDestination: vi.fn().mockResolvedValue('workspace'),
     }),
     originalCv: createOriginalCvApi({
       getOriginalCvWorkspaceState: vi.fn().mockResolvedValue({
@@ -818,7 +818,7 @@ test('loads a persisted vacancy preview and keeps Adapt CV enabled for a reviewa
         provider: 'codex',
         status: 'ready',
       }),
-      getStartupDestination: vi.fn().mockResolvedValue('workspace_empty'),
+      getStartupDestination: vi.fn().mockResolvedValue('workspace'),
     }),
     originalCv: createOriginalCvApi({
       getOriginalCvWorkspaceState: vi.fn().mockResolvedValue({
@@ -908,7 +908,7 @@ test('shows shell-level ambient activity while a tailored-application preview re
         provider: 'codex',
         status: 'ready',
       }),
-      getStartupDestination: vi.fn().mockResolvedValue('workspace_active'),
+      getStartupDestination: vi.fn().mockResolvedValue('workspace'),
     }),
     originalCv: createOriginalCvApi({
       getOriginalCvWorkspaceState: vi.fn().mockResolvedValue({
@@ -1022,7 +1022,7 @@ test('replaces the active original CV from the workspace-empty screen and keeps 
         provider: 'codex',
         status: 'ready',
       }),
-      getStartupDestination: vi.fn().mockResolvedValue('workspace_empty'),
+      getStartupDestination: vi.fn().mockResolvedValue('workspace'),
     }),
     originalCv: createOriginalCvApi({
       getOriginalCvWorkspaceState: vi
@@ -1110,7 +1110,7 @@ test('shows the replacement snapshot count from the mutation payload while the w
         provider: 'codex',
         status: 'ready',
       }),
-      getStartupDestination: vi.fn().mockResolvedValue('workspace_empty'),
+      getStartupDestination: vi.fn().mockResolvedValue('workspace'),
     }),
     originalCv: createOriginalCvApi({
       getOriginalCvWorkspaceState: vi
@@ -1243,7 +1243,7 @@ test('refreshes the original CV workspace query after replacement instead of tru
         provider: 'codex',
         status: 'ready',
       }),
-      getStartupDestination: vi.fn().mockResolvedValue('workspace_empty'),
+      getStartupDestination: vi.fn().mockResolvedValue('workspace'),
     }),
     originalCv: createOriginalCvApi({
       getOriginalCvWorkspaceState,
@@ -1314,7 +1314,7 @@ test('replaces the active original CV from the workspace-active screen and keeps
         provider: 'codex',
         status: 'ready',
       }),
-      getStartupDestination: vi.fn().mockResolvedValue('workspace_active'),
+      getStartupDestination: vi.fn().mockResolvedValue('workspace'),
     }),
     originalCv: createOriginalCvApi({
       getOriginalCvWorkspaceState: vi
@@ -1394,7 +1394,7 @@ test('shows the workspace overlay while replacing the active original CV from th
         provider: 'codex',
         status: 'ready',
       }),
-      getStartupDestination: vi.fn().mockResolvedValue('workspace_active'),
+      getStartupDestination: vi.fn().mockResolvedValue('workspace'),
     }),
     originalCv: createOriginalCvApi({
       getOriginalCvWorkspaceState: vi
@@ -1499,7 +1499,7 @@ test('keeps the existing active original CV visible when a workspace replacement
         provider: 'codex',
         status: 'ready',
       }),
-      getStartupDestination: vi.fn().mockResolvedValue('workspace_empty'),
+      getStartupDestination: vi.fn().mockResolvedValue('workspace'),
     }),
     originalCv: createOriginalCvApi({
       getOriginalCvWorkspaceState: vi.fn().mockResolvedValue({
@@ -1575,7 +1575,7 @@ test('routes original CV replacement into the AI worker repair flow when the imp
         provider: 'codex',
         status: 'ready',
       }),
-      getStartupDestination: vi.fn().mockResolvedValue('workspace_empty'),
+      getStartupDestination: vi.fn().mockResolvedValue('workspace'),
       retryAiWorkerPreflight,
     }),
     originalCv: createOriginalCvApi({
@@ -1633,7 +1633,7 @@ test('shows the normalization failure message while keeping the existing active 
         provider: 'codex',
         status: 'ready',
       }),
-      getStartupDestination: vi.fn().mockResolvedValue('workspace_empty'),
+      getStartupDestination: vi.fn().mockResolvedValue('workspace'),
     }),
     originalCv: createOriginalCvApi({
       getOriginalCvWorkspaceState: vi.fn().mockResolvedValue({
@@ -1691,8 +1691,8 @@ test('shows the normalization failure message while keeping the existing active 
 test('reviews a ready vacancy URL and only starts tailoring after Adapt CV is clicked', async () => {
   const getStartupDestination = vi
     .fn()
-    .mockResolvedValueOnce('workspace_empty')
-    .mockResolvedValueOnce('workspace_empty')
+    .mockResolvedValueOnce('workspace')
+    .mockResolvedValueOnce('workspace')
   const getPendingGenerationCommand = vi
     .fn()
     .mockResolvedValueOnce(null)
@@ -1857,7 +1857,7 @@ test('shows the workspace overlay while reviewing a vacancy URL without surfacin
         provider: 'codex',
         status: 'ready',
       }),
-      getStartupDestination: vi.fn().mockResolvedValue('workspace_empty'),
+      getStartupDestination: vi.fn().mockResolvedValue('workspace'),
     }),
     originalCv: createOriginalCvApi({
       getOriginalCvWorkspaceState: vi.fn().mockResolvedValue({
@@ -1996,7 +1996,7 @@ test('routes to AI worker repair when starting adaptation returns a sign-in requ
         provider: 'codex',
         status: 'ready',
       }),
-      getStartupDestination: vi.fn().mockResolvedValue('workspace_empty'),
+      getStartupDestination: vi.fn().mockResolvedValue('workspace'),
     }),
     originalCv: createOriginalCvApi({
       getOriginalCvWorkspaceState: vi.fn().mockResolvedValue({
@@ -2080,7 +2080,7 @@ test('preserves pasted vacancy context in a blocking preview and keeps Adapt CV 
         provider: 'codex',
         status: 'ready',
       }),
-      getStartupDestination: vi.fn().mockResolvedValue('workspace_empty'),
+      getStartupDestination: vi.fn().mockResolvedValue('workspace'),
     }),
     originalCv: createOriginalCvApi({
       getOriginalCvWorkspaceState: vi.fn().mockResolvedValue({
@@ -2312,7 +2312,7 @@ test('refreshes the vacancy workspace query after review instead of rendering th
         provider: 'codex',
         status: 'ready',
       }),
-      getStartupDestination: vi.fn().mockResolvedValue('workspace_empty'),
+      getStartupDestination: vi.fn().mockResolvedValue('workspace'),
     }),
     originalCv: createOriginalCvApi({
       getOriginalCvWorkspaceState: vi.fn().mockResolvedValue({
@@ -2468,7 +2468,7 @@ test('locks the current vacancy draft after a successful review and keeps review
         provider: 'codex',
         status: 'ready',
       }),
-      getStartupDestination: vi.fn().mockResolvedValue('workspace_empty'),
+      getStartupDestination: vi.fn().mockResolvedValue('workspace'),
     }),
     originalCv: createOriginalCvApi({
       getOriginalCvWorkspaceState: vi.fn().mockResolvedValue({
@@ -2574,7 +2574,7 @@ test('restores a reviewed vacancy draft as locked source inputs on startup', asy
         provider: 'codex',
         status: 'ready',
       }),
-      getStartupDestination: vi.fn().mockResolvedValue('workspace_empty'),
+      getStartupDestination: vi.fn().mockResolvedValue('workspace'),
     }),
     originalCv: createOriginalCvApi({
       getOriginalCvWorkspaceState: vi.fn().mockResolvedValue({
@@ -2708,7 +2708,7 @@ test('submitting a LinkedIn vacancy URL automatically continues into the interna
         provider: 'codex',
         status: 'ready',
       }),
-      getStartupDestination: vi.fn().mockResolvedValue('workspace_empty'),
+      getStartupDestination: vi.fn().mockResolvedValue('workspace'),
     }),
     originalCv: createOriginalCvApi({
       getOriginalCvWorkspaceState: vi.fn().mockResolvedValue({
@@ -2845,7 +2845,7 @@ test('resumes the pending flow into the workspace overlay after sign-in repair',
         provider: 'codex',
         status: 'sign_in_required',
       }),
-      getStartupDestination: vi.fn().mockResolvedValue('workspace_empty'),
+      getStartupDestination: vi.fn().mockResolvedValue('workspace'),
       startAiWorkerSignIn: vi.fn().mockResolvedValue({
         canResumeGeneration: true,
         message: 'The local AI worker is ready.',
@@ -2923,7 +2923,7 @@ test('renders the workspace overlay when startup restores pending generation', a
         provider: 'codex',
         status: 'ready',
       }),
-      getStartupDestination: vi.fn().mockResolvedValue('workspace_empty'),
+      getStartupDestination: vi.fn().mockResolvedValue('workspace'),
     }),
     tailoredApplication: createTailoredApplicationApi({
       getPendingGenerationCommand: vi.fn().mockResolvedValue({
@@ -2965,7 +2965,7 @@ test('restores the workspace overlay after returning from settings during pendin
         provider: 'codex',
         status: 'ready',
       }),
-      getStartupDestination: vi.fn().mockResolvedValue('workspace_empty'),
+      getStartupDestination: vi.fn().mockResolvedValue('workspace'),
     }),
     tailoredApplication: createTailoredApplicationApi({
       getPendingGenerationCommand: vi.fn().mockResolvedValue({
@@ -3012,8 +3012,8 @@ test('restores the workspace overlay after returning from settings during pendin
 test('keeps settings open when restored generation completes in the background', async () => {
   const getStartupDestination = vi
     .fn()
-    .mockResolvedValueOnce('workspace_empty')
-    .mockResolvedValueOnce('workspace_active')
+    .mockResolvedValueOnce('workspace')
+    .mockResolvedValueOnce('workspace')
   const getPendingGenerationCommand = vi
     .fn()
     .mockResolvedValueOnce({
@@ -3210,8 +3210,8 @@ test('keeps settings open when restored generation completes in the background',
 test('returns to the workspace with a visible error when generation fails contract validation from the overlay flow', async () => {
   const getStartupDestination = vi
     .fn()
-    .mockResolvedValueOnce('workspace_empty')
-    .mockResolvedValueOnce('workspace_empty')
+    .mockResolvedValueOnce('workspace')
+    .mockResolvedValueOnce('workspace')
 
   renderApp({
     aiWorker: createAiWorkerApi({
@@ -3276,7 +3276,7 @@ test('returns to the workspace with a visible error when generation fails contra
 })
 
 test('returns to the workspace immediately when overlay recovery stalls after generation failure', async () => {
-  const getStartupDestination = vi.fn().mockResolvedValueOnce('workspace_empty')
+  const getStartupDestination = vi.fn().mockResolvedValueOnce('workspace')
   const getAiWorkerPreflight = vi
     .fn()
     .mockResolvedValueOnce({
@@ -3350,8 +3350,8 @@ test('returns to the workspace immediately when overlay recovery stalls after ge
 test('opens the tailored application when generation completes from the workspace overlay', async () => {
   const getStartupDestination = vi
     .fn()
-    .mockResolvedValueOnce('workspace_empty')
-    .mockResolvedValueOnce('workspace_active')
+    .mockResolvedValueOnce('workspace')
+    .mockResolvedValueOnce('workspace')
   const getPendingGenerationCommand = vi
     .fn()
     .mockResolvedValueOnce({
@@ -3573,8 +3573,8 @@ test('opens the tailored application when generation completes from the workspac
 test('replaces the current draft row with the new saved tailored application row without sidebar churn', async () => {
   const getStartupDestination = vi
     .fn()
-    .mockResolvedValueOnce('workspace_empty')
-    .mockResolvedValueOnce('workspace_active')
+    .mockResolvedValueOnce('workspace')
+    .mockResolvedValueOnce('workspace')
   const getPendingGenerationCommand = vi
     .fn()
     .mockResolvedValueOnce({
@@ -3737,8 +3737,8 @@ test('replaces the current draft row with the new saved tailored application row
 test('transitions to the tailored application even when vacancy cleanup is still pending', async () => {
   const getStartupDestination = vi
     .fn()
-    .mockResolvedValueOnce('workspace_empty')
-    .mockResolvedValueOnce('workspace_active')
+    .mockResolvedValueOnce('workspace')
+    .mockResolvedValueOnce('workspace')
   const getPendingGenerationCommand = vi
     .fn()
     .mockResolvedValueOnce({
@@ -4094,7 +4094,7 @@ test('browses saved tailored applications, reopens an older detail view, and del
         provider: 'codex',
         status: 'ready',
       }),
-      getStartupDestination: vi.fn().mockResolvedValue('workspace_active'),
+      getStartupDestination: vi.fn().mockResolvedValue('workspace'),
     }),
     originalCv: createOriginalCvApi({
       getOriginalCvWorkspaceState: vi.fn().mockResolvedValue({
@@ -4190,7 +4190,7 @@ test('switches between saved tailored applications without discarding the curren
         provider: 'codex',
         status: 'ready',
       }),
-      getStartupDestination: vi.fn().mockResolvedValue('workspace_active'),
+      getStartupDestination: vi.fn().mockResolvedValue('workspace'),
     }),
     originalCv: createOriginalCvApi({
       getOriginalCvWorkspaceState: vi.fn().mockResolvedValue({
@@ -4309,7 +4309,7 @@ test('deleting the selected saved tailored application returns to the current dr
         provider: 'codex',
         status: 'ready',
       }),
-      getStartupDestination: vi.fn().mockResolvedValue('workspace_active'),
+      getStartupDestination: vi.fn().mockResolvedValue('workspace'),
     }),
     originalCv: createOriginalCvApi({
       getOriginalCvWorkspaceState: vi.fn().mockResolvedValue({
@@ -4418,7 +4418,7 @@ test('starts a new blank vacancy draft from the active tailored application work
         provider: 'codex',
         status: 'ready',
       }),
-      getStartupDestination: vi.fn().mockResolvedValue('workspace_active'),
+      getStartupDestination: vi.fn().mockResolvedValue('workspace'),
     }),
     originalCv: createOriginalCvApi({
       getOriginalCvWorkspaceState: vi.fn().mockResolvedValue({
@@ -4588,7 +4588,7 @@ test('requires confirmation before discarding a meaningful draft from the active
         provider: 'codex',
         status: 'ready',
       }),
-      getStartupDestination: vi.fn().mockResolvedValue('workspace_active'),
+      getStartupDestination: vi.fn().mockResolvedValue('workspace'),
     }),
     originalCv: createOriginalCvApi({
       getOriginalCvWorkspaceState: vi.fn().mockResolvedValue({
@@ -4677,8 +4677,8 @@ test('requires confirmation before discarding a meaningful draft from the active
 test('abandons the pending draft from the workspace overlay and returns to workspace empty', async () => {
   const getStartupDestination = vi
     .fn()
-    .mockResolvedValueOnce('workspace_empty')
-    .mockResolvedValueOnce('workspace_empty')
+    .mockResolvedValueOnce('workspace')
+    .mockResolvedValueOnce('workspace')
   const abandonPendingGeneration = vi.fn().mockImplementation(() => Promise.resolve())
   const resumePendingGeneration = vi.fn().mockImplementation(() => {
     return new Promise<never>((resolve) => {
@@ -4821,7 +4821,7 @@ test('leaves settings and returns to the repair screen when the AI worker retry 
         provider: 'codex',
         status: 'ready',
       }),
-      getStartupDestination: vi.fn().mockResolvedValue('workspace_empty'),
+      getStartupDestination: vi.fn().mockResolvedValue('workspace'),
       retryAiWorkerPreflight,
     }),
     originalCv: createOriginalCvApi({
@@ -4871,7 +4871,7 @@ test('leaves settings and returns to the repair screen when the AI worker retry 
 test('requires the destructive confirmation phrase before resetting local app data and returns to first launch after reset', async () => {
   const getStartupDestination = vi
     .fn()
-    .mockResolvedValueOnce('workspace_empty')
+    .mockResolvedValueOnce('workspace')
     .mockResolvedValueOnce('first_launch')
   const getOriginalCvWorkspaceState = vi
     .fn()
@@ -4968,7 +4968,7 @@ test('shows an app-blocking overlay while resetting local app data', async () =>
         provider: 'codex',
         status: 'ready',
       }),
-      getStartupDestination: vi.fn().mockResolvedValue('workspace_empty'),
+      getStartupDestination: vi.fn().mockResolvedValue('workspace'),
     }),
     originalCv: createOriginalCvApi({
       getOriginalCvWorkspaceState: vi.fn().mockResolvedValue({

@@ -88,7 +88,7 @@ test('persists checking timeout, startup destination, and pending generation con
   await secondStore.close()
 })
 
-test('normalizes retired workspace startup destinations to workspace', async () => {
+test('ignores retired workspace startup destinations instead of translating them', async () => {
   const paths = await createTestPaths()
   const store = await openLocalAppData({
     keychain: createKeychainBoundary(),
@@ -98,14 +98,14 @@ test('normalizes retired workspace startup destinations to workspace', async () 
   await store.metadata.put({
     id: 'destination',
     scope: 'startup',
-    value: 'workspace_loading',
+    value: 'workspace_active',
   })
 
   const readinessStore = createAiWorkerReadinessStore({
     localAppData: store,
   })
 
-  await expect(readinessStore.getStartupDestination()).resolves.toBe('workspace')
+  await expect(readinessStore.getStartupDestination()).resolves.toBeNull()
 
   await store.close()
 })

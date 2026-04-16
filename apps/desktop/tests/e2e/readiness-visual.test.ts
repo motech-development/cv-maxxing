@@ -77,7 +77,7 @@ test('captures the AI worker repair screen', async () => {
   const electronApp = await launchDesktopApp({
     CV_MAXXING_AI_WORKER_PREFLIGHT_STATUS: 'runtime_missing',
     CV_MAXXING_MAIN_WINDOW_SHOW: 'false',
-    CV_MAXXING_STARTUP_DESTINATION: 'workspace_empty',
+    CV_MAXXING_STARTUP_DESTINATION: 'workspace',
   })
 
   const page = await electronApp.firstWindow()
@@ -289,7 +289,7 @@ test('captures ambient shell activity while reopening a saved tailored applicati
     CV_MAXXING_AI_WORKER_PREFLIGHT_STATUS: 'ready',
     CV_MAXXING_LOCAL_APP_DATA_ROOT: testPaths.appDataRoot,
     CV_MAXXING_MAIN_WINDOW_SHOW: 'false',
-    CV_MAXXING_STARTUP_DESTINATION: 'workspace_active',
+    CV_MAXXING_STARTUP_DESTINATION: 'workspace',
     CV_MAXXING_TAILORED_APPLICATION_PREVIEW_DELAY_MS: '5000',
   })
 

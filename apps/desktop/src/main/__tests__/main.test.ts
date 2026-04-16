@@ -218,7 +218,7 @@ test('bootstrap registers the full AI worker onboarding IPC surface and opens th
         provider: 'codex',
         status: 'ready',
       }),
-    getStartupDestination: vi.fn().mockResolvedValue('workspace_active'),
+    getStartupDestination: vi.fn().mockResolvedValue('workspace'),
     openAiWorkerSetupGuide: vi.fn().mockImplementation(() => Promise.resolve()),
     retryAiWorkerPreflight: vi
       .fn()
@@ -477,7 +477,7 @@ test('bootstrap registers the full AI worker onboarding IPC surface and opens th
   })
   await expect(
     registeredHandlers.get(AI_WORKER_IPC_CHANNELS.getStartupDestination)?.(),
-  ).resolves.toBe('workspace_active')
+  ).resolves.toBe('workspace')
   await expect(registeredHandlers.get(AI_WORKER_IPC_CHANNELS.retryPreflight)?.()).resolves.toEqual({
     canResumeGeneration: false,
     failureCode: 'runtime_missing',
@@ -1013,7 +1013,7 @@ test('bootstrap recreates the window on activate and quits on window-all-closed 
         provider: 'codex',
         status: 'ready',
       }),
-      getStartupDestination: vi.fn().mockResolvedValue('workspace_empty'),
+      getStartupDestination: vi.fn().mockResolvedValue('workspace'),
       openAiWorkerSetupGuide: vi.fn().mockImplementation(() => Promise.resolve()),
       retryAiWorkerPreflight: vi.fn().mockResolvedValue({
         canResumeGeneration: true,
@@ -1096,7 +1096,7 @@ test('bootstrap logs and swallows activate window recreation failures', async ()
         provider: 'codex',
         status: 'ready',
       }),
-      getStartupDestination: vi.fn().mockResolvedValue('workspace_active'),
+      getStartupDestination: vi.fn().mockResolvedValue('workspace'),
       openAiWorkerSetupGuide: vi.fn().mockImplementation(() => Promise.resolve()),
       retryAiWorkerPreflight: vi.fn().mockResolvedValue({
         canResumeGeneration: true,
@@ -1160,7 +1160,7 @@ test('bootstrap keeps the app open when every window closes on macOS', async () 
         provider: 'codex',
         status: 'ready',
       }),
-      getStartupDestination: vi.fn().mockResolvedValue('workspace_active'),
+      getStartupDestination: vi.fn().mockResolvedValue('workspace'),
       openAiWorkerSetupGuide: vi.fn().mockImplementation(() => Promise.resolve()),
       retryAiWorkerPreflight: vi.fn().mockResolvedValue({
         canResumeGeneration: true,
@@ -1362,7 +1362,7 @@ test('runtime dependencies adapt Electron primitives for the bootstrap contract'
       provider: 'codex',
       status: 'ready',
     }),
-    getStartupDestination: vi.fn().mockResolvedValue('workspace_active'),
+    getStartupDestination: vi.fn().mockResolvedValue('workspace'),
     openAiWorkerSetupGuide: vi.fn().mockImplementation(() => Promise.resolve()),
     retryAiWorkerPreflight: vi.fn().mockResolvedValue({
       canResumeGeneration: true,
@@ -1450,9 +1450,7 @@ test('runtime dependencies adapt Electron primitives for the bootstrap contract'
     provider: 'codex',
     status: 'ready',
   })
-  await expect(runtimeDependencies.aiWorker.getStartupDestination()).resolves.toBe(
-    'workspace_active',
-  )
+  await expect(runtimeDependencies.aiWorker.getStartupDestination()).resolves.toBe('workspace')
 })
 
 test('createElectronRuntimeDependencies exposes a Darwin dock icon setter backed by the app asset', () => {
@@ -1475,7 +1473,7 @@ test('createElectronRuntimeDependencies exposes a Darwin dock icon setter backed
         provider: 'codex',
         status: 'ready',
       }),
-      getStartupDestination: vi.fn().mockResolvedValue('workspace_active'),
+      getStartupDestination: vi.fn().mockResolvedValue('workspace'),
       openAiWorkerSetupGuide: vi.fn().mockImplementation(() => Promise.resolve()),
       retryAiWorkerPreflight: vi.fn().mockResolvedValue({
         canResumeGeneration: true,
