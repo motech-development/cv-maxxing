@@ -148,11 +148,7 @@ export function DesktopShell({
           </nav>
 
           <div className="relative flex min-h-0 min-w-0 flex-1">
-            <aside className="flex min-h-0 w-[328px] flex-col overflow-hidden border-r border-[var(--color-border)] bg-[var(--color-shell-sidebar)]">
-              <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-5">
-                {sidebar}
-              </div>
-            </aside>
+            <aside className="flex min-h-0 shrink-0">{sidebar}</aside>
 
             <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto bg-[var(--color-surface-0)] p-7">
               {children}

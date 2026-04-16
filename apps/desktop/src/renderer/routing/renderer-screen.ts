@@ -6,8 +6,7 @@ export type RendererScreenKind =
   | 'ai_worker_sign_in_required'
   | 'ai_worker_unavailable'
   | 'first_launch'
-  | 'workspace_active'
-  | 'workspace_empty'
+  | 'workspace'
 
 export interface ResolveRendererScreenInput {
   originalCvWorkspaceState: OriginalCvWorkspaceState
@@ -30,13 +29,9 @@ export function resolveRendererScreen({
     return 'ai_worker_unavailable'
   }
 
-  if (readinessViewModel.startupDestination === 'workspace_active') {
-    return 'workspace_active'
-  }
-
   if (originalCvWorkspaceState.activeOriginalCv === null) {
     return 'first_launch'
   }
 
-  return 'workspace_empty'
+  return 'workspace'
 }

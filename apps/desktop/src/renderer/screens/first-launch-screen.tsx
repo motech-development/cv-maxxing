@@ -1,6 +1,7 @@
 import type { ChangeEvent, DragEvent, KeyboardEvent, ReactNode } from 'react'
 
 import { DesktopShell, type RailItemId } from '../shell/desktop-shell.js'
+import { SidebarContainer } from '../shell/sidebar-container.js'
 import { Button } from '../ui/button.js'
 import { PanelCard } from '../ui/panel-card.js'
 import { SectionLabel } from '../ui/section-label.js'
@@ -55,7 +56,11 @@ export function FirstLaunchScreen({
     <DesktopShell
       activeRailItem="original_cv"
       onSelectRailItem={onSelectRailItem}
-      sidebar={<FirstLaunchSidebar />}
+      sidebar={
+        <SidebarContainer>
+          <FirstLaunchSidebar />
+        </SidebarContainer>
+      }
       subtitle="First launch"
       workspaceOverlay={workspaceOverlay}
       workerLabel="Worker ready"

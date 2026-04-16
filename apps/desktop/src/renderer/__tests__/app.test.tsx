@@ -553,7 +553,7 @@ test('imports the first original CV and transitions into the design-aligned work
   expect(retryAiWorkerPreflight).not.toHaveBeenCalled()
   expect(importOriginalCv).toHaveBeenCalledTimes(1)
   expect(screen.getByText('Job vacancies')).toBeDefined()
-  expect(screen.getByText('No tailored applications yet')).toBeDefined()
+  expect(screen.getByText('No vacancy items yet')).toBeDefined()
   expect(screen.getByRole('button', { name: 'New vacancy' })).toBeDefined()
   expect(screen.getByLabelText('Vacancy URL')).toBeDefined()
   expect(screen.getByLabelText('Job vacancy text')).toBeDefined()
@@ -856,7 +856,7 @@ test('loads a persisted vacancy preview and keeps Adapt CV enabled for a reviewa
   })
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Create a tailored application' })).toBeDefined()
+    expect(screen.getByRole('heading', { name: 'Current vacancy draft' })).toBeDefined()
   })
 
   await waitFor(() => {
@@ -937,9 +937,7 @@ test('shows shell-level ambient activity while a tailored-application preview re
     ).toBeDefined()
   })
 
-  fireEvent.click(
-    screen.getByRole('button', { name: 'Open tailored application Platform Product Manager' }),
-  )
+  fireEvent.click(screen.getByRole('button', { name: 'Open platform product manager' }))
 
   await waitFor(() => {
     expect(getTailoredApplicationPreview).toHaveBeenLastCalledWith('tailored-application-456')
@@ -1336,7 +1334,7 @@ test('replaces the active original CV from the workspace-active screen and keeps
   })
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Tailored application' })).toBeDefined()
+    expect(screen.getByRole('heading', { name: 'Create a tailored application' })).toBeDefined()
   })
 
   fireEvent.change(screen.getByLabelText('Replacement original CV file'), {
@@ -1358,7 +1356,7 @@ test('replaces the active original CV from the workspace-active screen and keeps
   expect(importOriginalCv.mock.calls[0]?.[0].content).toBeInstanceOf(Uint8Array)
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Tailored application' })).toBeDefined()
+    expect(screen.getByRole('heading', { name: 'Create a tailored application' })).toBeDefined()
   })
 
   expect(screen.getByText('ada-lovelace-revised.docx')).toBeDefined()
@@ -1431,7 +1429,7 @@ test('shows the workspace overlay while replacing the active original CV from th
   })
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Tailored application' })).toBeDefined()
+    expect(screen.getByRole('heading', { name: 'Create a tailored application' })).toBeDefined()
   })
 
   fireEvent.change(screen.getByLabelText('Replacement original CV file'), {
@@ -1452,7 +1450,7 @@ test('shows the workspace overlay while replacing the active original CV from th
   expect(screen.getByRole('status', { name: 'Loading workspace' })).toBeDefined()
   expect(screen.queryByRole('button', { name: 'Cancel' })).toBeNull()
   expect(screen.getByRole('button', { name: 'Settings' })).toBeDefined()
-  expect(screen.getByRole('heading', { name: 'Tailored application' })).toBeDefined()
+  expect(screen.getByRole('heading', { name: 'Create a tailored application' })).toBeDefined()
 
   importOriginalCvDeferredPromise.resolve({
     kind: 'imported',
@@ -1820,7 +1818,7 @@ test('reviews a ready vacancy URL and only starts tailoring after Adapt CV is cl
   })
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Create a tailored application' })).toBeDefined()
+    expect(screen.getByRole('heading', { name: 'Current vacancy draft' })).toBeDefined()
   })
 
   expect(screen.getByRole('status', { name: 'Loading workspace' })).toBeDefined()
@@ -1898,7 +1896,7 @@ test('shows the workspace overlay while reviewing a vacancy URL without surfacin
   expect(screen.getByRole('status', { name: 'Loading workspace' })).toBeDefined()
   expect(screen.queryByRole('button', { name: 'Cancel' })).toBeNull()
   expect(screen.getByRole('button', { name: 'Settings' })).toBeDefined()
-  expect(screen.getByRole('heading', { name: 'Create a tailored application' })).toBeDefined()
+  expect(screen.getByRole('heading', { name: 'Current vacancy draft' })).toBeDefined()
 
   ingestVacancyUrlDeferredPromise.resolve({
     kind: 'ingested',
@@ -2040,7 +2038,7 @@ test('routes to AI worker repair when starting adaptation returns a sign-in requ
   })
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Create a tailored application' })).toBeDefined()
+    expect(screen.getByRole('heading', { name: 'Current vacancy draft' })).toBeDefined()
   })
   await waitFor(() => {
     expect(screen.getByRole('button', { name: 'Adapt CV' })).toHaveProperty('disabled', false)
@@ -3170,6 +3168,27 @@ test('opens the tailored application when generation completes from the workspac
       }),
       getStartupDestination,
     }),
+    originalCv: createOriginalCvApi({
+      getOriginalCvWorkspaceState: vi.fn().mockResolvedValue({
+        activeOriginalCv: {
+          fileType: 'pdf',
+          headline: 'Principal Product Designer',
+          id: 'original-cv-123',
+          importedAt: '2026-04-08T14:30:00.000Z',
+          originalFilename: 'ada-lovelace.pdf',
+          pageCount: 1,
+          snapshotCount: 1,
+          summary: 'Design leader focused on complex workflow products.',
+          writingStyle: {
+            averageSentenceLength: 7,
+            clicheDetections: [],
+            firstPersonUsage: 'absent',
+            formality: 'direct',
+          },
+        },
+        snapshotCount: 1,
+      }),
+    }),
     tailoredApplication: createTailoredApplicationApi({
       completePendingGeneration,
       exportAdaptedCvPdf,
@@ -3357,6 +3376,27 @@ test('transitions to the tailored application even when vacancy cleanup is still
         status: 'ready',
       }),
       getStartupDestination,
+    }),
+    originalCv: createOriginalCvApi({
+      getOriginalCvWorkspaceState: vi.fn().mockResolvedValue({
+        activeOriginalCv: {
+          fileType: 'pdf',
+          headline: 'Principal Product Designer',
+          id: 'original-cv-123',
+          importedAt: '2026-04-08T14:30:00.000Z',
+          originalFilename: 'ada-lovelace.pdf',
+          pageCount: 1,
+          snapshotCount: 1,
+          summary: 'Design leader focused on complex workflow products.',
+          writingStyle: {
+            averageSentenceLength: 7,
+            clicheDetections: [],
+            firstPersonUsage: 'absent',
+            formality: 'direct',
+          },
+        },
+        snapshotCount: 1,
+      }),
     }),
     tailoredApplication: createTailoredApplicationApi({
       completePendingGeneration,
@@ -3605,9 +3645,7 @@ test('browses saved tailored applications, reopens an older detail view, and del
     ).toBeDefined()
   })
 
-  fireEvent.click(
-    screen.getByRole('button', { name: 'Open tailored application Platform Product Manager' }),
-  )
+  fireEvent.click(screen.getByRole('button', { name: 'Open platform product manager' }))
 
   await waitFor(() => {
     expect(
@@ -3763,12 +3801,9 @@ test('starts a new vacancy draft from the active tailored application workspace'
     expect(screen.getByRole('heading', { name: 'Create a tailored application' })).toBeDefined()
   })
 
-  expect(screen.getByText('Saved tailored applications')).toBeDefined()
   expect(screen.getByLabelText('Vacancy URL')).toBeDefined()
   expect(screen.getByLabelText('Job vacancy text')).toBeDefined()
-  expect(
-    screen.getByRole('button', { name: 'Open tailored application Senior platform engineer' }),
-  ).toBeDefined()
+  expect(screen.getByRole('button', { name: 'Open senior platform engineer' })).toBeDefined()
 })
 
 test('abandons the pending draft from the workspace overlay and returns to workspace empty', async () => {

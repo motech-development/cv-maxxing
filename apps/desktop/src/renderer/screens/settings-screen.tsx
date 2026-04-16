@@ -4,6 +4,7 @@ import { Shield, Sparkles } from 'lucide-react'
 import type { SettingsSnapshot } from '../../shared/settings.js'
 import { SETTINGS_RESET_CONFIRMATION_PHRASE } from '../../shared/settings.js'
 import { DesktopShell, type RailItemId } from '../shell/desktop-shell.js'
+import { SidebarContainer } from '../shell/sidebar-container.js'
 import { Button } from '../ui/button.js'
 import { PanelCard } from '../ui/panel-card.js'
 import { SectionLabel } from '../ui/section-label.js'
@@ -70,7 +71,7 @@ export function SettingsScreen({
       ambientActivityLabel={ambientActivityLabel}
       onSelectRailItem={onSelectRailItem}
       sidebar={
-        <>
+        <SidebarContainer>
           <SectionLabel>Settings</SectionLabel>
           <h2 className="m-0 text-2xl font-extrabold tracking-[-0.02em] text-[var(--color-copy-strong)]">
             Local app settings
@@ -94,7 +95,7 @@ export function SettingsScreen({
             />
           </div>
           <div className="flex-1" />
-        </>
+        </SidebarContainer>
       }
       subtitle="Settings"
       workerLabel={workerStatusLabel}

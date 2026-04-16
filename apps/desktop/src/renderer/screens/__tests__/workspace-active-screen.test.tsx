@@ -3,37 +3,24 @@
 import { render, screen } from '@testing-library/react'
 import { expect, test, vi } from 'vitest'
 
-import { WorkspaceActiveScreen } from '../workspace-active-screen.js'
+import { WorkspaceApplicationView } from '../workspace-active-screen.js'
 
 test('keeps the document preview column shrinkable beside the vacancy panel', () => {
   const onCopyCoverLetterText = vi.fn()
-  const onCreateVacancy = vi.fn()
   const onDeleteTailoredApplication = vi.fn()
   const onExportPdf = vi.fn()
-  const onOriginalCvFileSelection = vi.fn()
-  const onReplaceOriginalCv = vi.fn()
-  const onSelectApplication = vi.fn()
   const onSelectPreviewDocument = vi.fn()
 
   render(
-    <WorkspaceActiveScreen
-      activeOriginalCv={null}
+    <WorkspaceApplicationView
       applicationTitle="Tailored application"
-      applications={[]}
-      importError={null}
       isConfirmingDeleteTailoredApplication={false}
       isCopyingCoverLetterText={false}
       isExportingPdf={false}
-      isImportingOriginalCv={false}
       onCopyCoverLetterText={onCopyCoverLetterText}
-      onCreateVacancy={onCreateVacancy}
       onDeleteTailoredApplication={onDeleteTailoredApplication}
       onExportPdf={onExportPdf}
-      onOriginalCvFileSelection={onOriginalCvFileSelection}
-      onReplaceOriginalCv={onReplaceOriginalCv}
-      onSelectApplication={onSelectApplication}
       onSelectPreviewDocument={onSelectPreviewDocument}
-      originalCvFile={null}
       preview={null}
       previewDocumentKind="adapted_cv"
       workspaceError={null}

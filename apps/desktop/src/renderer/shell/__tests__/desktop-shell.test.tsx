@@ -4,12 +4,17 @@ import { render, screen } from '@testing-library/react'
 import { expect, test } from 'vitest'
 
 import { DesktopShell } from '../desktop-shell.js'
+import { SidebarContainer } from '../sidebar-container.js'
 
 test('renders a full-bleed app shell that aligns with macOS window chrome', () => {
   const { container } = render(
     <DesktopShell
       activeRailItem="setup"
-      sidebar={<div>Sidebar</div>}
+      sidebar={
+        <SidebarContainer>
+          <div>Sidebar</div>
+        </SidebarContainer>
+      }
       subtitle="AI worker setup"
       workerLabel="Checking"
       workerTone="muted"
@@ -22,14 +27,14 @@ test('renders a full-bleed app shell that aligns with macOS window chrome', () =
   const shellFrame = container.querySelector('section')
   const topbar = container.querySelector('header')
   const sidebar = container.querySelector('aside')
-  const sidebarScrollport = sidebar?.firstElementChild
+  const sidebarContainer = sidebar?.firstElementChild
   const contentPane = sidebar?.nextElementSibling
 
   expect(shellRoot).not.toBeNull()
   expect(shellFrame).not.toBeNull()
   expect(topbar).not.toBeNull()
   expect(sidebar).not.toBeNull()
-  expect(sidebarScrollport).not.toBeNull()
+  expect(sidebarContainer).not.toBeNull()
   expect(contentPane).not.toBeNull()
 
   expect(shellRoot?.className).not.toContain('p-6')
@@ -43,8 +48,6 @@ test('renders a full-bleed app shell that aligns with macOS window chrome', () =
   expect(topbar?.className).toContain('pr-[18px]')
   expect(topbar?.className).not.toContain('pt-2')
   expect(sidebar?.className).toContain('min-h-0')
-  expect(sidebar?.className).toContain('overflow-hidden')
-  expect(sidebarScrollport?.className).toContain('overflow-y-auto')
   expect(contentPane?.className).toContain('overflow-y-auto')
   expect(container.querySelectorAll('nav svg')).toHaveLength(4)
   expect(screen.queryByText('AI')).toBeNull()
@@ -57,7 +60,11 @@ test('renders ambient shell activity separately from AI-worker health', () => {
     <DesktopShell
       activeRailItem="job_vacancies"
       ambientActivityLabel="Background activity"
-      sidebar={<div>Sidebar</div>}
+      sidebar={
+        <SidebarContainer>
+          <div>Sidebar</div>
+        </SidebarContainer>
+      }
       subtitle="Workspace"
       workerLabel="Local"
       workerTone="ready"
