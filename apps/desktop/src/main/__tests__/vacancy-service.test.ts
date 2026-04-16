@@ -810,6 +810,7 @@ test('derives generic URL review readiness from the normalized vacancy object an
       text: '',
       url: 'https://careers.example.com/product-designer',
     },
+    reviewState: 'reviewed',
     vacancy: {
       blockingReason: null,
       canGenerate: true,
@@ -870,6 +871,7 @@ test('clears the persisted vacancy workspace draft without deleting the stored v
       text: '',
       url: '',
     },
+    reviewState: 'editable',
     vacancy: null,
   })
   await expect(
@@ -886,6 +888,77 @@ test('clears the persisted vacancy workspace draft without deleting the stored v
   )
 
   await localAppData.close()
+})
+
+test('restores a successfully reviewed vacancy draft as reviewed after reopening local app data', async () => {
+  const paths = await createTestPaths()
+  const firstStore = await openLocalAppData({
+    keychain: createKeychainBoundary(),
+    paths,
+  })
+  const firstVacancyService = createVacancyService({
+    generateId: vi.fn(() => 'vacancy-reviewed'),
+    getCurrentTimestamp: vi.fn(() => '2026-04-08T21:35:00.000Z'),
+    localAppData: firstStore,
+    normalizationService: createVacancyNormalizationServiceDouble(),
+    openVacancyBrowserSession: vi.fn(() => Promise.resolve(null)),
+  })
+
+  await firstVacancyService.ingestPastedVacancy({
+    text: [
+      'Senior Product Designer',
+      'Example Labs',
+      'London, United Kingdom',
+      '',
+      'Responsibilities',
+      '- Lead product design for AI-assisted desktop workflows.',
+      '- Partner with engineering and research teams.',
+      '',
+      'Requirements',
+      '- Experience shipping workflow products.',
+      '- Strong written communication.',
+    ].join('\n'),
+    url: 'https://jobs.example.com/reviewed-role',
+  })
+  await firstStore.close()
+
+  const secondStore = await openLocalAppData({
+    keychain: createKeychainBoundary(),
+    paths,
+  })
+  const secondVacancyService = createVacancyService({
+    localAppData: secondStore,
+    normalizationService: createVacancyNormalizationServiceDouble(),
+    openVacancyBrowserSession: vi.fn(() => Promise.resolve(null)),
+  })
+
+  await expect(secondVacancyService.getWorkspaceState()).resolves.toMatchObject({
+    draft: {
+      text: [
+        'Senior Product Designer',
+        'Example Labs',
+        'London, United Kingdom',
+        '',
+        'Responsibilities',
+        '- Lead product design for AI-assisted desktop workflows.',
+        '- Partner with engineering and research teams.',
+        '',
+        'Requirements',
+        '- Experience shipping workflow products.',
+        '- Strong written communication.',
+      ].join('\n'),
+      url: 'https://jobs.example.com/reviewed-role',
+    },
+    reviewState: 'reviewed',
+    vacancy: {
+      canGenerate: true,
+      id: 'vacancy-reviewed',
+      status: 'ready',
+      title: 'Senior Product Designer',
+    },
+  })
+
+  await secondStore.close()
 })
 
 test('blocks a non-English pasted vacancy while preserving the entered draft', async () => {
@@ -1063,6 +1136,7 @@ test('preserves the entered URL draft and throws when generic URL review is sema
       text: '',
       url: 'https://careers.example.com/product-designer',
     },
+    reviewState: 'editable',
     vacancy: null,
   })
   await expect(
@@ -1135,6 +1209,7 @@ test('preserves the entered URL draft and throws when browser-assisted review fa
       text: '',
       url: 'https://www.linkedin.com/jobs/view/654321',
     },
+    reviewState: 'editable',
     vacancy: null,
   })
   await expect(

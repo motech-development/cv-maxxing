@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto'
 import type {
   VacancyIngestResult,
   VacancyInputType,
+  VacancyReviewState,
   VacancySource,
   VacancySummary,
   VacancyWorkspaceState,
@@ -69,6 +70,7 @@ interface VacancyMetadataValue extends Record<string, JsonValue> {
 }
 
 interface VacancyDraftMetadataValue extends Record<string, JsonValue> {
+  reviewState: VacancyReviewState | null
   text: string
   url: string
   vacancyId: string | null
@@ -117,27 +119,15 @@ export function createVacancyService({
             text: draftRecord?.text ?? '',
             url: draftRecord?.url ?? '',
           },
+          reviewState: 'editable',
           vacancy: null,
         }
       }
 
-      const vacancyRecord = await localAppData.metadata.get<VacancyMetadataValue>({
-        id: draftRecord.vacancyId,
-        scope: VACANCY_SCOPE,
+      return await buildVacancyWorkspaceState({
+        draftRecord,
+        localAppData,
       })
-
-      return {
-        draft: {
-          text: draftRecord.text,
-          url: draftRecord.url,
-        },
-        vacancy: vacancyRecord
-          ? toVacancySummary({
-              id: draftRecord.vacancyId,
-              metadata: vacancyRecord,
-            })
-          : null,
-      }
     },
     ingestPastedVacancy: async ({
       text,
@@ -204,6 +194,7 @@ export function createVacancyService({
         id: VACANCY_WORKSPACE_RECORD_ID,
         scope: VACANCY_DRAFT_SCOPE,
         value: {
+          reviewState: canGenerate ? 'reviewed' : 'editable',
           text: trimmedText,
           url: normalizedUrl ?? '',
           vacancyId,
@@ -484,6 +475,7 @@ async function persistFetchedVacancyPage({
     id: VACANCY_WORKSPACE_RECORD_ID,
     scope: VACANCY_DRAFT_SCOPE,
     value: {
+      reviewState: canGenerate ? 'reviewed' : 'editable',
       text: '',
       url: originalUrl,
       vacancyId,
@@ -546,27 +538,15 @@ async function thisGetWorkspaceState(
         text: draftRecord?.text ?? '',
         url: draftRecord?.url ?? '',
       },
+      reviewState: 'editable',
       vacancy: null,
     }
   }
 
-  const vacancyRecord = await localAppData.metadata.get<VacancyMetadataValue>({
-    id: draftRecord.vacancyId,
-    scope: VACANCY_SCOPE,
+  return await buildVacancyWorkspaceState({
+    draftRecord,
+    localAppData,
   })
-
-  return {
-    draft: {
-      text: draftRecord.text,
-      url: draftRecord.url,
-    },
-    vacancy: vacancyRecord
-      ? toVacancySummary({
-          id: draftRecord.vacancyId,
-          metadata: vacancyRecord,
-        })
-      : null,
-  }
 }
 
 async function persistVacancyWorkspaceDraft({
@@ -580,11 +560,81 @@ async function persistVacancyWorkspaceDraft({
     id: VACANCY_WORKSPACE_RECORD_ID,
     scope: VACANCY_DRAFT_SCOPE,
     value: {
+      reviewState: 'editable',
       text: '',
       url,
       vacancyId: null,
     } satisfies VacancyDraftMetadataValue,
   })
+}
+
+async function buildVacancyWorkspaceState({
+  draftRecord,
+  localAppData,
+}: {
+  draftRecord: VacancyDraftMetadataValue
+  localAppData: Pick<LocalAppDataStore, 'metadata'>
+}): Promise<VacancyWorkspaceState> {
+  if (draftRecord.vacancyId === null) {
+    return {
+      draft: {
+        text: draftRecord.text,
+        url: draftRecord.url,
+      },
+      reviewState: 'editable',
+      vacancy: null,
+    }
+  }
+
+  const vacancyRecord = await localAppData.metadata.get<VacancyMetadataValue>({
+    id: draftRecord.vacancyId,
+    scope: VACANCY_SCOPE,
+  })
+  const vacancy =
+    vacancyRecord === null
+      ? null
+      : toVacancySummary({
+          id: draftRecord.vacancyId,
+          metadata: vacancyRecord,
+        })
+
+  return {
+    draft: {
+      text: draftRecord.text,
+      url: draftRecord.url,
+    },
+    reviewState: resolveVacancyReviewState({
+      draftRecord,
+      vacancyRecord,
+    }),
+    vacancy,
+  }
+}
+
+function resolveVacancyReviewState({
+  draftRecord,
+  vacancyRecord,
+}: {
+  draftRecord: VacancyDraftMetadataValue
+  vacancyRecord: VacancyMetadataValue | null
+}): VacancyReviewState {
+  if (vacancyRecord === null) {
+    return 'editable'
+  }
+
+  if (draftRecord.reviewState === 'reviewed') {
+    return 'reviewed'
+  }
+
+  if (draftRecord.reviewState === 'editable') {
+    return 'editable'
+  }
+
+  if (vacancyRecord.canGenerate && vacancyRecord.status === 'ready') {
+    return 'reviewed'
+  }
+
+  return 'editable'
 }
 
 function toVacancyMetadataValue(vacancy: VacancySummary): VacancyMetadataValue {

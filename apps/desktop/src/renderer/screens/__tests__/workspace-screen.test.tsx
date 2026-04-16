@@ -19,6 +19,7 @@ const baseProperties = {
       vacancyTitle: 'Platform Product Manager',
     },
   ],
+  draftReviewState: 'editable' as const,
   importError: null,
   isAdaptingCv: false,
   isConfirmingDeleteTailoredApplication: false,

@@ -74,6 +74,7 @@ const initialVacancyDraft: VacancyDraft = {
 
 const initialVacancyWorkspaceState = {
   draft: initialVacancyDraft,
+  reviewState: 'editable' as const,
   vacancy: null,
 }
 
@@ -646,6 +647,10 @@ export function App() {
   const vacancyPreview = isVacancyDraftReviewed(vacancyDraft, previewedVacancyDraft)
     ? reviewedVacancyPreview
     : null
+  const draftReviewState =
+    vacancyPreview === null
+      ? initialVacancyWorkspaceState.reviewState
+      : vacancyWorkspaceState.reviewState
   const queriedVacancyDraft = vacancyWorkspaceState.draft
 
   useEffect(() => {
@@ -1170,6 +1175,7 @@ export function App() {
             ambientActivityLabel={ambientActivityLabel}
             applicationTitle={selectedTailoredApplication?.title ?? null}
             applications={tailoredApplicationWorkspaceState.applications}
+            draftReviewState={draftReviewState}
             importError={importError}
             isAdaptingCv={isPendingGenerationActionPending}
             isConfirmingDeleteTailoredApplication={isConfirmingDeleteTailoredApplication}

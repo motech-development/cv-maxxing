@@ -5,7 +5,7 @@ import type {
   TailoredApplicationListItem,
   TailoredApplicationPreview,
 } from '../../shared/tailored-application.js'
-import type { VacancySummary } from '../../shared/vacancy.js'
+import type { VacancyReviewState, VacancySummary } from '../../shared/vacancy.js'
 import { DesktopShell, type RailItemId } from '../shell/desktop-shell.js'
 import { SidebarContainer } from '../shell/sidebar-container.js'
 import { Button } from '../ui/button.js'
@@ -23,6 +23,7 @@ interface WorkspaceScreenProperties {
   ambientActivityLabel?: string | null
   applicationTitle: string | null
   applications: TailoredApplicationListItem[]
+  draftReviewState: VacancyReviewState
   importError: string | null
   isAdaptingCv: boolean
   isConfirmingDeleteTailoredApplication: boolean
@@ -66,6 +67,7 @@ export function WorkspaceScreen({
   ambientActivityLabel,
   applicationTitle,
   applications,
+  draftReviewState,
   importError,
   isAdaptingCv,
   isConfirmingDeleteTailoredApplication,
@@ -187,6 +189,7 @@ export function WorkspaceScreen({
         />
       ) : (
         <WorkspaceDraftView
+          draftReviewState={draftReviewState}
           isAdaptingCv={isAdaptingCv}
           isCurrentDraftMeaningful={isCurrentDraftMeaningful}
           isOpeningVacancyBrowser={isOpeningVacancyBrowser}

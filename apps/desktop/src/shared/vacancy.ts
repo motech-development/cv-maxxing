@@ -1,4 +1,5 @@
 export type VacancyInputType = 'pasted_text' | 'url'
+export type VacancyReviewState = 'editable' | 'reviewed'
 export type VacancySource = 'generic' | 'greenhouse' | 'indeed' | 'linkedin'
 export type VacancyStatus = 'incomplete' | 'ready'
 
@@ -36,6 +37,7 @@ export interface VacancySummary {
 
 export interface VacancyWorkspaceState {
   draft: VacancyDraft
+  reviewState: VacancyReviewState
   vacancy: VacancySummary | null
 }
 

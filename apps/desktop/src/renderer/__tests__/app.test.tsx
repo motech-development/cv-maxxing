@@ -1935,6 +1935,7 @@ test('shows the workspace overlay while reviewing a vacancy URL without surfacin
         text: '',
         url: 'https://boards.greenhouse.io/example/jobs/123',
       },
+      reviewState: 'reviewed',
       vacancy: {
         blockingReason: null,
         canGenerate: true,
@@ -2378,6 +2379,280 @@ test('refreshes the vacancy workspace query after review instead of rendering th
     'Query-backed reviewed vacancy draft.',
   )
   expect(screen.queryByText('Mutation payload Senior Product Designer')).toBeNull()
+})
+
+test('locks the current vacancy draft after a successful review and keeps review actions visible but disabled', async () => {
+  const getVacancyWorkspaceState = vi
+    .fn()
+    .mockResolvedValueOnce({
+      draft: {
+        text: '',
+        url: '',
+      },
+      vacancy: null,
+    })
+    .mockResolvedValueOnce({
+      draft: {
+        text: 'Reviewed vacancy draft.',
+        url: 'https://jobs.example.com/reviewed-role',
+      },
+      reviewState: 'reviewed',
+      vacancy: {
+        blockingReason: null,
+        canGenerate: true,
+        employer: 'Example Labs',
+        fetchedAt: '2026-04-08T21:00:00.000Z',
+        id: 'vacancy-reviewed',
+        inputType: 'pasted_text',
+        location: 'London, United Kingdom',
+        originalUrl: 'https://jobs.example.com/reviewed-role',
+        requirements: ['Experience shipping workflow software.'],
+        resolvedUrl: 'https://jobs.example.com/reviewed-role',
+        responsibilities: ['Lead product design for reviewed draft state.'],
+        source: 'generic',
+        status: 'ready',
+        textPreview: 'Lead product design for reviewed draft state.',
+        title: 'Reviewed Senior Product Designer',
+      },
+    })
+  const ingestPastedVacancy = vi.fn().mockResolvedValue({
+    kind: 'ingested',
+    vacancy: {
+      blockingReason: null,
+      canGenerate: true,
+      employer: 'Mutation Labs',
+      fetchedAt: '2026-04-08T21:00:00.000Z',
+      id: 'vacancy-mutation-reviewed',
+      inputType: 'pasted_text',
+      location: 'London, United Kingdom',
+      originalUrl: 'https://jobs.example.com/mutation-reviewed-role',
+      requirements: ['Strong written communication.'],
+      resolvedUrl: 'https://jobs.example.com/mutation-reviewed-role',
+      responsibilities: ['Lead product design for mutation payload renderer state.'],
+      source: 'generic',
+      status: 'ready',
+      textPreview: 'Lead product design for mutation payload renderer state.',
+      title: 'Mutation payload Senior Product Designer',
+    },
+    workspaceState: {
+      draft: {
+        text: 'Mutation payload reviewed vacancy draft.',
+        url: 'https://jobs.example.com/mutation-reviewed-role',
+      },
+      reviewState: 'reviewed',
+      vacancy: {
+        blockingReason: null,
+        canGenerate: true,
+        employer: 'Mutation Labs',
+        fetchedAt: '2026-04-08T21:00:00.000Z',
+        id: 'vacancy-mutation-reviewed',
+        inputType: 'pasted_text',
+        location: 'London, United Kingdom',
+        originalUrl: 'https://jobs.example.com/mutation-reviewed-role',
+        requirements: ['Strong written communication.'],
+        resolvedUrl: 'https://jobs.example.com/mutation-reviewed-role',
+        responsibilities: ['Lead product design for mutation payload renderer state.'],
+        source: 'generic',
+        status: 'ready',
+        textPreview: 'Lead product design for mutation payload renderer state.',
+        title: 'Mutation payload Senior Product Designer',
+      },
+    },
+  })
+
+  renderApp({
+    aiWorker: createAiWorkerApi({
+      getAiWorkerPreflight: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+      getStartupDestination: vi.fn().mockResolvedValue('workspace_empty'),
+    }),
+    originalCv: createOriginalCvApi({
+      getOriginalCvWorkspaceState: vi.fn().mockResolvedValue({
+        activeOriginalCv: {
+          fileType: 'pdf',
+          headline: 'Principal Product Designer',
+          id: 'original-cv-123',
+          importedAt: '2026-04-08T14:30:00.000Z',
+          originalFilename: 'ada-lovelace.pdf',
+          pageCount: 1,
+          snapshotCount: 1,
+          summary: 'Design leader focused on complex workflow products.',
+          writingStyle: {
+            averageSentenceLength: 7,
+            clicheDetections: [],
+            firstPersonUsage: 'absent',
+            formality: 'direct',
+          },
+        },
+        snapshotCount: 1,
+      }),
+    }),
+    vacancy: createVacancyApi({
+      getVacancyWorkspaceState,
+      ingestPastedVacancy,
+    }),
+  })
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Create a tailored application' })).toBeDefined()
+  })
+
+  fireEvent.change(screen.getByLabelText('Vacancy URL'), {
+    target: {
+      value: 'https://jobs.example.com/mutation-reviewed-role',
+    },
+  })
+  fireEvent.change(screen.getByLabelText('Job vacancy text'), {
+    target: {
+      value: 'Mutation payload reviewed vacancy draft.',
+    },
+  })
+  fireEvent.click(screen.getByRole('button', { name: 'Review pasted vacancy' }))
+
+  await waitFor(() => {
+    expect(ingestPastedVacancy).toHaveBeenCalledTimes(1)
+    expect(getVacancyWorkspaceState).toHaveBeenCalledTimes(2)
+  })
+
+  await waitFor(() => {
+    expect(screen.getByText('Reviewed Senior Product Designer')).toBeDefined()
+  })
+
+  const vacancyUrlInput = screen.getByLabelText('Vacancy URL')
+  const vacancyTextInput = screen.getByLabelText('Job vacancy text')
+  const reviewUrlButton = screen.getByRole('button', { name: 'Review vacancy from URL' })
+  const reviewTextButton = screen.getByRole('button', { name: 'Review pasted vacancy' })
+
+  expect(vacancyUrlInput).toHaveProperty('value', 'https://jobs.example.com/reviewed-role')
+  expect(vacancyUrlInput).toHaveProperty('readOnly', true)
+  expect(vacancyTextInput).toHaveProperty('value', 'Reviewed vacancy draft.')
+  expect(vacancyTextInput).toHaveProperty('readOnly', true)
+  expect(reviewUrlButton).toHaveProperty('disabled', true)
+  expect(reviewTextButton).toHaveProperty('disabled', true)
+
+  fireEvent.click(reviewUrlButton)
+  fireEvent.click(reviewTextButton)
+
+  expect(ingestPastedVacancy).toHaveBeenCalledTimes(1)
+})
+
+test('restores a reviewed vacancy draft as locked source inputs on startup', async () => {
+  const ingestPastedVacancy = vi.fn().mockResolvedValue({
+    kind: 'ingested',
+    vacancy: null,
+    workspaceState: {
+      draft: {
+        text: '',
+        url: '',
+      },
+      reviewState: 'editable',
+      vacancy: null,
+    },
+  })
+  const ingestVacancyUrl = vi.fn().mockResolvedValue({
+    kind: 'ingested',
+    vacancy: null,
+    workspaceState: {
+      draft: {
+        text: '',
+        url: '',
+      },
+      reviewState: 'editable',
+      vacancy: null,
+    },
+  })
+
+  renderApp({
+    aiWorker: createAiWorkerApi({
+      getAiWorkerPreflight: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+      getStartupDestination: vi.fn().mockResolvedValue('workspace_empty'),
+    }),
+    originalCv: createOriginalCvApi({
+      getOriginalCvWorkspaceState: vi.fn().mockResolvedValue({
+        activeOriginalCv: {
+          fileType: 'pdf',
+          headline: 'Principal Product Designer',
+          id: 'original-cv-123',
+          importedAt: '2026-04-08T14:30:00.000Z',
+          originalFilename: 'ada-lovelace.pdf',
+          pageCount: 1,
+          snapshotCount: 1,
+          summary: 'Design leader focused on complex workflow products.',
+          writingStyle: {
+            averageSentenceLength: 7,
+            clicheDetections: [],
+            firstPersonUsage: 'absent',
+            formality: 'direct',
+          },
+        },
+        snapshotCount: 1,
+      }),
+    }),
+    vacancy: createVacancyApi({
+      getVacancyWorkspaceState: vi.fn().mockResolvedValue({
+        draft: {
+          text: '',
+          url: 'https://jobs.example.com/restored-reviewed-role',
+        },
+        reviewState: 'reviewed',
+        vacancy: {
+          blockingReason: null,
+          canGenerate: true,
+          employer: 'Example Labs',
+          fetchedAt: '2026-04-08T21:00:00.000Z',
+          id: 'vacancy-restored-reviewed',
+          inputType: 'url',
+          location: 'London, United Kingdom',
+          originalUrl: 'https://jobs.example.com/restored-reviewed-role',
+          requirements: ['Experience shipping workflow software.'],
+          resolvedUrl: 'https://jobs.example.com/restored-reviewed-role',
+          responsibilities: ['Lead product design for restored reviewed draft state.'],
+          source: 'generic',
+          status: 'ready',
+          textPreview: 'Lead product design for restored reviewed draft state.',
+          title: 'Restored Senior Product Designer',
+        },
+      }),
+      ingestPastedVacancy,
+      ingestVacancyUrl,
+    }),
+  })
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Current vacancy draft' })).toBeDefined()
+  })
+
+  const vacancyUrlInput = screen.getByLabelText('Vacancy URL')
+  const vacancyTextInput = screen.getByLabelText('Job vacancy text')
+
+  expect(vacancyUrlInput).toHaveProperty('value', 'https://jobs.example.com/restored-reviewed-role')
+  expect(vacancyUrlInput).toHaveProperty('readOnly', true)
+  expect(vacancyTextInput).toHaveProperty('value', '')
+  expect(vacancyTextInput).toHaveProperty('readOnly', true)
+  expect(screen.getByRole('button', { name: 'Review vacancy from URL' })).toHaveProperty(
+    'disabled',
+    true,
+  )
+  expect(screen.getByRole('button', { name: 'Review pasted vacancy' })).toHaveProperty(
+    'disabled',
+    true,
+  )
+  expect(screen.getByRole('button', { name: 'Adapt CV' })).toHaveProperty('disabled', false)
+
+  fireEvent.click(screen.getByRole('button', { name: 'Review vacancy from URL' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Review pasted vacancy' }))
+
+  expect(ingestVacancyUrl).not.toHaveBeenCalled()
+  expect(ingestPastedVacancy).not.toHaveBeenCalled()
 })
 
 test('submitting a LinkedIn vacancy URL automatically continues into the internal browser session and restores adaptation when extraction succeeds', async () => {

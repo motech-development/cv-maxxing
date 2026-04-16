@@ -188,6 +188,7 @@ interface VacancyMetadataValue extends Record<string, JsonValue> {
 }
 
 interface VacancyWorkspaceMetadataValue extends Record<string, JsonValue> {
+  reviewState: 'editable' | 'reviewed' | null
   text: string
   url: string
   vacancyId: string | null
@@ -482,6 +483,10 @@ export function createTailoredApplicationSessionService({
     if (
       vacancyMetadata === null ||
       vacancyWorkspace?.vacancyId !== command.vacancyId ||
+      resolveVacancyWorkspaceReviewState({
+        vacancyMetadata,
+        vacancyWorkspace,
+      }) !== 'reviewed' ||
       normalizedJsonBuffer === null ||
       vacancyTextBuffer === null
     ) {
@@ -1376,20 +1381,26 @@ export function createTailoredApplicationSessionService({
         id: VACANCY_WORKSPACE_ENTRY_ID,
         scope: VACANCY_WORKSPACE_SCOPE,
       })
+      const vacancyMetadata =
+        vacancyWorkspace?.vacancyId === null || vacancyWorkspace?.vacancyId === undefined
+          ? null
+          : await localAppData.metadata.get<VacancyMetadataValue>({
+              id: vacancyWorkspace.vacancyId,
+              scope: VACANCY_SCOPE,
+            })
 
       if (
         vacancyWorkspace?.vacancyId === null ||
         vacancyWorkspace?.vacancyId === undefined ||
+        resolveVacancyWorkspaceReviewState({
+          vacancyMetadata,
+          vacancyWorkspace,
+        }) !== 'reviewed' ||
         vacancyWorkspace.text !== vacancyDraft.text ||
         vacancyWorkspace.url !== vacancyDraft.url
       ) {
         throw new Error('Review a complete job vacancy before adapting this CV.')
       }
-
-      const vacancyMetadata = await localAppData.metadata.get<VacancyMetadataValue>({
-        id: vacancyWorkspace.vacancyId,
-        scope: VACANCY_SCOPE,
-      })
 
       const vacancyTextBuffer = await localAppData.artifacts.read({
         id: vacancyWorkspace.vacancyId,
@@ -1452,6 +1463,32 @@ async function hasMeaningfulVacancyDraft(
     draftRecord.url.trim() !== '' ||
     draftRecord.vacancyId !== null
   )
+}
+
+function resolveVacancyWorkspaceReviewState({
+  vacancyMetadata,
+  vacancyWorkspace,
+}: {
+  vacancyMetadata: VacancyMetadataValue | null
+  vacancyWorkspace: VacancyWorkspaceMetadataValue
+}): 'editable' | 'reviewed' {
+  if (vacancyMetadata === null) {
+    return 'editable'
+  }
+
+  if (vacancyWorkspace.reviewState === 'reviewed') {
+    return 'reviewed'
+  }
+
+  if (vacancyWorkspace.reviewState === 'editable') {
+    return 'editable'
+  }
+
+  if (vacancyMetadata.canGenerate && vacancyMetadata.status === 'ready') {
+    return 'reviewed'
+  }
+
+  return 'editable'
 }
 
 function resolveNextWorkspaceSelection({

@@ -5,6 +5,7 @@ import { SectionLabel } from './section-label.js'
 import { StatusPill } from './status-pill.js'
 
 interface VacancyPreviewCardProperties {
+  isDraftReviewed: boolean
   isAdaptingCv: boolean
   isOpeningBrowserSession: boolean
   onAdaptCv: () => void
@@ -14,6 +15,7 @@ interface VacancyPreviewCardProperties {
 }
 
 export function VacancyPreviewCard({
+  isDraftReviewed,
   isAdaptingCv,
   isOpeningBrowserSession,
   onAdaptCv,
@@ -69,8 +71,10 @@ export function VacancyPreviewCard({
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-3">
-            <SectionLabel>Vacancy preview</SectionLabel>
-            <StatusPill label={statusPill.label} tone={statusPill.tone} />
+            <SectionLabel>{isDraftReviewed ? 'Reviewed vacancy' : 'Vacancy preview'}</SectionLabel>
+            {isDraftReviewed ? null : (
+              <StatusPill label={statusPill.label} tone={statusPill.tone} />
+            )}
           </div>
           <h2 className="mt-3 text-[24px] font-extrabold tracking-[-0.02em] text-[var(--color-copy-strong)]">
             {preview.title ?? 'Untitled vacancy'}
