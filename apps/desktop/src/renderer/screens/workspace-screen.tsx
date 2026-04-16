@@ -113,6 +113,9 @@ export function WorkspaceScreen({
       sidebar={
         <SidebarContainer>
           <SectionLabel>Job vacancies</SectionLabel>
+          <Button onClick={onCreateVacancy} tone="primary">
+            New vacancy
+          </Button>
           {hasVacancyItems ? null : (
             <>
               <h2 className="m-0 text-2xl font-extrabold tracking-[-0.02em] text-[var(--color-copy-strong)]">
@@ -124,9 +127,6 @@ export function WorkspaceScreen({
               </p>
             </>
           )}
-          <Button onClick={onCreateVacancy} tone="primary">
-            New vacancy
-          </Button>
           {isCurrentDraftMeaningful ? (
             <WorkspaceSidebarItem
               description={resolveDraftDescription(vacancyPreview)}

@@ -566,8 +566,14 @@ test('imports the first original CV and transitions into the design-aligned work
   expect(retryAiWorkerPreflight).not.toHaveBeenCalled()
   expect(importOriginalCv).toHaveBeenCalledTimes(1)
   expect(screen.getByText('Job vacancies')).toBeDefined()
-  expect(screen.getByText('No vacancy items yet')).toBeDefined()
-  expect(screen.getByRole('button', { name: 'New vacancy' })).toBeDefined()
+  const emptyVacancyHeading = screen.getByRole('heading', { name: 'No vacancy items yet' })
+  const newVacancyButton = screen.getByRole('button', { name: 'New vacancy' })
+
+  expect(emptyVacancyHeading).toBeDefined()
+  expect(newVacancyButton).toBeDefined()
+  expect(newVacancyButton.compareDocumentPosition(emptyVacancyHeading)).toBe(
+    Node.DOCUMENT_POSITION_FOLLOWING,
+  )
   expect(screen.getByLabelText('Vacancy URL')).toBeDefined()
   expect(screen.getByLabelText('Job vacancy text')).toBeDefined()
   expect(screen.getByRole('button', { name: 'Review vacancy from URL' })).toBeDefined()
