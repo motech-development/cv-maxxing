@@ -7,6 +7,7 @@ import { afterEach, expect, test, vi } from 'vitest'
 import type { OriginalCvImportInput, OriginalCvImportResult } from '../../shared/original-cv.js'
 import { SETTINGS_RESET_CONFIRMATION_PHRASE } from '../../shared/settings.js'
 import type { TailoredApplicationPreview } from '../../shared/tailored-application.js'
+import type { VacancyIngestResult } from '../../shared/vacancy.js'
 import { App } from '../app.js'
 
 afterEach(() => {
@@ -547,6 +548,76 @@ test('imports the first original CV and transitions into the design-aligned work
   expect(screen.getByRole('button', { name: 'Review pasted vacancy' })).toBeDefined()
   expect(screen.getByRole('button', { name: 'Replace original CV' })).toBeDefined()
   expect(screen.getByText('Review a vacancy before adapting')).toBeDefined()
+})
+
+test('shows the workspace overlay while importing the first original CV from first launch', async () => {
+  const importOriginalCvDeferredPromise = createDeferredPromise<OriginalCvImportResult>()
+
+  const importOriginalCv = vi.fn(
+    (input: OriginalCvImportInput): Promise<OriginalCvImportResult> => {
+      void input
+
+      return importOriginalCvDeferredPromise.promise
+    },
+  )
+
+  renderApp({
+    aiWorker: createAiWorkerApi({
+      getAiWorkerPreflight: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+    }),
+    originalCv: createOriginalCvApi({
+      importOriginalCv,
+    }),
+  })
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Import your original CV' })).toBeDefined()
+  })
+
+  fireEvent.change(screen.getByLabelText('Original CV file'), {
+    target: {
+      files: [new File(['%PDF-1.7'], 'ada-lovelace.pdf', { type: 'application/pdf' })],
+    },
+  })
+  fireEvent.click(screen.getByRole('button', { name: 'Import original CV' }))
+
+  await waitFor(() => {
+    expect(importOriginalCv).toHaveBeenCalledTimes(1)
+  })
+
+  expect(screen.getByRole('status', { name: 'Loading workspace' })).toBeDefined()
+  expect(screen.queryByRole('button', { name: 'Cancel' })).toBeNull()
+  expect(screen.getByRole('button', { name: 'Settings' })).toBeDefined()
+  expect(screen.getByRole('heading', { name: 'Import your original CV' })).toBeDefined()
+
+  importOriginalCvDeferredPromise.resolve({
+    kind: 'imported',
+    originalCv: {
+      fileType: 'pdf',
+      headline: 'Principal Product Designer',
+      id: 'original-cv-123',
+      importedAt: '2026-04-08T14:30:00.000Z',
+      originalFilename: 'ada-lovelace.pdf',
+      pageCount: 1,
+      snapshotCount: 1,
+      summary: 'Design leader focused on complex workflow products.',
+      writingStyle: {
+        averageSentenceLength: 7,
+        clicheDetections: [],
+        firstPersonUsage: 'absent',
+        formality: 'direct',
+      },
+    },
+  })
+
+  await waitFor(() => {
+    expect(screen.queryByRole('status', { name: 'Loading workspace' })).toBeNull()
+  })
 })
 
 test('imports the first original CV from the mutation payload while the workspace refetch is still pending', async () => {
@@ -1278,6 +1349,121 @@ test('replaces the active original CV from the workspace-active screen and keeps
   expect(screen.getByText('ada-lovelace-revised.docx')).toBeDefined()
 })
 
+test('shows the workspace overlay while replacing the active original CV from the workspace-active screen', async () => {
+  const importOriginalCvDeferredPromise = createDeferredPromise<OriginalCvImportResult>()
+
+  const importOriginalCv = vi.fn(
+    (input: OriginalCvImportInput): Promise<OriginalCvImportResult> => {
+      void input
+
+      return importOriginalCvDeferredPromise.promise
+    },
+  )
+
+  renderApp({
+    aiWorker: createAiWorkerApi({
+      getAiWorkerPreflight: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+      getStartupDestination: vi.fn().mockResolvedValue('workspace_active'),
+    }),
+    originalCv: createOriginalCvApi({
+      getOriginalCvWorkspaceState: vi
+        .fn()
+        .mockResolvedValueOnce({
+          activeOriginalCv: {
+            fileType: 'pdf',
+            headline: 'Principal Product Designer',
+            id: 'original-cv-123',
+            importedAt: '2026-04-08T14:30:00.000Z',
+            originalFilename: 'ada-lovelace.pdf',
+            pageCount: 1,
+            snapshotCount: 1,
+            summary: 'Design leader focused on complex workflow products.',
+            writingStyle: {
+              averageSentenceLength: 7,
+              clicheDetections: [],
+              firstPersonUsage: 'absent',
+              formality: 'direct',
+            },
+          },
+          snapshotCount: 1,
+        })
+        .mockResolvedValueOnce({
+          activeOriginalCv: {
+            fileType: 'docx',
+            headline: 'Staff Product Designer',
+            id: 'original-cv-456',
+            importedAt: '2026-04-08T15:10:00.000Z',
+            originalFilename: 'ada-lovelace-revised.docx',
+            pageCount: 1,
+            snapshotCount: 2,
+            summary: 'Product designer adapting CVs for desktop AI tooling.',
+            writingStyle: {
+              averageSentenceLength: 8,
+              clicheDetections: [],
+              firstPersonUsage: 'absent',
+              formality: 'direct',
+            },
+          },
+          snapshotCount: 2,
+        }),
+      importOriginalCv,
+    }),
+  })
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Tailored application' })).toBeDefined()
+  })
+
+  fireEvent.change(screen.getByLabelText('Replacement original CV file'), {
+    target: {
+      files: [
+        new File(['DOCX'], 'ada-lovelace-revised.docx', {
+          type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        }),
+      ],
+    },
+  })
+  fireEvent.click(screen.getByRole('button', { name: 'Replace original CV' }))
+
+  await waitFor(() => {
+    expect(importOriginalCv).toHaveBeenCalledTimes(1)
+  })
+
+  expect(screen.getByRole('status', { name: 'Loading workspace' })).toBeDefined()
+  expect(screen.queryByRole('button', { name: 'Cancel' })).toBeNull()
+  expect(screen.getByRole('button', { name: 'Settings' })).toBeDefined()
+  expect(screen.getByRole('heading', { name: 'Tailored application' })).toBeDefined()
+
+  importOriginalCvDeferredPromise.resolve({
+    kind: 'imported',
+    originalCv: {
+      fileType: 'docx',
+      headline: 'Staff Product Designer',
+      id: 'original-cv-456',
+      importedAt: '2026-04-08T15:10:00.000Z',
+      originalFilename: 'ada-lovelace-revised.docx',
+      pageCount: 1,
+      snapshotCount: 2,
+      summary: 'Product designer adapting CVs for desktop AI tooling.',
+      writingStyle: {
+        averageSentenceLength: 8,
+        clicheDetections: [],
+        firstPersonUsage: 'absent',
+        formality: 'direct',
+      },
+    },
+  })
+
+  await waitFor(() => {
+    expect(screen.queryByRole('status', { name: 'Loading workspace' })).toBeNull()
+  })
+})
+
 test('keeps the existing active original CV visible when a workspace replacement is rejected', async () => {
   renderApp({
     aiWorker: createAiWorkerApi({
@@ -1616,10 +1802,123 @@ test('reviews a ready vacancy URL and only starts tailoring after Adapt CV is cl
 
   expect(screen.getByRole('status', { name: 'Loading workspace' })).toBeDefined()
   expect(screen.queryByRole('button', { name: 'Open tailored application' })).toBeNull()
-  expect(screen.getByRole('button', { name: 'Abandon draft' })).toBeDefined()
+  expect(screen.getByRole('button', { name: 'Cancel' })).toBeDefined()
 
   await waitFor(() => {
     expect(resumePendingGeneration).toHaveBeenCalledTimes(1)
+  })
+})
+
+test('shows the workspace overlay while reviewing a vacancy URL without surfacing generation-only actions', async () => {
+  const ingestVacancyUrlDeferredPromise = createDeferredPromise<VacancyIngestResult>()
+  const ingestVacancyUrl = vi.fn(() => {
+    return ingestVacancyUrlDeferredPromise.promise
+  })
+
+  renderApp({
+    aiWorker: createAiWorkerApi({
+      getAiWorkerPreflight: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+      getStartupDestination: vi.fn().mockResolvedValue('workspace_empty'),
+    }),
+    originalCv: createOriginalCvApi({
+      getOriginalCvWorkspaceState: vi.fn().mockResolvedValue({
+        activeOriginalCv: {
+          fileType: 'pdf',
+          headline: 'Principal Product Designer',
+          id: 'original-cv-123',
+          importedAt: '2026-04-08T14:30:00.000Z',
+          originalFilename: 'ada-lovelace.pdf',
+          pageCount: 1,
+          snapshotCount: 1,
+          summary: 'Design leader focused on complex workflow products.',
+          writingStyle: {
+            averageSentenceLength: 7,
+            clicheDetections: [],
+            firstPersonUsage: 'absent',
+            formality: 'direct',
+          },
+        },
+        snapshotCount: 1,
+      }),
+    }),
+    vacancy: createVacancyApi({
+      ingestVacancyUrl,
+    }),
+  })
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Create a tailored application' })).toBeDefined()
+  })
+
+  fireEvent.change(screen.getByLabelText('Vacancy URL'), {
+    target: {
+      value: 'https://boards.greenhouse.io/example/jobs/123',
+    },
+  })
+  fireEvent.click(screen.getByRole('button', { name: 'Review vacancy from URL' }))
+
+  await waitFor(() => {
+    expect(ingestVacancyUrl).toHaveBeenCalledWith({
+      url: 'https://boards.greenhouse.io/example/jobs/123',
+    })
+  })
+
+  expect(screen.getByRole('status', { name: 'Loading workspace' })).toBeDefined()
+  expect(screen.queryByRole('button', { name: 'Cancel' })).toBeNull()
+  expect(screen.getByRole('button', { name: 'Settings' })).toBeDefined()
+  expect(screen.getByRole('heading', { name: 'Create a tailored application' })).toBeDefined()
+
+  ingestVacancyUrlDeferredPromise.resolve({
+    kind: 'ingested',
+    vacancy: {
+      blockingReason: null,
+      canGenerate: true,
+      employer: 'Example Labs',
+      fetchedAt: '2026-04-08T21:10:00.000Z',
+      id: 'vacancy-002',
+      inputType: 'url',
+      location: 'London, United Kingdom',
+      originalUrl: 'https://boards.greenhouse.io/example/jobs/123',
+      requirements: ['Experience shipping workflow software.'],
+      resolvedUrl: 'https://boards.greenhouse.io/example/jobs/123',
+      responsibilities: ['Lead product design for desktop workflows.'],
+      source: 'greenhouse',
+      status: 'ready',
+      textPreview: 'Lead product design for desktop workflows.',
+      title: 'Senior Product Designer',
+    },
+    workspaceState: {
+      draft: {
+        text: '',
+        url: 'https://boards.greenhouse.io/example/jobs/123',
+      },
+      vacancy: {
+        blockingReason: null,
+        canGenerate: true,
+        employer: 'Example Labs',
+        fetchedAt: '2026-04-08T21:10:00.000Z',
+        id: 'vacancy-002',
+        inputType: 'url',
+        location: 'London, United Kingdom',
+        originalUrl: 'https://boards.greenhouse.io/example/jobs/123',
+        requirements: ['Experience shipping workflow software.'],
+        resolvedUrl: 'https://boards.greenhouse.io/example/jobs/123',
+        responsibilities: ['Lead product design for desktop workflows.'],
+        source: 'greenhouse',
+        status: 'ready',
+        textPreview: 'Lead product design for desktop workflows.',
+        title: 'Senior Product Designer',
+      },
+    },
+  })
+
+  await waitFor(() => {
+    expect(screen.queryByRole('status', { name: 'Loading workspace' })).toBeNull()
   })
 })
 
@@ -2252,11 +2551,8 @@ test('resumes the pending flow into the workspace overlay after sign-in repair',
   })
 
   expect(screen.getByRole('status', { name: 'Loading workspace' })).toBeDefined()
-  expect(
-    screen.getByText('This workspace is temporarily blocked while the current task completes.'),
-  ).toBeDefined()
   expect(screen.queryByRole('button', { name: 'Open tailored application' })).toBeNull()
-  expect(screen.getByRole('button', { name: 'Abandon draft' })).toBeDefined()
+  expect(screen.getByRole('button', { name: 'Cancel' })).toBeDefined()
 
   await waitFor(() => {
     expect(resumePendingGeneration).toHaveBeenCalledTimes(1)
@@ -2300,11 +2596,8 @@ test('renders the workspace overlay when startup restores pending generation', a
   })
 
   expect(screen.getByRole('status', { name: 'Loading workspace' })).toBeDefined()
-  expect(
-    screen.getByText('This workspace is temporarily blocked while the current task completes.'),
-  ).toBeDefined()
   expect(screen.queryByRole('button', { name: 'Open tailored application' })).toBeNull()
-  expect(screen.getByRole('button', { name: 'Abandon draft' })).toBeDefined()
+  expect(screen.getByRole('button', { name: 'Cancel' })).toBeDefined()
   expect(screen.getByRole('button', { name: 'Settings' })).toBeDefined()
 })
 
@@ -3409,7 +3702,7 @@ test('abandons the pending draft from the workspace overlay and returns to works
 
   expect(screen.getByRole('status', { name: 'Loading workspace' })).toBeDefined()
 
-  fireEvent.click(screen.getByRole('button', { name: 'Abandon draft' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
 
   await waitFor(() => {
     expect(abandonPendingGeneration).toHaveBeenCalledTimes(1)
@@ -3618,5 +3911,86 @@ test('requires the destructive confirmation phrase before resetting local app da
 
   await waitFor(() => {
     expect(screen.getByRole('heading', { name: 'Import your original CV' })).toBeDefined()
+  })
+})
+
+test('shows an app-blocking overlay while resetting local app data', async () => {
+  const resetLocalAppDataDeferredPromise = createDeferredPromise<null>()
+
+  const resetLocalAppData = vi.fn(() => {
+    return resetLocalAppDataDeferredPromise.promise.then((result) => {
+      void result
+    })
+  })
+
+  renderApp({
+    aiWorker: createAiWorkerApi({
+      getAiWorkerPreflight: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+      getStartupDestination: vi.fn().mockResolvedValue('workspace_empty'),
+    }),
+    originalCv: createOriginalCvApi({
+      getOriginalCvWorkspaceState: vi.fn().mockResolvedValue({
+        activeOriginalCv: {
+          fileType: 'pdf',
+          headline: 'Principal Product Designer',
+          id: 'original-cv-123',
+          importedAt: '2026-04-08T14:30:00.000Z',
+          originalFilename: 'ada-lovelace.pdf',
+          pageCount: 1,
+          snapshotCount: 1,
+          summary: 'Design leader focused on complex workflow products.',
+          writingStyle: {
+            averageSentenceLength: 7,
+            clicheDetections: [],
+            firstPersonUsage: 'absent',
+            formality: 'direct',
+          },
+        },
+        snapshotCount: 1,
+      }),
+    }),
+    settings: createSettingsApi({
+      resetLocalAppData,
+    }),
+  })
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Create a tailored application' })).toBeDefined()
+  })
+
+  fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Show Local data settings' }))
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Local data' })).toBeDefined()
+  })
+
+  fireEvent.change(screen.getByLabelText('Type RESET to confirm destructive reset'), {
+    target: {
+      value: SETTINGS_RESET_CONFIRMATION_PHRASE,
+    },
+  })
+  fireEvent.click(screen.getByRole('button', { name: 'Reset local app data' }))
+
+  await waitFor(() => {
+    expect(resetLocalAppData).toHaveBeenCalledWith({
+      confirmationPhrase: SETTINGS_RESET_CONFIRMATION_PHRASE,
+    })
+  })
+
+  expect(screen.getByRole('status', { name: 'Preparing app' })).toBeDefined()
+  expect(screen.queryByRole('button', { name: 'Cancel' })).toBeNull()
+  expect(screen.getByRole('button', { name: 'Settings' })).toBeDefined()
+  expect(screen.getByRole('heading', { name: 'Local data' })).toBeDefined()
+
+  resetLocalAppDataDeferredPromise.resolve(null)
+
+  await waitFor(() => {
+    expect(screen.queryByRole('status', { name: 'Preparing app' })).toBeNull()
   })
 })

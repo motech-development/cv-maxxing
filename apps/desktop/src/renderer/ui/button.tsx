@@ -2,7 +2,7 @@ import type { ButtonHTMLAttributes, ReactNode } from 'react'
 
 interface ButtonProperties extends ButtonHTMLAttributes<HTMLButtonElement> {
   children: ReactNode
-  tone?: 'primary' | 'secondary'
+  tone?: 'danger' | 'primary' | 'secondary'
 }
 
 export function Button({
@@ -12,10 +12,16 @@ export function Button({
   type = 'button',
   ...props
 }: ButtonProperties) {
-  const toneClassName =
-    tone === 'primary'
-      ? 'bg-[var(--color-ink-900)] text-[var(--color-surface-0)] hover:bg-[var(--color-ink-800)]'
-      : 'bg-[var(--color-surface-2)] text-[var(--color-ink-900)] hover:bg-[var(--color-surface-3)]'
+  let toneClassName =
+    'bg-[var(--color-ink-900)] text-[var(--color-surface-0)] hover:bg-[var(--color-ink-800)]'
+
+  if (tone === 'danger') {
+    toneClassName =
+      'border-[var(--color-status-danger)]/25 bg-[var(--color-surface-danger)] text-[var(--color-status-danger)] hover:bg-[#ffe5e5]'
+  } else if (tone === 'secondary') {
+    toneClassName =
+      'bg-[var(--color-surface-2)] text-[var(--color-ink-900)] hover:bg-[var(--color-surface-3)]'
+  }
 
   return (
     <button

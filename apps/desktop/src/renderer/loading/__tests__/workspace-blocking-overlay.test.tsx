@@ -9,22 +9,29 @@ afterEach(() => {
   cleanup()
 })
 
-test('renders neutral workspace-loading copy with an optional secondary action', () => {
+test('renders a compact loading spinner with an optional secondary action', () => {
   const onSecondaryAction = vi.fn()
 
-  render(
+  const { container } = render(
     <WorkspaceBlockingOverlay
       onSecondaryAction={onSecondaryAction}
-      secondaryActionLabel="Abandon draft"
+      secondaryActionLabel="Cancel"
     />,
   )
 
   expect(screen.getByRole('status', { name: 'Loading workspace' })).toBeDefined()
-  expect(
-    screen.getByText('This workspace is temporarily blocked while the current task completes.'),
-  ).toBeDefined()
+  expect(container.firstElementChild?.className).toContain('bg-[#DEE6E1E8]')
+  expect(screen.getByRole('status', { name: 'Loading workspace' }).className).toContain(
+    'bg-[#FCFDFC]',
+  )
+  expect(screen.getByRole('status', { name: 'Loading workspace' }).className).toContain(
+    'border-[#C7D0CA]',
+  )
+  expect(screen.getByRole('button', { name: 'Cancel' }).className).toContain(
+    'bg-[var(--color-surface-danger)]',
+  )
 
-  fireEvent.click(screen.getByRole('button', { name: 'Abandon draft' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
 
   expect(onSecondaryAction).toHaveBeenCalledTimes(1)
 })

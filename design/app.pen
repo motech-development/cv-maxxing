@@ -2460,7 +2460,7 @@
               "name": "Workspace blocking overlay",
               "width": 1448,
               "height": 930,
-              "fill": "#F4F6F3CC",
+              "fill": "#DEE6E1E8",
               "layout": "vertical",
               "justifyContent": "center",
               "alignItems": "center",
@@ -2469,18 +2469,18 @@
                   "type": "frame",
                   "id": "TPR9E",
                   "name": "Workspace loading card",
-                  "width": 120,
-                  "fill": "#FFFFFF",
+                  "width": 124,
+                  "fill": "#FCFDFC",
                   "cornerRadius": 14,
                   "stroke": {
                     "align": "inside",
                     "thickness": 1,
-                    "fill": "#D9DEDA"
+                    "fill": "#C7D0CA"
                   },
                   "effect": {
                     "type": "shadow",
                     "shadowType": "outer",
-                    "color": "#1E242812",
+                    "color": "#1E24281A",
                     "offset": {
                       "x": 0,
                       "y": 8
@@ -2510,7 +2510,7 @@
                           "height": 28,
                           "iconFontName": "loader-circle",
                           "iconFontFamily": "lucide",
-                          "fill": "#93A29A"
+                          "fill": "#74827B"
                         }
                       ]
                     }
@@ -7266,6 +7266,1086 @@
                           "fontFamily": "Manrope",
                           "fontSize": 13,
                           "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "eKoXI",
+      "x": 17928,
+      "y": 0,
+      "name": "CV Maxxing / Workspace / Blocking Overlay / Cancellable",
+      "clip": true,
+      "width": 1512,
+      "height": 982,
+      "fill": "#10181D",
+      "cornerRadius": 12,
+      "layout": "vertical",
+      "children": [
+        {
+          "type": "frame",
+          "id": "Jqa8Z",
+          "name": "barLoading",
+          "width": "fill_container",
+          "height": 52,
+          "fill": "#1B252B",
+          "gap": 14,
+          "padding": [
+            0,
+            18
+          ],
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "lRZX2",
+              "name": "Window controls",
+              "gap": 8,
+              "children": [
+                {
+                  "type": "ellipse",
+                  "id": "Qq9Yn",
+                  "name": "Close",
+                  "fill": "#FF5F57",
+                  "width": 12,
+                  "height": 12
+                },
+                {
+                  "type": "ellipse",
+                  "id": "9As4P",
+                  "name": "Minimise",
+                  "fill": "#FFBD2E",
+                  "width": 12,
+                  "height": 12
+                },
+                {
+                  "type": "ellipse",
+                  "id": "Hry8R",
+                  "name": "Zoom",
+                  "fill": "#28C840",
+                  "width": 12,
+                  "height": 12
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "HM7Sq",
+              "name": "Window title",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "RxtuT",
+                  "name": "titleText",
+                  "fill": "#F7F8F6",
+                  "content": "CV Maxxing",
+                  "fontFamily": "Manrope",
+                  "fontSize": 14,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "s5OrR",
+                  "name": "subtitleText",
+                  "fill": "#AAB4B0",
+                  "content": "Workspace",
+                  "fontFamily": "Manrope",
+                  "fontSize": 11,
+                  "fontWeight": "500"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "dKbW8",
+              "name": "Shell indicators",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "V8xRl",
+                  "name": "Worker status",
+                  "fill": "#26343C",
+                  "cornerRadius": 999,
+                  "gap": 8,
+                  "padding": [
+                    7,
+                    10
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "ellipse",
+                      "id": "GPCzc",
+                      "name": "workerDot",
+                      "fill": "#28C840",
+                      "width": 8,
+                      "height": 8
+                    },
+                    {
+                      "type": "text",
+                      "id": "RExDF",
+                      "name": "workerText",
+                      "fill": "#F7F8F6",
+                      "content": "Local",
+                      "fontFamily": "Manrope",
+                      "fontSize": 12,
+                      "fontWeight": "700"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "Vr9wE",
+          "name": "Desktop body",
+          "width": "fill_container",
+          "height": "fill_container",
+          "fill": "$app.canvas",
+          "children": [
+            {
+              "type": "frame",
+              "id": "hH87l",
+              "name": "railLoading",
+              "width": 64,
+              "height": "fill_container",
+              "fill": "#182126",
+              "layout": "vertical",
+              "padding": [
+                16,
+                10
+              ],
+              "justifyContent": "space_between",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "SZb3W",
+                  "name": "Primary tabs",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 14,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "2emTT",
+                      "name": "Tab / AI worker",
+                      "width": 44,
+                      "height": 44,
+                      "fill": "#182126",
+                      "cornerRadius": 8,
+                      "layout": "vertical",
+                      "justifyContent": "center",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon_font",
+                          "id": "5FpBf",
+                          "name": "tabWorkerIcon",
+                          "width": 20,
+                          "height": 20,
+                          "iconFontName": "sparkles",
+                          "iconFontFamily": "lucide",
+                          "fill": "#93A29A"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "U6kLY",
+                      "name": "Tab / Job vacancies",
+                      "width": 44,
+                      "height": 44,
+                      "fill": "#2D3B43",
+                      "cornerRadius": 8,
+                      "layout": "vertical",
+                      "justifyContent": "center",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon_font",
+                          "id": "2FZtO",
+                          "name": "tabVacanciesIcon",
+                          "width": 20,
+                          "height": 20,
+                          "iconFontName": "briefcase",
+                          "iconFontFamily": "lucide",
+                          "fill": "#F7F8F6"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "3QOS2",
+                      "name": "Tab / Original CV",
+                      "width": 44,
+                      "height": 44,
+                      "fill": "#182126",
+                      "cornerRadius": 8,
+                      "layout": "vertical",
+                      "justifyContent": "center",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon_font",
+                          "id": "NKPGo",
+                          "name": "tabCvIcon",
+                          "width": 20,
+                          "height": 20,
+                          "iconFontName": "file-text",
+                          "iconFontFamily": "lucide",
+                          "fill": "#93A29A"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "5VdHZ",
+                  "name": "Utility tabs",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 14,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "KeqyY",
+                      "name": "Tab / Settings",
+                      "width": 44,
+                      "height": 44,
+                      "fill": "#182126",
+                      "cornerRadius": 8,
+                      "layout": "vertical",
+                      "justifyContent": "center",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon_font",
+                          "id": "TO7k7",
+                          "name": "tabSettingsIcon",
+                          "width": 20,
+                          "height": 20,
+                          "iconFontName": "settings",
+                          "iconFontFamily": "lucide",
+                          "fill": "#93A29A"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "g5g6S",
+              "name": "workspacePanel",
+              "width": 328,
+              "height": "fill_container",
+              "fill": "#F7F8F6",
+              "stroke": {
+                "align": "inside",
+                "thickness": {
+                  "right": 1
+                },
+                "fill": "$app.divider"
+              },
+              "layout": "vertical",
+              "gap": 16,
+              "padding": 20,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "rH0lH",
+                  "name": "labelActive",
+                  "fill": "$app.subtle",
+                  "content": "Job vacancies",
+                  "fontFamily": "Manrope",
+                  "fontSize": 11,
+                  "fontWeight": "800"
+                },
+                {
+                  "type": "frame",
+                  "id": "WtZb6",
+                  "name": "newActive",
+                  "width": "fill_container",
+                  "fill": "#1E2428",
+                  "cornerRadius": 8,
+                  "padding": [
+                    11,
+                    14
+                  ],
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "1GSmb",
+                      "name": "newActiveText",
+                      "fill": "#FFFFFF",
+                      "content": "New vacancy",
+                      "fontFamily": "Manrope",
+                      "fontSize": 13,
+                      "fontWeight": "800"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "17mLt",
+                  "name": "Applications list",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 10,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "NNFqM",
+                      "name": "itemOneActive",
+                      "width": "fill_container",
+                      "fill": "#EAF0EC",
+                      "cornerRadius": 8,
+                      "layout": "vertical",
+                      "gap": 6,
+                      "padding": 12,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "IOhtb",
+                          "name": "itemOneTitle",
+                          "fill": "$app.ink",
+                          "content": "Senior Frontend Engineer",
+                          "fontFamily": "Manrope",
+                          "fontSize": 13,
+                          "fontWeight": "800"
+                        },
+                        {
+                          "type": "text",
+                          "id": "me5TN",
+                          "name": "itemOneMeta",
+                          "fill": "$app.muted",
+                          "content": "Monzo · adapted today",
+                          "fontFamily": "Manrope",
+                          "fontSize": 12,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "b8Ncv",
+                      "name": "itemTwoActive",
+                      "width": "fill_container",
+                      "fill": "#FFFFFF",
+                      "cornerRadius": 8,
+                      "layout": "vertical",
+                      "gap": 6,
+                      "padding": 12,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "RkGvy",
+                          "name": "itemTwoTitle",
+                          "fill": "$app.ink",
+                          "content": "Platform Product Manager",
+                          "fontFamily": "Manrope",
+                          "fontSize": 13,
+                          "fontWeight": "800"
+                        },
+                        {
+                          "type": "text",
+                          "id": "qh4T3",
+                          "name": "itemTwoMeta",
+                          "fill": "$app.muted",
+                          "content": "Nebula Labs · draft PDF",
+                          "fontFamily": "Manrope",
+                          "fontSize": 12,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "c0cNW",
+                  "name": "spacerActive",
+                  "width": "fill_container",
+                  "height": "fill_container"
+                },
+                {
+                  "type": "frame",
+                  "id": "P4s2h",
+                  "name": "activeCard",
+                  "width": "fill_container",
+                  "fill": "#EEF2EF",
+                  "cornerRadius": 8,
+                  "layout": "vertical",
+                  "gap": 10,
+                  "padding": 16,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "lL9AM",
+                      "name": "activeHead",
+                      "width": "fill_container",
+                      "justifyContent": "space_between",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "xmAz7",
+                          "name": "activeTitle",
+                          "fill": "#1E2428",
+                          "content": "Active original CV",
+                          "fontFamily": "Manrope",
+                          "fontSize": 13,
+                          "fontWeight": "800"
+                        },
+                        {
+                          "type": "text",
+                          "id": "KumGc",
+                          "name": "activeBadge",
+                          "fill": "#5E6872",
+                          "content": "1 snapshot",
+                          "fontFamily": "Manrope",
+                          "fontSize": 10,
+                          "fontWeight": "800"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "zuroQ",
+                      "name": "activeFile",
+                      "fill": "#5E6872",
+                      "content": "Senior Frontend Engineer.pdf",
+                      "fontFamily": "Manrope",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "text",
+                      "id": "dq38Z",
+                      "name": "activeCopy",
+                      "fill": "#5E6872",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Replace the active original CV to create snapshot 2 without mutating tailored applications that already reference an earlier snapshot.",
+                      "lineHeight": 1.4,
+                      "fontFamily": "Manrope",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "RQnZK",
+                      "name": "activeChoose",
+                      "width": "fill_container",
+                      "fill": "#FFFFFF",
+                      "cornerRadius": 8,
+                      "stroke": {
+                        "align": "inside",
+                        "thickness": 1,
+                        "fill": "#D9DEDA"
+                      },
+                      "padding": [
+                        11,
+                        14
+                      ],
+                      "justifyContent": "center",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "B2NyA",
+                          "name": "activeChooseText",
+                          "fill": "#1E2428",
+                          "content": "Choose replacement PDF or DOCX",
+                          "fontFamily": "Manrope",
+                          "fontSize": 13,
+                          "fontWeight": "800"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "eZGrW",
+                      "name": "activeReplace",
+                      "width": "fill_container",
+                      "fill": "#E1E6E3",
+                      "cornerRadius": 8,
+                      "padding": [
+                        11,
+                        14
+                      ],
+                      "justifyContent": "center",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "uQdEO",
+                          "name": "activeReplaceText",
+                          "fill": "#7A838B",
+                          "content": "Replace original CV",
+                          "fontFamily": "Manrope",
+                          "fontSize": 13,
+                          "fontWeight": "800"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "Hr6gi",
+              "name": "workspaceMain",
+              "width": "fill_container",
+              "height": "fill_container",
+              "fill": "$app.paper",
+              "layout": "vertical",
+              "gap": 16,
+              "padding": 24,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "p0jt0",
+                  "name": "headActive",
+                  "width": "fill_container",
+                  "justifyContent": "space_between",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "hdCO0",
+                      "name": "headCopyActive",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 4,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "wGMcp",
+                          "name": "hActive",
+                          "fill": "$app.ink",
+                          "content": "Senior Frontend Engineer · Monzo",
+                          "fontFamily": "Manrope",
+                          "fontSize": 26,
+                          "fontWeight": "800"
+                        },
+                        {
+                          "type": "text",
+                          "id": "avv9k",
+                          "name": "subActive",
+                          "fill": "$app.muted",
+                          "content": "Adapted CV and cover letter generated from the active original CV snapshot.",
+                          "fontFamily": "Manrope",
+                          "fontSize": 13,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "TzrXX",
+                      "name": "exportActive",
+                      "fill": "#1E2428",
+                      "cornerRadius": 8,
+                      "gap": 8,
+                      "padding": [
+                        10,
+                        14
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "aySo5",
+                          "name": "exportActiveText",
+                          "fill": "#FFFFFF",
+                          "content": "Export PDFs",
+                          "fontFamily": "Manrope",
+                          "fontSize": 13,
+                          "fontWeight": "800"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "twnU7",
+                  "name": "Preview and details",
+                  "width": "fill_container",
+                  "height": "fill_container",
+                  "gap": 16,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "ceuNE",
+                      "name": "PDF preview",
+                      "width": "fill_container",
+                      "height": "fill_container",
+                      "fill": "#F7F8F6",
+                      "cornerRadius": 8,
+                      "stroke": {
+                        "align": "inside",
+                        "thickness": 1,
+                        "fill": "$app.divider"
+                      },
+                      "layout": "vertical",
+                      "gap": 12,
+                      "padding": 18,
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "A9WOR",
+                          "name": "previewTabsActive",
+                          "width": "fill_container",
+                          "gap": 8,
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "SreH3",
+                              "name": "cvTabActive",
+                              "fill": "#1E2428",
+                              "cornerRadius": 8,
+                              "padding": [
+                                8,
+                                12
+                              ],
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "xU4Bb",
+                                  "name": "cvTabTextActive",
+                                  "fill": "#FFFFFF",
+                                  "content": "Adapted CV",
+                                  "fontFamily": "Manrope",
+                                  "fontSize": 12,
+                                  "fontWeight": "800"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "OdJUj",
+                              "name": "letterTabActive",
+                              "fill": "#EEF2EF",
+                              "cornerRadius": 8,
+                              "padding": [
+                                8,
+                                12
+                              ],
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "Yul6v",
+                                  "name": "letterTabTextActive",
+                                  "fill": "$app.ink",
+                                  "content": "Cover letter",
+                                  "fontFamily": "Manrope",
+                                  "fontSize": 12,
+                                  "fontWeight": "800"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "hF8vk",
+                          "name": "PDF page",
+                          "width": 620,
+                          "height": "fill_container",
+                          "fill": "#FFFFFF",
+                          "cornerRadius": 4,
+                          "stroke": {
+                            "align": "inside",
+                            "thickness": 1,
+                            "fill": "#E4E7E2"
+                          },
+                          "layout": "vertical",
+                          "gap": 10,
+                          "padding": 28,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "69zkw",
+                              "name": "pdfNameActive",
+                              "fill": "$app.ink",
+                              "content": "MO HOUSSAIN",
+                              "fontFamily": "Manrope",
+                              "fontSize": 24,
+                              "fontWeight": "800"
+                            },
+                            {
+                              "type": "text",
+                              "id": "N3C1X",
+                              "name": "pdfRoleActive",
+                              "fill": "$app.muted",
+                              "content": "Senior Frontend Engineer",
+                              "fontFamily": "Manrope",
+                              "fontSize": 12,
+                              "fontWeight": "800"
+                            },
+                            {
+                              "type": "frame",
+                              "id": "6LZEe",
+                              "name": "pdfLineActive",
+                              "width": "fill_container",
+                              "height": 1,
+                              "fill": "$app.divider"
+                            },
+                            {
+                              "type": "frame",
+                              "id": "YXRSs",
+                              "name": "pdfBlockOneActive",
+                              "width": "fill_container",
+                              "height": 68,
+                              "fill": "#F4F6F3",
+                              "cornerRadius": 4
+                            },
+                            {
+                              "type": "frame",
+                              "id": "oU9zb",
+                              "name": "pdfBlockTwoActive",
+                              "width": "fill_container",
+                              "height": 120,
+                              "fill": "#F4F6F3",
+                              "cornerRadius": 4
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "nrteq",
+                      "name": "Right inspector",
+                      "width": 300,
+                      "height": "fill_container",
+                      "fill": "#F7F8F6",
+                      "cornerRadius": 8,
+                      "stroke": {
+                        "align": "inside",
+                        "thickness": 1,
+                        "fill": "$app.divider"
+                      },
+                      "layout": "vertical",
+                      "gap": 12,
+                      "padding": 18,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "io5V0",
+                          "name": "detailsTitleActive",
+                          "fill": "$app.ink",
+                          "content": "Job vacancy",
+                          "fontFamily": "Manrope",
+                          "fontSize": 18,
+                          "fontWeight": "800"
+                        },
+                        {
+                          "type": "text",
+                          "id": "olQvt",
+                          "name": "detailsCompanyActive",
+                          "fill": "$app.muted",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "Monzo · Senior Frontend Engineer",
+                          "lineHeight": 1.35,
+                          "fontFamily": "Manrope",
+                          "fontSize": 13,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "frame",
+                          "id": "80m9F",
+                          "name": "tagStackActive",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 8,
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "Wfdgi",
+                              "name": "tagOneActive",
+                              "fill": "#EEF2EF",
+                              "cornerRadius": 8,
+                              "padding": [
+                                8,
+                                10
+                              ],
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "VlXb9",
+                                  "name": "tagOneTextActive",
+                                  "fill": "$app.ink",
+                                  "content": "4-page adapted CV kept immutable",
+                                  "fontFamily": "Manrope",
+                                  "fontSize": 12,
+                                  "fontWeight": "800"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "eJ1Gh",
+                              "name": "tagTwoActive",
+                              "fill": "#EEF2EF",
+                              "cornerRadius": 8,
+                              "padding": [
+                                8,
+                                10
+                              ],
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "Nv9lm",
+                                  "name": "tagTwoTextActive",
+                                  "fill": "$app.ink",
+                                  "content": "Cover letter stays copyable text",
+                                  "fontFamily": "Manrope",
+                                  "fontSize": 12,
+                                  "fontWeight": "800"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "XT61Z",
+                          "name": "dividerIssue11",
+                          "width": "fill_container",
+                          "height": 1,
+                          "fill": "#D9DEDA"
+                        },
+                        {
+                          "type": "text",
+                          "id": "JDL0Q",
+                          "name": "cvHeadingIssue11",
+                          "fill": "#1E2428",
+                          "content": "Original CV snapshot",
+                          "fontFamily": "Manrope",
+                          "fontSize": 13,
+                          "fontWeight": "800"
+                        },
+                        {
+                          "type": "text",
+                          "id": "k7KyH",
+                          "name": "cvCopyIssue11",
+                          "fill": "#5E6872",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "Senior Frontend Engineer.pdf\nSnapshot 1 · imported 9 Apr 2026",
+                          "lineHeight": 1.4,
+                          "fontFamily": "Manrope",
+                          "fontSize": 12,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "YTEJX",
+                          "name": "summaryHeadingIssue11",
+                          "fill": "#1E2428",
+                          "content": "Adaptation summary",
+                          "fontFamily": "Manrope",
+                          "fontSize": 13,
+                          "fontWeight": "800"
+                        },
+                        {
+                          "type": "text",
+                          "id": "Q5DdN",
+                          "name": "summaryCopyIssue11",
+                          "fill": "#5E6872",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "Front-end systems leadership and accessibility depth are emphasised for this job vacancy.",
+                          "lineHeight": 1.4,
+                          "fontFamily": "Manrope",
+                          "fontSize": 12,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "zgrfN",
+                          "name": "gapsHeadingIssue11",
+                          "fill": "#1E2428",
+                          "content": "Gaps and validation hints",
+                          "fontFamily": "Manrope",
+                          "fontSize": 13,
+                          "fontWeight": "800"
+                        },
+                        {
+                          "type": "text",
+                          "id": "7HGZV",
+                          "name": "gapsCopyIssue11",
+                          "fill": "#5E6872",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "Missing direct pricing metrics for payments work. Validate React performance claims against the original CV.",
+                          "lineHeight": 1.4,
+                          "fontFamily": "Manrope",
+                          "fontSize": 12,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "frame",
+                          "id": "iPFBP",
+                          "name": "copyButtonIssue11",
+                          "width": "fill_container",
+                          "height": "fit_content(38)",
+                          "fill": "#1E2428",
+                          "cornerRadius": 8,
+                          "layout": "none",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "qIX1u",
+                              "x": 62.5,
+                              "y": 10,
+                              "name": "copyButtonLabelIssue11b",
+                              "fill": "#FFFFFF",
+                              "content": "Copy cover letter text",
+                              "fontFamily": "Manrope",
+                              "fontSize": 13,
+                              "fontWeight": "800"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "rXqW8",
+                          "name": "deleteButtonIssue11",
+                          "width": "fill_container",
+                          "height": "fit_content(38)",
+                          "fill": "#FFF0F0",
+                          "cornerRadius": 8,
+                          "stroke": {
+                            "align": "inside",
+                            "thickness": 1,
+                            "fill": "#E4B7B7"
+                          },
+                          "layout": "none",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "MOd33",
+                              "x": 46.5,
+                              "y": 10,
+                              "name": "deleteButtonLabelIssue11b",
+                              "fill": "#7A1F1F",
+                              "content": "Delete tailored application",
+                              "fontFamily": "Manrope",
+                              "fontSize": 13,
+                              "fontWeight": "800"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "u86xF",
+              "layoutPosition": "absolute",
+              "x": 64,
+              "y": 0,
+              "name": "Workspace blocking overlay",
+              "width": 1448,
+              "height": 930,
+              "fill": "#DEE6E1E8",
+              "layout": "vertical",
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "EM4DL",
+                  "name": "Workspace loading card / cancellable",
+                  "width": 168,
+                  "fill": "#FCFDFC",
+                  "cornerRadius": 14,
+                  "stroke": {
+                    "align": "inside",
+                    "thickness": 1,
+                    "fill": "#C7D0CA"
+                  },
+                  "effect": {
+                    "type": "shadow",
+                    "shadowType": "outer",
+                    "color": "#1E24281A",
+                    "offset": {
+                      "x": 0,
+                      "y": 8
+                    },
+                    "blur": 24
+                  },
+                  "layout": "vertical",
+                  "gap": 14,
+                  "padding": 24,
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon_font",
+                      "id": "KlKER",
+                      "width": 28,
+                      "height": 28,
+                      "iconFontName": "loader-circle",
+                      "iconFontFamily": "lucide",
+                      "fill": "#74827B"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "49xub",
+                      "width": "fill_container",
+                      "fill": "#FFF0F0",
+                      "cornerRadius": 8,
+                      "stroke": {
+                        "align": "inside",
+                        "thickness": 1,
+                        "fill": "#E4B7B7"
+                      },
+                      "padding": [
+                        10,
+                        14
+                      ],
+                      "justifyContent": "center",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "Zfb0L",
+                          "fill": "#7A1F1F",
+                          "content": "Cancel",
+                          "fontFamily": "Manrope",
+                          "fontSize": 13,
+                          "fontWeight": "800"
                         }
                       ]
                     }

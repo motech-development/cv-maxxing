@@ -7,6 +7,7 @@ export type RailItemId = 'job_vacancies' | 'original_cv' | 'settings' | 'setup'
 
 interface DesktopShellProperties {
   activeRailItem: RailItemId
+  appOverlay?: ReactNode
   ambientActivityLabel?: string | null
   children: ReactNode
   onSelectRailItem?: (item: RailItemId) => void
@@ -83,6 +84,7 @@ function AmbientActivityIndicator({ label }: { label: string }) {
 
 export function DesktopShell({
   activeRailItem,
+  appOverlay,
   ambientActivityLabel,
   children,
   onSelectRailItem,
@@ -94,7 +96,7 @@ export function DesktopShell({
 }: DesktopShellProperties) {
   return (
     <main className="h-screen overflow-hidden bg-[var(--color-shell-topbar)] text-[var(--color-copy-strong)]">
-      <section className="flex h-screen w-full flex-col overflow-hidden bg-[var(--color-shell-canvas)]">
+      <section className="relative flex h-screen w-full flex-col overflow-hidden bg-[var(--color-shell-canvas)]">
         <header className="flex h-[52px] items-center gap-[14px] bg-[var(--color-shell-topbar)] pl-[84px] pr-[18px] [-webkit-app-region:drag]">
           <div className="min-w-0 flex-1">
             <p className="m-0 text-sm font-bold text-[var(--color-surface-3)]">CV Maxxing</p>
@@ -161,6 +163,8 @@ export function DesktopShell({
             ) : null}
           </div>
         </div>
+
+        {appOverlay ? <div className="absolute inset-0 z-20">{appOverlay}</div> : null}
       </section>
     </main>
   )

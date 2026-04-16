@@ -1,4 +1,4 @@
-import type { ChangeEvent, DragEvent, KeyboardEvent } from 'react'
+import type { ChangeEvent, DragEvent, KeyboardEvent, ReactNode } from 'react'
 
 import { DesktopShell, type RailItemId } from '../shell/desktop-shell.js'
 import { Button } from '../ui/button.js'
@@ -13,6 +13,7 @@ interface FirstLaunchScreenProperties {
   onImportOriginalCv: () => void
   onSelectRailItem?: (item: RailItemId) => void
   originalCvFile: File | null
+  workspaceOverlay?: ReactNode
 }
 
 function handleDropzoneKeyDown(event: KeyboardEvent<HTMLDivElement>): void {
@@ -48,6 +49,7 @@ export function FirstLaunchScreen({
   onImportOriginalCv,
   onSelectRailItem,
   originalCvFile,
+  workspaceOverlay,
 }: FirstLaunchScreenProperties) {
   return (
     <DesktopShell
@@ -55,6 +57,7 @@ export function FirstLaunchScreen({
       onSelectRailItem={onSelectRailItem}
       sidebar={<FirstLaunchSidebar />}
       subtitle="First launch"
+      workspaceOverlay={workspaceOverlay}
       workerLabel="Worker ready"
       workerTone="ready"
     >

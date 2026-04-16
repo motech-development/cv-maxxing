@@ -13,6 +13,7 @@ export type SettingsSection = 'ai_worker' | 'local_data'
 
 interface SettingsScreenProperties {
   activeSection: SettingsSection
+  appOverlay?: ReactNode
   ambientActivityLabel?: string | null
   isClearingJobSiteBrowserData: boolean
   isOpeningSetupGuide: boolean
@@ -43,6 +44,7 @@ const privacyRows = [
 
 export function SettingsScreen({
   activeSection,
+  appOverlay,
   ambientActivityLabel,
   isClearingJobSiteBrowserData,
   isOpeningSetupGuide,
@@ -64,6 +66,7 @@ export function SettingsScreen({
   return (
     <DesktopShell
       activeRailItem="settings"
+      appOverlay={appOverlay}
       ambientActivityLabel={ambientActivityLabel}
       onSelectRailItem={onSelectRailItem}
       sidebar={

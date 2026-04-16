@@ -904,17 +904,26 @@ export function App() {
   })
   const ambientActivityLabel =
     rendererLoadingState.scope === 'ambient' ? rendererLoadingState.label : null
-  const workspaceOverlay =
-    activeWorkspaceSection === 'workspace' &&
-    rendererLoadingState.kind === 'tailored_application_generation' ? (
-      <WorkspaceBlockingOverlay
-        isSecondaryActionPending={isPendingGenerationActionPending}
-        onSecondaryAction={() => {
-          handleAbandonDraft().catch(() => null)
-        }}
-        secondaryActionLabel="Abandon draft"
-      />
+  const appOverlay =
+    rendererLoadingState.scope === 'app_blocking' ? (
+      <WorkspaceBlockingOverlay title="Preparing app" />
     ) : null
+  let workspaceOverlay = null
+
+  if (rendererLoadingState.scope === 'workspace_blocking') {
+    workspaceOverlay =
+      rendererLoadingState.kind === 'tailored_application_generation' ? (
+        <WorkspaceBlockingOverlay
+          isSecondaryActionPending={isPendingGenerationActionPending}
+          onSecondaryAction={() => {
+            handleAbandonDraft().catch(() => null)
+          }}
+          secondaryActionLabel="Cancel"
+        />
+      ) : (
+        <WorkspaceBlockingOverlay />
+      )
+  }
 
   const resumePendingGeneration = useEffectEvent(async (): Promise<void> => {
     if (pendingGenerationCommand === null) {
@@ -1049,6 +1058,7 @@ export function App() {
           }}
           onSelectRailItem={handleSelectRailItem}
           originalCvFile={originalCvFile}
+          workspaceOverlay={workspaceOverlay}
         />
       )
     },
@@ -1220,6 +1230,7 @@ export function App() {
     return (
       <SettingsScreen
         activeSection={settingsSection}
+        appOverlay={appOverlay}
         ambientActivityLabel={ambientActivityLabel}
         isClearingJobSiteBrowserData={isClearingJobSiteBrowserData}
         isOpeningSetupGuide={isSecondaryActionPending}
