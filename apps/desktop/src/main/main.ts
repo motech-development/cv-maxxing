@@ -343,7 +343,7 @@ export function createDesktopAppBootstrap({
     ipcMain.handle(
       TAILORED_APPLICATION_IPC_CHANNELS.completePendingGeneration,
       async (_event, payload) => {
-        await tailoredApplication.completePendingGeneration(
+        return await tailoredApplication.completePendingGeneration(
           parseCompletePendingGenerationInput(payload).commandId,
         )
       },

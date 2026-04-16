@@ -6,7 +6,10 @@ import { afterEach, expect, test, vi } from 'vitest'
 
 import type { OriginalCvImportInput, OriginalCvImportResult } from '../../shared/original-cv.js'
 import { SETTINGS_RESET_CONFIRMATION_PHRASE } from '../../shared/settings.js'
-import type { TailoredApplicationPreview } from '../../shared/tailored-application.js'
+import type {
+  TailoredApplicationPreview,
+  TailoredApplicationWorkspaceState,
+} from '../../shared/tailored-application.js'
 import type { VacancyIngestResult } from '../../shared/vacancy.js'
 import { App } from '../app.js'
 
@@ -177,14 +180,13 @@ function createTailoredApplicationApi(
 ) {
   return {
     abandonPendingGeneration: vi.fn().mockImplementation(() => Promise.resolve()),
-    completePendingGeneration: vi.fn().mockImplementation(() => Promise.resolve()),
+    completePendingGeneration: vi.fn().mockResolvedValue({
+      workspaceState: createTailoredApplicationWorkspaceStateFixture(),
+    }),
     deleteTailoredApplication: vi.fn().mockImplementation(() => Promise.resolve()),
     getPendingGenerationCommand: vi.fn().mockResolvedValue(null),
     getTailoredApplicationPreview: vi.fn().mockResolvedValue(null),
-    getWorkspaceState: vi.fn().mockResolvedValue({
-      activeApplicationId: null,
-      applications: [],
-    }),
+    getWorkspaceState: vi.fn().mockResolvedValue(createTailoredApplicationWorkspaceStateFixture()),
     exportAdaptedCvPdf: vi.fn().mockResolvedValue({
       filePath: '/exports/Ada Lovelace - Senior platform engineer - adapted-cv (2).pdf',
       overwriteAvoided: true,
@@ -355,6 +357,16 @@ function createTailoredApplicationPreviewFixture(
       title: 'Senior platform engineer',
     },
     vacancyTitle: 'Senior platform engineer',
+    ...overrides,
+  }
+}
+
+function createTailoredApplicationWorkspaceStateFixture(
+  overrides: Partial<TailoredApplicationWorkspaceState> = {},
+): TailoredApplicationWorkspaceState {
+  return {
+    activeApplicationId: null,
+    applications: [],
     ...overrides,
   }
 }
@@ -2739,7 +2751,22 @@ test('keeps settings open when restored generation completes in the background',
       },
     })
     .mockResolvedValue(null)
-  const completePendingGeneration = vi.fn().mockImplementation(() => Promise.resolve())
+  const completePendingGeneration = vi.fn().mockResolvedValue({
+    workspaceState: createTailoredApplicationWorkspaceStateFixture({
+      activeApplicationId: 'tailored-application-123',
+      applications: [
+        {
+          createdAt: '2026-04-09T09:30:00.000Z',
+          employer: 'Example Labs',
+          id: 'tailored-application-123',
+          pageCount: 4,
+          pageWarning: null,
+          title: 'Senior platform engineer · Example Labs',
+          vacancyTitle: 'Senior platform engineer',
+        },
+      ],
+    }),
+  })
   let resolveResumePendingGeneration:
     | ((value: { generationRunId: string; tailoredApplicationId: string }) => void)
     | undefined
@@ -3062,7 +3089,23 @@ test('opens the tailored application when generation completes from the workspac
       },
     })
     .mockResolvedValue(null)
-  const completePendingGeneration = vi.fn().mockImplementation(() => Promise.resolve())
+  const completedWorkspaceState = createTailoredApplicationWorkspaceStateFixture({
+    activeApplicationId: 'tailored-application-123',
+    applications: [
+      {
+        createdAt: '2026-04-09T09:30:00.000Z',
+        employer: 'Example Labs',
+        id: 'tailored-application-123',
+        pageCount: 4,
+        pageWarning: 'This adapted CV runs to 4 pages. Export is still available.',
+        title: 'Senior platform engineer · Example Labs',
+        vacancyTitle: 'Senior platform engineer',
+      },
+    ],
+  })
+  const completePendingGeneration = vi.fn().mockResolvedValue({
+    workspaceState: completedWorkspaceState,
+  })
   const clipboardWriteText = vi.fn().mockImplementation(() => Promise.resolve())
   const exportAdaptedCvPdf = vi.fn().mockResolvedValue({
     filePath: '/exports/Ada Lovelace - Senior platform engineer - adapted-cv (2).pdf',
@@ -3139,20 +3182,7 @@ test('opens the tailored application when generation completes from the workspac
     },
     vacancyTitle: 'Senior platform engineer',
   })
-  const getWorkspaceState = vi.fn().mockResolvedValue({
-    activeApplicationId: 'tailored-application-123',
-    applications: [
-      {
-        createdAt: '2026-04-09T09:30:00.000Z',
-        employer: 'Example Labs',
-        id: 'tailored-application-123',
-        pageCount: 4,
-        pageWarning: 'This adapted CV runs to 4 pages. Export is still available.',
-        title: 'Senior platform engineer · Example Labs',
-        vacancyTitle: 'Senior platform engineer',
-      },
-    ],
-  })
+  const getWorkspaceState = vi.fn().mockResolvedValue(completedWorkspaceState)
   const resumePendingGeneration = vi.fn().mockResolvedValue({
     generationRunId: 'run-123',
     tailoredApplicationId: 'tailored-application-123',
@@ -3264,6 +3294,170 @@ test('opens the tailored application when generation completes from the workspac
   })
 })
 
+test('replaces the current draft row with the new saved tailored application row without sidebar churn', async () => {
+  const getStartupDestination = vi
+    .fn()
+    .mockResolvedValueOnce('workspace_empty')
+    .mockResolvedValueOnce('workspace_active')
+  const getPendingGenerationCommand = vi
+    .fn()
+    .mockResolvedValueOnce({
+      commandId: 'command-123',
+      originalCvId: 'original-cv-123',
+      originalCvLabel: 'ada-lovelace.pdf',
+      vacancyId: 'vacancy-123',
+      vacancyDraft: {
+        text: 'Senior platform engineer',
+        url: 'https://jobs.example.com/roles/123',
+      },
+    })
+    .mockResolvedValue(null)
+  const completedWorkspaceState = createTailoredApplicationWorkspaceStateFixture({
+    activeApplicationId: 'tailored-application-123',
+    applications: [
+      {
+        createdAt: '2026-04-09T09:30:00.000Z',
+        employer: 'Example Labs',
+        id: 'tailored-application-123',
+        pageCount: 4,
+        pageWarning: null,
+        title: 'Senior platform engineer · Example Labs',
+        vacancyTitle: 'Senior platform engineer',
+      },
+      {
+        createdAt: '2026-04-08T09:30:00.000Z',
+        employer: 'Nebula Labs',
+        id: 'tailored-application-456',
+        pageCount: 2,
+        pageWarning: null,
+        title: 'Platform Product Manager · Nebula Labs',
+        vacancyTitle: 'Platform Product Manager',
+      },
+    ],
+  })
+  const completePendingGeneration = vi.fn().mockResolvedValue({
+    workspaceState: completedWorkspaceState,
+  })
+  const getWorkspaceStateRefetch = createDeferredPromise<TailoredApplicationWorkspaceState>()
+  const previousTailoredApplication = completedWorkspaceState.applications[1]
+
+  if (previousTailoredApplication === undefined) {
+    throw new Error('Expected the seeded workspace state to include an older tailored application.')
+  }
+
+  const getWorkspaceState = vi
+    .fn()
+    .mockResolvedValueOnce(
+      createTailoredApplicationWorkspaceStateFixture({
+        activeApplicationId: 'tailored-application-456',
+        applications: [previousTailoredApplication],
+      }),
+    )
+    .mockImplementationOnce(() => {
+      return getWorkspaceStateRefetch.promise
+    })
+  const getTailoredApplicationPreview = vi.fn().mockImplementation(() => {
+    return new Promise<TailoredApplicationPreview | null>(() => null)
+  })
+  const resumePendingGeneration = vi.fn().mockResolvedValue({
+    generationRunId: 'run-123',
+    tailoredApplicationId: 'tailored-application-123',
+  })
+
+  renderApp({
+    aiWorker: createAiWorkerApi({
+      getAiWorkerPreflight: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+      getStartupDestination,
+    }),
+    originalCv: createOriginalCvApi({
+      getOriginalCvWorkspaceState: vi.fn().mockResolvedValue({
+        activeOriginalCv: {
+          fileType: 'pdf',
+          headline: 'Principal Product Designer',
+          id: 'original-cv-123',
+          importedAt: '2026-04-08T14:30:00.000Z',
+          originalFilename: 'ada-lovelace.pdf',
+          pageCount: 1,
+          snapshotCount: 1,
+          summary: 'Design leader focused on complex workflow products.',
+          writingStyle: {
+            averageSentenceLength: 7,
+            clicheDetections: [],
+            firstPersonUsage: 'absent',
+            formality: 'direct',
+          },
+        },
+        snapshotCount: 1,
+      }),
+    }),
+    tailoredApplication: createTailoredApplicationApi({
+      completePendingGeneration,
+      getPendingGenerationCommand,
+      getTailoredApplicationPreview,
+      getWorkspaceState,
+      resumePendingGeneration,
+    }),
+    vacancy: createVacancyApi({
+      getVacancyWorkspaceState: vi.fn().mockResolvedValue({
+        draft: {
+          text: 'Senior platform engineer',
+          url: 'https://jobs.example.com/roles/123',
+        },
+        vacancy: {
+          blockingReason: null,
+          canGenerate: true,
+          employer: 'Example Labs',
+          fetchedAt: '2026-04-09T08:30:00.000Z',
+          id: 'vacancy-123',
+          inputType: 'url',
+          location: 'London, United Kingdom',
+          originalUrl: 'https://jobs.example.com/roles/123',
+          requirements: ['Experience shipping workflow software.'],
+          resolvedUrl: 'https://jobs.example.com/roles/123',
+          responsibilities: ['Lead product design for authenticated desktop workflows.'],
+          source: 'generic',
+          status: 'ready',
+          textPreview: 'Lead product design for authenticated desktop workflows.',
+          title: 'Senior platform engineer',
+        },
+      }),
+    }),
+  })
+
+  await waitFor(() => {
+    expect(screen.getByRole('button', { name: 'Open current vacancy draft' })).toBeDefined()
+    expect(screen.getByRole('button', { name: 'Open platform product manager' })).toBeDefined()
+  })
+
+  expect(screen.queryByText('No vacancy items yet')).toBeNull()
+
+  await waitFor(() => {
+    expect(resumePendingGeneration).toHaveBeenCalledTimes(1)
+    expect(completePendingGeneration).toHaveBeenCalledWith('command-123')
+  })
+
+  await waitFor(() => {
+    expect(screen.queryByRole('button', { name: 'Open current vacancy draft' })).toBeNull()
+  })
+
+  expect(screen.queryByText('No vacancy items yet')).toBeNull()
+  expect(
+    screen.getByRole('heading', { name: 'Senior platform engineer · Example Labs' }),
+  ).toBeDefined()
+  expect(
+    screen
+      .getByRole('button', { name: 'Open senior platform engineer' })
+      .getAttribute('aria-current'),
+  ).toBe('page')
+  expect(screen.getByRole('button', { name: 'Open platform product manager' })).toBeDefined()
+  expect(getTailoredApplicationPreview).toHaveBeenCalledWith('tailored-application-123')
+})
+
 test('transitions to the tailored application even when vacancy cleanup is still pending', async () => {
   const getStartupDestination = vi
     .fn()
@@ -3282,7 +3476,22 @@ test('transitions to the tailored application even when vacancy cleanup is still
       },
     })
     .mockResolvedValue(null)
-  const completePendingGeneration = vi.fn().mockImplementation(() => Promise.resolve())
+  const completePendingGeneration = vi.fn().mockResolvedValue({
+    workspaceState: createTailoredApplicationWorkspaceStateFixture({
+      activeApplicationId: 'tailored-application-123',
+      applications: [
+        {
+          createdAt: '2026-04-09T09:30:00.000Z',
+          employer: 'Example Labs',
+          id: 'tailored-application-123',
+          pageCount: 4,
+          pageWarning: 'This adapted CV runs to 4 pages. Export is still available.',
+          title: 'Senior platform engineer · Example Labs',
+          vacancyTitle: 'Senior platform engineer',
+        },
+      ],
+    }),
+  })
   const getTailoredApplicationPreview = vi.fn().mockResolvedValue({
     adaptedCv: {
       pageCount: 4,

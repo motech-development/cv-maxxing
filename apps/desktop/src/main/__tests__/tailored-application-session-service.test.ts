@@ -3418,6 +3418,117 @@ test('persists a resumable pending command before sign-in repair and resumes the
   })
 })
 
+test('returns the updated saved-application list when completing generation so the renderer can replace the draft row atomically', async () => {
+  const harness = await createHarness()
+
+  await seedOriginalCvAndVacancy(harness)
+  await harness.localAppData.metadata.put({
+    id: 'tailored-application-456',
+    scope: 'tailored-applications',
+    value: {
+      adaptedCvPageCount: 2,
+      adaptedCvPageWarning: null,
+      candidateName: 'Ada Lovelace',
+      coverLetterPageCount: 1,
+      coverLetterPageWarning: null,
+      createdAt: '2026-04-08T09:30:00.000Z',
+      employer: 'Nebula Labs',
+      originalCvId: 'original-cv-123',
+      status: 'ready',
+      vacancyId: 'vacancy-123',
+      vacancyTitle: 'Platform Product Manager',
+    },
+  })
+
+  const service = createTailoredApplicationSessionService({
+    adaptedCvRenderer: {
+      renderAdaptedCvPdf: vi.fn().mockResolvedValue({
+        pageCount: 4,
+        pageWarning: null,
+        pdfBytes: Buffer.from('%PDF-1.7 adapted cv', 'utf8'),
+      }),
+    },
+    coverLetterRenderer: {
+      renderCoverLetterPdf: vi.fn().mockResolvedValue({
+        pageCount: 1,
+        pageWarning: null,
+        pdfBytes: Buffer.from('%PDF-1.7 cover letter', 'utf8'),
+      }),
+    },
+    aiWorker: {
+      retryAiWorkerPreflight: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+    },
+    generateId: createIdGenerator(['command-123', 'run-123', 'tailored-application-123']),
+    getCurrentTimestamp: () => {
+      return '2026-04-09T09:30:00.000Z'
+    },
+    localAppData: harness.localAppData,
+    readinessStore: harness.readinessStore,
+    runWorkspaceRootPath: path.join(harness.paths.rootDirectoryPath, 'runs'),
+    worker: {
+      runGeneration: () => Promise.resolve(createValidGenerationResult()),
+    },
+  })
+
+  await expect(
+    service.startPendingGeneration({
+      originalCvId: 'original-cv-123',
+      originalCvLabel: 'ada-lovelace.pdf',
+      vacancyDraft: {
+        text: 'Senior platform engineer',
+        url: 'https://jobs.example.com/roles/123',
+      },
+    }),
+  ).resolves.toMatchObject({
+    canResumeGeneration: true,
+    status: 'ready',
+  })
+
+  await expect(service.resumePendingGeneration()).resolves.toEqual({
+    generationRunId: 'run-123',
+    tailoredApplicationId: 'tailored-application-123',
+  })
+
+  await expect(service.completePendingGeneration('command-123')).resolves.toEqual({
+    workspaceState: {
+      activeApplicationId: 'tailored-application-123',
+      applications: [
+        {
+          createdAt: '2026-04-09T09:30:00.000Z',
+          employer: 'Example Labs',
+          id: 'tailored-application-123',
+          pageCount: 4,
+          pageWarning: null,
+          title: 'Senior platform engineer · Example Labs',
+          vacancyTitle: 'Senior platform engineer',
+        },
+        {
+          createdAt: '2026-04-08T09:30:00.000Z',
+          employer: 'Nebula Labs',
+          id: 'tailored-application-456',
+          pageCount: 2,
+          pageWarning: null,
+          title: 'Platform Product Manager · Nebula Labs',
+          vacancyTitle: 'Platform Product Manager',
+        },
+      ],
+    },
+  })
+
+  await expect(harness.readinessStore.getStartupDestination()).resolves.toBe('workspace_active')
+  await expect(
+    harness.localAppData.metadata.get({
+      id: 'current',
+      scope: 'vacancy-workspace',
+    }),
+  ).resolves.toBeNull()
+})
+
 test('cleans interrupted running sessions on startup recovery without deleting the saved vacancy snapshot', async () => {
   const harness = await createHarness()
 

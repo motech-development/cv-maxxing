@@ -103,7 +103,12 @@ function createVacancyDouble() {
 function createTailoredApplicationDouble() {
   return {
     abandonPendingGeneration: vi.fn().mockImplementation(() => Promise.resolve()),
-    completePendingGeneration: vi.fn().mockImplementation(() => Promise.resolve()),
+    completePendingGeneration: vi.fn().mockResolvedValue({
+      workspaceState: {
+        activeApplicationId: null,
+        applications: [],
+      },
+    }),
     deleteTailoredApplication: vi.fn().mockImplementation(() => Promise.resolve()),
     exportAdaptedCvPdf: vi.fn().mockResolvedValue({
       filePath: '/exports/Ada Lovelace - Senior platform engineer - adapted-cv.pdf',
@@ -752,7 +757,12 @@ test('bootstrap registers the full AI worker onboarding IPC surface and opens th
         commandId: 'command-123',
       },
     ),
-  ).resolves.toBeUndefined()
+  ).resolves.toEqual({
+    workspaceState: {
+      activeApplicationId: null,
+      applications: [],
+    },
+  })
   await expect(
     registeredHandlers.get(TAILORED_APPLICATION_IPC_CHANNELS.abandonPendingGeneration)?.(),
   ).resolves.toBeUndefined()

@@ -16,7 +16,10 @@ import {
 } from '../readiness/readiness-route.js'
 import type { AiWorkerPreflightResult } from '../shared/ai-worker-preflight.js'
 import type { OriginalCvImportResult, OriginalCvWorkspaceState } from '../shared/original-cv.js'
-import type { PendingGenerationCommand } from '../shared/pending-generation.js'
+import type {
+  CompletePendingGenerationResult,
+  PendingGenerationCommand,
+} from '../shared/pending-generation.js'
 import type { StartupDestination } from '../shared/startup-destination.js'
 import type { TailoredApplicationWorkspaceState } from '../shared/tailored-application.js'
 import type { VacancyDraft, VacancyIngestResult, VacancySummary } from '../shared/vacancy.js'
@@ -167,6 +170,12 @@ export function App() {
     resolvedTailoredApplicationId,
     startupDestination: viewModel.startupDestination,
   })
+  const selectedTailoredApplication =
+    resolvedTailoredApplicationId === null
+      ? null
+      : (tailoredApplicationWorkspaceState.applications.find((application) => {
+          return application.id === resolvedTailoredApplicationId
+        }) ?? null)
   const tailoredApplicationPreviewQuery = useQuery({
     ...getTailoredApplicationPreviewQueryOptions(resolvedTailoredApplicationId ?? ''),
     enabled:
@@ -484,22 +493,34 @@ export function App() {
     }: {
       commandId: string
       tailoredApplicationId: string | null
-    }): Promise<void> => {
-      await globalThis.window.cvMaxxing.tailoredApplication.completePendingGeneration(commandId)
+    }): Promise<CompletePendingGenerationResult> => {
+      return await globalThis.window.cvMaxxing.tailoredApplication.completePendingGeneration(
+        commandId,
+      )
     },
-    onSuccess: (_data, { tailoredApplicationId }): void => {
-      setIsConfirmingDeleteTailoredApplication(false)
-      setPreviewDocumentKind('adapted_cv')
-      setReadinessError(null)
-      setSelectedTailoredApplicationId(tailoredApplicationId)
-      setStartupDestinationOverride('workspace_active')
-      setVacancyPreviewOverride(null)
+    onSuccess: ({ workspaceState }, { tailoredApplicationId }): void => {
+      const nextSelectedTailoredApplicationId =
+        workspaceState.activeApplicationId ?? tailoredApplicationId
+
+      flushSync(() => {
+        setIsConfirmingDeleteTailoredApplication(false)
+        setPreviewDocumentKind('adapted_cv')
+        setReadinessError(null)
+        setSelectedTailoredApplicationId(nextSelectedTailoredApplicationId)
+        setStartupDestinationOverride('workspace_active')
+        setVacancyDraft(initialVacancyDraft)
+        setVacancyPreviewOverride(null)
+      })
+
       queryClient.setQueryData(rendererQueryKeys.pendingGeneration, null)
+      queryClient.setQueryData(rendererQueryKeys.tailoredApplicationWorkspace, workspaceState)
       queryClient.setQueryData(rendererQueryKeys.vacancyWorkspace, initialVacancyWorkspaceState)
 
-      if (tailoredApplicationId !== null) {
+      if (nextSelectedTailoredApplicationId !== null) {
         queryClient
-          .prefetchQuery(getTailoredApplicationPreviewQueryOptions(tailoredApplicationId))
+          .prefetchQuery(
+            getTailoredApplicationPreviewQueryOptions(nextSelectedTailoredApplicationId),
+          )
           .catch(() => null)
       }
 
@@ -1085,7 +1106,7 @@ export function App() {
         <WorkspaceScreen
           activeOriginalCv={originalCvWorkspaceState.activeOriginalCv}
           ambientActivityLabel={ambientActivityLabel}
-          applicationTitle={null}
+          applicationTitle={selectedTailoredApplication?.title ?? null}
           applications={tailoredApplicationWorkspaceState.applications}
           importError={importError}
           isAdaptingCv={isPendingGenerationActionPending}

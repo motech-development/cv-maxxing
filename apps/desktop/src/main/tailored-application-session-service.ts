@@ -4,6 +4,7 @@ import path from 'node:path'
 
 import type { AiWorkerPreflightResult } from '../shared/ai-worker-preflight.js'
 import type {
+  CompletePendingGenerationResult,
   PendingGenerationCommand,
   ResumePendingGenerationResult,
   StartPendingGenerationInput,
@@ -64,7 +65,7 @@ export interface TailoredApplicationGenerationWorker {
 
 export interface TailoredApplicationSessionService {
   abandonPendingGeneration: () => Promise<void>
-  completePendingGeneration: (commandId: string) => Promise<void>
+  completePendingGeneration: (commandId: string) => Promise<CompletePendingGenerationResult>
   deleteTailoredApplication: (tailoredApplicationId: string) => Promise<void>
   exportAdaptedCvPdf: (
     tailoredApplicationId: string,
@@ -1048,6 +1049,35 @@ export function createTailoredApplicationSessionService({
     }
   }
 
+  async function getWorkspaceState(): Promise<TailoredApplicationWorkspaceState> {
+    const metadataRecords = await localAppData.metadata.list<TailoredApplicationMetadataValue>(
+      TAILORED_APPLICATION_SCOPE,
+    )
+    const readyApplications = metadataRecords
+      .filter((record) => {
+        return record.value.status === 'ready'
+      })
+      .toSorted((leftRecord, rightRecord) => {
+        return rightRecord.value.createdAt.localeCompare(leftRecord.value.createdAt)
+      })
+      .map((record) => {
+        return {
+          createdAt: record.value.createdAt,
+          employer: record.value.employer,
+          id: record.id,
+          pageCount: record.value.adaptedCvPageCount ?? 1,
+          pageWarning: record.value.adaptedCvPageWarning,
+          title: createTailoredApplicationTitle(record.value),
+          vacancyTitle: record.value.vacancyTitle,
+        }
+      })
+
+    return {
+      activeApplicationId: readyApplications[0]?.id ?? null,
+      applications: readyApplications,
+    }
+  }
+
   return {
     abandonPendingGeneration: async () => {
       const pendingSession = await getPendingGenerationSession()
@@ -1094,6 +1124,10 @@ export function createTailoredApplicationSessionService({
         // Best-effort cleanup. A completed tailored application should still open.
       }
       await readinessStore.setStartupDestination('workspace_active')
+
+      return {
+        workspaceState: await getWorkspaceState(),
+      }
     },
     deleteTailoredApplication: async (tailoredApplicationId) => {
       await localAppData.deleteScopedData({
@@ -1238,34 +1272,7 @@ export function createTailoredApplicationSessionService({
         vacancyTitle: metadata.vacancyTitle,
       }
     },
-    getWorkspaceState: async () => {
-      const metadataRecords = await localAppData.metadata.list<TailoredApplicationMetadataValue>(
-        TAILORED_APPLICATION_SCOPE,
-      )
-      const readyApplications = metadataRecords
-        .filter((record) => {
-          return record.value.status === 'ready'
-        })
-        .toSorted((leftRecord, rightRecord) => {
-          return rightRecord.value.createdAt.localeCompare(leftRecord.value.createdAt)
-        })
-        .map((record) => {
-          return {
-            createdAt: record.value.createdAt,
-            employer: record.value.employer,
-            id: record.id,
-            pageCount: record.value.adaptedCvPageCount ?? 1,
-            pageWarning: record.value.adaptedCvPageWarning,
-            title: createTailoredApplicationTitle(record.value),
-            vacancyTitle: record.value.vacancyTitle,
-          }
-        })
-
-      return {
-        activeApplicationId: readyApplications[0]?.id ?? null,
-        applications: readyApplications,
-      }
-    },
+    getWorkspaceState,
     recoverInterruptedGeneration: async () => {
       const pendingSession = await getPendingGenerationSession()
 

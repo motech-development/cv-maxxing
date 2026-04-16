@@ -6,6 +6,7 @@ import type {
 } from './original-cv.js'
 import type {
   CompletePendingGenerationInput,
+  CompletePendingGenerationResult,
   PendingGenerationCommand,
   ResumePendingGenerationResult,
   StartPendingGenerationInput,
@@ -45,7 +46,7 @@ export interface CvMaxxingWindowApi {
     abandonPendingGeneration: () => Promise<void>
     completePendingGeneration: (
       commandId: CompletePendingGenerationInput['commandId'],
-    ) => Promise<void>
+    ) => Promise<CompletePendingGenerationResult>
     deleteTailoredApplication: (tailoredApplicationId: string) => Promise<void>
     exportAdaptedCvPdf: (
       tailoredApplicationId: string,

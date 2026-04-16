@@ -518,7 +518,22 @@ test('preload exposes tailored-application repair and resume commands over typed
       provider: 'codex',
       status: 'sign_in_required',
     })
-    .mockImplementationOnce(() => Promise.resolve())
+    .mockResolvedValueOnce({
+      workspaceState: {
+        activeApplicationId: 'tailored-application-123',
+        applications: [
+          {
+            createdAt: '2026-04-09T09:30:00.000Z',
+            employer: 'Example Labs',
+            id: 'tailored-application-123',
+            pageCount: 4,
+            pageWarning: 'This adapted CV runs to 4 pages. Export is still available.',
+            title: 'Senior platform engineer · Example Labs',
+            vacancyTitle: 'Senior platform engineer',
+          },
+        ],
+      },
+    })
     .mockImplementationOnce(() => Promise.resolve())
     .mockImplementationOnce(() => Promise.resolve())
     .mockResolvedValueOnce({
@@ -648,7 +663,22 @@ test('preload exposes tailored-application repair and resume commands over typed
   })
   await expect(
     desktopApi.tailoredApplication.completePendingGeneration('command-123'),
-  ).resolves.toBeUndefined()
+  ).resolves.toEqual({
+    workspaceState: {
+      activeApplicationId: 'tailored-application-123',
+      applications: [
+        {
+          createdAt: '2026-04-09T09:30:00.000Z',
+          employer: 'Example Labs',
+          id: 'tailored-application-123',
+          pageCount: 4,
+          pageWarning: 'This adapted CV runs to 4 pages. Export is still available.',
+          title: 'Senior platform engineer · Example Labs',
+          vacancyTitle: 'Senior platform engineer',
+        },
+      ],
+    },
+  })
   await expect(desktopApi.tailoredApplication.abandonPendingGeneration()).resolves.toBeUndefined()
   await expect(
     desktopApi.tailoredApplication.deleteTailoredApplication('tailored-application-123'),

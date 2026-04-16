@@ -1,4 +1,5 @@
 import type { VacancyDraft } from './vacancy.js'
+import type { TailoredApplicationWorkspaceState } from './tailored-application.js'
 
 export interface PendingGenerationCommand {
   commandId: string
@@ -16,6 +17,10 @@ export interface StartPendingGenerationInput {
 
 export interface CompletePendingGenerationInput {
   commandId: string
+}
+
+export interface CompletePendingGenerationResult {
+  workspaceState: TailoredApplicationWorkspaceState
 }
 
 export interface ResumePendingGenerationResult {

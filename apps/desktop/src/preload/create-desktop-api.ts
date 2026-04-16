@@ -13,6 +13,7 @@ import type {
   OriginalCvWorkspaceState,
 } from '../shared/original-cv.js'
 import type {
+  CompletePendingGenerationResult,
   PendingGenerationCommand,
   ResumePendingGenerationResult,
   StartPendingGenerationInput,
@@ -80,8 +81,10 @@ export function createDesktopApi({ invoke }: DesktopApiInvoker): CvMaxxingWindow
       abandonPendingGeneration: async (): Promise<void> => {
         await invoke<undefined>(TAILORED_APPLICATION_IPC_CHANNELS.abandonPendingGeneration)
       },
-      completePendingGeneration: async (commandId: string): Promise<void> => {
-        await invoke<undefined>(TAILORED_APPLICATION_IPC_CHANNELS.completePendingGeneration, {
+      completePendingGeneration: async (
+        commandId: string,
+      ): Promise<CompletePendingGenerationResult> => {
+        return await invoke(TAILORED_APPLICATION_IPC_CHANNELS.completePendingGeneration, {
           commandId,
         })
       },
