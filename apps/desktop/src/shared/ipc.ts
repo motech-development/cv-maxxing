@@ -27,6 +27,7 @@ export const TAILORED_APPLICATION_IPC_CHANNELS = {
   getPreview: 'tailored-application:get-preview',
   getWorkspaceState: 'tailored-application:get-workspace-state',
   resumePendingGeneration: 'tailored-application:resume-pending-generation',
+  setWorkspaceSelection: 'tailored-application:set-workspace-selection',
   startPendingGeneration: 'tailored-application:start-pending-generation',
 } as const
 

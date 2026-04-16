@@ -125,11 +125,13 @@ function isPendingGenerationCommand(value: unknown): value is PendingGenerationC
 }
 
 function normalizeStartupDestination(value: unknown): StartupDestination | null {
-  if (value === 'workspace_loading') {
-    return 'workspace_empty'
+  if (
+    value === 'workspace_loading' ||
+    value === 'workspace_active' ||
+    value === 'workspace_empty'
+  ) {
+    return 'workspace'
   }
 
-  return value === 'first_launch' || value === 'workspace_active' || value === 'workspace_empty'
-    ? value
-    : null
+  return value === 'first_launch' || value === 'workspace' ? value : null
 }

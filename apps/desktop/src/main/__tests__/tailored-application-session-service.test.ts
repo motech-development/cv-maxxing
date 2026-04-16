@@ -15,6 +15,7 @@ import {
   createTailoredApplicationSessionService,
   type AdaptedCvRenderer,
 } from '../tailored-application-session-service.js'
+import { createWorkspaceSelectionStore } from '../workspace-selection-store.js'
 
 const temporaryDirectories: string[] = []
 
@@ -3520,13 +3521,147 @@ test('returns the updated saved-application list when completing generation so t
     },
   })
 
-  await expect(harness.readinessStore.getStartupDestination()).resolves.toBe('workspace_active')
+  await expect(harness.readinessStore.getStartupDestination()).resolves.toBe('workspace')
   await expect(
     harness.localAppData.metadata.get({
       id: 'current',
       scope: 'vacancy-workspace',
     }),
   ).resolves.toBeNull()
+})
+
+test('restores the explicit saved tailored application selection when no meaningful draft exists', async () => {
+  const harness = await createHarness()
+
+  await seedOriginalCvAndVacancy(harness)
+  await harness.localAppData.metadata.delete({
+    id: 'current',
+    scope: 'vacancy-workspace',
+  })
+  await harness.localAppData.metadata.put({
+    id: 'tailored-application-123',
+    scope: 'tailored-applications',
+    value: {
+      adaptedCvPageCount: 2,
+      adaptedCvPageWarning: null,
+      candidateName: 'Ada Lovelace',
+      coverLetterPageCount: 1,
+      coverLetterPageWarning: null,
+      createdAt: '2026-04-09T09:30:00.000Z',
+      employer: 'Example Labs',
+      originalCvId: 'original-cv-123',
+      status: 'ready',
+      vacancyId: 'vacancy-123',
+      vacancyTitle: 'Senior platform engineer',
+    },
+  })
+  await harness.localAppData.metadata.put({
+    id: 'tailored-application-456',
+    scope: 'tailored-applications',
+    value: {
+      adaptedCvPageCount: 2,
+      adaptedCvPageWarning: null,
+      candidateName: 'Ada Lovelace',
+      coverLetterPageCount: 1,
+      coverLetterPageWarning: null,
+      createdAt: '2026-04-08T09:30:00.000Z',
+      employer: 'Nebula Labs',
+      originalCvId: 'original-cv-123',
+      status: 'ready',
+      vacancyId: 'vacancy-123',
+      vacancyTitle: 'Platform Product Manager',
+    },
+  })
+  await harness.workspaceSelectionStore.setSelection({
+    kind: 'tailored_application',
+    tailoredApplicationId: 'tailored-application-456',
+  })
+
+  const service = createTailoredApplicationSessionService({
+    aiWorker: {
+      retryAiWorkerPreflight: vi.fn(),
+    },
+    localAppData: harness.localAppData,
+    readinessStore: harness.readinessStore,
+    runWorkspaceRootPath: path.join(harness.paths.rootDirectoryPath, 'runs'),
+    workspaceSelectionStore: harness.workspaceSelectionStore,
+  })
+
+  await expect(service.getWorkspaceState()).resolves.toEqual({
+    activeApplicationId: 'tailored-application-456',
+    applications: [
+      {
+        createdAt: '2026-04-09T09:30:00.000Z',
+        employer: 'Example Labs',
+        id: 'tailored-application-123',
+        pageCount: 2,
+        pageWarning: null,
+        title: 'Senior platform engineer · Example Labs',
+        vacancyTitle: 'Senior platform engineer',
+      },
+      {
+        createdAt: '2026-04-08T09:30:00.000Z',
+        employer: 'Nebula Labs',
+        id: 'tailored-application-456',
+        pageCount: 2,
+        pageWarning: null,
+        title: 'Platform Product Manager · Nebula Labs',
+        vacancyTitle: 'Platform Product Manager',
+      },
+    ],
+  })
+})
+
+test('falls back from a stale saved selection to the meaningful current draft before saved history', async () => {
+  const harness = await createHarness()
+
+  await seedOriginalCvAndVacancy(harness)
+  await harness.localAppData.metadata.put({
+    id: 'tailored-application-123',
+    scope: 'tailored-applications',
+    value: {
+      adaptedCvPageCount: 2,
+      adaptedCvPageWarning: null,
+      candidateName: 'Ada Lovelace',
+      coverLetterPageCount: 1,
+      coverLetterPageWarning: null,
+      createdAt: '2026-04-09T09:30:00.000Z',
+      employer: 'Example Labs',
+      originalCvId: 'original-cv-123',
+      status: 'ready',
+      vacancyId: 'vacancy-123',
+      vacancyTitle: 'Senior platform engineer',
+    },
+  })
+  await harness.workspaceSelectionStore.setSelection({
+    kind: 'tailored_application',
+    tailoredApplicationId: 'tailored-application-missing',
+  })
+
+  const service = createTailoredApplicationSessionService({
+    aiWorker: {
+      retryAiWorkerPreflight: vi.fn(),
+    },
+    localAppData: harness.localAppData,
+    readinessStore: harness.readinessStore,
+    runWorkspaceRootPath: path.join(harness.paths.rootDirectoryPath, 'runs'),
+    workspaceSelectionStore: harness.workspaceSelectionStore,
+  })
+
+  await expect(service.getWorkspaceState()).resolves.toEqual({
+    activeApplicationId: null,
+    applications: [
+      {
+        createdAt: '2026-04-09T09:30:00.000Z',
+        employer: 'Example Labs',
+        id: 'tailored-application-123',
+        pageCount: 2,
+        pageWarning: null,
+        title: 'Senior platform engineer · Example Labs',
+        vacancyTitle: 'Senior platform engineer',
+      },
+    ],
+  })
 })
 
 test('cleans interrupted running sessions on startup recovery without deleting the saved vacancy snapshot', async () => {
@@ -3544,7 +3679,7 @@ test('cleans interrupted running sessions on startup recovery without deleting t
     },
     vacancyId: 'vacancy-123',
   })
-  await harness.readinessStore.setStartupDestination('workspace_empty')
+  await harness.readinessStore.setStartupDestination('workspace')
   await harness.localAppData.metadata.put({
     id: 'active-session',
     scope: 'pending-generation-session',
@@ -3614,7 +3749,7 @@ test('cleans interrupted running sessions on startup recovery without deleting t
   await expect(service.recoverInterruptedGeneration()).resolves.toBeUndefined()
 
   await expect(service.getPendingGenerationCommand()).resolves.toBeNull()
-  await expect(harness.readinessStore.getStartupDestination()).resolves.toBe('workspace_empty')
+  await expect(harness.readinessStore.getStartupDestination()).resolves.toBe('workspace')
   await expect(
     harness.localAppData.metadata.get({
       id: 'tailored-application-123',
@@ -3670,6 +3805,9 @@ async function createHarness() {
     localAppData,
     paths,
     readinessStore: createAiWorkerReadinessStore({
+      localAppData,
+    }),
+    workspaceSelectionStore: createWorkspaceSelectionStore({
       localAppData,
     }),
   }

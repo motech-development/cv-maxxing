@@ -37,7 +37,7 @@ test('startup renders sign-in-required guidance with provider-neutral copy and C
         provider: 'codex',
         status: 'sign_in_required',
       }),
-    getStartupDestination: () => Promise.resolve('workspace_empty'),
+    getStartupDestination: () => Promise.resolve('workspace'),
   })
 
   expect(viewModel).toEqual({
@@ -61,17 +61,17 @@ test('startup restores the saved workspace destination after readiness succeeds'
         provider: 'codex',
         status: 'ready',
       }),
-    getStartupDestination: () => Promise.resolve('workspace_active'),
+    getStartupDestination: () => Promise.resolve('workspace'),
   })
 
   expect(viewModel).toEqual({
-    body: 'The local AI worker is ready. Restoring your last tailored application.',
+    body: 'The local AI worker is ready. Returning you to your workspace.',
     canEnterWorkspace: true,
-    diagnostic: 'Startup route restored: workspace_active.',
+    diagnostic: 'Startup route restored: workspace.',
     heading: 'Workspace restored',
     primaryActionLabel: undefined,
     secondaryActionLabel: undefined,
-    startupDestination: 'workspace_active',
+    startupDestination: 'workspace',
     status: 'ready',
   })
 })

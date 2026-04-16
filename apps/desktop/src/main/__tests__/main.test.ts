@@ -140,6 +140,7 @@ function createTailoredApplicationDouble() {
       tailoredApplicationId: 'tailored-application-123',
     }),
     recoverInterruptedGeneration: vi.fn().mockImplementation(() => Promise.resolve()),
+    setWorkspaceSelection: vi.fn().mockImplementation(() => Promise.resolve()),
     startPendingGeneration: vi.fn().mockResolvedValue({
       canResumeGeneration: true,
       failureCode: 'auth_missing',

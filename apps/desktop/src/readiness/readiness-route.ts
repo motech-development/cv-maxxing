@@ -117,11 +117,7 @@ function buildDiagnostic(
 }
 
 function buildReadyBody(startupDestination: StartupDestination): string {
-  if (startupDestination === 'workspace_active') {
-    return 'The local AI worker is ready. Restoring your last tailored application.'
-  }
-
-  if (startupDestination === 'workspace_empty') {
+  if (startupDestination === 'workspace') {
     return 'The local AI worker is ready. Returning you to your workspace.'
   }
 

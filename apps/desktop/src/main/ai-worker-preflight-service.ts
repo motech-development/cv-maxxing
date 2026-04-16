@@ -111,15 +111,13 @@ export function createAiWorkerPreflightService({
       return runPreflight('startup')
     },
     getStartupDestination: async () => {
-      const persistedStartupDestination = await getPersistedStartupDestination()
       const pendingGenerationCommand = await getPendingGenerationCommand()
 
       if (pendingGenerationCommand !== null) {
-        return persistedStartupDestination === 'workspace_active' ||
-          persistedStartupDestination === 'workspace_empty'
-          ? persistedStartupDestination
-          : 'workspace_empty'
+        return 'workspace'
       }
+
+      const persistedStartupDestination = await getPersistedStartupDestination()
 
       return persistedStartupDestination ?? 'first_launch'
     },

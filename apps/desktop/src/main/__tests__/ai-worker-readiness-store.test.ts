@@ -47,7 +47,7 @@ test('persists checking timeout, startup destination, and pending generation con
   })
 
   await firstReadinessStore.setCheckingTimeout(4800)
-  await firstReadinessStore.setStartupDestination('workspace_active')
+  await firstReadinessStore.setStartupDestination('workspace')
   await firstReadinessStore.savePendingGenerationCommand({
     commandId: 'command-123',
     originalCvId: 'original-cv-123',
@@ -69,7 +69,7 @@ test('persists checking timeout, startup destination, and pending generation con
   })
 
   await expect(secondReadinessStore.getCheckingTimeout()).resolves.toBe(4800)
-  await expect(secondReadinessStore.getStartupDestination()).resolves.toBe('workspace_active')
+  await expect(secondReadinessStore.getStartupDestination()).resolves.toBe('workspace')
   await expect(secondReadinessStore.getPendingGenerationCommand()).resolves.toEqual({
     commandId: 'command-123',
     originalCvId: 'original-cv-123',
@@ -88,7 +88,7 @@ test('persists checking timeout, startup destination, and pending generation con
   await secondStore.close()
 })
 
-test('normalizes the retired workspace_loading startup destination to workspace_empty', async () => {
+test('normalizes retired workspace startup destinations to workspace', async () => {
   const paths = await createTestPaths()
   const store = await openLocalAppData({
     keychain: createKeychainBoundary(),
@@ -105,7 +105,7 @@ test('normalizes the retired workspace_loading startup destination to workspace_
     localAppData: store,
   })
 
-  await expect(readinessStore.getStartupDestination()).resolves.toBe('workspace_empty')
+  await expect(readinessStore.getStartupDestination()).resolves.toBe('workspace')
 
   await store.close()
 })

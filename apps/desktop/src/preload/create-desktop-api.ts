@@ -25,6 +25,7 @@ import type {
   TailoredApplicationPreview,
   TailoredApplicationWorkspaceState,
 } from '../shared/tailored-application.js'
+import type { WorkspaceSelection } from '../shared/workspace-selection.js'
 import type {
   PastedVacancyInput,
   VacancyIngestResult,
@@ -108,6 +109,9 @@ export function createDesktopApi({ invoke }: DesktopApiInvoker): CvMaxxingWindow
       },
       resumePendingGeneration: async (): Promise<ResumePendingGenerationResult> => {
         return await invoke(TAILORED_APPLICATION_IPC_CHANNELS.resumePendingGeneration)
+      },
+      setWorkspaceSelection: async (selection: WorkspaceSelection): Promise<void> => {
+        await invoke<undefined>(TAILORED_APPLICATION_IPC_CHANNELS.setWorkspaceSelection, selection)
       },
       startPendingGeneration: async (
         input: StartPendingGenerationInput,

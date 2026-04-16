@@ -126,6 +126,7 @@ test('bootstrap registers settings IPC handlers and delegates privacy actions to
         generationRunId: 'run-123',
         tailoredApplicationId: 'tailored-application-123',
       }),
+      setWorkspaceSelection: vi.fn(() => Promise.resolve()),
       startPendingGeneration: vi.fn(),
     },
     vacancy: {

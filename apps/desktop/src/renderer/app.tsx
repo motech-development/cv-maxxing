@@ -22,6 +22,7 @@ import type {
 } from '../shared/pending-generation.js'
 import type { StartupDestination } from '../shared/startup-destination.js'
 import type { TailoredApplicationWorkspaceState } from '../shared/tailored-application.js'
+import type { WorkspaceSelection } from '../shared/workspace-selection.js'
 import type { VacancyDraft, VacancyIngestResult, VacancySummary } from '../shared/vacancy.js'
 import { AiWorkerCheckingScreen } from './screens/ai-worker-checking-screen.js'
 import { AiWorkerSignInRequiredScreen } from './screens/ai-worker-sign-in-required-screen.js'
@@ -89,10 +90,11 @@ function isSupportedOriginalCvFile(file: File): boolean {
   )
 }
 
-type OriginalCvImportDestination = 'workspace_active' | 'workspace_empty'
+type OriginalCvImportDestination = 'workspace'
 type RendererStartupDestinationOverride = OriginalCvImportDestination
 type PreviewDocumentKind = 'adapted_cv' | 'cover_letter'
 type WorkspaceSection = 'settings' | 'workspace'
+type WorkspaceSelectionOverride = 'draft' | null
 type WorkspaceSelectionKind = 'draft' | 'tailored_application'
 type ImportOriginalCvMutationResult = OriginalCvImportResult
 
@@ -116,6 +118,8 @@ export function App() {
   const [settingsSection, setSettingsSection] = useState<SettingsSection>('ai_worker')
   const [startupDestinationOverride, setStartupDestinationOverride] =
     useState<RendererStartupDestinationOverride | null>(null)
+  const [workspaceSelectionOverride, setWorkspaceSelectionOverride] =
+    useState<WorkspaceSelectionOverride>(null)
   const [vacancyDraft, setVacancyDraft] = useState(initialVacancyDraft)
   const [vacancyPreviewOverride, setVacancyPreviewOverride] = useState<VacancySummary | null>(null)
   const [vacancyReviewError, setVacancyReviewError] = useState<string | null>(null)
@@ -164,18 +168,24 @@ export function App() {
     preferredTailoredApplicationId: selectedTailoredApplicationId,
     workspaceState: tailoredApplicationWorkspaceState,
   })
-  const workspaceSelection = resolveWorkspaceSelection({
-    hasMeaningfulDraft: isCurrentDraftMeaningful,
-    preferredTailoredApplicationId: selectedTailoredApplicationId,
-    resolvedTailoredApplicationId,
-    startupDestination: viewModel.startupDestination,
-  })
   const selectedTailoredApplication =
     resolvedTailoredApplicationId === null
       ? null
       : (tailoredApplicationWorkspaceState.applications.find((application) => {
           return application.id === resolvedTailoredApplicationId
         }) ?? null)
+  const pendingGenerationQuery = useQuery({
+    ...getPendingGenerationCommandQueryOptions(),
+    enabled: viewModel.canEnterWorkspace,
+    placeholderData: null,
+  })
+  const pendingGenerationCommand = pendingGenerationQuery.data ?? null
+  const workspaceSelection = resolveWorkspaceSelection({
+    forcedSelection: workspaceSelectionOverride,
+    hasMeaningfulDraft: isCurrentDraftMeaningful,
+    hasPendingGeneration: pendingGenerationCommand !== null,
+    resolvedTailoredApplicationId,
+  })
   const tailoredApplicationPreviewQuery = useQuery({
     ...getTailoredApplicationPreviewQueryOptions(resolvedTailoredApplicationId ?? ''),
     enabled:
@@ -190,12 +200,6 @@ export function App() {
     workspaceSelection.kind === 'tailored_application'
       ? (tailoredApplicationPreviewQuery.data ?? null)
       : null
-  const pendingGenerationQuery = useQuery({
-    ...getPendingGenerationCommandQueryOptions(),
-    enabled: viewModel.canEnterWorkspace,
-    placeholderData: null,
-  })
-  const pendingGenerationCommand = pendingGenerationQuery.data ?? null
 
   const invalidateReadinessQuery = async (): Promise<void> => {
     await queryClient.invalidateQueries({
@@ -306,6 +310,7 @@ export function App() {
       setSelectedTailoredApplicationId(null)
       setSettingsMessage(null)
       setStartupDestinationOverride(null)
+      setWorkspaceSelectionOverride(null)
       setVacancyDraft(initialVacancyDraft)
       setVacancyPreviewOverride(null)
       setVacancyReviewError(null)
@@ -369,6 +374,7 @@ export function App() {
       setPreviewDocumentKind('adapted_cv')
       setReadinessError(null)
       setStartupDestinationOverride(nextStartupDestination)
+      setWorkspaceSelectionOverride('draft')
       setVacancyReviewError(null)
       setVacancyPreviewOverride(null)
       queryClient.setQueryData(rendererQueryKeys.originalCvWorkspace, {
@@ -386,6 +392,11 @@ export function App() {
           queryKey: rendererQueryKeys.vacancyWorkspace,
         }),
       ])
+    },
+  })
+  const persistWorkspaceSelectionMutation = useMutation({
+    mutationFn: async (selection: WorkspaceSelection): Promise<void> => {
+      await globalThis.window.cvMaxxing.tailoredApplication.setWorkspaceSelection(selection)
     },
   })
   const reviewVacancyUrlMutation = useMutation({
@@ -444,9 +455,14 @@ export function App() {
       setVacancyReviewError(null)
       setVacancyPreviewOverride(null)
       queryClient.setQueryData(rendererQueryKeys.vacancyWorkspace, initialVacancyWorkspaceState)
-      await queryClient.invalidateQueries({
-        queryKey: rendererQueryKeys.vacancyWorkspace,
-      })
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: rendererQueryKeys.tailoredApplicationWorkspace,
+        }),
+        queryClient.invalidateQueries({
+          queryKey: rendererQueryKeys.vacancyWorkspace,
+        }),
+      ])
     },
   })
   const startPendingGenerationMutation = useMutation({
@@ -469,13 +485,14 @@ export function App() {
       flushSync(() => {
         setReadinessError(null)
         setSelectedTailoredApplicationId(null)
-        setStartupDestinationOverride('workspace_empty')
+        setStartupDestinationOverride('workspace')
+        setWorkspaceSelectionOverride('draft')
         setVacancyPreviewOverride(null)
       })
 
       await seedReadinessQuery({
         preflightResult,
-        startupDestination: preflightResult.status === 'ready' ? 'workspace_empty' : undefined,
+        startupDestination: preflightResult.status === 'ready' ? 'workspace' : undefined,
       })
       await Promise.all([
         queryClient.invalidateQueries({
@@ -507,7 +524,8 @@ export function App() {
         setPreviewDocumentKind('adapted_cv')
         setReadinessError(null)
         setSelectedTailoredApplicationId(nextSelectedTailoredApplicationId)
-        setStartupDestinationOverride('workspace_active')
+        setStartupDestinationOverride('workspace')
+        setWorkspaceSelectionOverride(null)
         setVacancyDraft(initialVacancyDraft)
         setVacancyPreviewOverride(null)
       })
@@ -593,6 +611,7 @@ export function App() {
     onSuccess: async (): Promise<void> => {
       setReadinessError(null)
       setStartupDestinationOverride(null)
+      setWorkspaceSelectionOverride('draft')
       setVacancyPreviewOverride(null)
       await Promise.all([
         invalidateReadinessQuery(),
@@ -838,6 +857,7 @@ export function App() {
     setPreviewDocumentKind('adapted_cv')
     setReadinessError(null)
     setSelectedTailoredApplicationId(tailoredApplicationId)
+    setWorkspaceSelectionOverride(null)
   }
 
   const handleDeleteTailoredApplication = async (): Promise<void> => {
@@ -870,7 +890,8 @@ export function App() {
       setPreviewDocumentKind('adapted_cv')
       setReadinessError(null)
       setSelectedTailoredApplicationId(null)
-      setStartupDestinationOverride('workspace_empty')
+      setStartupDestinationOverride('workspace')
+      setWorkspaceSelectionOverride('draft')
       setVacancyDraft(initialVacancyDraft)
       setVacancyPreviewOverride(null)
     } catch (error) {
@@ -974,11 +995,12 @@ export function App() {
       })
     } catch (error) {
       flushSync(() => {
-        setStartupDestinationOverride('workspace_empty')
+        setStartupDestinationOverride('workspace')
         setReadinessError(
           resolveErrorMessage(error, `${readinessErrorMessage} ${readinessErrorAction}`),
         )
         setSelectedTailoredApplicationId(null)
+        setWorkspaceSelectionOverride('draft')
         setVacancyPreviewOverride(null)
       })
 
@@ -1093,7 +1115,7 @@ export function App() {
           onFileDrop={handleOriginalCvDrop}
           onFileSelection={handleOriginalCvSelection}
           onImportOriginalCv={() => {
-            handleOriginalCvImport('workspace_empty').catch(() => null)
+            handleOriginalCvImport('workspace').catch(() => null)
           }}
           onSelectRailItem={handleSelectRailItem}
           originalCvFile={originalCvFile}
@@ -1185,22 +1207,32 @@ export function App() {
           }}
           onOriginalCvFileSelection={handleOriginalCvSelection}
           onReplaceOriginalCv={() => {
-            handleOriginalCvImport(
-              workspaceSelection.kind === 'tailored_application'
-                ? 'workspace_active'
-                : 'workspace_empty',
-            ).catch(() => null)
+            handleOriginalCvImport('workspace').catch(() => null)
           }}
           onSelectApplication={(tailoredApplicationId) => {
-            setStartupDestinationOverride('workspace_active')
             handleSelectTailoredApplication(tailoredApplicationId)
+            persistWorkspaceSelectionMutation
+              .mutateAsync({
+                kind: 'tailored_application',
+                tailoredApplicationId,
+              })
+              .catch(() => {
+                setReadinessError('Unable to persist the current workspace selection.')
+              })
           }}
           onSelectDraft={() => {
             setIsConfirmingDeleteTailoredApplication(false)
             setPreviewDocumentKind('adapted_cv')
             setReadinessError(null)
             setSelectedTailoredApplicationId(null)
-            setStartupDestinationOverride('workspace_empty')
+            setWorkspaceSelectionOverride('draft')
+            persistWorkspaceSelectionMutation
+              .mutateAsync({
+                kind: 'draft',
+              })
+              .catch(() => {
+                setReadinessError('Unable to persist the current workspace selection.')
+              })
           }}
           onSelectPreviewDocument={setPreviewDocumentKind}
           onSelectRailItem={handleSelectRailItem}
@@ -1212,10 +1244,17 @@ export function App() {
 
             setVacancyDraft(nextDraft)
             setSelectedTailoredApplicationId(null)
-            setStartupDestinationOverride('workspace_empty')
+            setWorkspaceSelectionOverride('draft')
             setVacancyPreviewOverride(null)
             setReadinessError(null)
             setVacancyReviewError(null)
+            persistWorkspaceSelectionMutation
+              .mutateAsync({
+                kind: 'draft',
+              })
+              .catch(() => {
+                setReadinessError('Unable to persist the current workspace selection.')
+              })
           }}
           onUrlDraftChange={(event) => {
             const nextDraft = {
@@ -1225,10 +1264,17 @@ export function App() {
 
             setVacancyDraft(nextDraft)
             setSelectedTailoredApplicationId(null)
-            setStartupDestinationOverride('workspace_empty')
+            setWorkspaceSelectionOverride('draft')
             setVacancyPreviewOverride(null)
             setReadinessError(null)
             setVacancyReviewError(null)
+            persistWorkspaceSelectionMutation
+              .mutateAsync({
+                kind: 'draft',
+              })
+              .catch(() => {
+                setReadinessError('Unable to persist the current workspace selection.')
+              })
           }}
           originalCvFile={originalCvFile}
           preview={tailoredApplicationPreview}
@@ -1385,39 +1431,29 @@ function resolveTailoredApplicationId({
     return preferredTailoredApplicationId
   }
 
-  if (preferredTailoredApplicationId !== null && workspaceState.activeApplicationId === null) {
-    return preferredTailoredApplicationId
-  }
-
   return workspaceState.activeApplicationId
 }
 
 function resolveWorkspaceSelection({
+  forcedSelection,
   hasMeaningfulDraft,
-  preferredTailoredApplicationId,
+  hasPendingGeneration,
   resolvedTailoredApplicationId,
-  startupDestination,
 }: {
+  forcedSelection: WorkspaceSelectionOverride
   hasMeaningfulDraft: boolean
-  preferredTailoredApplicationId: string | null
+  hasPendingGeneration: boolean
   resolvedTailoredApplicationId: string | null
-  startupDestination: StartupDestination | undefined
 }): {
   kind: WorkspaceSelectionKind
 } {
-  if (preferredTailoredApplicationId !== null && resolvedTailoredApplicationId !== null) {
-    return {
-      kind: 'tailored_application',
-    }
-  }
-
-  if (hasMeaningfulDraft) {
+  if (forcedSelection === 'draft' || hasMeaningfulDraft || hasPendingGeneration) {
     return {
       kind: 'draft',
     }
   }
 
-  if (startupDestination === 'workspace_active' && resolvedTailoredApplicationId !== null) {
+  if (resolvedTailoredApplicationId !== null) {
     return {
       kind: 'tailored_application',
     }

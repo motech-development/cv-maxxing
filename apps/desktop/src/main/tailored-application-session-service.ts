@@ -23,6 +23,7 @@ import type {
   TailoredApplicationPreview,
   TailoredApplicationWorkspaceState,
 } from '../shared/tailored-application.js'
+import type { WorkspaceSelection } from '../shared/workspace-selection.js'
 import type { VacancyDraft, VacancySummary } from '../shared/vacancy.js'
 import {
   ORIGINAL_CV_LANGUAGE_BLOCK_MESSAGE,
@@ -39,6 +40,7 @@ import {
   parseWritingStyleProfileJson,
   type WritingStyleProfile,
 } from './tailored-application-style-validator.js'
+import type { WorkspaceSelectionStore } from './workspace-selection-store.js'
 
 const ORIGINAL_CV_SCOPE = 'original-cvs'
 const VACANCY_SCOPE = 'vacancies'
@@ -80,6 +82,7 @@ export interface TailoredApplicationSessionService {
   getWorkspaceState: () => Promise<TailoredApplicationWorkspaceState>
   recoverInterruptedGeneration: () => Promise<void>
   resumePendingGeneration: () => Promise<ResumePendingGenerationResult>
+  setWorkspaceSelection: (selection: WorkspaceSelection) => Promise<void>
   startPendingGeneration: (input: StartPendingGenerationInput) => Promise<AiWorkerPreflightResult>
 }
 
@@ -216,6 +219,7 @@ interface CreateTailoredApplicationSessionServiceOptions {
   >
   runWorkspaceRootPath: string
   worker?: TailoredApplicationGenerationWorker
+  workspaceSelectionStore?: WorkspaceSelectionStore
 }
 
 interface OriginalCvContext {
@@ -354,6 +358,7 @@ export function createTailoredApplicationSessionService({
   readinessStore,
   runWorkspaceRootPath,
   worker = missingGenerationWorker,
+  workspaceSelectionStore,
 }: CreateTailoredApplicationSessionServiceOptions): TailoredApplicationSessionService {
   let activeAbortController: AbortController | null = null
   let activeRunPromise: Promise<ResumePendingGenerationResult> | null = null
@@ -361,7 +366,7 @@ export function createTailoredApplicationSessionService({
   async function resetPendingGenerationState(): Promise<void> {
     await clearPendingGenerationSession()
     await readinessStore.clearPendingGenerationCommand()
-    await readinessStore.setStartupDestination('workspace_empty')
+    await readinessStore.setStartupDestination('workspace')
   }
 
   async function clearPendingGenerationSession(): Promise<void> {
@@ -1071,9 +1076,17 @@ export function createTailoredApplicationSessionService({
           vacancyTitle: record.value.vacancyTitle,
         }
       })
+    const [hasMeaningfulDraft, persistedSelection] = await Promise.all([
+      hasMeaningfulVacancyDraft(localAppData),
+      workspaceSelectionStore?.getSelection() ?? Promise.resolve(null),
+    ])
 
     return {
-      activeApplicationId: readyApplications[0]?.id ?? null,
+      activeApplicationId: resolveSelectedTailoredApplicationId({
+        applications: readyApplications,
+        hasMeaningfulDraft,
+        selection: persistedSelection,
+      }),
       applications: readyApplications,
     }
   }
@@ -1123,7 +1136,14 @@ export function createTailoredApplicationSessionService({
       } catch {
         // Best-effort cleanup. A completed tailored application should still open.
       }
-      await readinessStore.setStartupDestination('workspace_active')
+      await readinessStore.setStartupDestination('workspace')
+
+      if (pendingSession.tailoredApplicationId !== null) {
+        await workspaceSelectionStore?.setSelection({
+          kind: 'tailored_application',
+          tailoredApplicationId: pendingSession.tailoredApplicationId,
+        })
+      }
 
       return {
         workspaceState: await getWorkspaceState(),
@@ -1150,6 +1170,25 @@ export function createTailoredApplicationSessionService({
             })
           }),
       )
+
+      const persistedSelection = await workspaceSelectionStore?.getSelection()
+
+      if (
+        persistedSelection?.kind === 'tailored_application' &&
+        persistedSelection.tailoredApplicationId === tailoredApplicationId
+      ) {
+        const [hasMeaningfulDraft, workspaceState] = await Promise.all([
+          hasMeaningfulVacancyDraft(localAppData),
+          getWorkspaceState(),
+        ])
+
+        await workspaceSelectionStore?.setSelection(
+          resolveNextWorkspaceSelection({
+            applications: workspaceState.applications,
+            hasMeaningfulDraft,
+          }),
+        )
+      }
     },
     exportAdaptedCvPdf: async (tailoredApplicationId) => {
       const metadata = await getReadyTailoredApplicationMetadata(tailoredApplicationId)
@@ -1386,11 +1425,90 @@ export function createTailoredApplicationSessionService({
         stage: 'queued',
         tailoredApplicationId: null,
       })
-      await readinessStore.setStartupDestination('workspace_empty')
+      await readinessStore.setStartupDestination('workspace')
 
       return await aiWorker.retryAiWorkerPreflight()
     },
+    setWorkspaceSelection: async (selection) => {
+      await workspaceSelectionStore?.setSelection(selection)
+    },
   }
+}
+
+async function hasMeaningfulVacancyDraft(
+  localAppData: Pick<LocalAppDataStore, 'metadata'>,
+): Promise<boolean> {
+  const draftRecord = await localAppData.metadata.get<VacancyWorkspaceMetadataValue>({
+    id: VACANCY_WORKSPACE_ENTRY_ID,
+    scope: VACANCY_WORKSPACE_SCOPE,
+  })
+
+  if (draftRecord === null) {
+    return false
+  }
+
+  return (
+    draftRecord.text.trim() !== '' ||
+    draftRecord.url.trim() !== '' ||
+    draftRecord.vacancyId !== null
+  )
+}
+
+function resolveNextWorkspaceSelection({
+  applications,
+  hasMeaningfulDraft,
+}: {
+  applications: TailoredApplicationWorkspaceState['applications']
+  hasMeaningfulDraft: boolean
+}): WorkspaceSelection {
+  if (hasMeaningfulDraft) {
+    return {
+      kind: 'draft',
+    }
+  }
+
+  const newestApplication = applications[0]
+
+  if (newestApplication !== undefined) {
+    return {
+      kind: 'tailored_application',
+      tailoredApplicationId: newestApplication.id,
+    }
+  }
+
+  return {
+    kind: 'none',
+  }
+}
+
+function resolveSelectedTailoredApplicationId({
+  applications,
+  hasMeaningfulDraft,
+  selection,
+}: {
+  applications: TailoredApplicationWorkspaceState['applications']
+  hasMeaningfulDraft: boolean
+  selection: WorkspaceSelection | null
+}): string | null {
+  if (hasMeaningfulDraft) {
+    return null
+  }
+
+  if (selection?.kind === 'none') {
+    return null
+  }
+
+  if (selection?.kind === 'tailored_application') {
+    const selectedApplication = applications.find((application) => {
+      return application.id === selection.tailoredApplicationId
+    })
+
+    if (selectedApplication !== undefined) {
+      return selectedApplication.id
+    }
+  }
+
+  return applications[0]?.id ?? null
 }
 
 function buildAdaptedCvModel({

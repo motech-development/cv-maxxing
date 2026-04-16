@@ -8,7 +8,7 @@ test('preload exposes the desktop API in the renderer global', async () => {
   const exposeInMainWorld = vi.fn()
   const invokeMock = vi.fn((channel: DesktopIpcChannel) => {
     if (channel === AI_WORKER_IPC_CHANNELS.getStartupDestination) {
-      return Promise.resolve('workspace_empty')
+      return Promise.resolve('workspace')
     }
 
     return Promise.resolve({
@@ -49,7 +49,7 @@ test('preload exposes the desktop API in the renderer global', async () => {
     provider: 'codex',
     status: 'ready',
   })
-  await expect(desktopApi.aiWorker.getStartupDestination()).resolves.toBe('workspace_empty')
+  await expect(desktopApi.aiWorker.getStartupDestination()).resolves.toBe('workspace')
   await expect(desktopApi.aiWorker.openAiWorkerSetupGuide()).resolves.toBeUndefined()
 
   expect(exposeInMainWorld).toHaveBeenCalledTimes(1)

@@ -17,6 +17,7 @@ import type {
 } from '../shared/pending-generation.js'
 import type { ResetLocalAppDataInput } from '../shared/settings.js'
 import type { StartupDestination } from '../shared/startup-destination.js'
+import type { WorkspaceSelection } from '../shared/workspace-selection.js'
 import type { PastedVacancyInput, VacancyUrlInput } from '../shared/vacancy.js'
 import { createAiWorkerReadinessStore } from './ai-worker-readiness-store.js'
 import {
@@ -38,6 +39,7 @@ import {
   createTailoredApplicationSessionService,
   type TailoredApplicationSessionService,
 } from './tailored-application-session-service.js'
+import { createWorkspaceSelectionStore } from './workspace-selection-store.js'
 import { createSettingsService, type SettingsService } from './settings-service.js'
 import { createVacancyBrowserSessionService } from './vacancy-browser-session-service.js'
 import { createVacancyNormalizationService } from './vacancy-normalization-service.js'
@@ -333,6 +335,12 @@ export function createDesktopAppBootstrap({
       return await tailoredApplication.resumePendingGeneration()
     })
     ipcMain.handle(
+      TAILORED_APPLICATION_IPC_CHANNELS.setWorkspaceSelection,
+      async (_event, payload) => {
+        await tailoredApplication.setWorkspaceSelection(parseWorkspaceSelection(payload))
+      },
+    )
+    ipcMain.handle(
       TAILORED_APPLICATION_IPC_CHANNELS.startPendingGeneration,
       async (_event, payload) => {
         return await tailoredApplication.startPendingGeneration(
@@ -530,6 +538,9 @@ async function createRuntimeServices(electronRuntime: ElectronRuntimeModule): Pr
   const readinessStore = createAiWorkerReadinessStore({
     localAppData,
   })
+  const workspaceSelectionStore = createWorkspaceSelectionStore({
+    localAppData,
+  })
   const aiWorker = createAiWorkerPreflightService({
     environment,
     getPendingGenerationCommand: async () => {
@@ -582,6 +593,7 @@ async function createRuntimeServices(electronRuntime: ElectronRuntimeModule): Pr
     worker: createTailoredApplicationGenerationWorker({
       environment,
     }),
+    workspaceSelectionStore,
   })
   const originalCvNormalizationService = createOriginalCvNormalizationService({
     runWorkspaceRootPath: path.join(paths.rootDirectoryPath, 'runs', 'original-cv-normalization'),
@@ -651,6 +663,7 @@ async function createRuntimeServices(electronRuntime: ElectronRuntimeModule): Pr
           url,
         })
       },
+      workspaceSelectionStore,
     }),
   }
 }
@@ -698,15 +711,44 @@ function isPendingGenerationCommand(value: unknown): value is PendingGenerationC
 }
 
 function parseStartupDestination(value: string | undefined): StartupDestination | null {
-  if (value === 'workspace_loading') {
-    return 'workspace_empty'
+  if (
+    value === 'workspace_loading' ||
+    value === 'workspace_active' ||
+    value === 'workspace_empty'
+  ) {
+    return 'workspace'
   }
 
-  if (value === 'first_launch' || value === 'workspace_active' || value === 'workspace_empty') {
+  if (value === 'first_launch' || value === 'workspace') {
     return value
   }
 
   return null
+}
+
+function parseWorkspaceSelection(value: unknown): WorkspaceSelection {
+  if (value === null || typeof value !== 'object' || Array.isArray(value) || !('kind' in value)) {
+    throw new Error('Workspace selection must be an object.')
+  }
+
+  if (value.kind === 'draft' || value.kind === 'none') {
+    return {
+      kind: value.kind,
+    }
+  }
+
+  if (
+    value.kind === 'tailored_application' &&
+    'tailoredApplicationId' in value &&
+    typeof value.tailoredApplicationId === 'string'
+  ) {
+    return {
+      kind: 'tailored_application',
+      tailoredApplicationId: value.tailoredApplicationId,
+    }
+  }
+
+  throw new Error('Workspace selection payload is invalid.')
 }
 
 function parseTimeoutOverride(value: string | undefined): number | undefined {

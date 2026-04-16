@@ -23,6 +23,7 @@ import type {
   NormalizedVacancy,
   VacancyNormalizationService,
 } from './vacancy-normalization-service.js'
+import type { WorkspaceSelectionStore } from './workspace-selection-store.js'
 
 const VACANCY_DRAFT_SCOPE = 'vacancy-workspace'
 const VACANCY_FETCH_TIMEOUT_MS = 15_000
@@ -47,6 +48,7 @@ interface VacancyServiceDependencies {
     shouldCapturePage: (snapshot: VacancyBrowserPageSnapshot) => boolean
     url: string
   }) => Promise<VacancyBrowserPageSnapshot | null>
+  workspaceSelectionStore?: Pick<WorkspaceSelectionStore, 'setSelection'>
 }
 
 interface VacancyMetadataValue extends Record<string, JsonValue> {
@@ -90,12 +92,17 @@ export function createVacancyService({
   localAppData,
   normalizationService,
   openVacancyBrowserSession,
+  workspaceSelectionStore,
 }: VacancyServiceDependencies): VacancyService {
   return {
     resetWorkspaceState: async (): Promise<void> => {
       await localAppData.metadata.delete({
         id: VACANCY_WORKSPACE_RECORD_ID,
         scope: VACANCY_DRAFT_SCOPE,
+      })
+
+      await workspaceSelectionStore?.setSelection({
+        kind: 'none',
       })
     },
     getWorkspaceState: async (): Promise<VacancyWorkspaceState> => {
@@ -202,6 +209,9 @@ export function createVacancyService({
           vacancyId,
         } satisfies VacancyDraftMetadataValue,
       })
+      await workspaceSelectionStore?.setSelection({
+        kind: 'draft',
+      })
 
       const workspaceState = await thisGetWorkspaceState(localAppData)
 
@@ -219,6 +229,9 @@ export function createVacancyService({
         await persistVacancyWorkspaceDraft({
           localAppData,
           url: normalizedUrl,
+        })
+        await workspaceSelectionStore?.setSelection({
+          kind: 'draft',
         })
 
         const capturedBrowserSnapshot = await captureVacancyBrowserSessionPage({
@@ -249,6 +262,7 @@ export function createVacancyService({
               normalizationService,
               originalUrl: normalizedUrl,
               source,
+              workspaceSelectionStore,
             })
           } catch (error) {
             if (isSilentCaptureFallbackError(error)) {
@@ -276,6 +290,9 @@ export function createVacancyService({
         localAppData,
         url: normalizedUrl,
       })
+      await workspaceSelectionStore?.setSelection({
+        kind: 'draft',
+      })
 
       const fetchedPage = await fetchVacancyPage(normalizedUrl)
 
@@ -287,6 +304,7 @@ export function createVacancyService({
         normalizationService,
         originalUrl: normalizedUrl,
         source,
+        workspaceSelectionStore,
       })
     },
     openBrowserSession: async ({ url }: { url: string }): Promise<VacancyIngestResult> => {
@@ -324,6 +342,9 @@ export function createVacancyService({
           localAppData,
           url: normalizedUrl,
         })
+        await workspaceSelectionStore?.setSelection({
+          kind: 'draft',
+        })
 
         return {
           kind: 'incomplete',
@@ -340,6 +361,7 @@ export function createVacancyService({
         normalizationService,
         originalUrl: normalizedUrl,
         source,
+        workspaceSelectionStore,
       })
     },
   }
@@ -380,6 +402,7 @@ async function persistFetchedVacancyPage({
   normalizationService,
   originalUrl,
   source,
+  workspaceSelectionStore,
 }: {
   fetchedPage: {
     html: string
@@ -392,6 +415,7 @@ async function persistFetchedVacancyPage({
   normalizationService: VacancyNormalizationService
   originalUrl: string
   source: VacancySource
+  workspaceSelectionStore?: Pick<WorkspaceSelectionStore, 'setSelection'>
 }): Promise<VacancyIngestResult> {
   const normalizedVacancy = await normalizationService.normalizeVacancy({
     html: fetchedPage.html,
@@ -464,6 +488,9 @@ async function persistFetchedVacancyPage({
       url: originalUrl,
       vacancyId,
     } satisfies VacancyDraftMetadataValue,
+  })
+  await workspaceSelectionStore?.setSelection({
+    kind: 'draft',
   })
 
   return {

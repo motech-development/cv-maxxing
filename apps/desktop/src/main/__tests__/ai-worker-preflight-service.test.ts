@@ -119,7 +119,7 @@ test('returns sign-in-required guidance and keeps resumability when a pending ge
       },
     }),
     getPersistedCheckingTimeout: vi.fn().mockResolvedValue(null),
-    getPersistedStartupDestination: vi.fn().mockResolvedValue('workspace_empty'),
+    getPersistedStartupDestination: vi.fn().mockResolvedValue('workspace'),
     probeAiWorker: vi.fn().mockResolvedValue('auth_missing'),
   })
 
@@ -185,9 +185,9 @@ test('restores the workspace destination when a pending generation is ready to r
       },
     }),
     getPersistedCheckingTimeout: vi.fn().mockResolvedValue(null),
-    getPersistedStartupDestination: vi.fn().mockResolvedValue('workspace_empty'),
+    getPersistedStartupDestination: vi.fn().mockResolvedValue('workspace'),
     probeAiWorker: vi.fn().mockResolvedValue('ready'),
   })
 
-  await expect(service.getStartupDestination()).resolves.toBe('workspace_empty')
+  await expect(service.getStartupDestination()).resolves.toBe('workspace')
 })

@@ -201,6 +201,7 @@ function createTailoredApplicationApi(
       generationRunId: 'run-123',
       tailoredApplicationId: 'tailored-application-123',
     }),
+    setWorkspaceSelection: vi.fn().mockImplementation(() => Promise.resolve()),
     startPendingGeneration: vi.fn().mockResolvedValue({
       canResumeGeneration: true,
       message: 'The local AI worker is ready.',

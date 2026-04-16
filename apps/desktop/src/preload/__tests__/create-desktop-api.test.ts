@@ -30,7 +30,7 @@ test('preload exposes the AI worker onboarding queries and commands over typed I
       provider: 'codex',
       status: 'ready',
     })
-    .mockResolvedValueOnce('workspace_active')
+    .mockResolvedValueOnce('workspace')
     .mockImplementationOnce(() => Promise.resolve())
     .mockResolvedValueOnce({
       activeOriginalCv: {
@@ -273,7 +273,7 @@ test('preload exposes the AI worker onboarding queries and commands over typed I
     provider: 'codex',
     status: 'ready',
   })
-  await expect(desktopApi.aiWorker.getStartupDestination()).resolves.toBe('workspace_active')
+  await expect(desktopApi.aiWorker.getStartupDestination()).resolves.toBe('workspace')
   await expect(desktopApi.aiWorker.openAiWorkerSetupGuide()).resolves.toBeUndefined()
   await expect(desktopApi.originalCv.getOriginalCvWorkspaceState()).resolves.toEqual({
     activeOriginalCv: {

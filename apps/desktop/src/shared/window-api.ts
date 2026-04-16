@@ -17,6 +17,7 @@ import type {
   TailoredApplicationPreview,
   TailoredApplicationWorkspaceState,
 } from './tailored-application.js'
+import type { WorkspaceSelection } from './workspace-selection.js'
 import type {
   PastedVacancyInput,
   VacancyIngestResult,
@@ -60,6 +61,7 @@ export interface CvMaxxingWindowApi {
     ) => Promise<TailoredApplicationPreview | null>
     getWorkspaceState: () => Promise<TailoredApplicationWorkspaceState>
     resumePendingGeneration: () => Promise<ResumePendingGenerationResult>
+    setWorkspaceSelection: (selection: WorkspaceSelection) => Promise<void>
     startPendingGeneration: (input: StartPendingGenerationInput) => Promise<AiWorkerPreflightResult>
   }
   vacancy: {
