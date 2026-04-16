@@ -511,7 +511,7 @@
       "id": "lyEzE",
       "x": 6528,
       "y": 0,
-      "name": "CV Maxxing / Workspace / Empty",
+      "name": "CV Maxxing / Workspace / Blank Draft",
       "clip": true,
       "width": 1512,
       "height": 982,
@@ -802,32 +802,6 @@
                   "fontWeight": "800"
                 },
                 {
-                  "type": "text",
-                  "id": "9mVSG",
-                  "name": "titleEmpty",
-                  "fill": "$app.ink",
-                  "textGrowth": "fixed-width",
-                  "width": "fill_container",
-                  "content": "No tailored applications yet",
-                  "lineHeight": 1.08,
-                  "fontFamily": "Manrope",
-                  "fontSize": 22,
-                  "fontWeight": "800"
-                },
-                {
-                  "type": "text",
-                  "id": "sK1Zh",
-                  "name": "copyEmpty",
-                  "fill": "$app.muted",
-                  "textGrowth": "fixed-width",
-                  "width": "fill_container",
-                  "content": "Start with a job vacancy URL or paste the vacancy text. Saved tailored applications will appear here.",
-                  "lineHeight": 1.4,
-                  "fontFamily": "Manrope",
-                  "fontSize": 13,
-                  "fontWeight": "normal"
-                },
-                {
                   "type": "frame",
                   "id": "HRftI",
                   "name": "newVacancyEmpty",
@@ -853,6 +827,32 @@
                       "fontWeight": "800"
                     }
                   ]
+                },
+                {
+                  "type": "text",
+                  "id": "9mVSG",
+                  "name": "titleEmpty",
+                  "fill": "$app.ink",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "No vacancy items yet",
+                  "lineHeight": 1.08,
+                  "fontFamily": "Manrope",
+                  "fontSize": 22,
+                  "fontWeight": "800"
+                },
+                {
+                  "type": "text",
+                  "id": "sK1Zh",
+                  "name": "copyEmpty",
+                  "fill": "$app.muted",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Start with a job vacancy URL or paste vacancy text. Current vacancy draft appears here once the draft has non-whitespace source input or a reviewed vacancy attached. Saved tailored applications appear below it.",
+                  "lineHeight": 1.4,
+                  "fontFamily": "Manrope",
+                  "fontSize": 13,
+                  "fontWeight": "normal"
                 },
                 {
                   "type": "frame",
@@ -2527,7 +2527,7 @@
       "id": "491EL",
       "x": 9792,
       "y": 0,
-      "name": "CV Maxxing / Workspace / Active",
+      "name": "CV Maxxing / Workspace / Saved Tailored Application Selected",
       "clip": true,
       "width": 1512,
       "height": 982,
@@ -2845,49 +2845,16 @@
                 },
                 {
                   "type": "frame",
-                  "id": "QeCzP",
-                  "name": "Applications list",
+                  "id": "HKLgX",
+                  "name": "Vacancy items",
                   "width": "fill_container",
                   "layout": "vertical",
                   "gap": 10,
                   "children": [
                     {
                       "type": "frame",
-                      "id": "RPugv",
-                      "name": "itemOneActive",
-                      "width": "fill_container",
-                      "fill": "#EAF0EC",
-                      "cornerRadius": 8,
-                      "layout": "vertical",
-                      "gap": 6,
-                      "padding": 12,
-                      "children": [
-                        {
-                          "type": "text",
-                          "id": "spyVb",
-                          "name": "itemOneTitle",
-                          "fill": "$app.ink",
-                          "content": "Senior Frontend Engineer",
-                          "fontFamily": "Manrope",
-                          "fontSize": 13,
-                          "fontWeight": "800"
-                        },
-                        {
-                          "type": "text",
-                          "id": "hwoer",
-                          "name": "itemOneMeta",
-                          "fill": "$app.muted",
-                          "content": "Monzo · adapted today",
-                          "fontFamily": "Manrope",
-                          "fontSize": 12,
-                          "fontWeight": "normal"
-                        }
-                      ]
-                    },
-                    {
-                      "type": "frame",
-                      "id": "20yrK",
-                      "name": "itemTwoActive",
+                      "id": "2ULKn",
+                      "name": "draftRowSaved",
                       "width": "fill_container",
                       "fill": "#FFFFFF",
                       "cornerRadius": 8,
@@ -2897,9 +2864,70 @@
                       "children": [
                         {
                           "type": "text",
-                          "id": "tEVHN",
-                          "name": "itemTwoTitle",
-                          "fill": "$app.ink",
+                          "id": "xh33b",
+                          "fill": "#1E2428",
+                          "content": "Current vacancy draft",
+                          "fontFamily": "Manrope",
+                          "fontSize": 13,
+                          "fontWeight": "800"
+                        },
+                        {
+                          "type": "text",
+                          "id": "BzgNp",
+                          "fill": "#5E6872",
+                          "content": "Draft in progress",
+                          "fontFamily": "Manrope",
+                          "fontSize": 12,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "LcN65",
+                      "name": "selectedAppRow",
+                      "width": "fill_container",
+                      "fill": "#EAF0EC",
+                      "cornerRadius": 8,
+                      "layout": "vertical",
+                      "gap": 6,
+                      "padding": 12,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "0Xcx6",
+                          "fill": "#1E2428",
+                          "content": "Senior Frontend Engineer",
+                          "fontFamily": "Manrope",
+                          "fontSize": 13,
+                          "fontWeight": "800"
+                        },
+                        {
+                          "type": "text",
+                          "id": "t6klK",
+                          "fill": "#5E6872",
+                          "content": "Monzo · adapted 12 Apr",
+                          "fontFamily": "Manrope",
+                          "fontSize": 12,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "o4z4Z",
+                      "name": "olderAppRow",
+                      "width": "fill_container",
+                      "fill": "#FFFFFF",
+                      "cornerRadius": 8,
+                      "layout": "vertical",
+                      "gap": 6,
+                      "padding": 12,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "iiH8h",
+                          "fill": "#1E2428",
                           "content": "Platform Product Manager",
                           "fontFamily": "Manrope",
                           "fontSize": 13,
@@ -2907,10 +2935,9 @@
                         },
                         {
                           "type": "text",
-                          "id": "NDBir",
-                          "name": "itemTwoMeta",
-                          "fill": "$app.muted",
-                          "content": "Nebula Labs · draft PDF",
+                          "id": "NMaNP",
+                          "fill": "#5E6872",
+                          "content": "Nebula Labs · adapted 9 Apr",
                           "fontFamily": "Manrope",
                           "fontSize": 12,
                           "fontWeight": "normal"
@@ -8346,6 +8373,3346 @@
                           "fontFamily": "Manrope",
                           "fontSize": 13,
                           "fontWeight": "800"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "wgBuK",
+      "x": 19560,
+      "y": 0,
+      "name": "CV Maxxing / Workspace / Editable Draft",
+      "clip": true,
+      "width": 1512,
+      "height": 982,
+      "fill": "#10181D",
+      "cornerRadius": 12,
+      "layout": "vertical",
+      "children": [
+        {
+          "type": "frame",
+          "id": "J2nD4",
+          "name": "barActive",
+          "width": "fill_container",
+          "height": 52,
+          "fill": "#1B252B",
+          "gap": 14,
+          "padding": [
+            0,
+            18
+          ],
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "eMoUK",
+              "name": "Window controls",
+              "gap": 8,
+              "children": [
+                {
+                  "type": "ellipse",
+                  "id": "9DhOQ",
+                  "name": "Close",
+                  "fill": "#FF5F57",
+                  "width": 12,
+                  "height": 12
+                },
+                {
+                  "type": "ellipse",
+                  "id": "AhfeZ",
+                  "name": "Minimise",
+                  "fill": "#FFBD2E",
+                  "width": 12,
+                  "height": 12
+                },
+                {
+                  "type": "ellipse",
+                  "id": "5brAB",
+                  "name": "Zoom",
+                  "fill": "#28C840",
+                  "width": 12,
+                  "height": 12
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "sr8TH",
+              "name": "Window title",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "1Q4cs",
+                  "name": "titleText",
+                  "fill": "#F7F8F6",
+                  "content": "CV Maxxing",
+                  "fontFamily": "Manrope",
+                  "fontSize": 14,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "L0Hi2",
+                  "name": "subtitleText",
+                  "fill": "#AAB4B0",
+                  "content": "Workspace",
+                  "fontFamily": "Manrope",
+                  "fontSize": 11,
+                  "fontWeight": "500"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "1cWNi",
+              "name": "Worker status",
+              "fill": "#26343C",
+              "cornerRadius": 999,
+              "gap": 8,
+              "padding": [
+                7,
+                10
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "ellipse",
+                  "id": "puK7e",
+                  "name": "Status dot",
+                  "fill": "#28C840",
+                  "width": 8,
+                  "height": 8
+                },
+                {
+                  "type": "text",
+                  "id": "76l9n",
+                  "name": "statusLabel",
+                  "fill": "#F7F8F6",
+                  "content": "Ready",
+                  "fontFamily": "Manrope",
+                  "fontSize": 12,
+                  "fontWeight": "700"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "DxHmI",
+          "name": "Desktop body",
+          "width": "fill_container",
+          "height": "fill_container",
+          "fill": "$app.canvas",
+          "children": [
+            {
+              "type": "frame",
+              "id": "nFh6X",
+              "name": "railActive",
+              "width": 64,
+              "height": "fill_container",
+              "fill": "#182126",
+              "layout": "vertical",
+              "padding": [
+                16,
+                10
+              ],
+              "justifyContent": "space_between",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "FHDv2",
+                  "name": "Primary tabs",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 14,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "HFYDj",
+                      "name": "Tab / AI worker",
+                      "width": 44,
+                      "height": 44,
+                      "fill": "#182126",
+                      "cornerRadius": 8,
+                      "layout": "vertical",
+                      "justifyContent": "center",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon_font",
+                          "id": "yZTk1",
+                          "name": "tabWorkerIcon",
+                          "width": 20,
+                          "height": 20,
+                          "iconFontName": "sparkles",
+                          "iconFontFamily": "lucide",
+                          "fill": "#93A29A"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "0CLs9",
+                      "name": "Tab / Job vacancies",
+                      "width": 44,
+                      "height": 44,
+                      "fill": "#2D3B43",
+                      "cornerRadius": 8,
+                      "layout": "vertical",
+                      "justifyContent": "center",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon_font",
+                          "id": "n8VYZ",
+                          "name": "tabVacanciesIcon",
+                          "width": 20,
+                          "height": 20,
+                          "iconFontName": "briefcase",
+                          "iconFontFamily": "lucide",
+                          "fill": "#F7F8F6"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "I6e1F",
+                      "name": "Tab / Original CV",
+                      "width": 44,
+                      "height": 44,
+                      "fill": "#182126",
+                      "cornerRadius": 8,
+                      "layout": "vertical",
+                      "justifyContent": "center",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon_font",
+                          "id": "yjMWV",
+                          "name": "tabCvIcon",
+                          "width": 20,
+                          "height": 20,
+                          "iconFontName": "file-text",
+                          "iconFontFamily": "lucide",
+                          "fill": "#93A29A"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "WvIyB",
+                  "name": "Utility tabs",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 14,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "ABTZH",
+                      "name": "Tab / Settings",
+                      "width": 44,
+                      "height": 44,
+                      "fill": "#182126",
+                      "cornerRadius": 8,
+                      "layout": "vertical",
+                      "justifyContent": "center",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon_font",
+                          "id": "Bc5YQ",
+                          "name": "tabSettingsIcon",
+                          "width": 20,
+                          "height": 20,
+                          "iconFontName": "settings",
+                          "iconFontFamily": "lucide",
+                          "fill": "#93A29A"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "GP1U6",
+              "name": "Vacancies panel",
+              "width": 328,
+              "height": "fill_container",
+              "fill": "#F7F8F6",
+              "stroke": {
+                "align": "inside",
+                "thickness": {
+                  "right": 1
+                },
+                "fill": "#D9DEDA"
+              },
+              "layout": "vertical",
+              "gap": 16,
+              "padding": 20,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "0acJt",
+                  "fill": "#7A838B",
+                  "content": "Job vacancies",
+                  "fontFamily": "Manrope",
+                  "fontSize": 11,
+                  "fontWeight": "800"
+                },
+                {
+                  "type": "frame",
+                  "id": "WnGIh",
+                  "name": "newDraft",
+                  "width": "fill_container",
+                  "fill": "#1E2428",
+                  "cornerRadius": 8,
+                  "padding": [
+                    11,
+                    14
+                  ],
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "ZMAHL",
+                      "fill": "#FFFFFF",
+                      "content": "New vacancy",
+                      "fontFamily": "Manrope",
+                      "fontSize": 13,
+                      "fontWeight": "800"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "iCc21",
+                  "name": "Vacancy items",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 10,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "3CFbo",
+                      "name": "currentDraftSelected",
+                      "width": "fill_container",
+                      "fill": "#EAF0EC",
+                      "cornerRadius": 8,
+                      "layout": "vertical",
+                      "gap": 6,
+                      "padding": 12,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "d4aSU",
+                          "fill": "#1E2428",
+                          "content": "Current vacancy draft",
+                          "fontFamily": "Manrope",
+                          "fontSize": 13,
+                          "fontWeight": "800"
+                        },
+                        {
+                          "type": "text",
+                          "id": "R56t9",
+                          "fill": "#5E6872",
+                          "content": "Draft in progress",
+                          "fontFamily": "Manrope",
+                          "fontSize": 12,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "AP4Zt",
+                      "name": "savedRowOne",
+                      "width": "fill_container",
+                      "fill": "#FFFFFF",
+                      "cornerRadius": 8,
+                      "layout": "vertical",
+                      "gap": 6,
+                      "padding": 12,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "FGI1R",
+                          "fill": "#1E2428",
+                          "content": "Senior Frontend Engineer",
+                          "fontFamily": "Manrope",
+                          "fontSize": 13,
+                          "fontWeight": "800"
+                        },
+                        {
+                          "type": "text",
+                          "id": "f0YwU",
+                          "fill": "#5E6872",
+                          "content": "Monzo · adapted 12 Apr",
+                          "fontFamily": "Manrope",
+                          "fontSize": 12,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "FPDG5",
+                      "name": "savedRowTwo",
+                      "width": "fill_container",
+                      "fill": "#FFFFFF",
+                      "cornerRadius": 8,
+                      "layout": "vertical",
+                      "gap": 6,
+                      "padding": 12,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "LBTRa",
+                          "fill": "#1E2428",
+                          "content": "Platform Product Manager",
+                          "fontFamily": "Manrope",
+                          "fontSize": 13,
+                          "fontWeight": "800"
+                        },
+                        {
+                          "type": "text",
+                          "id": "OBAHx",
+                          "fill": "#5E6872",
+                          "content": "Nebula Labs · adapted 9 Apr",
+                          "fontFamily": "Manrope",
+                          "fontSize": 12,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "5Gvt6",
+                  "name": "spacerEditable",
+                  "width": "fill_container",
+                  "height": "fill_container"
+                },
+                {
+                  "type": "frame",
+                  "id": "HMP0O",
+                  "name": "activeCard",
+                  "width": "fill_container",
+                  "fill": "#EEF2EF",
+                  "cornerRadius": 8,
+                  "layout": "vertical",
+                  "gap": 10,
+                  "padding": 16,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "GnTsZ",
+                      "name": "activeHead",
+                      "width": "fill_container",
+                      "justifyContent": "space_between",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "nAWj9",
+                          "fill": "#1E2428",
+                          "content": "Active original CV",
+                          "fontFamily": "Manrope",
+                          "fontSize": 13,
+                          "fontWeight": "800"
+                        },
+                        {
+                          "type": "text",
+                          "id": "30jAj",
+                          "fill": "#5E6872",
+                          "content": "1 snapshot",
+                          "fontFamily": "Manrope",
+                          "fontSize": 10,
+                          "fontWeight": "800"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "foFjC",
+                      "fill": "#5E6872",
+                      "content": "Senior Frontend Engineer.pdf",
+                      "fontFamily": "Manrope",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "text",
+                      "id": "7Lyi3",
+                      "fill": "#5E6872",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Replace the active original CV to create snapshot 2 without mutating tailored applications that already reference an earlier snapshot.",
+                      "lineHeight": 1.4,
+                      "fontFamily": "Manrope",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "cMnEf",
+                      "name": "activeChoose",
+                      "width": "fill_container",
+                      "fill": "#FFFFFF",
+                      "cornerRadius": 8,
+                      "stroke": {
+                        "align": "inside",
+                        "thickness": 1,
+                        "fill": "#D9DEDA"
+                      },
+                      "padding": [
+                        11,
+                        14
+                      ],
+                      "justifyContent": "center",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "vW8vW",
+                          "fill": "#1E2428",
+                          "content": "Choose replacement PDF or DOCX",
+                          "fontFamily": "Manrope",
+                          "fontSize": 13,
+                          "fontWeight": "800"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "v5nIT",
+                      "name": "activeReplace",
+                      "width": "fill_container",
+                      "fill": "#E1E6E3",
+                      "cornerRadius": 8,
+                      "padding": [
+                        11,
+                        14
+                      ],
+                      "justifyContent": "center",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "wkbub",
+                          "fill": "#7A838B",
+                          "content": "Replace original CV",
+                          "fontFamily": "Manrope",
+                          "fontSize": 13,
+                          "fontWeight": "800"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "edq1b",
+              "name": "Workspace editable draft main",
+              "width": "fill_container",
+              "height": "fill_container",
+              "fill": "#FFFFFF",
+              "layout": "vertical",
+              "gap": 20,
+              "padding": 28,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "0JZKq",
+                  "name": "draftHeader",
+                  "width": "fill_container",
+                  "justifyContent": "space_between",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "iFJGM",
+                      "name": "draftHeaderCopy",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 4,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "lWMgk",
+                          "fill": "#1E2428",
+                          "content": "Current vacancy draft",
+                          "fontFamily": "Manrope",
+                          "fontSize": 30,
+                          "fontWeight": "800"
+                        },
+                        {
+                          "type": "text",
+                          "id": "Txhwf",
+                          "fill": "#5E6872",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "Enter vacancy source content here. The draft stays resumable until you discard it or generate a tailored application.",
+                          "fontFamily": "Manrope",
+                          "fontSize": 13,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "7aqF3",
+                      "name": "draftStatusPill",
+                      "fill": "#FFF5E6",
+                      "cornerRadius": 999,
+                      "gap": 8,
+                      "padding": [
+                        7,
+                        10
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "ellipse",
+                          "id": "6J5Hm",
+                          "fill": "#C48A1E",
+                          "width": 8,
+                          "height": 8
+                        },
+                        {
+                          "type": "text",
+                          "id": "cqVc2",
+                          "fill": "#8A5A07",
+                          "content": "Draft in progress",
+                          "fontFamily": "Manrope",
+                          "fontSize": 12,
+                          "fontWeight": "800"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "tg0FH",
+                  "name": "draftSources",
+                  "width": "fill_container",
+                  "gap": 18,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "g5YZm",
+                      "name": "urlDraftCard",
+                      "width": "fill_container",
+                      "height": 294,
+                      "fill": "#F7F8F6",
+                      "cornerRadius": 8,
+                      "stroke": {
+                        "align": "inside",
+                        "thickness": 1,
+                        "fill": "#D9DEDA"
+                      },
+                      "layout": "vertical",
+                      "gap": 12,
+                      "padding": [
+                        20,
+                        20,
+                        18,
+                        20
+                      ],
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "7wIKg",
+                          "fill": "#1E2428",
+                          "content": "Open vacancy URL",
+                          "fontFamily": "Manrope",
+                          "fontSize": 18,
+                          "fontWeight": "800"
+                        },
+                        {
+                          "type": "text",
+                          "id": "DsXNu",
+                          "fill": "#5E6872",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "Use one vacancy URL as the live draft input. Reviewing the vacancy will lock this field until you start a new vacancy.",
+                          "lineHeight": 1.4,
+                          "fontFamily": "Manrope",
+                          "fontSize": 13,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "YXH1t",
+                          "fill": "#7A838B",
+                          "content": "Vacancy URL",
+                          "fontFamily": "Manrope",
+                          "fontSize": 11,
+                          "fontWeight": "800"
+                        },
+                        {
+                          "type": "frame",
+                          "id": "Ut2QV",
+                          "name": "urlDraftInput",
+                          "width": "fill_container",
+                          "fill": "#FFFFFF",
+                          "cornerRadius": 8,
+                          "stroke": {
+                            "align": "inside",
+                            "thickness": 1,
+                            "fill": "#D9DEDA"
+                          },
+                          "layout": "vertical",
+                          "padding": [
+                            12,
+                            14
+                          ],
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "7wfeL",
+                              "fill": "#1E2428",
+                              "content": "https://jobs.monzo.com/roles/frontend-platform-engineer",
+                              "fontFamily": "Manrope",
+                              "fontSize": 13,
+                              "fontWeight": "500"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "text",
+                          "id": "vhow3",
+                          "fill": "#5E6872",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "Meaningful input keeps Current vacancy draft visible in the sidebar and preserves your place on reopen.",
+                          "lineHeight": 1.4,
+                          "fontFamily": "Manrope",
+                          "fontSize": 12,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "frame",
+                          "id": "1N4qn",
+                          "width": "fill_container",
+                          "height": "fill_container"
+                        },
+                        {
+                          "type": "frame",
+                          "id": "EAMl1",
+                          "name": "reviewUrlDraft",
+                          "width": "fill_container",
+                          "fill": "#1E2428",
+                          "cornerRadius": 8,
+                          "padding": [
+                            11,
+                            14
+                          ],
+                          "justifyContent": "center",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "O78uF",
+                              "fill": "#FFFFFF",
+                              "content": "Review vacancy from URL",
+                              "fontFamily": "Manrope",
+                              "fontSize": 13,
+                              "fontWeight": "800"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "WKnww",
+                      "name": "pasteDraftCard",
+                      "width": "fill_container",
+                      "height": 294,
+                      "fill": "#F7F8F6",
+                      "cornerRadius": 8,
+                      "stroke": {
+                        "align": "inside",
+                        "thickness": 1,
+                        "fill": "#D9DEDA"
+                      },
+                      "layout": "vertical",
+                      "gap": 12,
+                      "padding": [
+                        20,
+                        20,
+                        18,
+                        20
+                      ],
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "LyARR",
+                          "fill": "#1E2428",
+                          "content": "Paste job text",
+                          "fontFamily": "Manrope",
+                          "fontSize": 18,
+                          "fontWeight": "800"
+                        },
+                        {
+                          "type": "text",
+                          "id": "BSeol",
+                          "fill": "#5E6872",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "Keep the pasted-text source available for pages without a stable URL. This method remains editable until review succeeds.",
+                          "lineHeight": 1.4,
+                          "fontFamily": "Manrope",
+                          "fontSize": 13,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "dbwMr",
+                          "fill": "#7A838B",
+                          "content": "Job vacancy text",
+                          "fontFamily": "Manrope",
+                          "fontSize": 11,
+                          "fontWeight": "800"
+                        },
+                        {
+                          "type": "frame",
+                          "id": "sXmFs",
+                          "name": "pasteDraftInput",
+                          "width": "fill_container",
+                          "height": 96,
+                          "fill": "#FFFFFF",
+                          "cornerRadius": 8,
+                          "stroke": {
+                            "align": "inside",
+                            "thickness": 1,
+                            "fill": "#D9DEDA"
+                          },
+                          "layout": "vertical",
+                          "padding": [
+                            12,
+                            14
+                          ],
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "i6Tl6",
+                              "fill": "#8D979E",
+                              "content": "No pasted vacancy text yet",
+                              "fontFamily": "Manrope",
+                              "fontSize": 13,
+                              "fontWeight": "500"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "text",
+                          "id": "mXTiL",
+                          "fill": "#5E6872",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "This source stays available, but it does not replace the active draft selection until it becomes meaningful.",
+                          "lineHeight": 1.4,
+                          "fontFamily": "Manrope",
+                          "fontSize": 12,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "frame",
+                          "id": "m1NxL",
+                          "width": "fill_container",
+                          "height": "fill_container"
+                        },
+                        {
+                          "type": "frame",
+                          "id": "7PXc5",
+                          "name": "reviewPasteDraftDisabled",
+                          "width": "fill_container",
+                          "fill": "#E1E6E3",
+                          "cornerRadius": 8,
+                          "padding": [
+                            11,
+                            14
+                          ],
+                          "justifyContent": "center",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "Jgvvj",
+                              "fill": "#7A838B",
+                              "content": "Review pasted vacancy",
+                              "fontFamily": "Manrope",
+                              "fontSize": 13,
+                              "fontWeight": "800"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "Apm61",
+                  "name": "draftNextStep",
+                  "width": "fill_container",
+                  "fill": "#F7F8F6",
+                  "cornerRadius": 8,
+                  "stroke": {
+                    "align": "inside",
+                    "thickness": 1,
+                    "fill": "#D9DEDA"
+                  },
+                  "layout": "vertical",
+                  "gap": 16,
+                  "padding": 20,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "rogTp",
+                      "fill": "#7A838B",
+                      "content": "Current draft",
+                      "fontFamily": "Manrope",
+                      "fontSize": 11,
+                      "fontWeight": "800"
+                    },
+                    {
+                      "type": "text",
+                      "id": "pZJOO",
+                      "fill": "#1E2428",
+                      "content": "Review the vacancy before adapting",
+                      "fontFamily": "Manrope",
+                      "fontSize": 24,
+                      "fontWeight": "800"
+                    },
+                    {
+                      "type": "text",
+                      "id": "5Goow",
+                      "fill": "#5E6872",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "The draft remains editable until review succeeds. Once reviewed, the source inputs lock, the draft status changes to Ready to adapt, and New vacancy becomes the only way to start different source content.",
+                      "lineHeight": 1.4,
+                      "fontFamily": "Manrope",
+                      "fontSize": 13,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "TV6FO",
+                      "name": "draftHints",
+                      "width": "fill_container",
+                      "gap": 12,
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "eDbRo",
+                          "name": "hintMeaningful",
+                          "width": "fill_container",
+                          "fill": "#FFFFFF",
+                          "cornerRadius": 8,
+                          "stroke": {
+                            "align": "inside",
+                            "thickness": 1,
+                            "fill": "#D9DEDA"
+                          },
+                          "layout": "vertical",
+                          "gap": 8,
+                          "padding": 16,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "sZTg8",
+                              "fill": "#1E2428",
+                              "content": "Meaningful input",
+                              "fontFamily": "Manrope",
+                              "fontSize": 13,
+                              "fontWeight": "800"
+                            },
+                            {
+                              "type": "text",
+                              "id": "5p6GP",
+                              "fill": "#5E6872",
+                              "textGrowth": "fixed-width",
+                              "width": "fill_container",
+                              "content": "A non-empty source creates the Current vacancy draft row and keeps it above saved tailored applications.",
+                              "lineHeight": 1.4,
+                              "fontFamily": "Manrope",
+                              "fontSize": 13,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "QNDd5",
+                          "name": "hintPersistent",
+                          "width": "fill_container",
+                          "fill": "#FFFFFF",
+                          "cornerRadius": 8,
+                          "stroke": {
+                            "align": "inside",
+                            "thickness": 1,
+                            "fill": "#D9DEDA"
+                          },
+                          "layout": "vertical",
+                          "gap": 8,
+                          "padding": 16,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "oXlDQ",
+                              "fill": "#1E2428",
+                              "content": "Persistent draft",
+                              "fontFamily": "Manrope",
+                              "fontSize": 13,
+                              "fontWeight": "800"
+                            },
+                            {
+                              "type": "text",
+                              "id": "svZk0",
+                              "fill": "#5E6872",
+                              "textGrowth": "fixed-width",
+                              "width": "fill_container",
+                              "content": "The editable draft restores before saved history on app reopen so you can continue exactly where you stopped.",
+                              "lineHeight": 1.4,
+                              "fontFamily": "Manrope",
+                              "fontSize": 13,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "IgDr1",
+                          "name": "hintSelection",
+                          "width": "fill_container",
+                          "fill": "#FFFFFF",
+                          "cornerRadius": 8,
+                          "stroke": {
+                            "align": "inside",
+                            "thickness": 1,
+                            "fill": "#D9DEDA"
+                          },
+                          "layout": "vertical",
+                          "gap": 8,
+                          "padding": 16,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "Azf6K",
+                              "fill": "#1E2428",
+                              "content": "Selection follows work",
+                              "fontFamily": "Manrope",
+                              "fontSize": 13,
+                              "fontWeight": "800"
+                            },
+                            {
+                              "type": "text",
+                              "id": "mS3qy",
+                              "fill": "#5E6872",
+                              "textGrowth": "fixed-width",
+                              "width": "fill_container",
+                              "content": "Typing into vacancy inputs keeps the current draft selected so the sidebar matches the work you are actively doing.",
+                              "lineHeight": 1.4,
+                              "fontFamily": "Manrope",
+                              "fontSize": 13,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "oqwaf",
+      "x": 21192,
+      "y": 0,
+      "name": "CV Maxxing / Workspace / Reviewed Draft",
+      "clip": true,
+      "width": 1512,
+      "height": 982,
+      "fill": "#10181D",
+      "cornerRadius": 12,
+      "layout": "vertical",
+      "children": [
+        {
+          "type": "frame",
+          "id": "j6P7M",
+          "name": "barActive",
+          "width": "fill_container",
+          "height": 52,
+          "fill": "#1B252B",
+          "gap": 14,
+          "padding": [
+            0,
+            18
+          ],
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "TrUNN",
+              "name": "Window controls",
+              "gap": 8,
+              "children": [
+                {
+                  "type": "ellipse",
+                  "id": "pMraI",
+                  "name": "Close",
+                  "fill": "#FF5F57",
+                  "width": 12,
+                  "height": 12
+                },
+                {
+                  "type": "ellipse",
+                  "id": "H0z7H",
+                  "name": "Minimise",
+                  "fill": "#FFBD2E",
+                  "width": 12,
+                  "height": 12
+                },
+                {
+                  "type": "ellipse",
+                  "id": "1XnuO",
+                  "name": "Zoom",
+                  "fill": "#28C840",
+                  "width": 12,
+                  "height": 12
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "Rasff",
+              "name": "Window title",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "WHT8L",
+                  "name": "titleText",
+                  "fill": "#F7F8F6",
+                  "content": "CV Maxxing",
+                  "fontFamily": "Manrope",
+                  "fontSize": 14,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "gzt4i",
+                  "name": "subtitleText",
+                  "fill": "#AAB4B0",
+                  "content": "Workspace",
+                  "fontFamily": "Manrope",
+                  "fontSize": 11,
+                  "fontWeight": "500"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "KEuec",
+              "name": "Worker status",
+              "fill": "#26343C",
+              "cornerRadius": 999,
+              "gap": 8,
+              "padding": [
+                7,
+                10
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "ellipse",
+                  "id": "BrAth",
+                  "name": "Status dot",
+                  "fill": "#28C840",
+                  "width": 8,
+                  "height": 8
+                },
+                {
+                  "type": "text",
+                  "id": "QqdWS",
+                  "name": "statusLabel",
+                  "fill": "#F7F8F6",
+                  "content": "Ready",
+                  "fontFamily": "Manrope",
+                  "fontSize": 12,
+                  "fontWeight": "700"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "xuGT6",
+          "name": "Desktop body",
+          "width": "fill_container",
+          "height": "fill_container",
+          "fill": "$app.canvas",
+          "children": [
+            {
+              "type": "frame",
+              "id": "CYxdo",
+              "name": "railActive",
+              "width": 64,
+              "height": "fill_container",
+              "fill": "#182126",
+              "layout": "vertical",
+              "padding": [
+                16,
+                10
+              ],
+              "justifyContent": "space_between",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "mN9Z3",
+                  "name": "Primary tabs",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 14,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "2vEp8",
+                      "name": "Tab / AI worker",
+                      "width": 44,
+                      "height": 44,
+                      "fill": "#182126",
+                      "cornerRadius": 8,
+                      "layout": "vertical",
+                      "justifyContent": "center",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon_font",
+                          "id": "HCzhT",
+                          "name": "tabWorkerIcon",
+                          "width": 20,
+                          "height": 20,
+                          "iconFontName": "sparkles",
+                          "iconFontFamily": "lucide",
+                          "fill": "#93A29A"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "i5SxW",
+                      "name": "Tab / Job vacancies",
+                      "width": 44,
+                      "height": 44,
+                      "fill": "#2D3B43",
+                      "cornerRadius": 8,
+                      "layout": "vertical",
+                      "justifyContent": "center",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon_font",
+                          "id": "K9YUU",
+                          "name": "tabVacanciesIcon",
+                          "width": 20,
+                          "height": 20,
+                          "iconFontName": "briefcase",
+                          "iconFontFamily": "lucide",
+                          "fill": "#F7F8F6"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "1fwSs",
+                      "name": "Tab / Original CV",
+                      "width": 44,
+                      "height": 44,
+                      "fill": "#182126",
+                      "cornerRadius": 8,
+                      "layout": "vertical",
+                      "justifyContent": "center",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon_font",
+                          "id": "gGhPo",
+                          "name": "tabCvIcon",
+                          "width": 20,
+                          "height": 20,
+                          "iconFontName": "file-text",
+                          "iconFontFamily": "lucide",
+                          "fill": "#93A29A"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "KqjoR",
+                  "name": "Utility tabs",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 14,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "XTzHq",
+                      "name": "Tab / Settings",
+                      "width": 44,
+                      "height": 44,
+                      "fill": "#182126",
+                      "cornerRadius": 8,
+                      "layout": "vertical",
+                      "justifyContent": "center",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon_font",
+                          "id": "afQpl",
+                          "name": "tabSettingsIcon",
+                          "width": 20,
+                          "height": 20,
+                          "iconFontName": "settings",
+                          "iconFontFamily": "lucide",
+                          "fill": "#93A29A"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "KaD6k",
+              "name": "Vacancies panel",
+              "width": 328,
+              "height": "fill_container",
+              "fill": "#F7F8F6",
+              "stroke": {
+                "align": "inside",
+                "thickness": {
+                  "right": 1
+                },
+                "fill": "#D9DEDA"
+              },
+              "layout": "vertical",
+              "gap": 16,
+              "padding": 20,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "55Cgt",
+                  "fill": "#7A838B",
+                  "content": "Job vacancies",
+                  "fontFamily": "Manrope",
+                  "fontSize": 11,
+                  "fontWeight": "800"
+                },
+                {
+                  "type": "frame",
+                  "id": "ZMmDA",
+                  "name": "newReviewed",
+                  "width": "fill_container",
+                  "fill": "#1E2428",
+                  "cornerRadius": 8,
+                  "padding": [
+                    11,
+                    14
+                  ],
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "gWnyc",
+                      "fill": "#FFFFFF",
+                      "content": "New vacancy",
+                      "fontFamily": "Manrope",
+                      "fontSize": 13,
+                      "fontWeight": "800"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "fjnEa",
+                  "name": "Vacancy items",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 10,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "GjDyu",
+                      "name": "currentDraftReviewed",
+                      "width": "fill_container",
+                      "fill": "#EAF0EC",
+                      "cornerRadius": 8,
+                      "layout": "vertical",
+                      "gap": 6,
+                      "padding": 12,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "TlOjW",
+                          "fill": "#1E2428",
+                          "content": "Current vacancy draft",
+                          "fontFamily": "Manrope",
+                          "fontSize": 13,
+                          "fontWeight": "800"
+                        },
+                        {
+                          "type": "text",
+                          "id": "GIapg",
+                          "fill": "#5E6872",
+                          "content": "Ready to adapt",
+                          "fontFamily": "Manrope",
+                          "fontSize": 12,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "evzfr",
+                      "name": "savedReviewedOne",
+                      "width": "fill_container",
+                      "fill": "#FFFFFF",
+                      "cornerRadius": 8,
+                      "layout": "vertical",
+                      "gap": 6,
+                      "padding": 12,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "WsyR1",
+                          "fill": "#1E2428",
+                          "content": "Senior Frontend Engineer",
+                          "fontFamily": "Manrope",
+                          "fontSize": 13,
+                          "fontWeight": "800"
+                        },
+                        {
+                          "type": "text",
+                          "id": "EOxjX",
+                          "fill": "#5E6872",
+                          "content": "Monzo · adapted 12 Apr",
+                          "fontFamily": "Manrope",
+                          "fontSize": 12,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "0Pa9x",
+                      "name": "savedReviewedTwo",
+                      "width": "fill_container",
+                      "fill": "#FFFFFF",
+                      "cornerRadius": 8,
+                      "layout": "vertical",
+                      "gap": 6,
+                      "padding": 12,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "MbWOL",
+                          "fill": "#1E2428",
+                          "content": "Platform Product Manager",
+                          "fontFamily": "Manrope",
+                          "fontSize": 13,
+                          "fontWeight": "800"
+                        },
+                        {
+                          "type": "text",
+                          "id": "xfxYR",
+                          "fill": "#5E6872",
+                          "content": "Nebula Labs · adapted 9 Apr",
+                          "fontFamily": "Manrope",
+                          "fontSize": 12,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "2yJtu",
+                  "name": "spacerReviewed",
+                  "width": "fill_container",
+                  "height": "fill_container"
+                },
+                {
+                  "type": "frame",
+                  "id": "hLHt3",
+                  "name": "activeCard",
+                  "width": "fill_container",
+                  "fill": "#EEF2EF",
+                  "cornerRadius": 8,
+                  "layout": "vertical",
+                  "gap": 10,
+                  "padding": 16,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "YmOE3",
+                      "name": "activeHead",
+                      "width": "fill_container",
+                      "justifyContent": "space_between",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "Tf440",
+                          "fill": "#1E2428",
+                          "content": "Active original CV",
+                          "fontFamily": "Manrope",
+                          "fontSize": 13,
+                          "fontWeight": "800"
+                        },
+                        {
+                          "type": "text",
+                          "id": "t0Bds",
+                          "fill": "#5E6872",
+                          "content": "1 snapshot",
+                          "fontFamily": "Manrope",
+                          "fontSize": 10,
+                          "fontWeight": "800"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "3S6ej",
+                      "fill": "#5E6872",
+                      "content": "Senior Frontend Engineer.pdf",
+                      "fontFamily": "Manrope",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "text",
+                      "id": "pzRvf",
+                      "fill": "#5E6872",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Replace the active original CV to create snapshot 2 without mutating tailored applications that already reference an earlier snapshot.",
+                      "lineHeight": 1.4,
+                      "fontFamily": "Manrope",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "W16Qg",
+                      "name": "activeChoose",
+                      "width": "fill_container",
+                      "fill": "#FFFFFF",
+                      "cornerRadius": 8,
+                      "stroke": {
+                        "align": "inside",
+                        "thickness": 1,
+                        "fill": "#D9DEDA"
+                      },
+                      "padding": [
+                        11,
+                        14
+                      ],
+                      "justifyContent": "center",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "b0k8U",
+                          "fill": "#1E2428",
+                          "content": "Choose replacement PDF or DOCX",
+                          "fontFamily": "Manrope",
+                          "fontSize": 13,
+                          "fontWeight": "800"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "2RbEA",
+                      "name": "activeReplace",
+                      "width": "fill_container",
+                      "fill": "#E1E6E3",
+                      "cornerRadius": 8,
+                      "padding": [
+                        11,
+                        14
+                      ],
+                      "justifyContent": "center",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "RJerK",
+                          "fill": "#7A838B",
+                          "content": "Replace original CV",
+                          "fontFamily": "Manrope",
+                          "fontSize": 13,
+                          "fontWeight": "800"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "h6znZ",
+              "name": "Workspace reviewed draft main",
+              "width": "fill_container",
+              "height": "fill_container",
+              "fill": "#FFFFFF",
+              "layout": "vertical",
+              "gap": 20,
+              "padding": 28,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "1L3XO",
+                  "name": "reviewedHeader",
+                  "width": "fill_container",
+                  "justifyContent": "space_between",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "R5Ziv",
+                      "name": "reviewedHeaderCopy",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 4,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "DfUlc",
+                          "fill": "#1E2428",
+                          "content": "Current vacancy draft",
+                          "fontFamily": "Manrope",
+                          "fontSize": 30,
+                          "fontWeight": "800"
+                        },
+                        {
+                          "type": "text",
+                          "id": "Y5gmX",
+                          "fill": "#5E6872",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "The vacancy review is complete. Source fields stay visible but read-only until you start a new vacancy.",
+                          "fontFamily": "Manrope",
+                          "fontSize": 13,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "mhwcF",
+                      "name": "adaptButton",
+                      "fill": "#1E2428",
+                      "cornerRadius": 8,
+                      "padding": [
+                        10,
+                        14
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "CHZWy",
+                          "fill": "#FFFFFF",
+                          "content": "Adapt CV",
+                          "fontFamily": "Manrope",
+                          "fontSize": 13,
+                          "fontWeight": "800"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "WFnhH",
+                  "name": "reviewedSources",
+                  "width": "fill_container",
+                  "gap": 18,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "fyoME",
+                      "name": "urlReviewedCard",
+                      "width": "fill_container",
+                      "height": 304,
+                      "fill": "#F7F8F6",
+                      "cornerRadius": 8,
+                      "stroke": {
+                        "align": "inside",
+                        "thickness": 1,
+                        "fill": "#D9DEDA"
+                      },
+                      "layout": "vertical",
+                      "gap": 12,
+                      "padding": [
+                        20,
+                        20,
+                        18,
+                        20
+                      ],
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "w2STC",
+                          "fill": "#1E2428",
+                          "content": "Open vacancy URL",
+                          "fontFamily": "Manrope",
+                          "fontSize": 18,
+                          "fontWeight": "800"
+                        },
+                        {
+                          "type": "text",
+                          "id": "Xq8t6",
+                          "fill": "#5E6872",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "Reviewed source. This input is now locked so the draft stays stable and trustworthy.",
+                          "lineHeight": 1.4,
+                          "fontFamily": "Manrope",
+                          "fontSize": 13,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "khDpp",
+                          "fill": "#7A838B",
+                          "content": "Vacancy URL",
+                          "fontFamily": "Manrope",
+                          "fontSize": 11,
+                          "fontWeight": "800"
+                        },
+                        {
+                          "type": "frame",
+                          "id": "Wi2Pa",
+                          "name": "urlReviewedInput",
+                          "width": "fill_container",
+                          "fill": "#EEF2EF",
+                          "cornerRadius": 8,
+                          "stroke": {
+                            "align": "inside",
+                            "thickness": 1,
+                            "fill": "#D9DEDA"
+                          },
+                          "layout": "vertical",
+                          "padding": [
+                            12,
+                            14
+                          ],
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "mqyMh",
+                              "fill": "#1E2428",
+                              "content": "https://jobs.monzo.com/roles/frontend-platform-engineer",
+                              "fontFamily": "Manrope",
+                              "fontSize": 13,
+                              "fontWeight": "500"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "text",
+                          "id": "PcEqK",
+                          "fill": "#5E6872",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "New vacancy is the only way to change the source content after review. The current reviewed vacancy remains resumable on reopen.",
+                          "lineHeight": 1.4,
+                          "fontFamily": "Manrope",
+                          "fontSize": 12,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "frame",
+                          "id": "fm8d8",
+                          "width": "fill_container",
+                          "height": "fill_container"
+                        },
+                        {
+                          "type": "frame",
+                          "id": "3eORR",
+                          "name": "reviewUrlReviewedDisabled",
+                          "width": "fill_container",
+                          "fill": "#E1E6E3",
+                          "cornerRadius": 8,
+                          "padding": [
+                            11,
+                            14
+                          ],
+                          "justifyContent": "center",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "blBUo",
+                              "fill": "#7A838B",
+                              "content": "Review vacancy from URL",
+                              "fontFamily": "Manrope",
+                              "fontSize": 13,
+                              "fontWeight": "800"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "ceEVQ",
+                      "name": "pasteReviewedCard",
+                      "width": "fill_container",
+                      "height": 304,
+                      "fill": "#F7F8F6",
+                      "cornerRadius": 8,
+                      "stroke": {
+                        "align": "inside",
+                        "thickness": 1,
+                        "fill": "#D9DEDA"
+                      },
+                      "layout": "vertical",
+                      "gap": 12,
+                      "padding": [
+                        20,
+                        20,
+                        18,
+                        20
+                      ],
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "511hB",
+                          "fill": "#1E2428",
+                          "content": "Paste job text",
+                          "fontFamily": "Manrope",
+                          "fontSize": 18,
+                          "fontWeight": "800"
+                        },
+                        {
+                          "type": "text",
+                          "id": "dkpTu",
+                          "fill": "#5E6872",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "Unused source method stays visible in the locked layout, but remains blank and read-only after review.",
+                          "lineHeight": 1.4,
+                          "fontFamily": "Manrope",
+                          "fontSize": 13,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "lzJBx",
+                          "fill": "#7A838B",
+                          "content": "Job vacancy text",
+                          "fontFamily": "Manrope",
+                          "fontSize": 11,
+                          "fontWeight": "800"
+                        },
+                        {
+                          "type": "frame",
+                          "id": "STFXc",
+                          "name": "pasteReviewedInput",
+                          "width": "fill_container",
+                          "height": 96,
+                          "fill": "#EEF2EF",
+                          "cornerRadius": 8,
+                          "stroke": {
+                            "align": "inside",
+                            "thickness": 1,
+                            "fill": "#D9DEDA"
+                          },
+                          "layout": "vertical",
+                          "padding": [
+                            12,
+                            14
+                          ]
+                        },
+                        {
+                          "type": "text",
+                          "id": "h7ZUd",
+                          "fill": "#5E6872",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "The unused source stays visible so the reviewed layout remains consistent without inventing values.",
+                          "lineHeight": 1.4,
+                          "fontFamily": "Manrope",
+                          "fontSize": 12,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "frame",
+                          "id": "jPlZR",
+                          "width": "fill_container",
+                          "height": "fill_container"
+                        },
+                        {
+                          "type": "frame",
+                          "id": "fXW8u",
+                          "name": "reviewPasteReviewedDisabled",
+                          "width": "fill_container",
+                          "fill": "#E1E6E3",
+                          "cornerRadius": 8,
+                          "padding": [
+                            11,
+                            14
+                          ],
+                          "justifyContent": "center",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "ON1jO",
+                              "fill": "#7A838B",
+                              "content": "Review pasted vacancy",
+                              "fontFamily": "Manrope",
+                              "fontSize": 13,
+                              "fontWeight": "800"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "tzT60",
+                  "name": "reviewedVacancyPanel",
+                  "width": "fill_container",
+                  "fill": "#F7F8F6",
+                  "cornerRadius": 8,
+                  "stroke": {
+                    "align": "inside",
+                    "thickness": 1,
+                    "fill": "#D9DEDA"
+                  },
+                  "layout": "vertical",
+                  "gap": 16,
+                  "padding": 20,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "gGkht",
+                      "fill": "#7A838B",
+                      "content": "Reviewed vacancy",
+                      "fontFamily": "Manrope",
+                      "fontSize": 11,
+                      "fontWeight": "800"
+                    },
+                    {
+                      "type": "text",
+                      "id": "KS2OA",
+                      "fill": "#1E2428",
+                      "content": "Senior Frontend Engineer · Monzo",
+                      "fontFamily": "Manrope",
+                      "fontSize": 24,
+                      "fontWeight": "800"
+                    },
+                    {
+                      "type": "text",
+                      "id": "wc5vF",
+                      "fill": "#5E6872",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "The reviewed vacancy is ready for Adapt CV. Saved tailored applications stay below this draft in the unified sidebar while the draft remains selected.",
+                      "lineHeight": 1.4,
+                      "fontFamily": "Manrope",
+                      "fontSize": 13,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "SiqoE",
+                      "name": "reviewedDetails",
+                      "width": "fill_container",
+                      "gap": 12,
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "gKIPT",
+                          "name": "reviewedSummary",
+                          "width": "fill_container",
+                          "fill": "#FFFFFF",
+                          "cornerRadius": 8,
+                          "stroke": {
+                            "align": "inside",
+                            "thickness": 1,
+                            "fill": "#D9DEDA"
+                          },
+                          "layout": "vertical",
+                          "gap": 8,
+                          "padding": 16,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "SUkud",
+                              "fill": "#1E2428",
+                              "content": "Role summary",
+                              "fontFamily": "Manrope",
+                              "fontSize": 13,
+                              "fontWeight": "800"
+                            },
+                            {
+                              "type": "text",
+                              "id": "01SXR",
+                              "fill": "#5E6872",
+                              "textGrowth": "fixed-width",
+                              "width": "fill_container",
+                              "content": "Lead desktop platform work, improve CV-to-vacancy matching quality, and communicate clearly with technical users.",
+                              "lineHeight": 1.4,
+                              "fontFamily": "Manrope",
+                              "fontSize": 13,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "3tWWJ",
+                          "name": "reviewedStrengths",
+                          "width": "fill_container",
+                          "fill": "#FFFFFF",
+                          "cornerRadius": 8,
+                          "stroke": {
+                            "align": "inside",
+                            "thickness": 1,
+                            "fill": "#D9DEDA"
+                          },
+                          "layout": "vertical",
+                          "gap": 8,
+                          "padding": 16,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "LPPuW",
+                              "fill": "#1E2428",
+                              "content": "Core strengths",
+                              "fontFamily": "Manrope",
+                              "fontSize": 13,
+                              "fontWeight": "800"
+                            },
+                            {
+                              "type": "text",
+                              "id": "Xggc8",
+                              "fill": "#5E6872",
+                              "textGrowth": "fixed-width",
+                              "width": "fill_container",
+                              "content": "Electron-first product thinking, front-end systems leadership, and strong accessibility depth.",
+                              "lineHeight": 1.4,
+                              "fontFamily": "Manrope",
+                              "fontSize": 13,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "ZDmhM",
+                          "name": "reviewedGaps",
+                          "width": "fill_container",
+                          "fill": "#FFFFFF",
+                          "cornerRadius": 8,
+                          "stroke": {
+                            "align": "inside",
+                            "thickness": 1,
+                            "fill": "#D9DEDA"
+                          },
+                          "layout": "vertical",
+                          "gap": 8,
+                          "padding": 16,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "W54LW",
+                              "fill": "#1E2428",
+                              "content": "Gaps and validation",
+                              "fontFamily": "Manrope",
+                              "fontSize": 13,
+                              "fontWeight": "800"
+                            },
+                            {
+                              "type": "text",
+                              "id": "5oML5",
+                              "fill": "#5E6872",
+                              "textGrowth": "fixed-width",
+                              "width": "fill_container",
+                              "content": "Validate direct performance metrics and align platform impact claims against the original CV snapshot.",
+                              "lineHeight": 1.4,
+                              "fontFamily": "Manrope",
+                              "fontSize": 13,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "KDU0x",
+      "x": 22824,
+      "y": 0,
+      "name": "CV Maxxing / Workspace / Draft Discard Confirmation",
+      "clip": true,
+      "width": 1512,
+      "height": 982,
+      "fill": "#10181D",
+      "cornerRadius": 12,
+      "layout": "vertical",
+      "children": [
+        {
+          "type": "frame",
+          "id": "887rQ",
+          "name": "barLoading",
+          "width": "fill_container",
+          "height": 52,
+          "fill": "#1B252B",
+          "gap": 14,
+          "padding": [
+            0,
+            18
+          ],
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "rHdlw",
+              "name": "Window controls",
+              "gap": 8,
+              "children": [
+                {
+                  "type": "ellipse",
+                  "id": "VOE6V",
+                  "name": "Close",
+                  "fill": "#FF5F57",
+                  "width": 12,
+                  "height": 12
+                },
+                {
+                  "type": "ellipse",
+                  "id": "Ml3si",
+                  "name": "Minimise",
+                  "fill": "#FFBD2E",
+                  "width": 12,
+                  "height": 12
+                },
+                {
+                  "type": "ellipse",
+                  "id": "1zmZm",
+                  "name": "Zoom",
+                  "fill": "#28C840",
+                  "width": 12,
+                  "height": 12
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "EHRiR",
+              "name": "Window title",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "C0tDo",
+                  "name": "titleText",
+                  "fill": "#F7F8F6",
+                  "content": "CV Maxxing",
+                  "fontFamily": "Manrope",
+                  "fontSize": 14,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "bu3jp",
+                  "name": "subtitleText",
+                  "fill": "#AAB4B0",
+                  "content": "Workspace",
+                  "fontFamily": "Manrope",
+                  "fontSize": 11,
+                  "fontWeight": "500"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "PfTL9",
+              "name": "Shell indicators",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "F2hag",
+                  "name": "Worker status",
+                  "fill": "#26343C",
+                  "cornerRadius": 999,
+                  "gap": 8,
+                  "padding": [
+                    7,
+                    10
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "ellipse",
+                      "id": "pHxQv",
+                      "name": "workerDot",
+                      "fill": "#28C840",
+                      "width": 8,
+                      "height": 8
+                    },
+                    {
+                      "type": "text",
+                      "id": "7QGty",
+                      "name": "workerText",
+                      "fill": "#F7F8F6",
+                      "content": "Ready",
+                      "fontFamily": "Manrope",
+                      "fontSize": 12,
+                      "fontWeight": "700"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "cBxWJ",
+          "name": "Desktop body",
+          "width": "fill_container",
+          "height": "fill_container",
+          "fill": "$app.canvas",
+          "children": [
+            {
+              "type": "frame",
+              "id": "kgR9i",
+              "name": "railLoading",
+              "width": 64,
+              "height": "fill_container",
+              "fill": "#182126",
+              "layout": "vertical",
+              "padding": [
+                16,
+                10
+              ],
+              "justifyContent": "space_between",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "X81Pa",
+                  "name": "Primary tabs",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 14,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "YVrSp",
+                      "name": "Tab / AI worker",
+                      "width": 44,
+                      "height": 44,
+                      "fill": "#182126",
+                      "cornerRadius": 8,
+                      "layout": "vertical",
+                      "justifyContent": "center",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon_font",
+                          "id": "bHgdr",
+                          "name": "tabWorkerIcon",
+                          "width": 20,
+                          "height": 20,
+                          "iconFontName": "sparkles",
+                          "iconFontFamily": "lucide",
+                          "fill": "#93A29A"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "fVOiS",
+                      "name": "Tab / Job vacancies",
+                      "width": 44,
+                      "height": 44,
+                      "fill": "#2D3B43",
+                      "cornerRadius": 8,
+                      "layout": "vertical",
+                      "justifyContent": "center",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon_font",
+                          "id": "Uy1yd",
+                          "name": "tabVacanciesIcon",
+                          "width": 20,
+                          "height": 20,
+                          "iconFontName": "briefcase",
+                          "iconFontFamily": "lucide",
+                          "fill": "#F7F8F6"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "ho5zd",
+                      "name": "Tab / Original CV",
+                      "width": 44,
+                      "height": 44,
+                      "fill": "#182126",
+                      "cornerRadius": 8,
+                      "layout": "vertical",
+                      "justifyContent": "center",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon_font",
+                          "id": "cqwym",
+                          "name": "tabCvIcon",
+                          "width": 20,
+                          "height": 20,
+                          "iconFontName": "file-text",
+                          "iconFontFamily": "lucide",
+                          "fill": "#93A29A"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "zIObJ",
+                  "name": "Utility tabs",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 14,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "3RAfp",
+                      "name": "Tab / Settings",
+                      "width": 44,
+                      "height": 44,
+                      "fill": "#182126",
+                      "cornerRadius": 8,
+                      "layout": "vertical",
+                      "justifyContent": "center",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon_font",
+                          "id": "1yRvP",
+                          "name": "tabSettingsIcon",
+                          "width": 20,
+                          "height": 20,
+                          "iconFontName": "settings",
+                          "iconFontFamily": "lucide",
+                          "fill": "#93A29A"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "OA8zd",
+              "name": "Vacancies panel",
+              "width": 328,
+              "height": "fill_container",
+              "fill": "#F7F8F6",
+              "stroke": {
+                "align": "inside",
+                "thickness": {
+                  "right": 1
+                },
+                "fill": "#D9DEDA"
+              },
+              "layout": "vertical",
+              "gap": 16,
+              "padding": 20,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "ZfZ65",
+                  "fill": "#7A838B",
+                  "content": "Job vacancies",
+                  "fontFamily": "Manrope",
+                  "fontSize": 11,
+                  "fontWeight": "800"
+                },
+                {
+                  "type": "frame",
+                  "id": "d7Nkv",
+                  "name": "newReviewed",
+                  "width": "fill_container",
+                  "fill": "#1E2428",
+                  "cornerRadius": 8,
+                  "padding": [
+                    11,
+                    14
+                  ],
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "qfHJY",
+                      "fill": "#FFFFFF",
+                      "content": "New vacancy",
+                      "fontFamily": "Manrope",
+                      "fontSize": 13,
+                      "fontWeight": "800"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "Js6mH",
+                  "name": "Vacancy items",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 10,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "yfa6I",
+                      "name": "currentDraftReviewed",
+                      "width": "fill_container",
+                      "fill": "#EAF0EC",
+                      "cornerRadius": 8,
+                      "layout": "vertical",
+                      "gap": 6,
+                      "padding": 12,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "8WSht",
+                          "fill": "#1E2428",
+                          "content": "Current vacancy draft",
+                          "fontFamily": "Manrope",
+                          "fontSize": 13,
+                          "fontWeight": "800"
+                        },
+                        {
+                          "type": "text",
+                          "id": "9zDFp",
+                          "fill": "#5E6872",
+                          "content": "Ready to adapt",
+                          "fontFamily": "Manrope",
+                          "fontSize": 12,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "NAD7o",
+                      "name": "savedReviewedOne",
+                      "width": "fill_container",
+                      "fill": "#FFFFFF",
+                      "cornerRadius": 8,
+                      "layout": "vertical",
+                      "gap": 6,
+                      "padding": 12,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "EyvHB",
+                          "fill": "#1E2428",
+                          "content": "Senior Frontend Engineer",
+                          "fontFamily": "Manrope",
+                          "fontSize": 13,
+                          "fontWeight": "800"
+                        },
+                        {
+                          "type": "text",
+                          "id": "rMPib",
+                          "fill": "#5E6872",
+                          "content": "Monzo · adapted 12 Apr",
+                          "fontFamily": "Manrope",
+                          "fontSize": 12,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "495Xv",
+                      "name": "savedReviewedTwo",
+                      "width": "fill_container",
+                      "fill": "#FFFFFF",
+                      "cornerRadius": 8,
+                      "layout": "vertical",
+                      "gap": 6,
+                      "padding": 12,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "ToXUu",
+                          "fill": "#1E2428",
+                          "content": "Platform Product Manager",
+                          "fontFamily": "Manrope",
+                          "fontSize": 13,
+                          "fontWeight": "800"
+                        },
+                        {
+                          "type": "text",
+                          "id": "fBuVJ",
+                          "fill": "#5E6872",
+                          "content": "Nebula Labs · adapted 9 Apr",
+                          "fontFamily": "Manrope",
+                          "fontSize": 12,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "vwCI1",
+                  "name": "spacerReviewed",
+                  "width": "fill_container",
+                  "height": "fill_container"
+                },
+                {
+                  "type": "frame",
+                  "id": "WyAfI",
+                  "name": "activeCard",
+                  "width": "fill_container",
+                  "fill": "#EEF2EF",
+                  "cornerRadius": 8,
+                  "layout": "vertical",
+                  "gap": 10,
+                  "padding": 16,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "8fSOo",
+                      "name": "activeHead",
+                      "width": "fill_container",
+                      "justifyContent": "space_between",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "G9Vsd",
+                          "fill": "#1E2428",
+                          "content": "Active original CV",
+                          "fontFamily": "Manrope",
+                          "fontSize": 13,
+                          "fontWeight": "800"
+                        },
+                        {
+                          "type": "text",
+                          "id": "HthVX",
+                          "fill": "#5E6872",
+                          "content": "1 snapshot",
+                          "fontFamily": "Manrope",
+                          "fontSize": 10,
+                          "fontWeight": "800"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "KWWOl",
+                      "fill": "#5E6872",
+                      "content": "Senior Frontend Engineer.pdf",
+                      "fontFamily": "Manrope",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "text",
+                      "id": "dnnhG",
+                      "fill": "#5E6872",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Replace the active original CV to create snapshot 2 without mutating tailored applications that already reference an earlier snapshot.",
+                      "lineHeight": 1.4,
+                      "fontFamily": "Manrope",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "EdMZn",
+                      "name": "activeChoose",
+                      "width": "fill_container",
+                      "fill": "#FFFFFF",
+                      "cornerRadius": 8,
+                      "stroke": {
+                        "align": "inside",
+                        "thickness": 1,
+                        "fill": "#D9DEDA"
+                      },
+                      "padding": [
+                        11,
+                        14
+                      ],
+                      "justifyContent": "center",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "h5mWV",
+                          "fill": "#1E2428",
+                          "content": "Choose replacement PDF or DOCX",
+                          "fontFamily": "Manrope",
+                          "fontSize": 13,
+                          "fontWeight": "800"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "BqXUZ",
+                      "name": "activeReplace",
+                      "width": "fill_container",
+                      "fill": "#E1E6E3",
+                      "cornerRadius": 8,
+                      "padding": [
+                        11,
+                        14
+                      ],
+                      "justifyContent": "center",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "HxF4h",
+                          "fill": "#7A838B",
+                          "content": "Replace original CV",
+                          "fontFamily": "Manrope",
+                          "fontSize": 13,
+                          "fontWeight": "800"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "bzSXJ",
+              "name": "Workspace reviewed draft main",
+              "width": "fill_container",
+              "height": "fill_container",
+              "fill": "#FFFFFF",
+              "layout": "vertical",
+              "gap": 20,
+              "padding": 28,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "Is5fG",
+                  "name": "reviewedHeader",
+                  "width": "fill_container",
+                  "justifyContent": "space_between",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "J8MqN",
+                      "name": "reviewedHeaderCopy",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 4,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "WsXo5",
+                          "fill": "#1E2428",
+                          "content": "Current vacancy draft",
+                          "fontFamily": "Manrope",
+                          "fontSize": 30,
+                          "fontWeight": "800"
+                        },
+                        {
+                          "type": "text",
+                          "id": "HPiF5",
+                          "fill": "#5E6872",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "The vacancy review is complete. Source fields stay visible but read-only until you start a new vacancy.",
+                          "fontFamily": "Manrope",
+                          "fontSize": 13,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "YzR3X",
+                      "name": "adaptButton",
+                      "fill": "#1E2428",
+                      "cornerRadius": 8,
+                      "padding": [
+                        10,
+                        14
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "bB6c5",
+                          "fill": "#FFFFFF",
+                          "content": "Adapt CV",
+                          "fontFamily": "Manrope",
+                          "fontSize": 13,
+                          "fontWeight": "800"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "y3OJU",
+                  "name": "reviewedSources",
+                  "width": "fill_container",
+                  "gap": 18,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "x9ACg",
+                      "name": "urlReviewedCard",
+                      "width": "fill_container",
+                      "height": 304,
+                      "fill": "#F7F8F6",
+                      "cornerRadius": 8,
+                      "stroke": {
+                        "align": "inside",
+                        "thickness": 1,
+                        "fill": "#D9DEDA"
+                      },
+                      "layout": "vertical",
+                      "gap": 12,
+                      "padding": [
+                        20,
+                        20,
+                        18,
+                        20
+                      ],
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "KBhMb",
+                          "fill": "#1E2428",
+                          "content": "Open vacancy URL",
+                          "fontFamily": "Manrope",
+                          "fontSize": 18,
+                          "fontWeight": "800"
+                        },
+                        {
+                          "type": "text",
+                          "id": "djBdv",
+                          "fill": "#5E6872",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "Reviewed source. This input is now locked so the draft stays stable and trustworthy.",
+                          "lineHeight": 1.4,
+                          "fontFamily": "Manrope",
+                          "fontSize": 13,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "61j2s",
+                          "fill": "#7A838B",
+                          "content": "Vacancy URL",
+                          "fontFamily": "Manrope",
+                          "fontSize": 11,
+                          "fontWeight": "800"
+                        },
+                        {
+                          "type": "frame",
+                          "id": "mnSKq",
+                          "name": "urlReviewedInput",
+                          "width": "fill_container",
+                          "fill": "#EEF2EF",
+                          "cornerRadius": 8,
+                          "stroke": {
+                            "align": "inside",
+                            "thickness": 1,
+                            "fill": "#D9DEDA"
+                          },
+                          "layout": "vertical",
+                          "padding": [
+                            12,
+                            14
+                          ],
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "FQCij",
+                              "fill": "#1E2428",
+                              "content": "https://jobs.monzo.com/roles/frontend-platform-engineer",
+                              "fontFamily": "Manrope",
+                              "fontSize": 13,
+                              "fontWeight": "500"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "text",
+                          "id": "xead6",
+                          "fill": "#5E6872",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "New vacancy is the only way to change the source content after review. The current reviewed vacancy remains resumable on reopen.",
+                          "lineHeight": 1.4,
+                          "fontFamily": "Manrope",
+                          "fontSize": 12,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "frame",
+                          "id": "5PZRC",
+                          "width": "fill_container",
+                          "height": "fill_container"
+                        },
+                        {
+                          "type": "frame",
+                          "id": "Y3rUc",
+                          "name": "reviewUrlReviewedDisabled",
+                          "width": "fill_container",
+                          "fill": "#E1E6E3",
+                          "cornerRadius": 8,
+                          "padding": [
+                            11,
+                            14
+                          ],
+                          "justifyContent": "center",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "rhaQv",
+                              "fill": "#7A838B",
+                              "content": "Review vacancy from URL",
+                              "fontFamily": "Manrope",
+                              "fontSize": 13,
+                              "fontWeight": "800"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "0bkJs",
+                      "name": "pasteReviewedCard",
+                      "width": "fill_container",
+                      "height": 304,
+                      "fill": "#F7F8F6",
+                      "cornerRadius": 8,
+                      "stroke": {
+                        "align": "inside",
+                        "thickness": 1,
+                        "fill": "#D9DEDA"
+                      },
+                      "layout": "vertical",
+                      "gap": 12,
+                      "padding": [
+                        20,
+                        20,
+                        18,
+                        20
+                      ],
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "BsONE",
+                          "fill": "#1E2428",
+                          "content": "Paste job text",
+                          "fontFamily": "Manrope",
+                          "fontSize": 18,
+                          "fontWeight": "800"
+                        },
+                        {
+                          "type": "text",
+                          "id": "xP2yz",
+                          "fill": "#5E6872",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "Unused source method stays visible in the locked layout, but remains blank and read-only after review.",
+                          "lineHeight": 1.4,
+                          "fontFamily": "Manrope",
+                          "fontSize": 13,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "ju5Cq",
+                          "fill": "#7A838B",
+                          "content": "Job vacancy text",
+                          "fontFamily": "Manrope",
+                          "fontSize": 11,
+                          "fontWeight": "800"
+                        },
+                        {
+                          "type": "frame",
+                          "id": "eTr8x",
+                          "name": "pasteReviewedInput",
+                          "width": "fill_container",
+                          "height": 96,
+                          "fill": "#EEF2EF",
+                          "cornerRadius": 8,
+                          "stroke": {
+                            "align": "inside",
+                            "thickness": 1,
+                            "fill": "#D9DEDA"
+                          },
+                          "layout": "vertical",
+                          "padding": [
+                            12,
+                            14
+                          ]
+                        },
+                        {
+                          "type": "text",
+                          "id": "GZceq",
+                          "fill": "#5E6872",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "The unused source stays visible so the reviewed layout remains consistent without inventing values.",
+                          "lineHeight": 1.4,
+                          "fontFamily": "Manrope",
+                          "fontSize": 12,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "frame",
+                          "id": "ESLHI",
+                          "width": "fill_container",
+                          "height": "fill_container"
+                        },
+                        {
+                          "type": "frame",
+                          "id": "jFxkD",
+                          "name": "reviewPasteReviewedDisabled",
+                          "width": "fill_container",
+                          "fill": "#E1E6E3",
+                          "cornerRadius": 8,
+                          "padding": [
+                            11,
+                            14
+                          ],
+                          "justifyContent": "center",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "MFDoW",
+                              "fill": "#7A838B",
+                              "content": "Review pasted vacancy",
+                              "fontFamily": "Manrope",
+                              "fontSize": 13,
+                              "fontWeight": "800"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "inw5h",
+                  "name": "reviewedVacancyPanel",
+                  "width": "fill_container",
+                  "fill": "#F7F8F6",
+                  "cornerRadius": 8,
+                  "stroke": {
+                    "align": "inside",
+                    "thickness": 1,
+                    "fill": "#D9DEDA"
+                  },
+                  "layout": "vertical",
+                  "gap": 16,
+                  "padding": 20,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "n0Tz2",
+                      "fill": "#7A838B",
+                      "content": "Reviewed vacancy",
+                      "fontFamily": "Manrope",
+                      "fontSize": 11,
+                      "fontWeight": "800"
+                    },
+                    {
+                      "type": "text",
+                      "id": "QMgqd",
+                      "fill": "#1E2428",
+                      "content": "Senior Frontend Engineer · Monzo",
+                      "fontFamily": "Manrope",
+                      "fontSize": 24,
+                      "fontWeight": "800"
+                    },
+                    {
+                      "type": "text",
+                      "id": "qfuH7",
+                      "fill": "#5E6872",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "The reviewed vacancy is ready for Adapt CV. Saved tailored applications stay below this draft in the unified sidebar while the draft remains selected.",
+                      "lineHeight": 1.4,
+                      "fontFamily": "Manrope",
+                      "fontSize": 13,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "cEsAr",
+                      "name": "reviewedDetails",
+                      "width": "fill_container",
+                      "gap": 12,
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "YySBj",
+                          "name": "reviewedSummary",
+                          "width": "fill_container",
+                          "fill": "#FFFFFF",
+                          "cornerRadius": 8,
+                          "stroke": {
+                            "align": "inside",
+                            "thickness": 1,
+                            "fill": "#D9DEDA"
+                          },
+                          "layout": "vertical",
+                          "gap": 8,
+                          "padding": 16,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "U0D14",
+                              "fill": "#1E2428",
+                              "content": "Role summary",
+                              "fontFamily": "Manrope",
+                              "fontSize": 13,
+                              "fontWeight": "800"
+                            },
+                            {
+                              "type": "text",
+                              "id": "zJJ9H",
+                              "fill": "#5E6872",
+                              "textGrowth": "fixed-width",
+                              "width": "fill_container",
+                              "content": "Lead desktop platform work, improve CV-to-vacancy matching quality, and communicate clearly with technical users.",
+                              "lineHeight": 1.4,
+                              "fontFamily": "Manrope",
+                              "fontSize": 13,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "k3qj7",
+                          "name": "reviewedStrengths",
+                          "width": "fill_container",
+                          "fill": "#FFFFFF",
+                          "cornerRadius": 8,
+                          "stroke": {
+                            "align": "inside",
+                            "thickness": 1,
+                            "fill": "#D9DEDA"
+                          },
+                          "layout": "vertical",
+                          "gap": 8,
+                          "padding": 16,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "bvauj",
+                              "fill": "#1E2428",
+                              "content": "Core strengths",
+                              "fontFamily": "Manrope",
+                              "fontSize": 13,
+                              "fontWeight": "800"
+                            },
+                            {
+                              "type": "text",
+                              "id": "QBXPE",
+                              "fill": "#5E6872",
+                              "textGrowth": "fixed-width",
+                              "width": "fill_container",
+                              "content": "Electron-first product thinking, front-end systems leadership, and strong accessibility depth.",
+                              "lineHeight": 1.4,
+                              "fontFamily": "Manrope",
+                              "fontSize": 13,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "C4SAD",
+                          "name": "reviewedGaps",
+                          "width": "fill_container",
+                          "fill": "#FFFFFF",
+                          "cornerRadius": 8,
+                          "stroke": {
+                            "align": "inside",
+                            "thickness": 1,
+                            "fill": "#D9DEDA"
+                          },
+                          "layout": "vertical",
+                          "gap": 8,
+                          "padding": 16,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "9Dqy6",
+                              "fill": "#1E2428",
+                              "content": "Gaps and validation",
+                              "fontFamily": "Manrope",
+                              "fontSize": 13,
+                              "fontWeight": "800"
+                            },
+                            {
+                              "type": "text",
+                              "id": "AfmnP",
+                              "fill": "#5E6872",
+                              "textGrowth": "fixed-width",
+                              "width": "fill_container",
+                              "content": "Validate direct performance metrics and align platform impact claims against the original CV snapshot.",
+                              "lineHeight": 1.4,
+                              "fontFamily": "Manrope",
+                              "fontSize": 13,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "hJZmY",
+              "layoutPosition": "absolute",
+              "x": 64,
+              "y": 0,
+              "name": "Draft discard overlay",
+              "width": 1448,
+              "height": 930,
+              "fill": "#1E242861",
+              "layout": "vertical",
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "8IT75",
+                  "name": "Draft discard dialog",
+                  "width": 520,
+                  "fill": "#FCFDFC",
+                  "cornerRadius": 14,
+                  "stroke": {
+                    "align": "inside",
+                    "thickness": 1,
+                    "fill": "#C7D0CA"
+                  },
+                  "effect": {
+                    "type": "shadow",
+                    "shadowType": "outer",
+                    "color": "#1E24281A",
+                    "offset": {
+                      "x": 0,
+                      "y": 8
+                    },
+                    "blur": 24
+                  },
+                  "layout": "vertical",
+                  "gap": 18,
+                  "padding": 24,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "8vBpe",
+                      "fill": "#7A838B",
+                      "content": "New vacancy",
+                      "fontFamily": "Manrope",
+                      "fontSize": 11,
+                      "fontWeight": "800"
+                    },
+                    {
+                      "type": "text",
+                      "id": "KQvfV",
+                      "fill": "#1E2428",
+                      "content": "Discard current vacancy draft?",
+                      "fontFamily": "Manrope",
+                      "fontSize": 26,
+                      "fontWeight": "800"
+                    },
+                    {
+                      "type": "text",
+                      "id": "tPw0L",
+                      "fill": "#5E6872",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Starting a new vacancy will remove the current draft from the workspace. If this draft already has a reviewed vacancy, that reviewed result will be removed too. Saved tailored applications stay in the sidebar.",
+                      "lineHeight": 1.45,
+                      "fontFamily": "Manrope",
+                      "fontSize": 13,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "text",
+                      "id": "2IMe1",
+                      "fill": "#5E6872",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Cancel leaves the workspace exactly as it is now.",
+                      "lineHeight": 1.45,
+                      "fontFamily": "Manrope",
+                      "fontSize": 13,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "FzH64",
+                      "name": "dialogActions",
+                      "width": "fill_container",
+                      "gap": 10,
+                      "justifyContent": "end",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "yiaGQ",
+                          "name": "cancelDraftDiscard",
+                          "fill": "#FFFFFF",
+                          "cornerRadius": 8,
+                          "stroke": {
+                            "align": "inside",
+                            "thickness": 1,
+                            "fill": "#D9DEDA"
+                          },
+                          "padding": [
+                            11,
+                            14
+                          ],
+                          "justifyContent": "center",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "LQ5c6",
+                              "fill": "#1E2428",
+                              "content": "Cancel",
+                              "fontFamily": "Manrope",
+                              "fontSize": 13,
+                              "fontWeight": "800"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "bgVn9",
+                          "name": "confirmDraftDiscard",
+                          "fill": "#FFF0F0",
+                          "cornerRadius": 8,
+                          "stroke": {
+                            "align": "inside",
+                            "thickness": 1,
+                            "fill": "#E4B7B7"
+                          },
+                          "padding": [
+                            11,
+                            14
+                          ],
+                          "justifyContent": "center",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "c7ehN",
+                              "fill": "#7A1F1F",
+                              "content": "Discard draft",
+                              "fontFamily": "Manrope",
+                              "fontSize": 13,
+                              "fontWeight": "800"
+                            }
+                          ]
                         }
                       ]
                     }
