@@ -99,7 +99,7 @@ export function Dialog({
   return (
     <dialog
       aria-labelledby={titleId}
-      className="app-dialog w-[min(520px,calc(100vw-48px))] max-w-none rounded-[14px] border border-[#C7D0CA] bg-[#FCFDFC] p-0 text-[var(--color-copy-strong)] shadow-[0_8px_24px_rgba(30,36,40,0.1)]"
+      className="app-dialog fixed top-1/2 left-1/2 m-0 w-[min(520px,calc(100vw-48px))] max-w-none -translate-x-1/2 -translate-y-1/2 rounded-[14px] border border-[#C7D0CA] bg-[#FCFDFC] p-0 text-[var(--color-copy-strong)] shadow-[0_8px_24px_rgba(30,36,40,0.1)]"
       onCancel={handleCancel}
       ref={dialogReference}
     >
