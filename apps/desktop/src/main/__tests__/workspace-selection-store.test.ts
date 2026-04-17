@@ -20,7 +20,7 @@ afterEach(async () => {
   )
 })
 
-test('persists explicit blank, draft, and saved-application workspace selections', async () => {
+test('persists the selected top-level section alongside jobs and original-CV nested selections', async () => {
   const rootDirectoryPath = await mkdtemp(
     path.join(tmpdir(), 'cv-maxxing-workspace-selection-store-'),
   )
@@ -40,14 +40,14 @@ test('persists explicit blank, draft, and saved-application workspace selections
   })
 
   await firstWorkspaceSelectionStore.setSelection({
-    kind: 'none',
-  })
-  await firstWorkspaceSelectionStore.setSelection({
-    kind: 'draft',
-  })
-  await firstWorkspaceSelectionStore.setSelection({
-    kind: 'tailored_application',
-    tailoredApplicationId: 'tailored-application-123',
+    jobs: {
+      kind: 'tailored_application',
+      tailoredApplicationId: 'tailored-application-123',
+    },
+    originalCv: {
+      kind: 'active_original_cv',
+    },
+    topLevelSection: 'original_cv',
   })
   await firstStore.close()
 
@@ -63,9 +63,58 @@ test('persists explicit blank, draft, and saved-application workspace selections
   })
 
   await expect(secondWorkspaceSelectionStore.getSelection()).resolves.toEqual({
-    kind: 'tailored_application',
-    tailoredApplicationId: 'tailored-application-123',
+    jobs: {
+      kind: 'tailored_application',
+      tailoredApplicationId: 'tailored-application-123',
+    },
+    originalCv: {
+      kind: 'active_original_cv',
+    },
+    topLevelSection: 'original_cv',
   })
 
   await secondStore.close()
+})
+
+test('normalizes legacy jobs-only persisted selection into the generalized workspace contract', async () => {
+  const rootDirectoryPath = await mkdtemp(
+    path.join(tmpdir(), 'cv-maxxing-workspace-selection-store-'),
+  )
+
+  temporaryDirectories.push(rootDirectoryPath)
+
+  const paths = createLocalAppDataPaths(rootDirectoryPath)
+  const store = await openLocalAppData({
+    keychain: {
+      clearAppDataKey: vi.fn(() => Promise.resolve()),
+      getOrCreateAppDataKey: vi.fn(() => Promise.resolve(Buffer.alloc(32, 9))),
+    },
+    paths,
+  })
+
+  await store.metadata.put({
+    id: 'current',
+    scope: 'workspace-selection',
+    value: {
+      kind: 'tailored_application',
+      tailoredApplicationId: 'tailored-application-legacy',
+    },
+  })
+
+  const workspaceSelectionStore = createWorkspaceSelectionStore({
+    localAppData: store,
+  })
+
+  await expect(workspaceSelectionStore.getSelection()).resolves.toEqual({
+    jobs: {
+      kind: 'tailored_application',
+      tailoredApplicationId: 'tailored-application-legacy',
+    },
+    originalCv: {
+      kind: 'none',
+    },
+    topLevelSection: 'job_vacancies',
+  })
+
+  await store.close()
 })

@@ -104,6 +104,9 @@ export function createDesktopApi({ invoke }: DesktopApiInvoker): CvMaxxingWindow
           tailoredApplicationId,
         })
       },
+      getWorkspaceSelection: async (): Promise<WorkspaceSelection | null> => {
+        return await invoke(TAILORED_APPLICATION_IPC_CHANNELS.getWorkspaceSelection)
+      },
       getWorkspaceState: async (): Promise<TailoredApplicationWorkspaceState> => {
         return await invoke(TAILORED_APPLICATION_IPC_CHANNELS.getWorkspaceState)
       },

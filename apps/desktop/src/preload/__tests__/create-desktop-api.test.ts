@@ -551,6 +551,16 @@ test('preload exposes tailored-application repair and resume commands over typed
       ],
     })
     .mockResolvedValueOnce({
+      jobs: {
+        kind: 'tailored_application',
+        tailoredApplicationId: 'tailored-application-123',
+      },
+      originalCv: {
+        kind: 'active_original_cv',
+      },
+      topLevelSection: 'settings',
+    })
+    .mockResolvedValueOnce({
       adaptedCv: {
         pageCount: 4,
         pageWarning: 'This adapted CV runs to 4 pages. Export is still available.',
@@ -697,6 +707,16 @@ test('preload exposes tailored-application repair and resume commands over typed
       },
     ],
   })
+  await expect(desktopApi.tailoredApplication.getWorkspaceSelection()).resolves.toEqual({
+    jobs: {
+      kind: 'tailored_application',
+      tailoredApplicationId: 'tailored-application-123',
+    },
+    originalCv: {
+      kind: 'active_original_cv',
+    },
+    topLevelSection: 'settings',
+  })
   await expect(
     desktopApi.tailoredApplication.getTailoredApplicationPreview('tailored-application-123'),
   ).resolves.toEqual({
@@ -811,14 +831,15 @@ test('preload exposes tailored-application repair and resume commands over typed
     tailoredApplicationId: 'tailored-application-123',
   })
   expect(invoke).toHaveBeenNthCalledWith(7, TAILORED_APPLICATION_IPC_CHANNELS.getWorkspaceState)
-  expect(invoke).toHaveBeenNthCalledWith(8, TAILORED_APPLICATION_IPC_CHANNELS.getPreview, {
+  expect(invoke).toHaveBeenNthCalledWith(8, TAILORED_APPLICATION_IPC_CHANNELS.getWorkspaceSelection)
+  expect(invoke).toHaveBeenNthCalledWith(9, TAILORED_APPLICATION_IPC_CHANNELS.getPreview, {
     tailoredApplicationId: 'tailored-application-123',
   })
-  expect(invoke).toHaveBeenNthCalledWith(9, TAILORED_APPLICATION_IPC_CHANNELS.exportAdaptedCvPdf, {
+  expect(invoke).toHaveBeenNthCalledWith(10, TAILORED_APPLICATION_IPC_CHANNELS.exportAdaptedCvPdf, {
     tailoredApplicationId: 'tailored-application-123',
   })
   expect(invoke).toHaveBeenNthCalledWith(
-    10,
+    11,
     TAILORED_APPLICATION_IPC_CHANNELS.exportCoverLetterPdf,
     {
       tailoredApplicationId: 'tailored-application-123',

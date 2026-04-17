@@ -19,6 +19,7 @@ type PreviewDocumentKind = 'adapted_cv' | 'cover_letter'
 type WorkspaceSelectionKind = 'draft' | 'tailored_application'
 
 interface WorkspaceScreenProperties {
+  activeRailItem?: Extract<RailItemId, 'job_vacancies' | 'original_cv'>
   activeOriginalCv: OriginalCvSummary | null
   ambientActivityLabel?: string | null
   applicationTitle: string | null
@@ -62,6 +63,7 @@ interface WorkspaceScreenProperties {
 }
 
 export function WorkspaceScreen({
+  activeRailItem = 'job_vacancies',
   activeOriginalCv,
   ambientActivityLabel,
   applicationTitle,
@@ -107,7 +109,7 @@ export function WorkspaceScreen({
 
   return (
     <DesktopShell
-      activeRailItem="job_vacancies"
+      activeRailItem={activeRailItem}
       ambientActivityLabel={ambientActivityLabel}
       onSelectRailItem={onSelectRailItem}
       railItems={['job_vacancies', 'original_cv', 'settings']}

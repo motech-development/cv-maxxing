@@ -59,6 +59,7 @@ export interface CvMaxxingWindowApi {
     getTailoredApplicationPreview: (
       tailoredApplicationId: string,
     ) => Promise<TailoredApplicationPreview | null>
+    getWorkspaceSelection: () => Promise<WorkspaceSelection | null>
     getWorkspaceState: () => Promise<TailoredApplicationWorkspaceState>
     resumePendingGeneration: () => Promise<ResumePendingGenerationResult>
     setWorkspaceSelection: (selection: WorkspaceSelection) => Promise<void>

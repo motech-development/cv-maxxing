@@ -25,6 +25,7 @@ export const TAILORED_APPLICATION_IPC_CHANNELS = {
   exportCoverLetterPdf: 'tailored-application:export-cover-letter-pdf',
   getPendingGeneration: 'tailored-application:get-pending-generation',
   getPreview: 'tailored-application:get-preview',
+  getWorkspaceSelection: 'tailored-application:get-workspace-selection',
   getWorkspaceState: 'tailored-application:get-workspace-state',
   resumePendingGeneration: 'tailored-application:resume-pending-generation',
   setWorkspaceSelection: 'tailored-application:set-workspace-selection',

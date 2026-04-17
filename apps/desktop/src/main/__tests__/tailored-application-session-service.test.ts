@@ -3703,8 +3703,14 @@ test('restores the explicit saved tailored application selection when no meaning
     },
   })
   await harness.workspaceSelectionStore.setSelection({
-    kind: 'tailored_application',
-    tailoredApplicationId: 'tailored-application-456',
+    jobs: {
+      kind: 'tailored_application',
+      tailoredApplicationId: 'tailored-application-456',
+    },
+    originalCv: {
+      kind: 'active_original_cv',
+    },
+    topLevelSection: 'original_cv',
   })
 
   const service = createTailoredApplicationSessionService({
@@ -3764,8 +3770,14 @@ test('falls back from a stale saved selection to the meaningful current draft be
     },
   })
   await harness.workspaceSelectionStore.setSelection({
-    kind: 'tailored_application',
-    tailoredApplicationId: 'tailored-application-missing',
+    jobs: {
+      kind: 'tailored_application',
+      tailoredApplicationId: 'tailored-application-missing',
+    },
+    originalCv: {
+      kind: 'active_original_cv',
+    },
+    topLevelSection: 'settings',
   })
 
   const service = createTailoredApplicationSessionService({
@@ -3837,8 +3849,14 @@ test('falls back from a stale saved selection to the newest saved tailored appli
     },
   })
   await harness.workspaceSelectionStore.setSelection({
-    kind: 'tailored_application',
-    tailoredApplicationId: 'tailored-application-missing',
+    jobs: {
+      kind: 'tailored_application',
+      tailoredApplicationId: 'tailored-application-missing',
+    },
+    originalCv: {
+      kind: 'active_original_cv',
+    },
+    topLevelSection: 'original_cv',
   })
 
   const service = createTailoredApplicationSessionService({
@@ -3880,8 +3898,14 @@ test('falls back from a stale saved selection to blank workspace when no draft o
   const harness = await createHarness()
 
   await harness.workspaceSelectionStore.setSelection({
-    kind: 'tailored_application',
-    tailoredApplicationId: 'tailored-application-missing',
+    jobs: {
+      kind: 'tailored_application',
+      tailoredApplicationId: 'tailored-application-missing',
+    },
+    originalCv: {
+      kind: 'none',
+    },
+    topLevelSection: 'settings',
   })
 
   const service = createTailoredApplicationSessionService({

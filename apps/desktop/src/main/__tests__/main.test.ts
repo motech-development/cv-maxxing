@@ -131,6 +131,15 @@ function createTailoredApplicationDouble() {
       },
     }),
     getTailoredApplicationPreview: vi.fn().mockResolvedValue(null),
+    getWorkspaceSelection: vi.fn().mockResolvedValue({
+      jobs: {
+        kind: 'none',
+      },
+      originalCv: {
+        kind: 'none',
+      },
+      topLevelSection: 'job_vacancies',
+    }),
     getWorkspaceState: vi.fn().mockResolvedValue({
       activeApplicationId: null,
       applications: [],
@@ -449,6 +458,10 @@ test('bootstrap registers the full AI worker onboarding IPC surface and opens th
   )
   expect(handle).toHaveBeenCalledWith(
     TAILORED_APPLICATION_IPC_CHANNELS.resumePendingGeneration,
+    expect.any(Function),
+  )
+  expect(handle).toHaveBeenCalledWith(
+    TAILORED_APPLICATION_IPC_CHANNELS.getWorkspaceSelection,
     expect.any(Function),
   )
   expect(handle).toHaveBeenCalledWith(

@@ -8,6 +8,7 @@ export const rendererQueryKeys = {
   readiness: ['readiness-route'] as const,
   settings: ['settings'] as const,
   tailoredApplicationPreviewRoot: ['tailored-application', 'preview'] as const,
+  workspaceSelection: ['tailored-application', 'workspace-selection'] as const,
   tailoredApplicationWorkspace: ['tailored-application', 'workspace'] as const,
   vacancyWorkspace: ['vacancy', 'workspace'] as const,
 }
@@ -61,6 +62,15 @@ export function getTailoredApplicationWorkspaceStateQueryOptions() {
       return await globalThis.window.cvMaxxing.tailoredApplication.getWorkspaceState()
     },
     queryKey: rendererQueryKeys.tailoredApplicationWorkspace,
+  })
+}
+
+export function getWorkspaceSelectionQueryOptions() {
+  return queryOptions({
+    queryFn: async () => {
+      return await globalThis.window.cvMaxxing.tailoredApplication.getWorkspaceSelection()
+    },
+    queryKey: rendererQueryKeys.workspaceSelection,
   })
 }
 

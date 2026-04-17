@@ -322,6 +322,9 @@ export function createDesktopAppBootstrap({
     ipcMain.handle(TAILORED_APPLICATION_IPC_CHANNELS.getWorkspaceState, async () => {
       return await tailoredApplication.getWorkspaceState()
     })
+    ipcMain.handle(TAILORED_APPLICATION_IPC_CHANNELS.getWorkspaceSelection, async () => {
+      return await tailoredApplication.getWorkspaceSelection()
+    })
     ipcMain.handle(TAILORED_APPLICATION_IPC_CHANNELS.getPreview, async (_event, payload) => {
       if (tailoredApplicationPreviewDelayMs > 0) {
         await waitForDelay(tailoredApplicationPreviewDelayMs)
@@ -723,8 +726,38 @@ function parseStartupDestination(value: string | undefined): StartupDestination 
 }
 
 function parseWorkspaceSelection(value: unknown): WorkspaceSelection {
-  if (value === null || typeof value !== 'object' || Array.isArray(value) || !('kind' in value)) {
+  if (
+    value === null ||
+    typeof value !== 'object' ||
+    Array.isArray(value) ||
+    !('jobs' in value) ||
+    !('originalCv' in value) ||
+    !('topLevelSection' in value)
+  ) {
     throw new Error('Workspace selection must be an object.')
+  }
+
+  const jobsSelection = parseJobsWorkspaceSelection(value.jobs)
+  const originalCvSelection = parseOriginalCvWorkspaceSelection(value.originalCv)
+
+  if (
+    value.topLevelSection !== 'job_vacancies' &&
+    value.topLevelSection !== 'original_cv' &&
+    value.topLevelSection !== 'settings'
+  ) {
+    throw new Error('Workspace selection payload is invalid.')
+  }
+
+  return {
+    jobs: jobsSelection,
+    originalCv: originalCvSelection,
+    topLevelSection: value.topLevelSection,
+  }
+}
+
+function parseJobsWorkspaceSelection(value: unknown): WorkspaceSelection['jobs'] {
+  if (value === null || typeof value !== 'object' || Array.isArray(value) || !('kind' in value)) {
+    throw new Error('Workspace selection payload is invalid.')
   }
 
   if (value.kind === 'draft' || value.kind === 'none') {
@@ -741,6 +774,20 @@ function parseWorkspaceSelection(value: unknown): WorkspaceSelection {
     return {
       kind: 'tailored_application',
       tailoredApplicationId: value.tailoredApplicationId,
+    }
+  }
+
+  throw new Error('Workspace selection payload is invalid.')
+}
+
+function parseOriginalCvWorkspaceSelection(value: unknown): WorkspaceSelection['originalCv'] {
+  if (value === null || typeof value !== 'object' || Array.isArray(value) || !('kind' in value)) {
+    throw new Error('Workspace selection payload is invalid.')
+  }
+
+  if (value.kind === 'active_original_cv' || value.kind === 'none') {
+    return {
+      kind: value.kind,
     }
   }
 

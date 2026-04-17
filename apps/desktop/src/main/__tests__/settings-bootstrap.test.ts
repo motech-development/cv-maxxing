@@ -117,6 +117,7 @@ test('bootstrap registers settings IPC handlers and delegates privacy actions to
       exportCoverLetterPdf: vi.fn(() => Promise.resolve(null)),
       getPendingGenerationCommand: vi.fn(() => Promise.resolve(null)),
       getTailoredApplicationPreview: vi.fn(() => Promise.resolve(null)),
+      getWorkspaceSelection: vi.fn(() => Promise.resolve(null)),
       getWorkspaceState: vi.fn().mockResolvedValue({
         activeApplicationId: null,
         applications: [],

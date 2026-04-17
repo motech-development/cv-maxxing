@@ -12,6 +12,10 @@ import {
   VACANCY_LANGUAGE_BLOCK_MESSAGE,
   assessEnglishLanguageSupport,
 } from '../shared/language-support.js'
+import {
+  createDefaultWorkspaceSelection,
+  type JobsWorkspaceSelection,
+} from '../shared/workspace-selection.js'
 import type { JsonValue, LocalAppDataStore } from './local-app-data-service.js'
 import type { VacancyBrowserPageSnapshot } from './vacancy-browser-session-service.js'
 import { VacancyNormalizationError } from './vacancy-normalization-error.js'
@@ -53,7 +57,7 @@ interface VacancyServiceDependencies {
     shouldCapturePage: (snapshot: VacancyBrowserPageSnapshot) => boolean
     url: string
   }) => Promise<VacancyBrowserPageSnapshot | null>
-  workspaceSelectionStore?: Pick<WorkspaceSelectionStore, 'setSelection'>
+  workspaceSelectionStore?: Pick<WorkspaceSelectionStore, 'getSelection' | 'setSelection'>
 }
 
 interface VacancyMetadataValue extends Record<string, JsonValue> {
@@ -107,8 +111,11 @@ export function createVacancyService({
         scope: VACANCY_DRAFT_SCOPE,
       })
 
-      await workspaceSelectionStore?.setSelection({
-        kind: 'none',
+      await persistJobsWorkspaceSelection({
+        jobs: {
+          kind: 'none',
+        },
+        workspaceSelectionStore,
       })
     },
     getWorkspaceState: async (): Promise<VacancyWorkspaceState> => {
@@ -204,8 +211,11 @@ export function createVacancyService({
           vacancyId,
         } satisfies VacancyDraftMetadataValue,
       })
-      await workspaceSelectionStore?.setSelection({
-        kind: 'draft',
+      await persistJobsWorkspaceSelection({
+        jobs: {
+          kind: 'draft',
+        },
+        workspaceSelectionStore,
       })
 
       const workspaceState = await thisGetWorkspaceState(localAppData)
@@ -225,8 +235,11 @@ export function createVacancyService({
           localAppData,
           url: normalizedUrl,
         })
-        await workspaceSelectionStore?.setSelection({
-          kind: 'draft',
+        await persistJobsWorkspaceSelection({
+          jobs: {
+            kind: 'draft',
+          },
+          workspaceSelectionStore,
         })
 
         const capturedBrowserSnapshot = await captureVacancyBrowserSessionPage({
@@ -285,8 +298,11 @@ export function createVacancyService({
         localAppData,
         url: normalizedUrl,
       })
-      await workspaceSelectionStore?.setSelection({
-        kind: 'draft',
+      await persistJobsWorkspaceSelection({
+        jobs: {
+          kind: 'draft',
+        },
+        workspaceSelectionStore,
       })
 
       const fetchedPage = await fetchVacancyPage(normalizedUrl)
@@ -336,8 +352,11 @@ export function createVacancyService({
           localAppData,
           url: normalizedUrl,
         })
-        await workspaceSelectionStore?.setSelection({
-          kind: 'draft',
+        await persistJobsWorkspaceSelection({
+          jobs: {
+            kind: 'draft',
+          },
+          workspaceSelectionStore,
         })
 
         return {
@@ -408,7 +427,7 @@ async function persistFetchedVacancyPage({
   normalizationService: VacancyNormalizationService
   originalUrl: string
   source: VacancySource
-  workspaceSelectionStore?: Pick<WorkspaceSelectionStore, 'setSelection'>
+  workspaceSelectionStore?: Pick<WorkspaceSelectionStore, 'getSelection' | 'setSelection'>
 }): Promise<VacancyIngestResult> {
   const normalizedVacancy = await normalizationService.normalizeVacancy({
     html: fetchedPage.html,
@@ -483,8 +502,11 @@ async function persistFetchedVacancyPage({
       vacancyId,
     } satisfies VacancyDraftMetadataValue,
   })
-  await workspaceSelectionStore?.setSelection({
-    kind: 'draft',
+  await persistJobsWorkspaceSelection({
+    jobs: {
+      kind: 'draft',
+    },
+    workspaceSelectionStore,
   })
 
   return {
@@ -492,6 +514,27 @@ async function persistFetchedVacancyPage({
     vacancy,
     workspaceState: await thisGetWorkspaceState(localAppData),
   }
+}
+
+async function persistJobsWorkspaceSelection({
+  jobs,
+  workspaceSelectionStore,
+}: {
+  jobs: JobsWorkspaceSelection
+  workspaceSelectionStore?: Pick<WorkspaceSelectionStore, 'getSelection' | 'setSelection'>
+}): Promise<void> {
+  if (workspaceSelectionStore === undefined) {
+    return
+  }
+
+  const currentSelection =
+    (await workspaceSelectionStore.getSelection()) ?? createDefaultWorkspaceSelection()
+
+  await workspaceSelectionStore.setSelection({
+    ...currentSelection,
+    jobs,
+    topLevelSection: 'job_vacancies',
+  })
 }
 
 function createBlockedVacancySummary({

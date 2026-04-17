@@ -202,6 +202,15 @@ function createTailoredApplicationApi(
       overwriteAvoided: true,
       pageWarning: 'This cover letter runs to 2 pages. Export and copy remain available.',
     }),
+    getWorkspaceSelection: vi.fn().mockResolvedValue({
+      jobs: {
+        kind: 'none',
+      },
+      originalCv: {
+        kind: 'none',
+      },
+      topLevelSection: 'job_vacancies',
+    }),
     resumePendingGeneration: vi.fn().mockResolvedValue({
       generationRunId: 'run-123',
       tailoredApplicationId: 'tailored-application-123',
@@ -905,6 +914,160 @@ test('loads a persisted vacancy preview and keeps Tailor your CV enabled for a r
     expect(screen.getByText("What you'll be doing")).toBeDefined()
     expect(screen.getByText("What they're looking for")).toBeDefined()
     expect(screen.getByRole('button', { name: 'Tailor your CV' })).toHaveProperty('disabled', false)
+  })
+})
+
+test('restores settings as the active top-level section when persisted workspace selection ends on settings', async () => {
+  renderApp({
+    aiWorker: createAiWorkerApi({
+      getAiWorkerPreflight: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+      getStartupDestination: vi.fn().mockResolvedValue('workspace'),
+    }),
+    originalCv: createOriginalCvApi({
+      getOriginalCvWorkspaceState: vi.fn().mockResolvedValue({
+        activeOriginalCv: {
+          fileType: 'pdf',
+          headline: 'Principal Product Designer',
+          id: 'original-cv-123',
+          importedAt: '2026-04-08T14:30:00.000Z',
+          originalFilename: 'ada-lovelace.pdf',
+          pageCount: 1,
+          snapshotCount: 1,
+          summary: 'Design leader focused on complex workflow products.',
+          writingStyle: {
+            averageSentenceLength: 7,
+            clicheDetections: [],
+            firstPersonUsage: 'absent',
+            formality: 'direct',
+          },
+        },
+        snapshotCount: 1,
+      }),
+    }),
+    tailoredApplication: createTailoredApplicationApi({
+      getWorkspaceSelection: vi.fn().mockResolvedValue({
+        jobs: {
+          kind: 'tailored_application',
+          tailoredApplicationId: 'tailored-application-123',
+        },
+        originalCv: {
+          kind: 'active_original_cv',
+        },
+        topLevelSection: 'settings',
+      }),
+      getWorkspaceState: vi.fn().mockResolvedValue(
+        createTailoredApplicationWorkspaceStateFixture({
+          activeApplicationId: 'tailored-application-123',
+          applications: [
+            {
+              createdAt: '2026-04-09T09:30:00.000Z',
+              employer: 'Example Labs',
+              id: 'tailored-application-123',
+              pageCount: 4,
+              pageWarning: null,
+              title: 'Senior platform engineer · Example Labs',
+              vacancyTitle: 'Senior platform engineer',
+            },
+          ],
+        }),
+      ),
+    }),
+  })
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'AI' })).toBeDefined()
+  })
+
+  expect(screen.getByRole('button', { name: 'Settings' }).getAttribute('aria-current')).toBe('page')
+  expect(screen.queryByRole('heading', { name: 'Add a job' })).toBeNull()
+})
+
+test('restores Your CV as the active top-level section while preserving the saved jobs sub-selection', async () => {
+  renderApp({
+    aiWorker: createAiWorkerApi({
+      getAiWorkerPreflight: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+      getStartupDestination: vi.fn().mockResolvedValue('workspace'),
+    }),
+    originalCv: createOriginalCvApi({
+      getOriginalCvWorkspaceState: vi.fn().mockResolvedValue({
+        activeOriginalCv: {
+          fileType: 'pdf',
+          headline: 'Principal Product Designer',
+          id: 'original-cv-123',
+          importedAt: '2026-04-08T14:30:00.000Z',
+          originalFilename: 'ada-lovelace.pdf',
+          pageCount: 1,
+          snapshotCount: 1,
+          summary: 'Design leader focused on complex workflow products.',
+          writingStyle: {
+            averageSentenceLength: 7,
+            clicheDetections: [],
+            firstPersonUsage: 'absent',
+            formality: 'direct',
+          },
+        },
+        snapshotCount: 1,
+      }),
+    }),
+    tailoredApplication: createTailoredApplicationApi({
+      getTailoredApplicationPreview: vi
+        .fn()
+        .mockResolvedValue(createTailoredApplicationPreviewFixture()),
+      getWorkspaceSelection: vi.fn().mockResolvedValue({
+        jobs: {
+          kind: 'tailored_application',
+          tailoredApplicationId: 'tailored-application-123',
+        },
+        originalCv: {
+          kind: 'active_original_cv',
+        },
+        topLevelSection: 'original_cv',
+      }),
+      getWorkspaceState: vi.fn().mockResolvedValue(
+        createTailoredApplicationWorkspaceStateFixture({
+          activeApplicationId: 'tailored-application-123',
+          applications: [
+            {
+              createdAt: '2026-04-09T09:30:00.000Z',
+              employer: 'Example Labs',
+              id: 'tailored-application-123',
+              pageCount: 4,
+              pageWarning: null,
+              title: 'Senior platform engineer · Example Labs',
+              vacancyTitle: 'Senior platform engineer',
+            },
+          ],
+        }),
+      ),
+    }),
+  })
+
+  await waitFor(() => {
+    expect(screen.getByRole('button', { name: 'Your CV' }).getAttribute('aria-current')).toBe(
+      'page',
+    )
+  })
+
+  expect(
+    screen.getByRole('heading', { name: 'Senior platform engineer · Example Labs' }),
+  ).toBeDefined()
+  fireEvent.click(screen.getByRole('button', { name: 'Jobs' }))
+
+  await waitFor(() => {
+    expect(screen.getByRole('button', { name: 'Jobs' }).getAttribute('aria-current')).toBe('page')
+    expect(
+      screen.getByRole('heading', { name: 'Senior platform engineer · Example Labs' }),
+    ).toBeDefined()
   })
 })
 

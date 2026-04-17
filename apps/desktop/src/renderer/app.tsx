@@ -23,7 +23,12 @@ import type {
 import { SETTINGS_RESET_CONFIRMATION_PHRASE } from '../shared/settings.js'
 import type { StartupDestination } from '../shared/startup-destination.js'
 import type { TailoredApplicationWorkspaceState } from '../shared/tailored-application.js'
-import type { WorkspaceSelection } from '../shared/workspace-selection.js'
+import {
+  createDefaultWorkspaceSelection,
+  type JobsWorkspaceSelection,
+  type WorkspaceSelection,
+  type WorkspaceTopLevelSection,
+} from '../shared/workspace-selection.js'
 import type { VacancyDraft, VacancyIngestResult, VacancySummary } from '../shared/vacancy.js'
 import { AiWorkerCheckingScreen } from './screens/ai-worker-checking-screen.js'
 import { AiWorkerSignInRequiredScreen } from './screens/ai-worker-sign-in-required-screen.js'
@@ -38,6 +43,7 @@ import {
   getSettingsSnapshotQueryOptions,
   getTailoredApplicationPreviewQueryOptions,
   getTailoredApplicationWorkspaceStateQueryOptions,
+  getWorkspaceSelectionQueryOptions,
   getVacancyWorkspaceStateQueryOptions,
   rendererQueryKeys,
 } from './app-queries.js'
@@ -97,15 +103,15 @@ function isSupportedOriginalCvFile(file: File): boolean {
 type OriginalCvImportDestination = 'workspace'
 type RendererStartupDestinationOverride = OriginalCvImportDestination
 type PreviewDocumentKind = 'adapted_cv' | 'cover_letter'
-type WorkspaceSection = 'settings' | 'workspace'
-type WorkspaceSelectionOverride = 'draft' | null
+type WorkspaceSelectionOverride = JobsWorkspaceSelection | null
 type WorkspaceSelectionKind = 'draft' | 'tailored_application'
+interface ResolvedWorkspaceSelection {
+  kind: WorkspaceSelectionKind
+}
 type ImportOriginalCvMutationResult = OriginalCvImportResult
 
 export function App() {
   const queryClient = useQueryClient()
-  const [activeWorkspaceSection, setActiveWorkspaceSection] =
-    useState<WorkspaceSection>('workspace')
   const [isDeleteTailoredApplicationDialogOpen, setIsDeleteTailoredApplicationDialogOpen] =
     useState(false)
   const [isConfirmingDraftDiscard, setIsConfirmingDraftDiscard] = useState(false)
@@ -165,6 +171,14 @@ export function App() {
   })
   const tailoredApplicationWorkspaceState =
     tailoredApplicationWorkspaceQuery.data ?? initialTailoredApplicationWorkspaceState
+  const workspaceSelectionQuery = useQuery({
+    ...getWorkspaceSelectionQueryOptions(),
+    enabled: viewModel.canEnterWorkspace,
+    placeholderData: createDefaultWorkspaceSelection(),
+  })
+  const persistedWorkspaceSelection =
+    workspaceSelectionQuery.data ?? createDefaultWorkspaceSelection()
+  const activeWorkspaceSection = persistedWorkspaceSelection.topLevelSection
   const reviewedVacancyPreview = vacancyWorkspaceState.vacancy ?? vacancyPreviewOverride
   const isCurrentDraftMeaningful = isVacancyDraftMeaningful({
     draft: vacancyDraft,
@@ -226,6 +240,9 @@ export function App() {
       }),
       queryClient.invalidateQueries({
         queryKey: rendererQueryKeys.tailoredApplicationWorkspace,
+      }),
+      queryClient.invalidateQueries({
+        queryKey: rendererQueryKeys.workspaceSelection,
       }),
       queryClient.invalidateQueries({
         queryKey: rendererQueryKeys.vacancyWorkspace,
@@ -306,7 +323,6 @@ export function App() {
       })
     },
     onSuccess: async (): Promise<void> => {
-      setActiveWorkspaceSection('workspace')
       setIsDeleteTailoredApplicationDialogOpen(false)
       setIsConfirmingDraftDiscard(false)
       setImportError(null)
@@ -331,6 +347,10 @@ export function App() {
       queryClient.setQueryData(
         rendererQueryKeys.tailoredApplicationWorkspace,
         initialTailoredApplicationWorkspaceState,
+      )
+      queryClient.setQueryData(
+        rendererQueryKeys.workspaceSelection,
+        createDefaultWorkspaceSelection(),
       )
       queryClient.setQueryData(rendererQueryKeys.vacancyWorkspace, initialVacancyWorkspaceState)
       queryClient.removeQueries({
@@ -383,7 +403,9 @@ export function App() {
       setPreviewDocumentKind('adapted_cv')
       setReadinessError(null)
       setStartupDestinationOverride(nextStartupDestination)
-      setWorkspaceSelectionOverride('draft')
+      setWorkspaceSelectionOverride({
+        kind: 'draft',
+      })
       setVacancyReviewError(null)
       setVacancyPreviewOverride(null)
       queryClient.setQueryData(rendererQueryKeys.originalCvWorkspace, {
@@ -408,6 +430,34 @@ export function App() {
       await globalThis.window.cvMaxxing.tailoredApplication.setWorkspaceSelection(selection)
     },
   })
+  const setPersistedWorkspaceSelection = (selection: WorkspaceSelection): void => {
+    queryClient.setQueryData(rendererQueryKeys.workspaceSelection, selection)
+  }
+  const saveWorkspaceSelection = (selection: WorkspaceSelection): Promise<void> => {
+    setPersistedWorkspaceSelection(selection)
+
+    return persistWorkspaceSelectionMutation.mutateAsync(selection)
+  }
+  const buildWorkspaceSelection = ({
+    jobs = persistedWorkspaceSelection.jobs,
+    topLevelSection = persistedWorkspaceSelection.topLevelSection,
+  }: {
+    jobs?: JobsWorkspaceSelection
+    topLevelSection?: WorkspaceTopLevelSection
+  }): WorkspaceSelection => {
+    return {
+      jobs,
+      originalCv:
+        originalCvWorkspaceState.activeOriginalCv === null
+          ? {
+              kind: 'none',
+            }
+          : {
+              kind: 'active_original_cv',
+            },
+      topLevelSection,
+    }
+  }
   const reviewVacancyUrlMutation = useMutation({
     mutationFn: async (): Promise<VacancyIngestResult> => {
       const result = await globalThis.window.cvMaxxing.vacancy.ingestVacancyUrl({
@@ -495,7 +545,9 @@ export function App() {
         setReadinessError(null)
         setSelectedTailoredApplicationId(null)
         setStartupDestinationOverride('workspace')
-        setWorkspaceSelectionOverride('draft')
+        setWorkspaceSelectionOverride({
+          kind: 'draft',
+        })
         setVacancyPreviewOverride(null)
       })
 
@@ -620,7 +672,9 @@ export function App() {
     onSuccess: async (): Promise<void> => {
       setReadinessError(null)
       setStartupDestinationOverride(null)
-      setWorkspaceSelectionOverride('draft')
+      setWorkspaceSelectionOverride({
+        kind: 'draft',
+      })
       setVacancyPreviewOverride(null)
       await Promise.all([
         invalidateReadinessQuery(),
@@ -669,12 +723,6 @@ export function App() {
   }, [vacancyWorkspaceState.vacancy])
 
   useEffect(() => {
-    if (!viewModel.canEnterWorkspace) {
-      setActiveWorkspaceSection('workspace')
-    }
-  }, [viewModel.canEnterWorkspace])
-
-  useEffect(() => {
     if (workspaceSelection.kind === 'tailored_application') {
       return
     }
@@ -696,6 +744,7 @@ export function App() {
       readinessQuery.error ??
       settingsQuery.error ??
       originalCvWorkspaceQuery.error ??
+      workspaceSelectionQuery.error ??
       vacancyWorkspaceQuery.error ??
       tailoredApplicationWorkspaceQuery.error ??
       pendingGenerationQuery.error ??
@@ -716,6 +765,7 @@ export function App() {
     settingsQuery.error,
     tailoredApplicationPreviewQuery.error,
     tailoredApplicationWorkspaceQuery.error,
+    workspaceSelectionQuery.error,
     vacancyWorkspaceQuery.error,
   ])
 
@@ -751,17 +801,20 @@ export function App() {
   }
 
   const handleSelectRailItem = (item: 'job_vacancies' | 'original_cv' | 'settings' | 'setup') => {
-    if (item === 'settings') {
-      setActiveWorkspaceSection('settings')
-      setSettingsMessage(null)
-
+    if (!viewModel.canEnterWorkspace || item === 'setup') {
       return
     }
 
-    if (viewModel.canEnterWorkspace) {
-      setActiveWorkspaceSection('workspace')
-      setSettingsMessage(null)
-    }
+    const nextTopLevelSection: WorkspaceTopLevelSection = item === 'settings' ? 'settings' : item
+    const nextWorkspaceSelection = buildWorkspaceSelection({
+      topLevelSection: nextTopLevelSection,
+    })
+
+    setSettingsMessage(null)
+
+    saveWorkspaceSelection(nextWorkspaceSelection).catch(() => {
+      setReadinessError("We couldn't save where you left off.")
+    })
   }
 
   const handleClearJobSiteBrowserData = async (): Promise<void> => {
@@ -920,7 +973,9 @@ export function App() {
     setReadinessError(null)
     setSelectedTailoredApplicationId(null)
     setStartupDestinationOverride('workspace')
-    setWorkspaceSelectionOverride('draft')
+    setWorkspaceSelectionOverride({
+      kind: 'draft',
+    })
     setVacancyDraft(initialVacancyDraft)
     setVacancyPreviewOverride(null)
     setVacancyReviewError(null)
@@ -1059,7 +1114,9 @@ export function App() {
           resolveErrorMessage(error, `${readinessErrorMessage} ${readinessErrorAction}`),
         )
         setSelectedTailoredApplicationId(null)
-        setWorkspaceSelectionOverride('draft')
+        setWorkspaceSelectionOverride({
+          kind: 'draft',
+        })
         setVacancyPreviewOverride(null)
       })
 
@@ -1186,6 +1243,9 @@ export function App() {
       return (
         <>
           <WorkspaceScreen
+            activeRailItem={
+              activeWorkspaceSection === 'original_cv' ? 'original_cv' : 'job_vacancies'
+            }
             activeOriginalCv={originalCvWorkspaceState.activeOriginalCv}
             ambientActivityLabel={ambientActivityLabel}
             applicationTitle={selectedTailoredApplication?.title ?? null}
@@ -1268,28 +1328,36 @@ export function App() {
             }}
             onSelectApplication={(tailoredApplicationId) => {
               handleSelectTailoredApplication(tailoredApplicationId)
-              persistWorkspaceSelectionMutation
-                .mutateAsync({
-                  kind: 'tailored_application',
-                  tailoredApplicationId,
-                })
-                .catch(() => {
-                  setReadinessError("We couldn't save where you left off.")
-                })
+              saveWorkspaceSelection(
+                buildWorkspaceSelection({
+                  jobs: {
+                    kind: 'tailored_application',
+                    tailoredApplicationId,
+                  },
+                  topLevelSection: 'job_vacancies',
+                }),
+              ).catch(() => {
+                setReadinessError("We couldn't save where you left off.")
+              })
             }}
             onSelectDraft={() => {
               setIsDeleteTailoredApplicationDialogOpen(false)
               setPreviewDocumentKind('adapted_cv')
               setReadinessError(null)
               setSelectedTailoredApplicationId(null)
-              setWorkspaceSelectionOverride('draft')
-              persistWorkspaceSelectionMutation
-                .mutateAsync({
-                  kind: 'draft',
-                })
-                .catch(() => {
-                  setReadinessError("We couldn't save where you left off.")
-                })
+              setWorkspaceSelectionOverride({
+                kind: 'draft',
+              })
+              saveWorkspaceSelection(
+                buildWorkspaceSelection({
+                  jobs: {
+                    kind: 'draft',
+                  },
+                  topLevelSection: 'job_vacancies',
+                }),
+              ).catch(() => {
+                setReadinessError("We couldn't save where you left off.")
+              })
             }}
             onSelectPreviewDocument={setPreviewDocumentKind}
             onSelectRailItem={handleSelectRailItem}
@@ -1301,17 +1369,22 @@ export function App() {
 
               setVacancyDraft(nextDraft)
               setSelectedTailoredApplicationId(null)
-              setWorkspaceSelectionOverride('draft')
+              setWorkspaceSelectionOverride({
+                kind: 'draft',
+              })
               setVacancyPreviewOverride(null)
               setReadinessError(null)
               setVacancyReviewError(null)
-              persistWorkspaceSelectionMutation
-                .mutateAsync({
-                  kind: 'draft',
-                })
-                .catch(() => {
-                  setReadinessError("We couldn't save where you left off.")
-                })
+              saveWorkspaceSelection(
+                buildWorkspaceSelection({
+                  jobs: {
+                    kind: 'draft',
+                  },
+                  topLevelSection: 'job_vacancies',
+                }),
+              ).catch(() => {
+                setReadinessError("We couldn't save where you left off.")
+              })
             }}
             onUrlDraftChange={(event) => {
               const nextDraft = {
@@ -1321,23 +1394,30 @@ export function App() {
 
               setVacancyDraft(nextDraft)
               setSelectedTailoredApplicationId(null)
-              setWorkspaceSelectionOverride('draft')
+              setWorkspaceSelectionOverride({
+                kind: 'draft',
+              })
               setVacancyPreviewOverride(null)
               setReadinessError(null)
               setVacancyReviewError(null)
-              persistWorkspaceSelectionMutation
-                .mutateAsync({
-                  kind: 'draft',
-                })
-                .catch(() => {
-                  setReadinessError("We couldn't save where you left off.")
-                })
+              saveWorkspaceSelection(
+                buildWorkspaceSelection({
+                  jobs: {
+                    kind: 'draft',
+                  },
+                  topLevelSection: 'job_vacancies',
+                }),
+              ).catch(() => {
+                setReadinessError("We couldn't save where you left off.")
+              })
             }}
             originalCvFile={originalCvFile}
             preview={tailoredApplicationPreview}
             previewDocumentKind={previewDocumentKind}
             selectedTailoredApplicationId={resolvedTailoredApplicationId}
-            selectedWorkspaceItem={workspaceSelection.kind}
+            selectedWorkspaceItem={
+              workspaceSelection.kind === 'tailored_application' ? 'tailored_application' : 'draft'
+            }
             textDraft={vacancyDraft.text}
             urlDraft={vacancyDraft.url}
             vacancyPreview={vacancyPreview}
@@ -1636,10 +1716,18 @@ function resolveWorkspaceSelection({
   hasMeaningfulDraft: boolean
   hasPendingGeneration: boolean
   resolvedTailoredApplicationId: string | null
-}): {
-  kind: WorkspaceSelectionKind
-} {
-  if (forcedSelection === 'draft' || hasPendingGeneration) {
+}): ResolvedWorkspaceSelection {
+  if (forcedSelection?.kind === 'tailored_application') {
+    return {
+      kind: 'tailored_application',
+    }
+  }
+
+  if (forcedSelection?.kind === 'draft') {
+    return forcedSelection
+  }
+
+  if (hasPendingGeneration) {
     return {
       kind: 'draft',
     }

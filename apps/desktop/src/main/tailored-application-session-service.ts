@@ -23,7 +23,11 @@ import type {
   TailoredApplicationPreview,
   TailoredApplicationWorkspaceState,
 } from '../shared/tailored-application.js'
-import type { WorkspaceSelection } from '../shared/workspace-selection.js'
+import {
+  createDefaultWorkspaceSelection,
+  type JobsWorkspaceSelection,
+  type WorkspaceSelection,
+} from '../shared/workspace-selection.js'
 import type { VacancyDraft, VacancySummary } from '../shared/vacancy.js'
 import {
   ORIGINAL_CV_LANGUAGE_BLOCK_MESSAGE,
@@ -81,6 +85,7 @@ export interface TailoredApplicationSessionService {
   getTailoredApplicationPreview: (
     tailoredApplicationId: string,
   ) => Promise<TailoredApplicationPreview | null>
+  getWorkspaceSelection: () => Promise<WorkspaceSelection | null>
   getWorkspaceState: () => Promise<TailoredApplicationWorkspaceState>
   recoverInterruptedGeneration: () => Promise<void>
   resumePendingGeneration: () => Promise<ResumePendingGenerationResult>
@@ -1155,9 +1160,14 @@ export function createTailoredApplicationSessionService({
       await readinessStore.setStartupDestination('workspace')
 
       if (pendingSession.tailoredApplicationId !== null) {
+        const persistedSelection = await workspaceSelectionStore?.getSelection()
+
         await workspaceSelectionStore?.setSelection({
-          kind: 'tailored_application',
-          tailoredApplicationId: pendingSession.tailoredApplicationId,
+          ...resolvePersistedWorkspaceSelection(persistedSelection),
+          jobs: {
+            kind: 'tailored_application',
+            tailoredApplicationId: pendingSession.tailoredApplicationId,
+          },
         })
       }
 
@@ -1190,20 +1200,21 @@ export function createTailoredApplicationSessionService({
       const persistedSelection = await workspaceSelectionStore?.getSelection()
 
       if (
-        persistedSelection?.kind === 'tailored_application' &&
-        persistedSelection.tailoredApplicationId === tailoredApplicationId
+        persistedSelection?.jobs.kind === 'tailored_application' &&
+        persistedSelection.jobs.tailoredApplicationId === tailoredApplicationId
       ) {
         const [hasMeaningfulDraft, workspaceState] = await Promise.all([
           hasMeaningfulVacancyDraft(localAppData),
           getWorkspaceState(),
         ])
 
-        await workspaceSelectionStore?.setSelection(
-          resolveNextWorkspaceSelection({
+        await workspaceSelectionStore?.setSelection({
+          ...resolvePersistedWorkspaceSelection(persistedSelection),
+          jobs: resolveNextJobsWorkspaceSelection({
             applications: workspaceState.applications,
             hasMeaningfulDraft,
           }),
-        )
+        })
       }
     },
     exportAdaptedCvPdf: async (tailoredApplicationId) => {
@@ -1326,6 +1337,9 @@ export function createTailoredApplicationSessionService({
         vacancy,
         vacancyTitle: metadata.vacancyTitle,
       }
+    },
+    getWorkspaceSelection: async () => {
+      return await (workspaceSelectionStore?.getSelection() ?? Promise.resolve(null))
     },
     getWorkspaceState,
     recoverInterruptedGeneration: async () => {
@@ -1502,13 +1516,13 @@ function resolveVacancyWorkspaceReviewState({
   return 'editable'
 }
 
-function resolveNextWorkspaceSelection({
+function resolveNextJobsWorkspaceSelection({
   applications,
   hasMeaningfulDraft,
 }: {
   applications: TailoredApplicationWorkspaceState['applications']
   hasMeaningfulDraft: boolean
-}): WorkspaceSelection {
+}): JobsWorkspaceSelection {
   if (hasMeaningfulDraft) {
     return {
       kind: 'draft',
@@ -1529,6 +1543,12 @@ function resolveNextWorkspaceSelection({
   }
 }
 
+function resolvePersistedWorkspaceSelection(
+  selection: WorkspaceSelection | null | undefined,
+): WorkspaceSelection {
+  return selection ?? createDefaultWorkspaceSelection()
+}
+
 function resolveSelectedTailoredApplicationId({
   applications,
   hasMeaningfulDraft,
@@ -1542,13 +1562,15 @@ function resolveSelectedTailoredApplicationId({
     return null
   }
 
-  if (selection?.kind === 'none') {
+  if (selection?.jobs.kind === 'none') {
     return null
   }
 
-  if (selection?.kind === 'tailored_application') {
+  const selectedJobsSelection = selection?.jobs
+
+  if (selectedJobsSelection?.kind === 'tailored_application') {
     const selectedApplication = applications.find((application) => {
-      return application.id === selection.tailoredApplicationId
+      return application.id === selectedJobsSelection.tailoredApplicationId
     })
 
     if (selectedApplication !== undefined) {
