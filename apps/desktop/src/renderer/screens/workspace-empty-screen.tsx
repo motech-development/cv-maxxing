@@ -25,7 +25,7 @@ interface WorkspaceDraftViewProperties {
 }
 
 const fieldClassName =
-  'mt-2 w-full rounded-[8px] border border-[var(--color-border)] bg-white px-[14px] py-3 text-[13px] font-medium text-[var(--color-copy-strong)] outline-none transition placeholder:text-[var(--color-copy-subtle)] focus:border-[var(--color-ink-900)]'
+  'w-full rounded-[8px] border border-[var(--color-border)] bg-white px-[14px] py-3 text-[13px] font-medium text-[var(--color-copy-strong)] outline-none transition placeholder:text-[var(--color-copy-subtle)] focus:border-[var(--color-ink-900)]'
 
 export function WorkspaceDraftView({
   draftReviewState,
@@ -79,17 +79,17 @@ export function WorkspaceDraftView({
       ) : null}
 
       <div className="mt-6 grid gap-[18px] md:grid-cols-2">
-        <PanelCard className="flex min-h-[278px] flex-col p-5">
+        <PanelCard className="flex min-h-[278px] flex-col gap-3 p-5">
           <p className="m-0 text-lg font-extrabold text-[var(--color-copy-strong)]">
             Open vacancy URL
           </p>
-          <p className="mt-2 text-sm leading-6 text-[var(--color-copy-muted)]">
+          <p className="text-sm leading-6 text-[var(--color-copy-muted)]">
             {isDraftReviewed
               ? 'Reviewed vacancy source URL. Start a new vacancy to change the locked source content.'
               : 'Paste one role URL to fetch and normalize the role first. The vacancy preview must be reviewed before tailoring can begin.'}
           </p>
           <label
-            className="mt-3 text-[11px] font-extrabold uppercase tracking-[0.12em] text-[var(--color-copy-muted)]"
+            className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-[var(--color-copy-muted)]"
             htmlFor="workspace-vacancy-url"
           >
             Vacancy URL
@@ -104,23 +104,23 @@ export function WorkspaceDraftView({
             type="url"
             value={urlDraft}
           />
-          <div className="mt-auto" />
+          <div aria-hidden="true" className="flex-1" />
           <Button disabled={isUrlSubmissionDisabled} onClick={onReviewVacancyUrl} tone="primary">
             Review vacancy from URL
           </Button>
         </PanelCard>
 
-        <PanelCard className="flex min-h-[278px] flex-col p-5">
+        <PanelCard className="flex min-h-[278px] flex-col gap-3 p-5">
           <p className="m-0 text-lg font-extrabold text-[var(--color-copy-strong)]">
             Paste job text
           </p>
-          <p className="mt-2 text-sm leading-6 text-[var(--color-copy-muted)]">
+          <p className="text-sm leading-6 text-[var(--color-copy-muted)]">
             {isDraftReviewed
               ? 'Unused source methods stay visible in the reviewed draft. Blank reviewed fields remain blank and read-only.'
               : 'Use pasted vacancy text when the page is blocked or the role has no stable URL. The same preview contract is applied before `Adapt CV` becomes available.'}
           </p>
           <label
-            className="mt-3 text-[11px] font-extrabold uppercase tracking-[0.12em] text-[var(--color-copy-muted)]"
+            className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-[var(--color-copy-muted)]"
             htmlFor="workspace-vacancy-text"
           >
             Job vacancy text
@@ -136,7 +136,7 @@ export function WorkspaceDraftView({
             readOnly={isDraftReviewed}
             value={textDraft}
           />
-          <div className="mt-auto" />
+          <div aria-hidden="true" className="flex-1" />
           <Button
             disabled={isTextSubmissionDisabled}
             onClick={onReviewPastedVacancy}

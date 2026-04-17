@@ -295,7 +295,9 @@ test('captures ambient shell activity while reopening a saved tailored applicati
 
   page = await electronApp.firstWindow()
 
-  await expect(page.getByRole('heading', { name: 'Tailored application' })).toBeVisible()
+  await expect(
+    page.getByRole('heading', { name: 'Senior platform engineer · Example Labs' }),
+  ).toBeVisible()
   await expect(page.getByRole('status', { name: 'Background activity' })).toBeVisible()
   await hideScrollbars(page)
   await expect(page).toHaveScreenshot('workspace-active-ambient-activity-screen.png', {

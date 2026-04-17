@@ -73,7 +73,7 @@ test('imports the first PDF original CV and lands on the workspace-empty screen'
   await page.getByLabel('Original CV file').setInputFiles(testPaths.pdfPath)
   await page.getByRole('button', { name: 'Import original CV' }).click()
   await expect(page.getByRole('heading', { name: 'Create a tailored application' })).toBeVisible()
-  await expect(page.getByText('No tailored applications yet')).toBeVisible()
+  await expect(page.getByText('No vacancy items yet')).toBeVisible()
   await expect(page.getByText('Active original CV', { exact: true })).toBeVisible()
   await expect(page.getByText('ada-lovelace.pdf')).toBeVisible()
 
@@ -560,7 +560,7 @@ test('returns to the workspace overlay after sign-in repair for a pending genera
   await page.getByRole('button', { name: 'Adapt CV' }).click()
   await expect(page.getByRole('heading', { name: 'Connect the local AI worker' })).toBeVisible()
   await page.getByRole('button', { name: 'Continue sign-in' }).click()
-  await expect(page.getByRole('heading', { name: 'Create a tailored application' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Current vacancy draft' })).toBeVisible()
   await expect(page.getByRole('status', { name: 'Loading workspace' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Cancel' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Open tailored application' })).toHaveCount(0)
@@ -630,8 +630,8 @@ test('returns to the workspace with a visible error when generation fails contra
   ).toBeVisible({
     timeout: 15_000,
   })
-  await expect(page.getByRole('heading', { name: 'Create a tailored application' })).toBeVisible()
-  await expect(page.getByText('No tailored applications yet')).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Current vacancy draft' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Open current vacancy draft' })).toBeVisible()
 
   await electronApp.close()
 })
@@ -982,9 +982,9 @@ test('requires RESET before destructive local reset and returns to first launch 
   await expect(page.getByRole('heading', { name: 'Create a tailored application' })).toBeVisible()
   await page.getByRole('button', { name: 'Settings' }).click()
   await page.getByRole('button', { name: 'Show Local data settings' }).click()
-
-  const resetButton = page.getByRole('button', { name: 'Reset local app data' })
-
+  await page.getByRole('button', { name: 'Reset local app data' }).click()
+  const resetDialog = page.getByRole('dialog', { name: 'Reset local app data?' })
+  const resetButton = resetDialog.getByRole('button', { name: 'Reset local app data' })
   await expect(resetButton).toBeDisabled()
   await page.getByLabel('Type RESET to confirm destructive reset').fill('RESET')
   await expect(resetButton).toBeEnabled()

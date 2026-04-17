@@ -1,5 +1,6 @@
 import type { ReadinessRouteViewModel } from '../../readiness/readiness-route.js'
 import { DesktopShell } from '../shell/desktop-shell.js'
+import { SidebarContainer } from '../shell/sidebar-container.js'
 import { Button } from '../ui/button.js'
 import { PanelCard } from '../ui/panel-card.js'
 import { SectionLabel } from '../ui/section-label.js'
@@ -25,25 +26,27 @@ export function AiWorkerUnavailableScreen({
     <DesktopShell
       activeRailItem="setup"
       sidebar={
-        <>
-          <SectionLabel>Setup</SectionLabel>
-          <h2 className="m-0 text-2xl font-extrabold tracking-[-0.02em] text-[var(--color-copy-strong)]">
-            Worker unavailable
-          </h2>
-          <p className="m-0 text-[13px] leading-[1.4] text-[var(--color-copy-muted)]">
-            CV Maxxing cannot enter the workspace until the local AI worker can be started and
-            verified.
-          </p>
-          <PanelCard className="bg-[var(--color-surface-danger)] p-3">
-            <p className="m-0 text-sm font-bold text-[var(--color-status-danger)]">
-              Startup failed
+        <SidebarContainer>
+          <>
+            <SectionLabel>Setup</SectionLabel>
+            <h2 className="m-0 text-2xl font-extrabold tracking-[-0.02em] text-[var(--color-copy-strong)]">
+              Worker unavailable
+            </h2>
+            <p className="m-0 text-[13px] leading-[1.4] text-[var(--color-copy-muted)]">
+              CV Maxxing cannot enter the workspace until the local AI worker can be started and
+              verified.
             </p>
-            <p className="mt-1 text-xs leading-5 text-[var(--color-status-danger)]">
-              {viewModel.diagnostic ?? viewModel.body}
-            </p>
-          </PanelCard>
-          <div className="flex-1" />
-        </>
+            <PanelCard className="bg-[var(--color-surface-danger)] p-3">
+              <p className="m-0 text-sm font-bold text-[var(--color-status-danger)]">
+                Startup failed
+              </p>
+              <p className="mt-1 text-xs leading-5 text-[var(--color-status-danger)]">
+                {viewModel.diagnostic ?? viewModel.body}
+              </p>
+            </PanelCard>
+            <div className="flex-1" />
+          </>
+        </SidebarContainer>
       }
       subtitle="AI worker setup"
       workerLabel="Unavailable"

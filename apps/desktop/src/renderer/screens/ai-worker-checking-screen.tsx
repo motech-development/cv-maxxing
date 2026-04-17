@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 
 import type { ReadinessRouteViewModel } from '../../readiness/readiness-route.js'
 import { DesktopShell } from '../shell/desktop-shell.js'
+import { SidebarContainer } from '../shell/sidebar-container.js'
 import { Button } from '../ui/button.js'
 import { PanelCard } from '../ui/panel-card.js'
 import { SectionLabel } from '../ui/section-label.js'
@@ -49,18 +50,20 @@ export function AiWorkerCheckingScreen({
     <DesktopShell
       activeRailItem="setup"
       sidebar={
-        <SetupSidebar body={viewModel.body} title="AI worker readiness">
-          <PanelCard className="bg-[var(--color-surface-success)] p-2.5">
-            <p className="m-0 text-[13px] font-extrabold text-[var(--color-copy-strong)]">
-              Find Codex CLI
-            </p>
-          </PanelCard>
-          <PanelCard className="bg-[var(--color-surface-0)] p-2.5">
-            <p className="m-0 text-[13px] font-extrabold text-[var(--color-copy-strong)]">
-              Verify signed-in session
-            </p>
-          </PanelCard>
-        </SetupSidebar>
+        <SidebarContainer>
+          <SetupSidebar body={viewModel.body} title="AI worker readiness">
+            <PanelCard className="bg-[var(--color-surface-success)] p-2.5">
+              <p className="m-0 text-[13px] font-extrabold text-[var(--color-copy-strong)]">
+                Find Codex CLI
+              </p>
+            </PanelCard>
+            <PanelCard className="bg-[var(--color-surface-0)] p-2.5">
+              <p className="m-0 text-[13px] font-extrabold text-[var(--color-copy-strong)]">
+                Verify signed-in session
+              </p>
+            </PanelCard>
+          </SetupSidebar>
+        </SidebarContainer>
       }
       subtitle="AI worker setup"
       workerLabel="Checking"

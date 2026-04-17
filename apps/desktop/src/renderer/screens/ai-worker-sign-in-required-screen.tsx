@@ -1,5 +1,6 @@
 import type { ReadinessRouteViewModel } from '../../readiness/readiness-route.js'
 import { DesktopShell } from '../shell/desktop-shell.js'
+import { SidebarContainer } from '../shell/sidebar-container.js'
 import { Button } from '../ui/button.js'
 import { PanelCard } from '../ui/panel-card.js'
 import { SectionLabel } from '../ui/section-label.js'
@@ -25,22 +26,24 @@ export function AiWorkerSignInRequiredScreen({
     <DesktopShell
       activeRailItem="setup"
       sidebar={
-        <>
-          <SectionLabel>Setup</SectionLabel>
-          <h2 className="m-0 text-2xl font-extrabold tracking-[-0.02em] text-[var(--color-copy-strong)]">
-            Sign in to the local worker
-          </h2>
-          <p className="m-0 text-[13px] leading-[1.4] text-[var(--color-copy-muted)]">
-            The app found the worker runtime, but generation remains locked until the local CLI
-            session is authenticated.
-          </p>
-          <PanelCard className="bg-[var(--color-surface-warning)] p-2.5">
-            <p className="m-0 text-[13px] font-extrabold text-[var(--color-copy-strong)]">
-              Continue with provider sign-in
+        <SidebarContainer>
+          <>
+            <SectionLabel>Setup</SectionLabel>
+            <h2 className="m-0 text-2xl font-extrabold tracking-[-0.02em] text-[var(--color-copy-strong)]">
+              Sign in to the local worker
+            </h2>
+            <p className="m-0 text-[13px] leading-[1.4] text-[var(--color-copy-muted)]">
+              The app found the worker runtime, but generation remains locked until the local CLI
+              session is authenticated.
             </p>
-          </PanelCard>
-          <div className="flex-1" />
-        </>
+            <PanelCard className="bg-[var(--color-surface-warning)] p-2.5">
+              <p className="m-0 text-[13px] font-extrabold text-[var(--color-copy-strong)]">
+                Continue with provider sign-in
+              </p>
+            </PanelCard>
+            <div className="flex-1" />
+          </>
+        </SidebarContainer>
       }
       subtitle="AI worker setup"
       workerLabel="Sign in required"
