@@ -183,6 +183,13 @@ test('captures the workspace-active adapted CV preview', async () => {
   })
   await expect(page.getByText('Page 1 of 1')).toBeVisible()
   await expect(page.getByLabel('CV PDF preview')).toBeVisible()
+  await expect(page.getByRole('button', { exact: true, name: 'CV' })).toBeVisible()
+  await expect(page.getByRole('button', { exact: true, name: 'Cover letter' })).toBeVisible()
+  await expect(page.getByText('About this job')).toBeVisible()
+  await expect(page.getByText('Highlighted in your CV')).toBeVisible()
+  await expect(page.getByText('Worth checking')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Save CV and cover letter' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Delete this job' })).toBeVisible()
   await hideScrollbars(page)
   await expect(page).toHaveScreenshot('workspace-active-adapted-cv-screen.png', {
     animations: 'disabled',

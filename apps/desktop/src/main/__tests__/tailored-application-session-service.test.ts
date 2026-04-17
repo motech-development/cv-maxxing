@@ -1023,6 +1023,139 @@ test('returns both PDF artifacts in the preview payload and exports the cover-le
   })
 })
 
+test('uses a consumer-friendly saved-job fallback title when vacancy metadata is incomplete', async () => {
+  const harness = await createHarness()
+
+  await seedOriginalCvAndVacancy(harness)
+
+  const service = createTailoredApplicationSessionService({
+    adaptedCvRenderer: {
+      renderAdaptedCvPdf: vi.fn().mockResolvedValue({
+        pageCount: 1,
+        pageWarning: null,
+        pdfBytes: Buffer.from('%PDF-1.7 adapted cv', 'utf8'),
+      }),
+    },
+    coverLetterRenderer: {
+      renderCoverLetterPdf: vi.fn().mockResolvedValue({
+        pageCount: 1,
+        pageWarning: null,
+        pdfBytes: Buffer.from('%PDF-1.7 cover letter', 'utf8'),
+      }),
+    },
+    aiWorker: {
+      retryAiWorkerPreflight: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+    },
+    generateId: createIdGenerator(['command-123', 'run-123', 'tailored-application-123']),
+    getCurrentTimestamp: () => {
+      return '2026-04-09T09:30:00.000Z'
+    },
+    localAppData: harness.localAppData,
+    readinessStore: harness.readinessStore,
+    runWorkspaceRootPath: path.join(harness.paths.rootDirectoryPath, 'runs'),
+    worker: {
+      runGeneration: () => Promise.resolve(createValidGenerationResult()),
+    },
+  })
+
+  await service.startPendingGeneration({
+    originalCvId: 'original-cv-123',
+    originalCvLabel: 'ada-lovelace.pdf',
+    vacancyDraft: {
+      text: 'Senior platform engineer',
+      url: 'https://jobs.example.com/roles/123',
+    },
+  })
+  await service.resumePendingGeneration()
+
+  await harness.localAppData.metadata.put({
+    id: 'tailored-application-123',
+    scope: 'tailored-applications',
+    value: {
+      adaptedCvPageCount: 1,
+      adaptedCvPageWarning: null,
+      candidateName: 'Ada Lovelace',
+      coverLetterPageCount: 1,
+      coverLetterPageWarning: null,
+      createdAt: '2026-04-09T09:30:00.000Z',
+      employer: null,
+      originalCvId: 'original-cv-123',
+      status: 'ready',
+      vacancyId: 'vacancy-123',
+      vacancyTitle: null,
+    },
+  })
+
+  await expect(service.getWorkspaceState()).resolves.toEqual({
+    activeApplicationId: null,
+    applications: [
+      {
+        createdAt: '2026-04-09T09:30:00.000Z',
+        employer: null,
+        id: 'tailored-application-123',
+        pageCount: 1,
+        pageWarning: null,
+        title: 'Saved job',
+        vacancyTitle: null,
+      },
+    ],
+  })
+
+  await expect(
+    service.getTailoredApplicationPreview('tailored-application-123'),
+  ).resolves.toMatchObject({
+    employer: null,
+    title: 'Saved job',
+    vacancyTitle: null,
+  })
+
+  await harness.localAppData.metadata.put({
+    id: 'tailored-application-123',
+    scope: 'tailored-applications',
+    value: {
+      adaptedCvPageCount: 1,
+      adaptedCvPageWarning: null,
+      candidateName: 'Ada Lovelace',
+      coverLetterPageCount: 1,
+      coverLetterPageWarning: null,
+      createdAt: '2026-04-09T09:30:00.000Z',
+      employer: 'Example Labs',
+      originalCvId: 'original-cv-123',
+      status: 'ready',
+      vacancyId: 'vacancy-123',
+      vacancyTitle: null,
+    },
+  })
+
+  await expect(service.getWorkspaceState()).resolves.toEqual({
+    activeApplicationId: null,
+    applications: [
+      {
+        createdAt: '2026-04-09T09:30:00.000Z',
+        employer: 'Example Labs',
+        id: 'tailored-application-123',
+        pageCount: 1,
+        pageWarning: null,
+        title: 'Saved job · Example Labs',
+        vacancyTitle: null,
+      },
+    ],
+  })
+
+  await expect(
+    service.getTailoredApplicationPreview('tailored-application-123'),
+  ).resolves.toMatchObject({
+    employer: 'Example Labs',
+    title: 'Saved job · Example Labs',
+    vacancyTitle: null,
+  })
+})
+
 test('deletes a tailored application without removing original CV or job vacancy snapshots used elsewhere', async () => {
   const harness = await createHarness()
 

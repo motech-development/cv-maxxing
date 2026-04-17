@@ -297,15 +297,22 @@ function createTailoredApplicationTitle({
   employer: string | null
   vacancyTitle: string | null
 }): string {
-  const titleParts = [vacancyTitle, employer].filter((value): value is string => {
-    return value !== null && value.trim() !== ''
-  })
+  const normalizedVacancyTitle = vacancyTitle?.trim() ?? ''
+  const normalizedEmployer = employer?.trim() ?? ''
 
-  if (titleParts.length === 0) {
-    return 'Tailored application'
+  if (normalizedVacancyTitle !== '' && normalizedEmployer !== '') {
+    return `${normalizedVacancyTitle} · ${normalizedEmployer}`
   }
 
-  return titleParts.join(' · ')
+  if (normalizedVacancyTitle !== '') {
+    return normalizedVacancyTitle
+  }
+
+  if (normalizedEmployer !== '') {
+    return `Saved job · ${normalizedEmployer}`
+  }
+
+  return 'Saved job'
 }
 
 function getInvalidAdaptedCvSectionIndex(detail: string | undefined): number | null {

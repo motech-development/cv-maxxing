@@ -808,8 +808,30 @@ test('renders the stored adapted CV PDF artifact and exports a readable non-over
   await expect(page.getByRole('heading', { name: 'Senior platform engineer' })).toBeVisible({
     timeout: 15_000,
   })
+  const savedJobButton = page.getByRole('button', { name: 'Open senior platform engineer' })
+
+  await expect(savedJobButton).toBeVisible()
+  await expect(savedJobButton.getByText('Example Labs')).toBeVisible()
+  await expect(page.getByRole('button', { exact: true, name: 'CV' })).toBeVisible()
+  await expect(page.getByRole('button', { exact: true, name: 'Cover letter' })).toBeVisible()
+  await expect(page.getByText('About this job')).toBeVisible()
+  await expect(page.getByText('Highlighted in your CV')).toBeVisible()
+  await expect(page.getByText('Worth checking')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Delete this job' })).toBeVisible()
   await expect(page.getByText('Page 1 of 1')).toBeVisible()
   await expect(page.getByRole('button', { name: 'Zoom in' })).toBeVisible()
+
+  await page.getByRole('button', { name: 'Delete this job' }).click()
+  await expect(page.getByRole('dialog', { name: 'Delete this job?' })).toBeVisible()
+  await expect(
+    page.getByText('This permanently removes the saved CV and cover letter for this job.'),
+  ).toBeVisible()
+  await expect(page.getByText('Cancel keeps this job exactly as it is now.')).toBeVisible()
+  await page
+    .getByRole('dialog', { name: 'Delete this job?' })
+    .getByRole('button', { name: 'Cancel' })
+    .click()
+
   await page.getByRole('button', { name: 'Save CV and cover letter' }).click()
 
   await expect
