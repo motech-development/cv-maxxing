@@ -5,18 +5,18 @@ import { expect, test, vi } from 'vitest'
 
 import type { OriginalCvDetail } from '../../../shared/original-cv.js'
 
-const pdfPreviewCardProperties = vi.hoisted(() => {
+const originalCvPreviewCardProperties = vi.hoisted(() => {
   return {
     lastProperties: null as Record<string, unknown> | null,
   }
 })
 
-vi.mock('../../ui/pdf-preview-card.js', () => {
+vi.mock('../../ui/original-cv-preview-card.js', () => {
   return {
-    PdfPreviewCard: (properties: Record<string, unknown>) => {
-      pdfPreviewCardProperties.lastProperties = properties
+    OriginalCvPreviewCard: (properties: Record<string, unknown>) => {
+      originalCvPreviewCardProperties.lastProperties = properties
 
-      return <div aria-label="Rendered PDF preview">PDF preview</div>
+      return <div aria-label="Rendered original CV preview">Original CV preview</div>
     },
   }
 })
@@ -44,6 +44,7 @@ function createOriginalCvDetailFixture(
       },
     },
     preview: {
+      kind: 'pdf',
       pageCount: 2,
       pdfBytes: new Uint8Array([37, 80, 68, 70]),
     },
@@ -90,21 +91,22 @@ test('renders the populated Your CV screen with a selectable sidebar item, PDF p
   )
 
   expect(screen.getByRole('button', { name: 'Open active original CV' })).toBeDefined()
-  expect(screen.getByRole('heading', { name: 'Active original CV' })).toBeDefined()
-  expect(screen.getByText('Extracted profile')).toBeDefined()
+  expect(screen.getAllByRole('heading', { name: 'Active original CV' }).length).toBeGreaterThan(0)
+  expect(screen.getAllByText('Extracted profile').length).toBeGreaterThan(0)
   expect(screen.getByText('ada@lovelace.dev')).toBeDefined()
   expect(screen.getByText('Workflow design')).toBeDefined()
   expect(screen.getByText(/Analytical Engines Ltd/u)).toBeDefined()
-  expect(screen.getByLabelText('Rendered PDF preview')).toBeDefined()
+  expect(screen.getByLabelText('Rendered original CV preview')).toBeDefined()
 
   const profilePanel = screen.getByText('Extracted profile').closest('section')
 
   expect(profilePanel).not.toBeNull()
   expect(profilePanel?.className).toContain('overflow-y-auto')
 
-  expect(pdfPreviewCardProperties.lastProperties).toMatchObject({
+  expect(originalCvPreviewCardProperties.lastProperties).toMatchObject({
     emptyStateCopy: 'Your original CV preview will appear here.',
     preview: {
+      kind: 'pdf',
       pageCount: 2,
       pdfBytes: new Uint8Array([37, 80, 68, 70]),
     },
@@ -114,4 +116,49 @@ test('renders the populated Your CV screen with a selectable sidebar item, PDF p
   fireEvent.click(screen.getByRole('button', { name: 'Open active original CV' }))
 
   expect(onSelectOriginalCv).toHaveBeenCalledTimes(1)
+})
+
+test('uses the same populated Your CV preview pane for DOCX original CVs', () => {
+  const onSelectOriginalCv = vi.fn()
+
+  render(
+    <OriginalCvScreen
+      activeOriginalCv={{
+        ...createOriginalCvDetailFixture().originalCv,
+        fileType: 'docx',
+        originalFilename: 'ada-lovelace-revised.docx',
+      }}
+      activeOriginalCvDetail={createOriginalCvDetailFixture({
+        originalCv: {
+          ...createOriginalCvDetailFixture().originalCv,
+          fileType: 'docx',
+          originalFilename: 'ada-lovelace-revised.docx',
+        },
+        preview: {
+          docxBytes: new Uint8Array([80, 75, 3, 4]),
+          kind: 'docx',
+        },
+      })}
+      importError={null}
+      isImportingOriginalCv={false}
+      onFileDrop={vi.fn()}
+      onFileSelection={vi.fn()}
+      onImportOriginalCv={vi.fn()}
+      onSelectOriginalCv={onSelectOriginalCv}
+      originalCvFile={null}
+      workspaceError={null}
+    />,
+  )
+
+  expect(screen.getAllByRole('heading', { name: 'Active original CV' }).length).toBeGreaterThan(0)
+  expect(screen.getAllByText('Extracted profile').length).toBeGreaterThan(0)
+  expect(screen.queryByText('Previews are only available for PDF uploads.')).toBeNull()
+  expect(originalCvPreviewCardProperties.lastProperties).toMatchObject({
+    emptyStateCopy: 'Your original CV preview will appear here.',
+    preview: {
+      docxBytes: new Uint8Array([80, 75, 3, 4]),
+      kind: 'docx',
+    },
+    title: 'Original CV',
+  })
 })

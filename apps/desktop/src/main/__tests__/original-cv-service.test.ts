@@ -443,6 +443,7 @@ test('loads the active original CV detail from normalized artifacts and PDF byte
       },
     },
     preview: {
+      kind: 'pdf',
       pageCount: 2,
       pdfBytes: new Uint8Array(Buffer.from('%PDF-1.7 active', 'utf8')),
     },
@@ -597,6 +598,121 @@ test('imports a DOCX original CV through the same AI-backed normalization path a
   })
 
   expect(writingStyleArtifact?.toString('utf8')).toContain('"formality":"direct"')
+
+  await localAppData.close()
+})
+
+test('returns a DOCX preview artifact in the active original CV detail view', async () => {
+  const paths = await createTestPaths()
+  const localAppData = await openLocalAppData({
+    keychain: createKeychainBoundary(),
+    paths,
+  })
+  const normalizationService = createNormalizationServiceMock(
+    vi.fn((): Promise<OriginalCvNormalizationResult> => {
+      return Promise.resolve({
+        normalizedCv: {
+          contact: createNormalizedContact({
+            email: '',
+            location: '',
+            phone: '',
+            professionalLink: '',
+          }),
+          experience: [
+            createNormalizedExperienceEntry({
+              employer: 'Difference Engines Ltd',
+              roleTitle: 'Senior Content Strategist',
+              summary: 'Built truthful CV adaptation workflows for complex desktop software.',
+            }),
+          ],
+          fullName: 'Ada Lovelace',
+          headline: 'Senior Content Strategist',
+          skills: ['Content strategy', 'Information architecture', 'Editorial systems'],
+          summary:
+            'Content strategist shaping trustworthy workflow tools for technical job seekers.',
+        },
+        writingStyle: {
+          averageSentenceLength: 11,
+          clicheDetections: [],
+          firstPersonUsage: 'absent',
+          formality: 'direct',
+        },
+      })
+    }),
+  )
+  const originalCvService = createOriginalCvService({
+    extractTextFromDocx: vi.fn(() => {
+      return Promise.resolve({
+        pageCount: 1,
+        text: [
+          'Ada Lovelace',
+          'Senior Content Strategist',
+          '',
+          'Summary',
+          'Content strategist shaping trustworthy workflow tools for technical job seekers.',
+          '',
+          'Experience',
+          'Senior Content Strategist | Difference Engines Ltd',
+          'Built truthful CV adaptation workflows for complex desktop software.',
+          '',
+          'Skills',
+          'Content strategy, information architecture, editorial systems',
+        ].join('\n'),
+      })
+    }),
+    extractTextFromPdf: vi.fn(),
+    generateId: vi.fn(() => 'original-cv-detail-docx-001'),
+    getCurrentTimestamp: vi.fn(() => '2026-04-08T15:20:00.000Z'),
+    localAppData,
+    normalizationService,
+  })
+
+  await originalCvService.importOriginalCv({
+    content: Buffer.from('PK docx preview bytes', 'utf8'),
+    filename: 'ada-lovelace.docx',
+  })
+
+  await expect(originalCvService.getActiveOriginalCvDetail()).resolves.toEqual({
+    originalCv: {
+      fileType: 'docx',
+      headline: 'Senior Content Strategist',
+      id: 'original-cv-detail-docx-001',
+      importedAt: '2026-04-08T15:20:00.000Z',
+      originalFilename: 'ada-lovelace.docx',
+      pageCount: 1,
+      snapshotCount: 1,
+      summary: 'Content strategist shaping trustworthy workflow tools for technical job seekers.',
+      writingStyle: {
+        averageSentenceLength: 11,
+        clicheDetections: [],
+        firstPersonUsage: 'absent',
+        formality: 'direct',
+      },
+    },
+    preview: {
+      docxBytes: new Uint8Array(Buffer.from('PK docx preview bytes', 'utf8')),
+      kind: 'docx',
+    },
+    profile: {
+      contact: createNormalizedContact({
+        email: '',
+        location: '',
+        phone: '',
+        professionalLink: '',
+      }),
+      experience: [
+        createNormalizedExperienceEntry({
+          employer: 'Difference Engines Ltd',
+          roleTitle: 'Senior Content Strategist',
+          summary: 'Built truthful CV adaptation workflows for complex desktop software.',
+        }),
+      ],
+      fullName: 'Ada Lovelace',
+      headline: 'Senior Content Strategist',
+      skills: ['Content strategy', 'Information architecture', 'Editorial systems'],
+      summary: 'Content strategist shaping trustworthy workflow tools for technical job seekers.',
+    },
+  })
 
   await localAppData.close()
 })

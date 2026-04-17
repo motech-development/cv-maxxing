@@ -5,8 +5,8 @@ import type {
   OriginalCvDetail,
   OriginalCvFileType,
   OriginalCvImportErrorCode,
-  OriginalCvPdfPreview,
   OriginalCvProfile,
+  OriginalCvPreview,
   OriginalCvSummary,
   OriginalCvWritingStyle,
   OriginalCvWorkspaceState,
@@ -127,7 +127,7 @@ export function createOriginalCvService({
 
       const originalCv = toOriginalCvSummary(activeRecord, storedRecords.length)
       const [preview, profile] = await Promise.all([
-        readOriginalCvPdfPreview({
+        readOriginalCvPreview({
           fileType: activeRecord.fileType,
           id: activeRecord.id,
           localAppData,
@@ -286,7 +286,7 @@ async function readOriginalCvProfile({
   }
 }
 
-async function readOriginalCvPdfPreview({
+async function readOriginalCvPreview({
   fileType,
   id,
   localAppData,
@@ -296,14 +296,12 @@ async function readOriginalCvPdfPreview({
   id: string
   localAppData: Pick<LocalAppDataStore, 'artifacts'>
   pageCount: number
-}): Promise<OriginalCvPdfPreview | null> {
-  if (fileType !== 'pdf') {
-    return null
-  }
+}): Promise<OriginalCvPreview | null> {
+  const artifactName = fileType === 'pdf' ? 'source.pdf' : 'source.docx'
 
   const artifact = await localAppData.artifacts.read({
     id,
-    name: 'source.pdf',
+    name: artifactName,
     scope: ORIGINAL_CV_SCOPE,
   })
 
@@ -311,9 +309,17 @@ async function readOriginalCvPdfPreview({
     return null
   }
 
+  if (fileType === 'pdf') {
+    return {
+      kind: 'pdf',
+      pageCount,
+      pdfBytes: new Uint8Array(artifact),
+    }
+  }
+
   return {
-    pageCount,
-    pdfBytes: new Uint8Array(artifact),
+    docxBytes: new Uint8Array(artifact),
+    kind: 'docx',
   }
 }
 

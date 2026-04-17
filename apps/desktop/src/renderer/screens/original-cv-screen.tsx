@@ -4,8 +4,8 @@ import type { OriginalCvDetail, OriginalCvSummary } from '../../shared/original-
 import { DesktopShell, type RailItemId } from '../shell/desktop-shell.js'
 import { SidebarContainer } from '../shell/sidebar-container.js'
 import { Button } from '../ui/button.js'
+import { OriginalCvPreviewCard } from '../ui/original-cv-preview-card.js'
 import { PanelCard } from '../ui/panel-card.js'
-import { PdfPreviewCard } from '../ui/pdf-preview-card.js'
 import { SectionLabel } from '../ui/section-label.js'
 
 interface OriginalCvScreenProperties {
@@ -196,10 +196,7 @@ function OriginalCvActiveState({
     originalCvDetail?.profile.fullName.trim() === ''
       ? originalCv.headline
       : (originalCvDetail?.profile.fullName ?? originalCv.headline)
-  const previewEmptyStateCopy =
-    originalCvDetail?.originalCv.fileType === 'pdf'
-      ? 'Your original CV preview will appear here.'
-      : 'Previews are only available for PDF uploads.'
+  const previewEmptyStateCopy = 'Your original CV preview will appear here.'
 
   return (
     <>
@@ -238,7 +235,7 @@ function OriginalCvActiveState({
             <p className="m-0 text-2xl font-extrabold uppercase tracking-[-0.02em] text-[var(--color-copy-strong)]">
               {resolvedName}
             </p>
-            <PdfPreviewCard
+            <OriginalCvPreviewCard
               emptyStateCopy={previewEmptyStateCopy}
               preview={originalCvDetail.preview}
               previewKey={originalCvDetail.originalCv.id}

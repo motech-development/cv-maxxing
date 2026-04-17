@@ -53,13 +53,21 @@ export interface OriginalCvProfile {
 }
 
 export interface OriginalCvPdfPreview {
+  kind: 'pdf'
   pageCount: number
   pdfBytes: Uint8Array
 }
 
+export interface OriginalCvDocxPreview {
+  docxBytes: Uint8Array
+  kind: 'docx'
+}
+
+export type OriginalCvPreview = OriginalCvDocxPreview | OriginalCvPdfPreview
+
 export interface OriginalCvDetail {
   originalCv: OriginalCvSummary
-  preview: OriginalCvPdfPreview | null
+  preview: OriginalCvPreview | null
   profile: OriginalCvProfile
 }
 

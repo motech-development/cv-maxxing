@@ -69,6 +69,7 @@ test('preload exposes the AI worker onboarding queries and commands over typed I
         },
       },
       preview: {
+        kind: 'pdf',
         pageCount: 1,
         pdfBytes: new Uint8Array([37, 80, 68, 70]),
       },
@@ -354,6 +355,7 @@ test('preload exposes the AI worker onboarding queries and commands over typed I
       },
     },
     preview: {
+      kind: 'pdf',
       pageCount: 1,
       pdfBytes: new Uint8Array([37, 80, 68, 70]),
     },

@@ -17,8 +17,22 @@ import type {
 import type { VacancyIngestResult } from '../../shared/vacancy.js'
 import { App } from '../app.js'
 
+const { renderDocxPreviewMock } = vi.hoisted(() => {
+  return {
+    renderDocxPreviewMock: vi.fn(),
+  }
+})
+
+vi.mock('docx-preview', () => {
+  return {
+    renderAsync: renderDocxPreviewMock,
+  }
+})
+
 afterEach(() => {
   cleanup()
+  renderDocxPreviewMock.mockReset()
+  renderDocxPreviewMock.mockResolvedValue()
 })
 
 const aiSignInContinueMessage = 'AI needs you to sign in before CV Maxxing can continue.'
@@ -105,6 +119,7 @@ function createOriginalCvDetailFixture(
       },
     },
     preview: {
+      kind: 'pdf',
       pageCount: 1,
       pdfBytes: new Uint8Array([37, 80, 68, 70]),
     },
@@ -1144,6 +1159,75 @@ test('restores Your CV as the active top-level section while preserving the save
     expect(screen.getByRole('heading', { name: 'Senior platform engineer' })).toBeDefined()
     expect(screen.getAllByText('Example Labs').length).toBeGreaterThan(0)
   })
+})
+
+test('keeps the populated Your CV section usable when DOCX preview rendering fails', async () => {
+  renderDocxPreviewMock.mockRejectedValueOnce(new Error('DOCX preview failed.'))
+
+  renderApp({
+    aiWorker: createAiWorkerApi({
+      getAiWorkerPreflight: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+      getStartupDestination: vi.fn().mockResolvedValue('workspace'),
+    }),
+    originalCv: createOriginalCvApi({
+      getActiveOriginalCvDetail: vi.fn().mockResolvedValue(
+        createOriginalCvDetailFixture({
+          originalCv: {
+            ...createOriginalCvDetailFixture().originalCv,
+            fileType: 'docx',
+            originalFilename: 'ada-lovelace-revised.docx',
+          },
+          preview: {
+            docxBytes: new Uint8Array([80, 75, 3, 4]),
+            kind: 'docx',
+          },
+          profile: {
+            ...createOriginalCvDetailFixture().profile,
+            skills: ['Content strategy', 'Information architecture', 'Editorial systems'],
+          },
+        }),
+      ),
+      getOriginalCvWorkspaceState: vi.fn().mockResolvedValue({
+        activeOriginalCv: {
+          ...createOriginalCvDetailFixture().originalCv,
+          fileType: 'docx',
+          originalFilename: 'ada-lovelace-revised.docx',
+        },
+        snapshotCount: 1,
+      }),
+    }),
+    tailoredApplication: createTailoredApplicationApi({
+      getWorkspaceSelection: vi.fn().mockResolvedValue({
+        jobs: {
+          kind: 'none',
+        },
+        originalCv: {
+          kind: 'active_original_cv',
+        },
+        topLevelSection: 'original_cv',
+      }),
+    }),
+  })
+
+  await waitFor(() => {
+    expect(screen.getByRole('button', { name: 'Your CV' }).getAttribute('aria-current')).toBe(
+      'page',
+    )
+  })
+
+  await waitFor(() => {
+    expect(screen.getByText('DOCX preview failed.')).toBeDefined()
+  })
+
+  expect(screen.getByRole('heading', { name: 'Active original CV' })).toBeDefined()
+  expect(screen.getByText('Extracted profile')).toBeDefined()
+  expect(screen.getByText('Content strategy')).toBeDefined()
+  expect(screen.getAllByText('ada-lovelace-revised.docx').length).toBeGreaterThan(0)
 })
 
 test('selecting Your CV from settings with no active original CV opens the empty Your CV section', async () => {

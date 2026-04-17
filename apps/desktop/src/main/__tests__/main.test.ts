@@ -269,6 +269,7 @@ test('bootstrap registers the full AI worker onboarding IPC surface and opens th
         },
       },
       preview: {
+        kind: 'pdf',
         pageCount: 1,
         pdfBytes: new Uint8Array([37, 80, 68, 70]),
       },
@@ -589,6 +590,7 @@ test('bootstrap registers the full AI worker onboarding IPC surface and opens th
       },
     },
     preview: {
+      kind: 'pdf',
       pageCount: 1,
       pdfBytes: new Uint8Array([37, 80, 68, 70]),
     },

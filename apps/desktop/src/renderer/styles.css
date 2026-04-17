@@ -57,3 +57,18 @@ body {
 #root {
   height: 100%;
 }
+
+.cv-maxxing-docx-wrapper {
+  background: transparent;
+  min-height: 100%;
+  padding: 0;
+}
+
+.cv-maxxing-docx-wrapper > .cv-maxxing-docx {
+  box-shadow: 0 18px 48px rgb(8 20 31 / 8%);
+  margin: 0 auto 16px;
+}
+
+.cv-maxxing-docx-wrapper > .cv-maxxing-docx:last-child {
+  margin-bottom: 0;
+}
