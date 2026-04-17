@@ -255,6 +255,9 @@ export function createDesktopAppBootstrap({
     ipcMain.handle(ORIGINAL_CV_IPC_CHANNELS.getWorkspaceState, async () => {
       return await originalCv.getWorkspaceState()
     })
+    ipcMain.handle(ORIGINAL_CV_IPC_CHANNELS.getActiveDetail, async () => {
+      return await originalCv.getActiveOriginalCvDetail()
+    })
     ipcMain.handle(ORIGINAL_CV_IPC_CHANNELS.importOriginalCv, async (_event, payload) => {
       const input = parseOriginalCvImportInput(payload)
       const preflightResult = await aiWorker.getAiWorkerPreflight()

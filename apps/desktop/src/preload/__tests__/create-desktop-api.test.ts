@@ -52,6 +52,48 @@ test('preload exposes the AI worker onboarding queries and commands over typed I
       snapshotCount: 1,
     })
     .mockResolvedValueOnce({
+      originalCv: {
+        fileType: 'pdf',
+        headline: 'Principal Product Designer',
+        id: 'original-cv-123',
+        importedAt: '2026-04-08T14:30:00.000Z',
+        originalFilename: 'ada-lovelace.pdf',
+        pageCount: 1,
+        snapshotCount: 1,
+        summary: 'Design leader focused on complex workflow products.',
+        writingStyle: {
+          averageSentenceLength: 7,
+          clicheDetections: [],
+          firstPersonUsage: 'absent',
+          formality: 'direct',
+        },
+      },
+      preview: {
+        pageCount: 1,
+        pdfBytes: new Uint8Array([37, 80, 68, 70]),
+      },
+      profile: {
+        contact: {
+          email: 'ada@lovelace.dev',
+          location: 'London, United Kingdom',
+          phone: '+44 7700 900123',
+          professionalLink: 'ada-lovelace.dev',
+        },
+        experience: [
+          {
+            dateRange: '2022 - Present',
+            employer: 'Analytical Engines Ltd',
+            roleTitle: 'Principal Product Designer',
+            summary: 'Led product design for AI-assisted desktop tooling.',
+          },
+        ],
+        fullName: 'Ada Lovelace',
+        headline: 'Principal Product Designer',
+        skills: ['Product strategy', 'UX research', 'Workflow design'],
+        summary: 'Design leader focused on complex workflow products.',
+      },
+    })
+    .mockResolvedValueOnce({
       kind: 'imported',
       originalCv: {
         fileType: 'docx',
@@ -294,6 +336,48 @@ test('preload exposes the AI worker onboarding queries and commands over typed I
     },
     snapshotCount: 1,
   })
+  await expect(desktopApi.originalCv.getActiveOriginalCvDetail()).resolves.toEqual({
+    originalCv: {
+      fileType: 'pdf',
+      headline: 'Principal Product Designer',
+      id: 'original-cv-123',
+      importedAt: '2026-04-08T14:30:00.000Z',
+      originalFilename: 'ada-lovelace.pdf',
+      pageCount: 1,
+      snapshotCount: 1,
+      summary: 'Design leader focused on complex workflow products.',
+      writingStyle: {
+        averageSentenceLength: 7,
+        clicheDetections: [],
+        firstPersonUsage: 'absent',
+        formality: 'direct',
+      },
+    },
+    preview: {
+      pageCount: 1,
+      pdfBytes: new Uint8Array([37, 80, 68, 70]),
+    },
+    profile: {
+      contact: {
+        email: 'ada@lovelace.dev',
+        location: 'London, United Kingdom',
+        phone: '+44 7700 900123',
+        professionalLink: 'ada-lovelace.dev',
+      },
+      experience: [
+        {
+          dateRange: '2022 - Present',
+          employer: 'Analytical Engines Ltd',
+          roleTitle: 'Principal Product Designer',
+          summary: 'Led product design for AI-assisted desktop tooling.',
+        },
+      ],
+      fullName: 'Ada Lovelace',
+      headline: 'Principal Product Designer',
+      skills: ['Product strategy', 'UX research', 'Workflow design'],
+      summary: 'Design leader focused on complex workflow products.',
+    },
+  })
   await expect(
     desktopApi.originalCv.importOriginalCv({
       content: new Uint8Array([80, 68, 70]),
@@ -475,20 +559,21 @@ test('preload exposes the AI worker onboarding queries and commands over typed I
   expect(invoke).toHaveBeenNthCalledWith(4, AI_WORKER_IPC_CHANNELS.getStartupDestination)
   expect(invoke).toHaveBeenNthCalledWith(5, AI_WORKER_IPC_CHANNELS.openSetupGuide)
   expect(invoke).toHaveBeenNthCalledWith(6, ORIGINAL_CV_IPC_CHANNELS.getWorkspaceState)
-  expect(invoke).toHaveBeenNthCalledWith(7, ORIGINAL_CV_IPC_CHANNELS.importOriginalCv, {
+  expect(invoke).toHaveBeenNthCalledWith(7, ORIGINAL_CV_IPC_CHANNELS.getActiveDetail)
+  expect(invoke).toHaveBeenNthCalledWith(8, ORIGINAL_CV_IPC_CHANNELS.importOriginalCv, {
     content: new Uint8Array([80, 68, 70]),
     filename: 'ada-lovelace-revised.docx',
   })
-  expect(invoke).toHaveBeenNthCalledWith(8, VACANCY_IPC_CHANNELS.getWorkspaceState)
-  expect(invoke).toHaveBeenNthCalledWith(9, VACANCY_IPC_CHANNELS.clearWorkspaceState)
-  expect(invoke).toHaveBeenNthCalledWith(10, VACANCY_IPC_CHANNELS.ingestUrl, {
+  expect(invoke).toHaveBeenNthCalledWith(9, VACANCY_IPC_CHANNELS.getWorkspaceState)
+  expect(invoke).toHaveBeenNthCalledWith(10, VACANCY_IPC_CHANNELS.clearWorkspaceState)
+  expect(invoke).toHaveBeenNthCalledWith(11, VACANCY_IPC_CHANNELS.ingestUrl, {
     url: 'https://boards.greenhouse.io/example/jobs/123',
   })
-  expect(invoke).toHaveBeenNthCalledWith(11, VACANCY_IPC_CHANNELS.ingestPasted, {
+  expect(invoke).toHaveBeenNthCalledWith(12, VACANCY_IPC_CHANNELS.ingestPasted, {
     text: 'Senior Product Designer',
     url: 'https://jobs.example.com/senior-product-designer',
   })
-  expect(invoke).toHaveBeenNthCalledWith(12, VACANCY_IPC_CHANNELS.openBrowserSession, {
+  expect(invoke).toHaveBeenNthCalledWith(13, VACANCY_IPC_CHANNELS.openBrowserSession, {
     url: 'https://www.linkedin.com/jobs/view/123456',
   })
 })

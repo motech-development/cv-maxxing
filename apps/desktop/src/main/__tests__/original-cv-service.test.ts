@@ -363,6 +363,111 @@ test('imports the first original CV snapshot and persists encrypted source, text
   await localAppData.close()
 })
 
+test('loads the active original CV detail from normalized artifacts and PDF bytes', async () => {
+  const paths = await createTestPaths()
+  const localAppData = await openLocalAppData({
+    keychain: createKeychainBoundary(),
+    paths,
+  })
+  const normalizationService = createNormalizationServiceMock(
+    vi.fn((): Promise<OriginalCvNormalizationResult> => {
+      return Promise.resolve({
+        normalizedCv: {
+          contact: createNormalizedContact(),
+          experience: [
+            createNormalizedExperienceEntry({
+              dateRange: '2022 - Present',
+            }),
+          ],
+          fullName: 'Ada Lovelace',
+          headline: 'Principal Product Designer',
+          skills: ['Workflow design', 'UX research', 'Product strategy'],
+          summary: 'Design leader focused on complex workflow products for technical users.',
+        },
+        writingStyle: {
+          averageSentenceLength: 13,
+          clicheDetections: ['results-driven'],
+          firstPersonUsage: 'mixed',
+          formality: 'formal',
+        },
+      })
+    }),
+  )
+  const originalCvService = createOriginalCvService({
+    extractTextFromDocx: vi.fn(),
+    extractTextFromPdf: vi.fn(() => {
+      return Promise.resolve({
+        pageCount: 2,
+        text: [
+          'Ada Lovelace',
+          'Principal Product Designer',
+          '',
+          'Summary',
+          'Design leader focused on complex workflow products for technical users.',
+          '',
+          'Experience',
+          'Principal Product Designer | Analytical Engines Ltd | 2022 - Present',
+          'Led product design for AI-assisted desktop tooling.',
+          '',
+          'Skills',
+          'Workflow design, UX research, Product strategy',
+        ].join('\n'),
+      })
+    }),
+    generateId: vi.fn(() => 'original-cv-detail-001'),
+    getCurrentTimestamp: vi.fn(() => '2026-04-08T14:30:00.000Z'),
+    localAppData,
+    normalizationService,
+  })
+
+  await originalCvService.importOriginalCv({
+    content: Buffer.from('%PDF-1.7 active', 'utf8'),
+    filename: 'ada-lovelace.pdf',
+  })
+
+  await expect(originalCvService.getActiveOriginalCvDetail()).resolves.toEqual({
+    originalCv: {
+      fileType: 'pdf',
+      headline: 'Principal Product Designer',
+      id: 'original-cv-detail-001',
+      importedAt: '2026-04-08T14:30:00.000Z',
+      originalFilename: 'ada-lovelace.pdf',
+      pageCount: 2,
+      snapshotCount: 1,
+      summary: 'Design leader focused on complex workflow products for technical users.',
+      writingStyle: {
+        averageSentenceLength: 13,
+        clicheDetections: ['results-driven'],
+        firstPersonUsage: 'mixed',
+        formality: 'formal',
+      },
+    },
+    preview: {
+      pageCount: 2,
+      pdfBytes: new Uint8Array(Buffer.from('%PDF-1.7 active', 'utf8')),
+    },
+    profile: {
+      contact: createNormalizedContact({
+        email: '',
+        location: '',
+        phone: '',
+        professionalLink: '',
+      }),
+      experience: [
+        createNormalizedExperienceEntry({
+          dateRange: '2022 - Present',
+        }),
+      ],
+      fullName: 'Ada Lovelace',
+      headline: 'Principal Product Designer',
+      skills: ['Workflow design', 'UX research', 'Product strategy'],
+      summary: 'Design leader focused on complex workflow products for technical users.',
+    },
+  })
+
+  await localAppData.close()
+})
+
 test('imports a DOCX original CV through the same AI-backed normalization path and preserves existing artifact names', async () => {
   const paths = await createTestPaths()
   const localAppData = await openLocalAppData({

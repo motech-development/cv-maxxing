@@ -1,5 +1,6 @@
 import type { AiWorkerPreflightResult } from './ai-worker-preflight.js'
 import type {
+  OriginalCvDetail,
   OriginalCvImportInput,
   OriginalCvImportResult,
   OriginalCvWorkspaceState,
@@ -35,6 +36,7 @@ export interface CvMaxxingWindowApi {
     startAiWorkerSignIn: () => Promise<AiWorkerPreflightResult>
   }
   originalCv: {
+    getActiveOriginalCvDetail: () => Promise<OriginalCvDetail | null>
     getOriginalCvWorkspaceState: () => Promise<OriginalCvWorkspaceState>
     importOriginalCv: (input: OriginalCvImportInput) => Promise<OriginalCvImportResult>
   }

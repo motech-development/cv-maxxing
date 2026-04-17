@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist/legacy/build/pdf.mjs'
 
-import type { TailoredApplicationPdfPreview } from '../../shared/tailored-application.js'
 import { Button } from './button.js'
 
 GlobalWorkerOptions.workerSrc = new URL(
@@ -9,9 +8,14 @@ GlobalWorkerOptions.workerSrc = new URL(
   import.meta.url,
 ).toString()
 
+interface PdfPreviewCardPreview {
+  pageCount: number
+  pdfBytes: Uint8Array
+}
+
 interface PdfPreviewCardProperties {
   emptyStateCopy: string
-  preview: TailoredApplicationPdfPreview | null
+  preview: PdfPreviewCardPreview | null
   previewKey: string
   title: string
 }
@@ -41,7 +45,7 @@ function LoadedPdfPreviewCard({
   preview,
   title,
 }: {
-  preview: TailoredApplicationPdfPreview
+  preview: PdfPreviewCardPreview
   title: string
 }) {
   const canvasReference = useRef<HTMLCanvasElement | null>(null)

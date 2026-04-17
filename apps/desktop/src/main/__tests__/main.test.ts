@@ -251,6 +251,48 @@ test('bootstrap registers the full AI worker onboarding IPC surface and opens th
     }),
   }
   const originalCv = {
+    getActiveOriginalCvDetail: vi.fn().mockResolvedValue({
+      originalCv: {
+        fileType: 'pdf',
+        headline: 'Principal Product Designer',
+        id: 'original-cv-123',
+        importedAt: '2026-04-08T14:30:00.000Z',
+        originalFilename: 'ada-lovelace.pdf',
+        pageCount: 1,
+        snapshotCount: 1,
+        summary: 'Design leader focused on complex workflow products.',
+        writingStyle: {
+          averageSentenceLength: 7,
+          clicheDetections: [],
+          firstPersonUsage: 'absent',
+          formality: 'direct',
+        },
+      },
+      preview: {
+        pageCount: 1,
+        pdfBytes: new Uint8Array([37, 80, 68, 70]),
+      },
+      profile: {
+        contact: {
+          email: 'ada@lovelace.dev',
+          location: 'London, United Kingdom',
+          phone: '+44 7700 900123',
+          professionalLink: 'ada-lovelace.dev',
+        },
+        experience: [
+          {
+            dateRange: '2022 - Present',
+            employer: 'Analytical Engines Ltd',
+            roleTitle: 'Principal Product Designer',
+            summary: 'Led product design for AI-assisted desktop tooling.',
+          },
+        ],
+        fullName: 'Ada Lovelace',
+        headline: 'Principal Product Designer',
+        skills: ['Workflow design', 'UX research', 'Product strategy'],
+        summary: 'Design leader focused on complex workflow products.',
+      },
+    }),
     getWorkspaceState: vi.fn().mockResolvedValue({
       activeOriginalCv: {
         fileType: 'pdf',
@@ -526,6 +568,50 @@ test('bootstrap registers the full AI worker onboarding IPC surface and opens th
       },
     },
     snapshotCount: 1,
+  })
+  await expect(
+    registeredHandlers.get(ORIGINAL_CV_IPC_CHANNELS.getActiveDetail)?.(),
+  ).resolves.toEqual({
+    originalCv: {
+      fileType: 'pdf',
+      headline: 'Principal Product Designer',
+      id: 'original-cv-123',
+      importedAt: '2026-04-08T14:30:00.000Z',
+      originalFilename: 'ada-lovelace.pdf',
+      pageCount: 1,
+      snapshotCount: 1,
+      summary: 'Design leader focused on complex workflow products.',
+      writingStyle: {
+        averageSentenceLength: 7,
+        clicheDetections: [],
+        firstPersonUsage: 'absent',
+        formality: 'direct',
+      },
+    },
+    preview: {
+      pageCount: 1,
+      pdfBytes: new Uint8Array([37, 80, 68, 70]),
+    },
+    profile: {
+      contact: {
+        email: 'ada@lovelace.dev',
+        location: 'London, United Kingdom',
+        phone: '+44 7700 900123',
+        professionalLink: 'ada-lovelace.dev',
+      },
+      experience: [
+        {
+          dateRange: '2022 - Present',
+          employer: 'Analytical Engines Ltd',
+          roleTitle: 'Principal Product Designer',
+          summary: 'Led product design for AI-assisted desktop tooling.',
+        },
+      ],
+      fullName: 'Ada Lovelace',
+      headline: 'Principal Product Designer',
+      skills: ['Workflow design', 'UX research', 'Product strategy'],
+      summary: 'Design leader focused on complex workflow products.',
+    },
   })
   await expect(
     registeredHandlers.get(ORIGINAL_CV_IPC_CHANNELS.importOriginalCv)?.(undefined, {
@@ -864,6 +950,7 @@ test('original CV import IPC returns the shared readiness model when the AI work
   }
   const onOriginalCvImported = vi.fn()
   const originalCv = {
+    getActiveOriginalCvDetail: vi.fn(),
     getWorkspaceState: vi.fn(),
     importOriginalCv: vi.fn(),
   }
@@ -938,6 +1025,7 @@ test('bootstrap imports the original CV using the startup preflight instead of t
   }
   const onOriginalCvImported = vi.fn()
   const originalCv = {
+    getActiveOriginalCvDetail: vi.fn(),
     getWorkspaceState: vi.fn(),
     importOriginalCv: vi.fn().mockResolvedValue({
       fileType: 'docx',
@@ -1046,6 +1134,7 @@ test('bootstrap recreates the window on activate and quits on window-all-closed 
     },
     onOriginalCvImported: vi.fn().mockImplementation(() => Promise.resolve()),
     originalCv: {
+      getActiveOriginalCvDetail: vi.fn(),
       getWorkspaceState: vi.fn().mockResolvedValue({
         activeOriginalCv: null,
         snapshotCount: 0,
@@ -1129,6 +1218,7 @@ test('bootstrap logs and swallows activate window recreation failures', async ()
     },
     onOriginalCvImported: vi.fn().mockImplementation(() => Promise.resolve()),
     originalCv: {
+      getActiveOriginalCvDetail: vi.fn(),
       getWorkspaceState: vi.fn().mockResolvedValue({
         activeOriginalCv: null,
         snapshotCount: 0,
@@ -1193,6 +1283,7 @@ test('bootstrap keeps the app open when every window closes on macOS', async () 
     },
     onOriginalCvImported: vi.fn().mockImplementation(() => Promise.resolve()),
     originalCv: {
+      getActiveOriginalCvDetail: vi.fn(),
       getWorkspaceState: vi.fn().mockResolvedValue({
         activeOriginalCv: null,
         snapshotCount: 0,
@@ -1250,6 +1341,7 @@ test('bootstrap hides the native macOS title bar chrome when opening the main wi
     },
     onOriginalCvImported: vi.fn().mockImplementation(() => Promise.resolve()),
     originalCv: {
+      getActiveOriginalCvDetail: vi.fn(),
       getWorkspaceState: vi.fn().mockResolvedValue({
         activeOriginalCv: null,
         snapshotCount: 0,
@@ -1314,6 +1406,7 @@ test('bootstrap can keep the desktop window hidden for deterministic visual capt
     mainWindowShow: false,
     onOriginalCvImported: vi.fn().mockImplementation(() => Promise.resolve()),
     originalCv: {
+      getActiveOriginalCvDetail: vi.fn(),
       getWorkspaceState: vi.fn().mockResolvedValue({
         activeOriginalCv: null,
         snapshotCount: 0,
@@ -1404,6 +1497,7 @@ test('runtime dependencies adapt Electron primitives for the bootstrap contract'
     },
     onOriginalCvImported: vi.fn().mockImplementation(() => Promise.resolve()),
     originalCv: {
+      getActiveOriginalCvDetail: vi.fn(),
       getWorkspaceState: vi.fn().mockResolvedValue({
         activeOriginalCv: null,
         snapshotCount: 0,
@@ -1515,6 +1609,7 @@ test('createElectronRuntimeDependencies exposes a Darwin dock icon setter backed
     },
     onOriginalCvImported: vi.fn().mockImplementation(() => Promise.resolve()),
     originalCv: {
+      getActiveOriginalCvDetail: vi.fn(),
       getWorkspaceState: vi.fn().mockResolvedValue({
         activeOriginalCv: null,
         snapshotCount: 0,

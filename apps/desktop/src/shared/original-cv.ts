@@ -29,6 +29,40 @@ export interface OriginalCvSummary {
   writingStyle: OriginalCvWritingStyle
 }
 
+export interface OriginalCvContact {
+  email: string
+  location: string
+  phone: string
+  professionalLink: string
+}
+
+export interface OriginalCvExperienceEntry {
+  dateRange: string
+  employer: string
+  roleTitle: string
+  summary: string
+}
+
+export interface OriginalCvProfile {
+  contact: OriginalCvContact
+  experience: OriginalCvExperienceEntry[]
+  fullName: string
+  headline: string
+  skills: string[]
+  summary: string
+}
+
+export interface OriginalCvPdfPreview {
+  pageCount: number
+  pdfBytes: Uint8Array
+}
+
+export interface OriginalCvDetail {
+  originalCv: OriginalCvSummary
+  preview: OriginalCvPdfPreview | null
+  profile: OriginalCvProfile
+}
+
 export interface OriginalCvWorkspaceState {
   activeOriginalCv: OriginalCvSummary | null
   snapshotCount: number

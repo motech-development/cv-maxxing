@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promis
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 
-import { expect, test } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
 import { strToU8, zipSync } from 'fflate'
 import { _electron as electron } from 'playwright'
 import { getDocument } from 'pdfjs-dist/legacy/build/pdf.mjs'
@@ -43,7 +43,33 @@ test.afterEach(async () => {
   )
 })
 
-test('imports the first PDF original CV and lands on the workspace-empty screen', async () => {
+async function expectActiveOriginalCv(page: Page, filename: string) {
+  await expect(page.getByRole('heading', { name: 'Active original CV' })).toBeVisible()
+  await expect(page.getByText('Extracted profile')).toBeVisible()
+  await expect(page.getByText(filename)).toBeVisible()
+}
+
+async function importOriginalCvFromFirstLaunch({
+  filename,
+  filePath,
+  page,
+}: {
+  filename: string
+  filePath: string
+  page: Page
+}) {
+  await expect(page.getByRole('heading', { name: 'Add a CV' })).toBeVisible()
+  await page.getByLabel('Your CV file').setInputFiles(filePath)
+  await page.getByRole('button', { name: 'Add a CV' }).click()
+  await expectActiveOriginalCv(page, filename)
+}
+
+async function openJobsFromYourCv(page: Page) {
+  await page.getByRole('button', { name: 'Jobs' }).click()
+  await expect(page.getByRole('heading', { name: 'Add a job' })).toBeVisible()
+}
+
+test('imports the first PDF original CV and lands on the populated Your CV screen', async () => {
   const testPaths = await createOriginalCvTestPaths()
 
   await writeFile(
@@ -69,11 +95,11 @@ test('imports the first PDF original CV and lands on the workspace-empty screen'
 
   const page = await electronApp.firstWindow()
 
-  await expect(page.getByRole('heading', { name: 'Add your CV' })).toBeVisible()
-  await page.getByLabel('Your CV file').setInputFiles(testPaths.pdfPath)
-  await page.getByRole('button', { name: 'Add your CV' }).click()
-  await expect(page.getByRole('heading', { name: 'Add a job' })).toBeVisible()
-  await expect(page.getByText('No jobs yet')).toBeVisible()
+  await importOriginalCvFromFirstLaunch({
+    filename: 'ada-lovelace.pdf',
+    filePath: testPaths.pdfPath,
+    page,
+  })
   await expect(page.getByText('Your CV', { exact: true })).toBeVisible()
   await expect(page.getByText('ada-lovelace.pdf')).toBeVisible()
 
@@ -97,13 +123,13 @@ test('rejects unreadable original CV imports without leaving the first-launch fl
 
   const page = await electronApp.firstWindow()
 
-  await expect(page.getByRole('heading', { name: 'Add your CV' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Add a CV' })).toBeVisible()
   await page.getByLabel('Your CV file').setInputFiles(testPaths.pdfPath)
-  await page.getByRole('button', { name: 'Add your CV' }).click()
+  await page.getByRole('button', { name: 'Add a CV' }).click()
   await expect(
-    page.getByText("We couldn't read enough from this CV. Use a text-based PDF or DOCX."),
+    page.getByText("We couldn't read enough from this CV. Use a text-based PDF or DOCX.").first(),
   ).toBeVisible()
-  await expect(page.getByRole('heading', { name: 'Add your CV' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Add a CV' })).toBeVisible()
 
   await electronApp.close()
 })
@@ -134,15 +160,17 @@ test('rejects non-English original CV imports without leaving the first-launch f
 
   const page = await electronApp.firstWindow()
 
-  await expect(page.getByRole('heading', { name: 'Add your CV' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Add a CV' })).toBeVisible()
   await page.getByLabel('Your CV file').setInputFiles(testPaths.docxPath)
-  await page.getByRole('button', { name: 'Add your CV' }).click()
+  await page.getByRole('button', { name: 'Add a CV' }).click()
   await expect(
-    page.getByText(
-      'CV Maxxing v1 supports British English only. Use an English original CV to continue.',
-    ),
+    page
+      .getByText(
+        'CV Maxxing v1 supports British English only. Use an English original CV to continue.',
+      )
+      .first(),
   ).toBeVisible()
-  await expect(page.getByRole('heading', { name: 'Add your CV' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Add a CV' })).toBeVisible()
 
   await electronApp.close()
 })
@@ -187,11 +215,11 @@ test('replaces the active original CV from the workspace with a DOCX snapshot', 
 
   let page = await electronApp.firstWindow()
 
-  await expect(page.getByRole('heading', { name: 'Add your CV' })).toBeVisible()
-  await page.getByLabel('Your CV file').setInputFiles(testPaths.pdfPath)
-  await page.getByRole('button', { name: 'Add your CV' }).click()
-  await expect(page.getByRole('heading', { name: 'Add a job' })).toBeVisible()
-  await expect(page.getByText('ada-lovelace.pdf')).toBeVisible()
+  await importOriginalCvFromFirstLaunch({
+    filename: 'ada-lovelace.pdf',
+    filePath: testPaths.pdfPath,
+    page,
+  })
 
   await electronApp.close()
 
@@ -216,12 +244,10 @@ test('replaces the active original CV from the workspace with a DOCX snapshot', 
 
   page = await electronApp.firstWindow()
 
-  await expect(page.getByRole('heading', { name: 'Add a job' })).toBeVisible()
-  await expect(page.getByText('ada-lovelace.pdf')).toBeVisible()
+  await expectActiveOriginalCv(page, 'ada-lovelace.pdf')
   await page.getByLabel('Replacement CV file').setInputFiles(testPaths.docxPath)
   await page.getByRole('button', { name: 'Update your CV' }).click()
-  await expect(page.getByRole('heading', { name: 'Add a job' })).toBeVisible()
-  await expect(page.getByText('ada-lovelace-revised.docx')).toBeVisible()
+  await expectActiveOriginalCv(page, 'ada-lovelace-revised.docx')
   await expect(page.getByText('2 versions')).toBeVisible()
 
   await electronApp.close()
@@ -259,17 +285,17 @@ test('rejects an unreadable original CV replacement without leaving the workspac
 
   const page = await electronApp.firstWindow()
 
-  await expect(page.getByRole('heading', { name: 'Add your CV' })).toBeVisible()
-  await page.getByLabel('Your CV file').setInputFiles(testPaths.pdfPath)
-  await page.getByRole('button', { name: 'Add your CV' }).click()
-  await expect(page.getByRole('heading', { name: 'Add a job' })).toBeVisible()
+  await importOriginalCvFromFirstLaunch({
+    filename: 'ada-lovelace.pdf',
+    filePath: testPaths.pdfPath,
+    page,
+  })
   await page.getByLabel('Replacement CV file').setInputFiles(testPaths.unreadablePdfPath)
   await page.getByRole('button', { name: 'Update your CV' }).click()
   await expect(
-    page.getByText("We couldn't read enough from this CV. Use a text-based PDF or DOCX."),
+    page.getByText("We couldn't read enough from this CV. Use a text-based PDF or DOCX.").first(),
   ).toBeVisible()
-  await expect(page.getByRole('heading', { name: 'Add a job' })).toBeVisible()
-  await expect(page.getByText('ada-lovelace.pdf')).toBeVisible()
+  await expectActiveOriginalCv(page, 'ada-lovelace.pdf')
   await expect(page.getByText('1 version')).toBeVisible()
 
   await electronApp.close()
@@ -330,10 +356,12 @@ test('captures a LinkedIn vacancy through the internal browser session and resto
 
   const page = await electronApp.firstWindow()
 
-  await expect(page.getByRole('heading', { name: 'Add your CV' })).toBeVisible()
-  await page.getByLabel('Your CV file').setInputFiles(testPaths.pdfPath)
-  await page.getByRole('button', { name: 'Add your CV' }).click()
-  await expect(page.getByRole('heading', { name: 'Add a job' })).toBeVisible()
+  await importOriginalCvFromFirstLaunch({
+    filename: 'ada-lovelace.pdf',
+    filePath: testPaths.pdfPath,
+    page,
+  })
+  await openJobsFromYourCv(page)
   await page.getByLabel('Job link').fill('https://www.linkedin.com/jobs/view/123456')
   await page.getByRole('button', { name: 'Check job details' }).first().click()
   await expect(page.getByText('Senior Product Designer')).toBeVisible()
@@ -399,10 +427,12 @@ test('returns cleanly to the vacancy intake with blocking guidance when the inte
 
   const page = await electronApp.firstWindow()
 
-  await expect(page.getByRole('heading', { name: 'Add your CV' })).toBeVisible()
-  await page.getByLabel('Your CV file').setInputFiles(testPaths.pdfPath)
-  await page.getByRole('button', { name: 'Add your CV' }).click()
-  await expect(page.getByRole('heading', { name: 'Add a job' })).toBeVisible()
+  await importOriginalCvFromFirstLaunch({
+    filename: 'ada-lovelace.pdf',
+    filePath: testPaths.pdfPath,
+    page,
+  })
+  await openJobsFromYourCv(page)
   await page.getByLabel('Job link').fill('https://www.linkedin.com/jobs/view/123456')
   await page.getByRole('button', { name: 'Check job details' }).first().click()
   await expect
@@ -466,10 +496,12 @@ test('blocks a non-English pasted vacancy, preserves the draft, and keeps Tailor
     '- Comunicación escrita sólida.',
   ].join('\n')
 
-  await expect(page.getByRole('heading', { name: 'Add your CV' })).toBeVisible()
-  await page.getByLabel('Your CV file').setInputFiles(testPaths.pdfPath)
-  await page.getByRole('button', { name: 'Add your CV' }).click()
-  await expect(page.getByRole('heading', { name: 'Add a job' })).toBeVisible()
+  await importOriginalCvFromFirstLaunch({
+    filename: 'ada-lovelace.pdf',
+    filePath: testPaths.pdfPath,
+    page,
+  })
+  await openJobsFromYourCv(page)
   await page.getByLabel('Job link').fill('https://jobs.example.com/platform-engineer-es')
   await page.getByLabel('Job description').fill(nonEnglishVacancyText)
   await page.getByRole('button', { name: 'Check job details' }).nth(1).click()
@@ -498,8 +530,8 @@ test('retries from an unavailable startup state and returns to first launch afte
 
   await expect(page.getByRole('button', { name: 'Try again' })).toBeVisible()
   await page.getByRole('button', { name: 'Try again' }).click()
-  await expect(page.getByRole('heading', { name: 'Add your CV' })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Add your CV' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Add a CV' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Add a CV' })).toBeVisible()
 
   await electronApp.close()
 })
@@ -534,10 +566,12 @@ test('returns to the workspace overlay after sign-in repair for a pending genera
 
   const page = await electronApp.firstWindow()
 
-  await expect(page.getByRole('heading', { name: 'Add your CV' })).toBeVisible()
-  await page.getByLabel('Your CV file').setInputFiles(testPaths.pdfPath)
-  await page.getByRole('button', { name: 'Add your CV' }).click()
-  await expect(page.getByRole('heading', { name: 'Add a job' })).toBeVisible()
+  await importOriginalCvFromFirstLaunch({
+    filename: 'ada-lovelace.pdf',
+    filePath: testPaths.pdfPath,
+    page,
+  })
+  await openJobsFromYourCv(page)
   await page
     .getByLabel('Job description')
     .fill(
@@ -603,10 +637,12 @@ test('returns to the workspace with a visible error when generation fails contra
 
   const page = await electronApp.firstWindow()
 
-  await expect(page.getByRole('heading', { name: 'Add your CV' })).toBeVisible()
-  await page.getByLabel('Your CV file').setInputFiles(testPaths.pdfPath)
-  await page.getByRole('button', { name: 'Add your CV' }).click()
-  await expect(page.getByRole('heading', { name: 'Add a job' })).toBeVisible()
+  await importOriginalCvFromFirstLaunch({
+    filename: 'ada-lovelace.pdf',
+    filePath: testPaths.pdfPath,
+    page,
+  })
+  await openJobsFromYourCv(page)
   await page
     .getByLabel('Job description')
     .fill(
@@ -665,10 +701,12 @@ test('persists pending generation before repair and clears it after completion',
 
   let page = await electronApp.firstWindow()
 
-  await expect(page.getByRole('heading', { name: 'Add your CV' })).toBeVisible()
-  await page.getByLabel('Your CV file').setInputFiles(testPaths.pdfPath)
-  await page.getByRole('button', { name: 'Add your CV' }).click()
-  await expect(page.getByRole('heading', { name: 'Add a job' })).toBeVisible()
+  await importOriginalCvFromFirstLaunch({
+    filename: 'ada-lovelace.pdf',
+    filePath: testPaths.pdfPath,
+    page,
+  })
+  await openJobsFromYourCv(page)
   await page
     .getByLabel('Job description')
     .fill(
@@ -768,10 +806,12 @@ test('renders the stored adapted CV PDF artifact and exports a readable non-over
     }
   })
 
-  await expect(page.getByRole('heading', { name: 'Add your CV' })).toBeVisible()
-  await page.getByLabel('Your CV file').setInputFiles(testPaths.pdfPath)
-  await page.getByRole('button', { name: 'Add your CV' }).click()
-  await expect(page.getByRole('heading', { name: 'Add a job' })).toBeVisible()
+  await importOriginalCvFromFirstLaunch({
+    filename: 'ada-lovelace.pdf',
+    filePath: testPaths.pdfPath,
+    page,
+  })
+  await openJobsFromYourCv(page)
   await page
     .getByLabel('Job description')
     .fill(
@@ -880,7 +920,7 @@ test('does not infer a saved tailored application from the unified workspace sta
 
   const page = await electronApp.firstWindow()
 
-  await expect(page.getByRole('heading', { name: 'Add your CV' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Add a CV' })).toBeVisible()
 
   await electronApp.close()
 })
@@ -894,7 +934,7 @@ test('retries the AI from settings and routes back to repair when the fresh chec
 
   const page = await electronApp.firstWindow()
 
-  await expect(page.getByRole('heading', { name: 'Add your CV' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Add a CV' })).toBeVisible()
   await page.getByRole('button', { name: 'Settings' }).click()
   await expect(page.getByRole('heading', { name: 'AI' })).toBeVisible()
   await page.getByRole('button', { name: 'Try again' }).click()
@@ -939,9 +979,11 @@ test('clears job-site browser data from settings without deleting the active ori
 
   const page = await electronApp.firstWindow()
 
-  await page.getByLabel('Your CV file').setInputFiles(testPaths.pdfPath)
-  await page.getByRole('button', { name: 'Add your CV' }).click()
-  await expect(page.getByRole('heading', { name: 'Add a job' })).toBeVisible()
+  await importOriginalCvFromFirstLaunch({
+    filename: 'ada-lovelace.pdf',
+    filePath: testPaths.pdfPath,
+    page,
+  })
   await page.getByRole('button', { name: 'Settings' }).click()
   await page.getByRole('button', { name: 'Show Local data settings' }).click()
   await expect(page.getByRole('heading', { name: 'Local data' })).toBeVisible()
@@ -995,9 +1037,11 @@ test('requires RESET before destructive local reset and returns to first launch 
 
   const page = await electronApp.firstWindow()
 
-  await page.getByLabel('Your CV file').setInputFiles(testPaths.pdfPath)
-  await page.getByRole('button', { name: 'Add your CV' }).click()
-  await expect(page.getByRole('heading', { name: 'Add a job' })).toBeVisible()
+  await importOriginalCvFromFirstLaunch({
+    filename: 'ada-lovelace.pdf',
+    filePath: testPaths.pdfPath,
+    page,
+  })
   await page.getByRole('button', { name: 'Settings' }).click()
   await page.getByRole('button', { name: 'Show Local data settings' }).click()
   await page.getByRole('button', { name: 'Reset local app data' }).click()
@@ -1007,7 +1051,7 @@ test('requires RESET before destructive local reset and returns to first launch 
   await page.getByLabel('Type RESET to confirm destructive reset').fill('RESET')
   await expect(resetButton).toBeEnabled()
   await resetButton.click()
-  await expect(page.getByRole('heading', { name: 'Add your CV' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Add a CV' })).toBeVisible()
 
   await electronApp.close()
 

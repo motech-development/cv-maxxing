@@ -91,6 +91,7 @@ test('bootstrap registers settings IPC handlers and delegates privacy actions to
     },
     onOriginalCvImported: vi.fn(() => Promise.resolve()),
     originalCv: {
+      getActiveOriginalCvDetail: vi.fn(),
       getWorkspaceState: vi.fn().mockResolvedValue({
         activeOriginalCv: null,
         snapshotCount: 0,

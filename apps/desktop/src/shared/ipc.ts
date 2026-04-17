@@ -7,6 +7,7 @@ export const AI_WORKER_IPC_CHANNELS = {
 } as const
 
 export const ORIGINAL_CV_IPC_CHANNELS = {
+  getActiveDetail: 'original-cv:get-active-detail',
   getWorkspaceState: 'original-cv:get-workspace-state',
   importOriginalCv: 'original-cv:import',
 } as const

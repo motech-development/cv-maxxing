@@ -8,6 +8,7 @@ import {
 } from '../shared/ipc.js'
 import type { AiWorkerPreflightResult } from '../shared/ai-worker-preflight.js'
 import type {
+  OriginalCvDetail,
   OriginalCvImportInput,
   OriginalCvImportResult,
   OriginalCvWorkspaceState,
@@ -60,6 +61,9 @@ export function createDesktopApi({ invoke }: DesktopApiInvoker): CvMaxxingWindow
       },
     },
     originalCv: {
+      getActiveOriginalCvDetail: async (): Promise<OriginalCvDetail | null> => {
+        return await invoke(ORIGINAL_CV_IPC_CHANNELS.getActiveDetail)
+      },
       getOriginalCvWorkspaceState: async (): Promise<OriginalCvWorkspaceState> => {
         return await invoke(ORIGINAL_CV_IPC_CHANNELS.getWorkspaceState)
       },

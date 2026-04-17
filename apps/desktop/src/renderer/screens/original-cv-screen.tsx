@@ -1,13 +1,15 @@
 import type { ChangeEvent, DragEvent, KeyboardEvent, ReactNode } from 'react'
 
-import type { OriginalCvSummary } from '../../shared/original-cv.js'
+import type { OriginalCvDetail, OriginalCvSummary } from '../../shared/original-cv.js'
 import { DesktopShell, type RailItemId } from '../shell/desktop-shell.js'
 import { SidebarContainer } from '../shell/sidebar-container.js'
 import { Button } from '../ui/button.js'
 import { PanelCard } from '../ui/panel-card.js'
+import { PdfPreviewCard } from '../ui/pdf-preview-card.js'
 import { SectionLabel } from '../ui/section-label.js'
 
 interface OriginalCvScreenProperties {
+  activeOriginalCvDetail?: OriginalCvDetail | null
   activeOriginalCv: OriginalCvSummary | null
   ambientActivityLabel?: string | null
   importError: string | null
@@ -15,8 +17,10 @@ interface OriginalCvScreenProperties {
   onFileDrop: (event: DragEvent<HTMLElement>) => void
   onFileSelection: (event: ChangeEvent<HTMLInputElement>) => void
   onImportOriginalCv: () => void
+  onSelectOriginalCv?: () => void
   onSelectRailItem?: (item: RailItemId) => void
   originalCvFile: File | null
+  workspaceError?: string | null
   workspaceOverlay?: ReactNode
 }
 
@@ -32,6 +36,7 @@ function handleDropzoneKeyDown(event: KeyboardEvent<HTMLDivElement>): void {
 }
 
 export function OriginalCvScreen({
+  activeOriginalCvDetail,
   activeOriginalCv,
   ambientActivityLabel,
   importError,
@@ -39,8 +44,10 @@ export function OriginalCvScreen({
   onFileDrop,
   onFileSelection,
   onImportOriginalCv,
+  onSelectOriginalCv,
   onSelectRailItem,
   originalCvFile,
+  workspaceError,
   workspaceOverlay,
 }: OriginalCvScreenProperties) {
   const handleSidebarAction = (): void => {
@@ -84,7 +91,7 @@ export function OriginalCvScreen({
               </p>
             </>
           ) : (
-            <OriginalCvSidebarItem originalCv={activeOriginalCv} />
+            <OriginalCvSidebarItem onSelect={onSelectOriginalCv} originalCv={activeOriginalCv} />
           )}
           {importError ? (
             <p className="m-0 text-xs leading-5 text-[var(--color-status-danger)]">{importError}</p>
@@ -109,7 +116,11 @@ export function OriginalCvScreen({
           originalCvFile={originalCvFile}
         />
       ) : (
-        <OriginalCvActiveState originalCv={activeOriginalCv} />
+        <OriginalCvActiveState
+          originalCv={activeOriginalCv}
+          originalCvDetail={activeOriginalCvDetail}
+          workspaceError={workspaceError ?? null}
+        />
       )}
     </DesktopShell>
   )
@@ -172,7 +183,24 @@ function OriginalCvEmptyState({
   )
 }
 
-function OriginalCvActiveState({ originalCv }: { originalCv: OriginalCvSummary }) {
+function OriginalCvActiveState({
+  originalCv,
+  originalCvDetail,
+  workspaceError,
+}: {
+  originalCv: OriginalCvSummary
+  originalCvDetail: OriginalCvDetail | null | undefined
+  workspaceError: string | null
+}) {
+  const resolvedName =
+    originalCvDetail?.profile.fullName.trim() === ''
+      ? originalCv.headline
+      : (originalCvDetail?.profile.fullName ?? originalCv.headline)
+  const previewEmptyStateCopy =
+    originalCvDetail?.originalCv.fileType === 'pdf'
+      ? 'Your original CV preview will appear here.'
+      : 'Previews are only available for PDF uploads.'
+
   return (
     <>
       <h1 className="m-0 text-[32px] font-extrabold tracking-[-0.03em] text-[var(--color-copy-strong)]">
@@ -182,18 +210,106 @@ function OriginalCvActiveState({ originalCv }: { originalCv: OriginalCvSummary }
         Add a CV to create a new snapshot. Existing tailored applications keep the snapshot they
         were generated from.
       </p>
-
-      <PanelCard className="mt-6 max-w-3xl p-6">
-        <div className="flex flex-col gap-5">
-          <OriginalCvMetadataRow label="Original filename" value={originalCv.originalFilename} />
-          <OriginalCvMetadataRow label="Headline" value={originalCv.headline} />
-          <OriginalCvMetadataRow
-            label="Imported"
-            value={`${formatTimestamp(originalCv.importedAt)} · ${formatPageCount(originalCv.pageCount)}`}
-          />
-          <OriginalCvMetadataRow label="Summary" value={originalCv.summary} />
+      {workspaceError ? (
+        <div
+          aria-atomic="true"
+          aria-live="assertive"
+          className="mt-4 max-w-4xl rounded-[var(--radius-card)] border border-[var(--color-status-danger)]/20 bg-[var(--color-surface-danger)] px-4 py-3 text-sm leading-6 text-[var(--color-status-danger)]"
+          role="alert"
+        >
+          {workspaceError}
         </div>
-      </PanelCard>
+      ) : null}
+      {originalCvDetail === null || originalCvDetail === undefined ? (
+        <PanelCard className="mt-6 max-w-3xl p-6">
+          <div className="flex flex-col gap-5">
+            <OriginalCvMetadataRow label="Original filename" value={originalCv.originalFilename} />
+            <OriginalCvMetadataRow label="Headline" value={originalCv.headline} />
+            <OriginalCvMetadataRow
+              label="Imported"
+              value={`${formatTimestamp(originalCv.importedAt)} · ${formatPageCount(originalCv.pageCount)}`}
+            />
+            <OriginalCvMetadataRow label="Summary" value={originalCv.summary} />
+          </div>
+        </PanelCard>
+      ) : (
+        <div className="mt-4 flex min-h-0 min-w-0 flex-1 gap-4">
+          <div className="flex min-h-0 min-w-0 flex-[1.7] flex-col gap-3">
+            <p className="m-0 text-2xl font-extrabold uppercase tracking-[-0.02em] text-[var(--color-copy-strong)]">
+              {resolvedName}
+            </p>
+            <PdfPreviewCard
+              emptyStateCopy={previewEmptyStateCopy}
+              preview={originalCvDetail.preview}
+              previewKey={originalCvDetail.originalCv.id}
+              title="Original CV"
+            />
+          </div>
+
+          <section className="flex h-full w-[320px] shrink-0 flex-col gap-4 overflow-y-auto rounded-[var(--radius-card)] border border-[var(--color-border)] bg-[var(--color-surface-1)] p-[18px]">
+            <div className="flex flex-col gap-2">
+              <h2 className="m-0 text-lg font-extrabold text-[var(--color-copy-strong)]">
+                Extracted profile
+              </h2>
+              <p className="m-0 text-xs leading-5 text-[var(--color-copy-muted)]">
+                The app stores structured CV content, original writing style, and PDF artifacts as
+                encrypted local data.
+              </p>
+            </div>
+            <ProfileSection title="Summary">
+              <p className="m-0 text-xs leading-5 text-[var(--color-copy-muted)]">
+                {originalCvDetail.profile.summary}
+              </p>
+            </ProfileSection>
+            <ProfileSection title="Contact">
+              <ProfileField label="Email" value={originalCvDetail.profile.contact.email} />
+              <ProfileField label="Location" value={originalCvDetail.profile.contact.location} />
+              <ProfileField label="Phone" value={originalCvDetail.profile.contact.phone} />
+              <ProfileField
+                label="Link"
+                value={originalCvDetail.profile.contact.professionalLink}
+              />
+            </ProfileSection>
+            <ProfileSection title="Skills">
+              <div className="flex flex-wrap gap-2">
+                {originalCvDetail.profile.skills.map((skill, index) => {
+                  return (
+                    <span
+                      className="rounded-[8px] bg-[var(--color-surface-2)] px-3 py-2 text-xs font-extrabold text-[var(--color-copy-strong)]"
+                      key={`${skill}-${String(index)}`}
+                    >
+                      {skill}
+                    </span>
+                  )
+                })}
+              </div>
+            </ProfileSection>
+            <ProfileSection title="Experience">
+              <div className="flex flex-col gap-3">
+                {originalCvDetail.profile.experience.map((entry, index) => {
+                  return (
+                    <div
+                      className="rounded-[8px] bg-white p-3"
+                      key={`${entry.roleTitle}-${entry.employer}-${String(index)}`}
+                    >
+                      <p className="m-0 text-xs font-extrabold text-[var(--color-copy-strong)]">
+                        {entry.roleTitle}
+                      </p>
+                      <p className="m-0 text-xs leading-5 text-[var(--color-copy-muted)]">
+                        {entry.employer}
+                        {entry.dateRange === '' ? '' : ` · ${entry.dateRange}`}
+                      </p>
+                      <p className="mt-2 text-xs leading-5 text-[var(--color-copy-muted)]">
+                        {entry.summary}
+                      </p>
+                    </div>
+                  )
+                })}
+              </div>
+            </ProfileSection>
+          </section>
+        </div>
+      )}
     </>
   )
 }
@@ -209,19 +325,57 @@ function OriginalCvMetadataRow({ label, value }: { label: string; value: string 
   )
 }
 
-function OriginalCvSidebarItem({ originalCv }: { originalCv: OriginalCvSummary }) {
+function OriginalCvSidebarItem({
+  onSelect,
+  originalCv,
+}: {
+  onSelect?: () => void
+  originalCv: OriginalCvSummary
+}) {
   return (
     <PanelCard className="bg-[var(--color-surface-3)] p-3">
-      <div aria-current="page" aria-label="Open active original CV" className="w-full text-left">
+      <button
+        aria-current="page"
+        aria-label="Open active original CV"
+        className="w-full rounded-[8px] text-left outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ink-900)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-surface-3)]"
+        onClick={onSelect}
+        type="button"
+      >
         <p className="m-0 text-sm font-extrabold text-[var(--color-copy-strong)]">
-          {originalCv.headline}
+          {originalCv.originalFilename}
         </p>
         <p className="mt-1 text-xs leading-5 text-[var(--color-copy-muted)]">
           Imported {formatTimestamp(originalCv.importedAt)} ·{' '}
           {formatPageCount(originalCv.pageCount)}
         </p>
-      </div>
+      </button>
     </PanelCard>
+  )
+}
+
+function ProfileField({ label, value }: { label: string; value: string }) {
+  if (value.trim() === '') {
+    return null
+  }
+
+  return (
+    <div className="flex flex-col gap-1">
+      <p className="m-0 text-[11px] font-extrabold uppercase tracking-[0.12em] text-[var(--color-copy-subtle)]">
+        {label}
+      </p>
+      <p className="m-0 text-xs leading-5 text-[var(--color-copy-strong)]">{value}</p>
+    </div>
+  )
+}
+
+function ProfileSection({ children, title }: { children: ReactNode; title: string }) {
+  return (
+    <section className="flex flex-col gap-3">
+      <h3 className="m-0 text-[11px] font-extrabold uppercase tracking-[0.12em] text-[var(--color-copy-subtle)]">
+        {title}
+      </h3>
+      {children}
+    </section>
   )
 }
 

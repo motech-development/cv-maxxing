@@ -3,6 +3,7 @@ import { queryOptions } from '@tanstack/react-query'
 import { createReadinessRouteViewModel } from '../readiness/readiness-route.js'
 
 export const rendererQueryKeys = {
+  originalCvDetail: ['original-cv', 'active-detail'] as const,
   originalCvWorkspace: ['original-cv', 'workspace'] as const,
   pendingGeneration: ['tailored-application', 'pending-generation'] as const,
   readiness: ['readiness-route'] as const,
@@ -15,6 +16,19 @@ export const rendererQueryKeys = {
 
 export function createTailoredApplicationPreviewQueryKey(tailoredApplicationId: string) {
   return [...rendererQueryKeys.tailoredApplicationPreviewRoot, tailoredApplicationId] as const
+}
+
+export function createActiveOriginalCvDetailQueryKey(originalCvId: string) {
+  return [...rendererQueryKeys.originalCvDetail, originalCvId] as const
+}
+
+export function getActiveOriginalCvDetailQueryOptions(originalCvId: string) {
+  return queryOptions({
+    queryFn: async () => {
+      return await globalThis.window.cvMaxxing.originalCv.getActiveOriginalCvDetail()
+    },
+    queryKey: createActiveOriginalCvDetailQueryKey(originalCvId),
+  })
 }
 
 export function getReadinessViewModelQueryOptions() {

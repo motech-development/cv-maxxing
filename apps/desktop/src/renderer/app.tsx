@@ -37,6 +37,7 @@ import { OriginalCvScreen } from './screens/original-cv-screen.js'
 import { SettingsScreen, type SettingsSection } from './screens/settings-screen.js'
 import { WorkspaceScreen } from './screens/workspace-screen.js'
 import {
+  getActiveOriginalCvDetailQueryOptions,
   getOriginalCvWorkspaceStateQueryOptions,
   getPendingGenerationCommandQueryOptions,
   getReadinessViewModelQueryOptions,
@@ -183,6 +184,21 @@ export function App() {
   const persistedWorkspaceSelection =
     workspaceSelectionQuery.data ?? createDefaultWorkspaceSelection()
   const activeWorkspaceSection = persistedWorkspaceSelection.topLevelSection
+  const activeOriginalCvId = originalCvWorkspaceState.activeOriginalCv?.id ?? null
+  const originalCvDetailQuery = useQuery({
+    ...(activeOriginalCvId === null
+      ? {
+          queryFn: () => Promise.resolve(null),
+          queryKey: [...rendererQueryKeys.originalCvDetail, 'none'] as const,
+        }
+      : getActiveOriginalCvDetailQueryOptions(activeOriginalCvId)),
+    enabled:
+      viewModel.canEnterWorkspace &&
+      activeWorkspaceSection === 'original_cv' &&
+      activeOriginalCvId !== null,
+  })
+  const activeOriginalCvDetail =
+    activeWorkspaceSection === 'original_cv' ? originalCvDetailQuery.data : null
   const reviewedVacancyPreview = vacancyWorkspaceState.vacancy ?? vacancyPreviewOverride
   const isCurrentDraftMeaningful = isVacancyDraftMeaningful({
     draft: vacancyDraft,
@@ -233,6 +249,9 @@ export function App() {
 
   const invalidateWorkspaceQueries = async (): Promise<void> => {
     await Promise.all([
+      queryClient.invalidateQueries({
+        queryKey: rendererQueryKeys.originalCvDetail,
+      }),
       queryClient.invalidateQueries({
         queryKey: rendererQueryKeys.originalCvWorkspace,
       }),
@@ -759,6 +778,7 @@ export function App() {
     const nextError =
       readinessQuery.error ??
       settingsQuery.error ??
+      (activeWorkspaceSection === 'original_cv' ? originalCvDetailQuery.error : null) ??
       originalCvWorkspaceQuery.error ??
       workspaceSelectionQuery.error ??
       vacancyWorkspaceQuery.error ??
@@ -775,7 +795,9 @@ export function App() {
       resolveErrorMessage(nextError, `${readinessErrorMessage} ${readinessErrorAction}`),
     )
   }, [
+    activeWorkspaceSection,
     originalCvWorkspaceQuery.error,
+    originalCvDetailQuery.error,
     pendingGenerationQuery.error,
     readinessQuery.error,
     settingsQuery.error,
@@ -827,6 +849,16 @@ export function App() {
     })
 
     setSettingsMessage(null)
+
+    saveWorkspaceSelection(nextWorkspaceSelection).catch(() => {
+      setReadinessError("We couldn't save where you left off.")
+    })
+  }
+
+  const handleSelectOriginalCv = () => {
+    const nextWorkspaceSelection = buildWorkspaceSelection({
+      topLevelSection: 'original_cv',
+    })
 
     saveWorkspaceSelection(nextWorkspaceSelection).catch(() => {
       setReadinessError("We couldn't save where you left off.")
@@ -1247,6 +1279,7 @@ export function App() {
     first_launch: () => {
       return (
         <OriginalCvScreen
+          activeOriginalCvDetail={null}
           activeOriginalCv={null}
           ambientActivityLabel={ambientActivityLabel}
           importError={importError}
@@ -1259,8 +1292,10 @@ export function App() {
               topLevelSectionAfterImport: 'original_cv',
             }).catch(() => null)
           }}
+          onSelectOriginalCv={handleSelectOriginalCv}
           onSelectRailItem={handleSelectRailItem}
           originalCvFile={originalCvFile}
+          workspaceError={readinessError}
           workspaceOverlay={workspaceOverlay}
         />
       )
@@ -1269,6 +1304,7 @@ export function App() {
       if (activeWorkspaceSection === 'original_cv') {
         return (
           <OriginalCvScreen
+            activeOriginalCvDetail={activeOriginalCvDetail}
             activeOriginalCv={originalCvWorkspaceState.activeOriginalCv}
             ambientActivityLabel={ambientActivityLabel}
             importError={importError}
@@ -1281,8 +1317,10 @@ export function App() {
                 topLevelSectionAfterImport: 'original_cv',
               }).catch(() => null)
             }}
+            onSelectOriginalCv={handleSelectOriginalCv}
             onSelectRailItem={handleSelectRailItem}
             originalCvFile={originalCvFile}
+            workspaceError={readinessError}
             workspaceOverlay={workspaceOverlay}
           />
         )
@@ -1291,9 +1329,7 @@ export function App() {
       return (
         <>
           <WorkspaceScreen
-            activeRailItem={
-              activeWorkspaceSection === 'original_cv' ? 'original_cv' : 'job_vacancies'
-            }
+            activeRailItem="job_vacancies"
             activeOriginalCv={originalCvWorkspaceState.activeOriginalCv}
             ambientActivityLabel={ambientActivityLabel}
             applicationTitle={selectedTailoredApplication?.title ?? null}

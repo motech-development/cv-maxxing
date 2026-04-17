@@ -2,8 +2,11 @@ import { createHash, randomUUID } from 'node:crypto'
 import path from 'node:path'
 
 import type {
+  OriginalCvDetail,
   OriginalCvFileType,
   OriginalCvImportErrorCode,
+  OriginalCvPdfPreview,
+  OriginalCvProfile,
   OriginalCvSummary,
   OriginalCvWritingStyle,
   OriginalCvWorkspaceState,
@@ -65,6 +68,7 @@ export interface ImportOriginalCvInput {
 }
 
 export interface OriginalCvService {
+  getActiveOriginalCvDetail: () => Promise<OriginalCvDetail | null>
   getWorkspaceState: () => Promise<OriginalCvWorkspaceState>
   importOriginalCv: (input: ImportOriginalCvInput) => Promise<OriginalCvSummary>
 }
@@ -111,6 +115,40 @@ export function createOriginalCvService({
   normalizationService,
 }: OriginalCvServiceDependencies): OriginalCvService {
   return {
+    getActiveOriginalCvDetail: async (): Promise<OriginalCvDetail | null> => {
+      const storedRecords = await listStoredRecords(localAppData)
+      const activeRecord = storedRecords.find((record) => {
+        return record.isActive
+      })
+
+      if (activeRecord === undefined) {
+        return null
+      }
+
+      const originalCv = toOriginalCvSummary(activeRecord, storedRecords.length)
+      const [preview, profile] = await Promise.all([
+        readOriginalCvPdfPreview({
+          fileType: activeRecord.fileType,
+          id: activeRecord.id,
+          localAppData,
+          pageCount: activeRecord.pageCount,
+        }),
+        readOriginalCvProfile({
+          id: activeRecord.id,
+          localAppData,
+        }),
+      ])
+
+      if (profile === null) {
+        return null
+      }
+
+      return {
+        originalCv,
+        preview,
+        profile,
+      }
+    },
     getWorkspaceState: async (): Promise<OriginalCvWorkspaceState> => {
       const storedRecords = await listStoredRecords(localAppData)
       const activeRecord = storedRecords.find((record) => {
@@ -221,6 +259,61 @@ export function createOriginalCvService({
 
       return toOriginalCvSummary(storedRecord, nextSnapshotCount)
     },
+  }
+}
+
+async function readOriginalCvProfile({
+  id,
+  localAppData,
+}: {
+  id: string
+  localAppData: Pick<LocalAppDataStore, 'artifacts'>
+}): Promise<OriginalCvProfile | null> {
+  const artifact = await localAppData.artifacts.read({
+    id,
+    name: 'normalized.json',
+    scope: ORIGINAL_CV_SCOPE,
+  })
+
+  if (artifact === null) {
+    return null
+  }
+
+  try {
+    return parseOriginalCvProfile(JSON.parse(artifact.toString('utf8')) as unknown)
+  } catch {
+    return null
+  }
+}
+
+async function readOriginalCvPdfPreview({
+  fileType,
+  id,
+  localAppData,
+  pageCount,
+}: {
+  fileType: OriginalCvFileType
+  id: string
+  localAppData: Pick<LocalAppDataStore, 'artifacts'>
+  pageCount: number
+}): Promise<OriginalCvPdfPreview | null> {
+  if (fileType !== 'pdf') {
+    return null
+  }
+
+  const artifact = await localAppData.artifacts.read({
+    id,
+    name: 'source.pdf',
+    scope: ORIGINAL_CV_SCOPE,
+  })
+
+  if (artifact === null) {
+    return null
+  }
+
+  return {
+    pageCount,
+    pdfBytes: new Uint8Array(artifact),
   }
 }
 
@@ -360,6 +453,87 @@ function toOriginalCvSummary(
     snapshotCount,
     summary: record.summary,
     writingStyle: record.writingStyle,
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+}
+
+function parseOriginalCvProfile(value: unknown): OriginalCvProfile | null {
+  if (
+    !isRecord(value) ||
+    !isRecord(value.contact) ||
+    !Array.isArray(value.experience) ||
+    typeof value.fullName !== 'string' ||
+    typeof value.headline !== 'string' ||
+    !Array.isArray(value.skills) ||
+    typeof value.summary !== 'string'
+  ) {
+    return null
+  }
+
+  const experience = value.experience.map((entry) => {
+    return parseOriginalCvExperienceEntry(entry)
+  })
+  const skills = value.skills.filter((skill): skill is string => {
+    return typeof skill === 'string'
+  })
+  const contact = parseOriginalCvContact(value.contact)
+
+  if (contact === null || experience.includes(null) || skills.length !== value.skills.length) {
+    return null
+  }
+
+  return {
+    contact,
+    experience: experience.filter((entry): entry is OriginalCvProfile['experience'][number] => {
+      return entry !== null
+    }),
+    fullName: value.fullName,
+    headline: value.headline,
+    skills,
+    summary: value.summary,
+  }
+}
+
+function parseOriginalCvContact(value: unknown): OriginalCvProfile['contact'] | null {
+  if (
+    !isRecord(value) ||
+    typeof value.email !== 'string' ||
+    typeof value.location !== 'string' ||
+    typeof value.phone !== 'string' ||
+    typeof value.professionalLink !== 'string'
+  ) {
+    return null
+  }
+
+  return {
+    email: value.email,
+    location: value.location,
+    phone: value.phone,
+    professionalLink: value.professionalLink,
+  }
+}
+
+function parseOriginalCvExperienceEntry(
+  value: unknown,
+): OriginalCvProfile['experience'][number] | null {
+  if (
+    !isRecord(value) ||
+    typeof value.dateRange !== 'string' ||
+    typeof value.employer !== 'string' ||
+    typeof value.roleTitle !== 'string' ||
+    typeof value.summary !== 'string'
+  ) {
+    return null
+  }
+
+  return {
+    dateRange: value.dateRange,
+    employer: value.employer,
+    roleTitle: value.roleTitle,
+    summary: value.summary,
   }
 }
 

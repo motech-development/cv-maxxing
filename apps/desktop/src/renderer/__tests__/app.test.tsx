@@ -4,7 +4,11 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, expect, test, vi } from 'vitest'
 
-import type { OriginalCvImportInput, OriginalCvImportResult } from '../../shared/original-cv.js'
+import type {
+  OriginalCvDetail,
+  OriginalCvImportInput,
+  OriginalCvImportResult,
+} from '../../shared/original-cv.js'
 import { SETTINGS_RESET_CONFIRMATION_PHRASE } from '../../shared/settings.js'
 import type {
   TailoredApplicationPreview,
@@ -52,6 +56,7 @@ function createOriginalCvApi(
   overrides?: Partial<(typeof globalThis.window.cvMaxxing)['originalCv']>,
 ) {
   return {
+    getActiveOriginalCvDetail: vi.fn().mockResolvedValue(null),
     getOriginalCvWorkspaceState: vi.fn().mockResolvedValue({
       activeOriginalCv: null,
       snapshotCount: 0,
@@ -75,6 +80,54 @@ function createOriginalCvApi(
         },
       },
     }),
+    ...overrides,
+  }
+}
+
+function createOriginalCvDetailFixture(
+  overrides: Partial<OriginalCvDetail> = {},
+): OriginalCvDetail {
+  return {
+    originalCv: {
+      fileType: 'pdf',
+      headline: 'Principal Product Designer',
+      id: 'original-cv-123',
+      importedAt: '2026-04-08T14:30:00.000Z',
+      originalFilename: 'ada-lovelace.pdf',
+      pageCount: 1,
+      snapshotCount: 1,
+      summary: 'Design leader focused on complex workflow products.',
+      writingStyle: {
+        averageSentenceLength: 7,
+        clicheDetections: [],
+        firstPersonUsage: 'absent',
+        formality: 'direct',
+      },
+    },
+    preview: {
+      pageCount: 1,
+      pdfBytes: new Uint8Array([37, 80, 68, 70]),
+    },
+    profile: {
+      contact: {
+        email: 'ada@lovelace.dev',
+        location: 'London, United Kingdom',
+        phone: '+44 7700 900123',
+        professionalLink: 'ada-lovelace.dev',
+      },
+      experience: [
+        {
+          dateRange: '2022 - Present',
+          employer: 'Analytical Engines Ltd',
+          roleTitle: 'Principal Product Designer',
+          summary: 'Led product design for AI-assisted desktop tooling.',
+        },
+      ],
+      fullName: 'Ada Lovelace',
+      headline: 'Principal Product Designer',
+      skills: ['Workflow design', 'UX research', 'Product strategy'],
+      summary: 'Design leader focused on complex workflow products.',
+    },
     ...overrides,
   }
 }
@@ -622,7 +675,7 @@ test('imports the first original CV into Your CV and persists the resulting sect
   })
 
   expect(screen.getByRole('button', { name: 'Your CV' }).getAttribute('aria-current')).toBe('page')
-  expect(screen.getByText('ada-lovelace.pdf')).toBeDefined()
+  expect(screen.getAllByText('ada-lovelace.pdf')).toHaveLength(2)
 })
 
 test('shows the workspace overlay while importing the first original CV from first launch', async () => {
@@ -757,7 +810,7 @@ test('imports the first original CV from the mutation payload while the workspac
     expect(screen.getByRole('heading', { name: 'Active original CV' })).toBeDefined()
   })
 
-  expect(screen.getByText('ada-lovelace.pdf')).toBeDefined()
+  expect(screen.getAllByText('ada-lovelace.pdf').length).toBeGreaterThan(0)
   expect(screen.queryByRole('heading', { name: 'Add a CV' })).toBeNull()
 })
 
@@ -850,7 +903,7 @@ test('renders the design-aligned workspace-empty screen when an original CV alre
   })
 
   expect(screen.getByText('Your CV')).toBeDefined()
-  expect(screen.getByText('ada-lovelace.pdf')).toBeDefined()
+  expect(screen.getAllByText('ada-lovelace.pdf').length).toBeGreaterThan(0)
   expect(screen.getByLabelText('Job link')).toBeDefined()
   expect(screen.getByLabelText('Job description')).toBeDefined()
   expect(screen.queryByText('Original CV active')).toBeNull()
@@ -1003,6 +1056,8 @@ test('restores settings as the active top-level section when persisted workspace
 })
 
 test('restores Your CV as the active top-level section while preserving the saved jobs sub-selection', async () => {
+  const getActiveOriginalCvDetail = vi.fn().mockResolvedValue(createOriginalCvDetailFixture())
+
   renderApp({
     aiWorker: createAiWorkerApi({
       getAiWorkerPreflight: vi.fn().mockResolvedValue({
@@ -1014,6 +1069,7 @@ test('restores Your CV as the active top-level section while preserving the save
       getStartupDestination: vi.fn().mockResolvedValue('workspace'),
     }),
     originalCv: createOriginalCvApi({
+      getActiveOriginalCvDetail,
       getOriginalCvWorkspaceState: vi.fn().mockResolvedValue({
         activeOriginalCv: {
           fileType: 'pdf',
@@ -1073,15 +1129,20 @@ test('restores Your CV as the active top-level section while preserving the save
     )
   })
 
+  await waitFor(() => {
+    expect(screen.getByText('Extracted profile')).toBeDefined()
+    expect(screen.getByText('Workflow design')).toBeDefined()
+    expect(getActiveOriginalCvDetail).toHaveBeenCalledTimes(1)
+  })
+
   expect(screen.getByRole('heading', { name: 'Active original CV' })).toBeDefined()
-  expect(screen.getByText('ada-lovelace.pdf')).toBeDefined()
+  expect(screen.getAllByText('ada-lovelace.pdf').length).toBeGreaterThan(0)
   fireEvent.click(screen.getByRole('button', { name: 'Jobs' }))
 
   await waitFor(() => {
     expect(screen.getByRole('button', { name: 'Jobs' }).getAttribute('aria-current')).toBe('page')
-    expect(
-      screen.getByRole('heading', { name: 'Senior platform engineer · Example Labs' }),
-    ).toBeDefined()
+    expect(screen.getByRole('heading', { name: 'Senior platform engineer' })).toBeDefined()
+    expect(screen.getAllByText('Example Labs').length).toBeGreaterThan(0)
   })
 })
 
