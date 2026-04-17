@@ -53,7 +53,9 @@ const GENERATION_RUN_SCOPE = 'generation-runs'
 const ADAPTED_CV_PDF_ARTIFACT_NAME = 'adapted-cv.pdf'
 const COVER_LETTER_PDF_ARTIFACT_NAME = 'cover-letter.pdf'
 const TAILORED_APPLICATION_CONTRACT_ERROR_MESSAGE =
-  'Generated tailored application failed contract validation.'
+  "We couldn't finish your CV and cover letter. Try tailoring this job again."
+const TAILORING_TIMEOUT_MESSAGE = 'Tailoring your CV took too long. Try again.'
+const TAILORING_FAILURE_MESSAGE = "We couldn't tailor your CV right now. Try again."
 const MAX_HEADER_INTRO_LENGTH = 180
 const MAX_PROFILE_SUMMARY_LENGTH = 900
 const MAX_TAILORED_APPLICATION_SOURCE_TEXT_LENGTH = 24_000
@@ -1055,10 +1057,12 @@ export function createTailoredApplicationSessionService({
         error instanceof Error &&
         error.message === 'Tailored application generation timed out.'
       ) {
-        throw error
+        throw new Error(TAILORING_TIMEOUT_MESSAGE, {
+          cause: error,
+        })
       }
 
-      throw new Error('Tailored application generation failed.', {
+      throw new Error(TAILORING_FAILURE_MESSAGE, {
         cause: error,
       })
     } finally {

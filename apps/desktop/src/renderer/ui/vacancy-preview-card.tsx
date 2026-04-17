@@ -128,19 +128,19 @@ export function VacancyPreviewCard({
             About the job
           </p>
           <p className="mt-3 text-sm leading-6 text-[var(--color-copy-strong)]">
-            {preview.textPreview === '' ? 'No job summary yet.' : preview.textPreview}
+            {preview.textPreview === '' ? 'The job details will appear here.' : preview.textPreview}
           </p>
         </div>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
           <PreviewList
             items={preview.responsibilities}
             title="What you'll be doing"
-            emptyState="No responsibilities yet."
+            emptyState="What you'll be doing will appear here."
           />
           <PreviewList
             items={preview.requirements}
             title="What they're looking for"
-            emptyState="No requirements yet."
+            emptyState="What they're looking for will appear here."
           />
         </div>
       </div>

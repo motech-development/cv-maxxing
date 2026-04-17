@@ -9,6 +9,7 @@ function createLoadingInput(
   overrides: Partial<ResolveRendererLoadingStateInput> = {},
 ): ResolveRendererLoadingStateInput {
   return {
+    hasActiveOriginalCv: false,
     isCheckingAiWorkerReadiness: false,
     isFetchingTailoredApplicationPreview: false,
     isGeneratingTailoredApplication: false,
@@ -53,7 +54,7 @@ test('prefers workspace-blocking loading over ambient activity', () => {
     ),
   ).toEqual({
     kind: 'vacancy_review',
-    label: 'Getting things ready',
+    label: 'Checking job details...',
     scope: 'workspace_blocking',
   })
 })
@@ -71,6 +72,49 @@ test('prefers reset app-blocking loading over workspace-blocking and ambient act
     kind: 'reset_local_app_data',
     label: 'Preparing app',
     scope: 'app_blocking',
+  })
+})
+
+test('uses action-first copy when adding your first CV', () => {
+  expect(
+    resolveRendererLoadingState(
+      createLoadingInput({
+        isImportingOriginalCv: true,
+      }),
+    ),
+  ).toEqual({
+    kind: 'original_cv_import',
+    label: 'Adding your CV...',
+    scope: 'workspace_blocking',
+  })
+})
+
+test('uses action-first copy when updating an existing CV', () => {
+  expect(
+    resolveRendererLoadingState(
+      createLoadingInput({
+        hasActiveOriginalCv: true,
+        isImportingOriginalCv: true,
+      }),
+    ),
+  ).toEqual({
+    kind: 'original_cv_import',
+    label: 'Updating your CV...',
+    scope: 'workspace_blocking',
+  })
+})
+
+test('uses action-first copy while tailoring a CV', () => {
+  expect(
+    resolveRendererLoadingState(
+      createLoadingInput({
+        isGeneratingTailoredApplication: true,
+      }),
+    ),
+  ).toEqual({
+    kind: 'tailored_application_generation',
+    label: 'Tailoring your CV...',
+    scope: 'workspace_blocking',
   })
 })
 

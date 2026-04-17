@@ -237,7 +237,7 @@ test('captures the workspace generation overlay', async () => {
   await page.getByRole('button', { name: 'Check job details' }).nth(1).dispatchEvent('click')
   await expect(page.getByText(/Job (details|preview)/)).toBeVisible()
   await page.getByRole('button', { name: 'Tailor your CV' }).click()
-  await expect(page.getByRole('status', { name: 'Getting things ready' })).toBeVisible()
+  await expect(page.getByRole('status', { name: 'Tailoring your CV...' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Cancel' })).toBeVisible()
   await hideScrollbars(page)
   await expect(page).toHaveScreenshot('workspace-generation-overlay-screen.png', {

@@ -1,4 +1,5 @@
 export interface ResolveRendererLoadingStateInput {
+  hasActiveOriginalCv: boolean
   isCheckingAiWorkerReadiness: boolean
   isFetchingTailoredApplicationPreview: boolean
   isGeneratingTailoredApplication: boolean
@@ -68,7 +69,7 @@ export function resolveRendererLoadingState(
   if (input.isImportingOriginalCv) {
     activeLoadingStates.push({
       kind: 'original_cv_import',
-      label: 'Getting things ready',
+      label: input.hasActiveOriginalCv ? 'Updating your CV...' : 'Adding your CV...',
       scope: 'workspace_blocking',
     })
   }
@@ -76,7 +77,7 @@ export function resolveRendererLoadingState(
   if (input.isReviewingVacancy) {
     activeLoadingStates.push({
       kind: 'vacancy_review',
-      label: 'Getting things ready',
+      label: 'Checking job details...',
       scope: 'workspace_blocking',
     })
   }
@@ -84,7 +85,7 @@ export function resolveRendererLoadingState(
   if (input.isGeneratingTailoredApplication) {
     activeLoadingStates.push({
       kind: 'tailored_application_generation',
-      label: 'Getting things ready',
+      label: 'Tailoring your CV...',
       scope: 'workspace_blocking',
     })
   }

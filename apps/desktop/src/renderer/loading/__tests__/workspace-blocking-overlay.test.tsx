@@ -16,15 +16,17 @@ test('renders a compact loading spinner with an optional secondary action', () =
     <WorkspaceBlockingOverlay
       onSecondaryAction={onSecondaryAction}
       secondaryActionLabel="Cancel"
+      title="Tailoring your CV..."
     />,
   )
 
-  expect(screen.getByRole('status', { name: 'Getting things ready' })).toBeDefined()
+  expect(screen.getByRole('status', { name: 'Tailoring your CV...' })).toBeDefined()
+  expect(screen.getByText('Tailoring your CV...')).toBeDefined()
   expect(container.firstElementChild?.className).toContain('bg-[#DEE6E1E8]')
-  expect(screen.getByRole('status', { name: 'Getting things ready' }).className).toContain(
+  expect(screen.getByRole('status', { name: 'Tailoring your CV...' }).className).toContain(
     'bg-[#FCFDFC]',
   )
-  expect(screen.getByRole('status', { name: 'Getting things ready' }).className).toContain(
+  expect(screen.getByRole('status', { name: 'Tailoring your CV...' }).className).toContain(
     'border-[#C7D0CA]',
   )
   expect(screen.getByRole('button', { name: 'Cancel' }).className).toContain(
@@ -39,5 +41,6 @@ test('renders a compact loading spinner with an optional secondary action', () =
 test('omits the secondary action when none is provided', () => {
   render(<WorkspaceBlockingOverlay />)
 
+  expect(screen.getByText('Getting things ready')).toBeDefined()
   expect(screen.queryByRole('button')).toBeNull()
 })

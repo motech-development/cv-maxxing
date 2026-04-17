@@ -21,11 +21,10 @@ import type {
 
 const ORIGINAL_CV_SCOPE = 'original-cvs'
 const INVALID_NORMALIZATION_MESSAGE =
-  'This original CV could not be organised reliably. Try a clearer PDF or DOCX.'
-const NORMALIZATION_TIMEOUT_MESSAGE =
-  'The local AI worker timed out while organising this original CV. Retry the import.'
+  "We couldn't make sense of this CV. Try a clearer PDF or DOCX."
+const NORMALIZATION_TIMEOUT_MESSAGE = 'Adding this CV took too long. Try again.'
 const UNREADABLE_EXTRACTION_MESSAGE =
-  'This original CV could not be read reliably. Use a text-based PDF or DOCX.'
+  "We couldn't read enough from this CV. Use a text-based PDF or DOCX."
 const SKILL_GROUNDING_STOP_WORDS = new Set([
   'a',
   'an',

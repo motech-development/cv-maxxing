@@ -101,7 +101,7 @@ test('rejects unreadable original CV imports without leaving the first-launch fl
   await page.getByLabel('Your CV file').setInputFiles(testPaths.pdfPath)
   await page.getByRole('button', { name: 'Add your CV' }).click()
   await expect(
-    page.getByText('This original CV could not be read reliably. Use a text-based PDF or DOCX.'),
+    page.getByText("We couldn't read enough from this CV. Use a text-based PDF or DOCX."),
   ).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Add your CV' })).toBeVisible()
 
@@ -266,7 +266,7 @@ test('rejects an unreadable original CV replacement without leaving the workspac
   await page.getByLabel('Replacement CV file').setInputFiles(testPaths.unreadablePdfPath)
   await page.getByRole('button', { name: 'Update your CV' }).click()
   await expect(
-    page.getByText('This original CV could not be read reliably. Use a text-based PDF or DOCX.'),
+    page.getByText("We couldn't read enough from this CV. Use a text-based PDF or DOCX."),
   ).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Add a job' })).toBeVisible()
   await expect(page.getByText('ada-lovelace.pdf')).toBeVisible()
@@ -563,7 +563,7 @@ test('returns to the workspace overlay after sign-in repair for a pending genera
   await expect(page.getByRole('button', { name: 'Continue' })).toBeVisible()
   await page.getByRole('button', { name: 'Continue' }).click()
   await expect(page.getByRole('heading', { name: 'Add a job' })).toBeVisible()
-  await expect(page.getByRole('status', { name: 'Getting things ready' })).toBeVisible()
+  await expect(page.getByRole('status', { name: 'Tailoring your CV...' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Cancel' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Open tailored application' })).toHaveCount(0)
 
@@ -628,7 +628,7 @@ test('returns to the workspace with a visible error when generation fails contra
   await expect(page.getByText(/Job (details|preview)/)).toBeVisible()
   await page.getByRole('button', { name: 'Tailor your CV' }).click()
   await expect(
-    page.getByText('Generated tailored application failed contract validation.'),
+    page.getByText("We couldn't finish your CV and cover letter. Try tailoring this job again."),
   ).toBeVisible({
     timeout: 15_000,
   })
@@ -948,7 +948,7 @@ test('clears job-site browser data from settings without deleting the active ori
   await expect(page.getByText('App version')).toBeVisible()
   await expect(page.getByText('Telemetry')).toBeVisible()
   await page.getByRole('button', { name: 'Clear browser data' }).click()
-  await expect(page.getByText('Internal job-site browser data cleared.')).toBeVisible()
+  await expect(page.getByText('Job-site browser data cleared.')).toBeVisible()
   await page.getByRole('button', { name: 'Jobs' }).click()
   await expect(page.getByText('ada-lovelace.pdf')).toBeVisible()
 

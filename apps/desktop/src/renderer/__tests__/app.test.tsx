@@ -636,7 +636,7 @@ test('shows the workspace overlay while importing the first original CV from fir
     expect(importOriginalCv).toHaveBeenCalledTimes(1)
   })
 
-  expect(screen.getByRole('status', { name: 'Getting things ready' })).toBeDefined()
+  expect(screen.getByRole('status', { name: 'Adding your CV...' })).toBeDefined()
   expect(screen.queryByRole('button', { name: 'Cancel' })).toBeNull()
   expect(screen.getByRole('button', { name: 'Settings' })).toBeDefined()
   expect(screen.getByRole('heading', { name: 'Add your CV' })).toBeDefined()
@@ -662,7 +662,7 @@ test('shows the workspace overlay while importing the first original CV from fir
   })
 
   await waitFor(() => {
-    expect(screen.queryByRole('status', { name: 'Getting things ready' })).toBeNull()
+    expect(screen.queryByRole('status', { name: 'Adding your CV...' })).toBeNull()
   })
 })
 
@@ -1550,7 +1550,7 @@ test('shows the workspace overlay while replacing the active original CV from th
     expect(importOriginalCv).toHaveBeenCalledTimes(1)
   })
 
-  expect(screen.getByRole('status', { name: 'Getting things ready' })).toBeDefined()
+  expect(screen.getByRole('status', { name: 'Updating your CV...' })).toBeDefined()
   expect(screen.queryByRole('button', { name: 'Cancel' })).toBeNull()
   expect(screen.getByRole('button', { name: 'Settings' })).toBeDefined()
   expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
@@ -1576,7 +1576,7 @@ test('shows the workspace overlay while replacing the active original CV from th
   })
 
   await waitFor(() => {
-    expect(screen.queryByRole('status', { name: 'Getting things ready' })).toBeNull()
+    expect(screen.queryByRole('status', { name: 'Updating your CV...' })).toBeNull()
   })
 })
 
@@ -1614,7 +1614,7 @@ test('keeps the existing active original CV visible when a workspace replacement
       importOriginalCv: vi.fn().mockResolvedValue({
         error: {
           code: 'unreadable_extraction',
-          message: 'This original CV could not be read reliably. Use a text-based PDF or DOCX.',
+          message: "We couldn't read enough from this CV. Use a text-based PDF or DOCX.",
         },
         kind: 'rejected',
       }),
@@ -1634,9 +1634,7 @@ test('keeps the existing active original CV visible when a workspace replacement
 
   await waitFor(() => {
     expect(
-      screen.getByText(
-        'This original CV could not be read reliably. Use a text-based PDF or DOCX.',
-      ),
+      screen.getByText("We couldn't read enough from this CV. Use a text-based PDF or DOCX."),
     ).toBeDefined()
   })
 
@@ -1748,7 +1746,7 @@ test('shows the normalization failure message while keeping the existing active 
       importOriginalCv: vi.fn().mockResolvedValue({
         error: {
           code: 'weak_normalization',
-          message: 'This original CV could not be organised reliably. Try a clearer PDF or DOCX.',
+          message: "We couldn't make sense of this CV. Try a clearer PDF or DOCX.",
         },
         kind: 'rejected',
       }),
@@ -1768,9 +1766,7 @@ test('shows the normalization failure message while keeping the existing active 
 
   await waitFor(() => {
     expect(
-      screen.getByText(
-        'This original CV could not be organised reliably. Try a clearer PDF or DOCX.',
-      ),
+      screen.getByText("We couldn't make sense of this CV. Try a clearer PDF or DOCX."),
     ).toBeDefined()
   })
 
@@ -1926,7 +1922,7 @@ test('reviews a ready vacancy URL and only starts tailoring after Tailor your CV
     expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
   })
 
-  expect(screen.getByRole('status', { name: 'Getting things ready' })).toBeDefined()
+  expect(screen.getByRole('status', { name: 'Tailoring your CV...' })).toBeDefined()
   expect(screen.queryByRole('button', { name: 'Open tailored application' })).toBeNull()
   expect(screen.getByRole('button', { name: 'Cancel' })).toBeDefined()
 
@@ -2000,7 +1996,7 @@ test('shows the workspace overlay while reviewing a vacancy URL without surfacin
     })
   })
 
-  expect(screen.getByRole('status', { name: 'Getting things ready' })).toBeDefined()
+  expect(screen.getByRole('status', { name: 'Checking job details...' })).toBeDefined()
   expect(screen.queryByRole('button', { name: 'Cancel' })).toBeNull()
   expect(screen.getByRole('button', { name: 'Settings' })).toBeDefined()
   expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
@@ -2051,7 +2047,7 @@ test('shows the workspace overlay while reviewing a vacancy URL without surfacin
   })
 
   await waitFor(() => {
-    expect(screen.queryByRole('status', { name: 'Getting things ready' })).toBeNull()
+    expect(screen.queryByRole('status', { name: 'Checking job details...' })).toBeNull()
   })
 })
 
@@ -2996,7 +2992,7 @@ test('resumes the pending flow into the workspace overlay after sign-in repair',
     expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
   })
 
-  expect(screen.getByRole('status', { name: 'Getting things ready' })).toBeDefined()
+  expect(screen.getByRole('status', { name: 'Tailoring your CV...' })).toBeDefined()
   expect(screen.queryByRole('button', { name: 'Open tailored application' })).toBeNull()
   expect(screen.getByRole('button', { name: 'Cancel' })).toBeDefined()
 
@@ -3041,7 +3037,7 @@ test('renders the workspace overlay when startup restores pending generation', a
     expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
   })
 
-  expect(screen.getByRole('status', { name: 'Getting things ready' })).toBeDefined()
+  expect(screen.getByRole('status', { name: 'Tailoring your CV...' })).toBeDefined()
   expect(screen.queryByRole('button', { name: 'Open tailored application' })).toBeNull()
   expect(screen.getByRole('button', { name: 'Cancel' })).toBeDefined()
   expect(screen.getByRole('button', { name: 'Settings' })).toBeDefined()
@@ -3083,7 +3079,7 @@ test('restores the workspace overlay after returning from settings during pendin
     expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
   })
 
-  expect(screen.getByRole('status', { name: 'Getting things ready' })).toBeDefined()
+  expect(screen.getByRole('status', { name: 'Tailoring your CV...' })).toBeDefined()
   expect(screen.getByRole('button', { name: 'Cancel' })).toBeDefined()
 
   fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
@@ -3098,7 +3094,7 @@ test('restores the workspace overlay after returning from settings during pendin
     expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
   })
 
-  expect(screen.getByRole('status', { name: 'Getting things ready' })).toBeDefined()
+  expect(screen.getByRole('status', { name: 'Tailoring your CV...' })).toBeDefined()
   expect(screen.getByRole('button', { name: 'Cancel' })).toBeDefined()
 
   await waitFor(() => {
@@ -3263,7 +3259,7 @@ test('keeps settings open when restored generation completes in the background',
     expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
   })
 
-  expect(screen.getByRole('status', { name: 'Getting things ready' })).toBeDefined()
+  expect(screen.getByRole('status', { name: 'Tailoring your CV...' })).toBeDefined()
 
   fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
 
@@ -3349,7 +3345,7 @@ test('returns to the workspace with a visible error when generation fails contra
         },
       }),
       resumePendingGeneration: vi.fn().mockRejectedValue({
-        message: 'Generated tailored application failed contract validation.',
+        message: "We couldn't finish your CV and cover letter. Try tailoring this job again.",
       }),
     }),
   })
@@ -3360,7 +3356,9 @@ test('returns to the workspace with a visible error when generation fails contra
 
   await waitFor(() => {
     expect(
-      screen.getByText('Generated tailored application failed contract validation.'),
+      screen.getByText(
+        "We couldn't finish your CV and cover letter. Try tailoring this job again.",
+      ),
     ).toBeDefined()
   })
 
@@ -3421,7 +3419,7 @@ test('returns to the workspace immediately when overlay recovery stalls after ge
         },
       }),
       resumePendingGeneration: vi.fn().mockRejectedValue({
-        message: 'Generated tailored application failed contract validation.',
+        message: "We couldn't finish your CV and cover letter. Try tailoring this job again.",
       }),
     }),
   })
@@ -3432,7 +3430,9 @@ test('returns to the workspace immediately when overlay recovery stalls after ge
 
   await waitFor(() => {
     expect(
-      screen.getByText('Generated tailored application failed contract validation.'),
+      screen.getByText(
+        "We couldn't finish your CV and cover letter. Try tailoring this job again.",
+      ),
     ).toBeDefined()
   })
 
@@ -3609,7 +3609,7 @@ test('opens the tailored application when generation completes from the workspac
     expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
   })
 
-  expect(screen.getByRole('status', { name: 'Getting things ready' })).toBeDefined()
+  expect(screen.getByRole('status', { name: 'Tailoring your CV...' })).toBeDefined()
 
   await waitFor(() => {
     expect(resumePendingGeneration).toHaveBeenCalledTimes(1)
@@ -3987,7 +3987,7 @@ test('transitions to the tailored application even when vacancy cleanup is still
     expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
   })
 
-  expect(screen.getByRole('status', { name: 'Getting things ready' })).toBeDefined()
+  expect(screen.getByRole('status', { name: 'Tailoring your CV...' })).toBeDefined()
 
   await waitFor(() => {
     expect(resumePendingGeneration).toHaveBeenCalledTimes(1)
@@ -4815,7 +4815,7 @@ test('abandons the pending draft from the workspace overlay and returns to works
     expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
   })
 
-  expect(screen.getByRole('status', { name: 'Getting things ready' })).toBeDefined()
+  expect(screen.getByRole('status', { name: 'Tailoring your CV...' })).toBeDefined()
 
   fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
 

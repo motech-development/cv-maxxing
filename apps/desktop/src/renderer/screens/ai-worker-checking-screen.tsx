@@ -110,7 +110,7 @@ export function AiWorkerCheckingScreen({
         <div className="mt-3 space-y-2 text-xs leading-5 text-[var(--color-copy-subtle)]">
           <p className="m-0">09:41 Looking for AI on this Mac</p>
           <p className="m-0">09:41 Checking sign-in</p>
-          <p className="m-0">09:41 Getting things ready</p>
+          <p className="m-0">09:41 Getting AI ready</p>
           {readinessError ? (
             <p className="m-0 text-[var(--color-status-danger)]">{readinessError}</p>
           ) : null}

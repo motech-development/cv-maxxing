@@ -966,7 +966,7 @@ test('rejects a replacement with weak normalization output and keeps the previou
   ).rejects.toEqual(
     new OriginalCvImportError({
       code: 'weak_normalization',
-      message: 'This original CV could not be organised reliably. Try a clearer PDF or DOCX.',
+      message: "We couldn't make sense of this CV. Try a clearer PDF or DOCX.",
     }),
   )
 
@@ -1020,7 +1020,7 @@ test('rejects unreadable extracted original CV content before normalization star
   ).rejects.toEqual(
     new OriginalCvImportError({
       code: 'unreadable_extraction',
-      message: 'This original CV could not be read reliably. Use a text-based PDF or DOCX.',
+      message: "We couldn't read enough from this CV. Use a text-based PDF or DOCX.",
     }),
   )
   await expect(originalCvService.getWorkspaceState()).resolves.toEqual({
@@ -1080,7 +1080,7 @@ test('rejects invalid normalization output and leaves encrypted storage unchange
   ).rejects.toEqual(
     new OriginalCvImportError({
       code: 'invalid_normalization',
-      message: 'This original CV could not be organised reliably. Try a clearer PDF or DOCX.',
+      message: "We couldn't make sense of this CV. Try a clearer PDF or DOCX.",
     }),
   )
   await expect(originalCvService.getWorkspaceState()).resolves.toEqual({
@@ -1212,7 +1212,7 @@ test('maps a stalled normalization run through the import rejection path and kee
   ).rejects.toEqual(
     new OriginalCvImportError({
       code: 'invalid_normalization',
-      message: 'The local AI worker timed out while organising this original CV. Retry the import.',
+      message: 'Adding this CV took too long. Try again.',
     }),
   )
 
@@ -1309,7 +1309,7 @@ test('rejects normalization that invents unsupported identity or skill content a
   ).rejects.toEqual(
     new OriginalCvImportError({
       code: 'weak_normalization',
-      message: 'This original CV could not be organised reliably. Try a clearer PDF or DOCX.',
+      message: "We couldn't make sense of this CV. Try a clearer PDF or DOCX.",
     }),
   )
   await expect(originalCvService.getWorkspaceState()).resolves.toEqual({
@@ -1396,7 +1396,7 @@ test('rejects a recovered skill that is not supported by the experience evidence
   ).rejects.toEqual(
     new OriginalCvImportError({
       code: 'weak_normalization',
-      message: 'This original CV could not be organised reliably. Try a clearer PDF or DOCX.',
+      message: "We couldn't make sense of this CV. Try a clearer PDF or DOCX.",
     }),
   )
   await expect(originalCvService.getWorkspaceState()).resolves.toEqual({
@@ -1477,7 +1477,7 @@ test('rejects weak normalization output and leaves encrypted storage unchanged',
   ).rejects.toEqual(
     new OriginalCvImportError({
       code: 'weak_normalization',
-      message: 'This original CV could not be organised reliably. Try a clearer PDF or DOCX.',
+      message: "We couldn't make sense of this CV. Try a clearer PDF or DOCX.",
     }),
   )
   await expect(originalCvService.getWorkspaceState()).resolves.toEqual({

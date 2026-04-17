@@ -771,9 +771,11 @@ export function App() {
 
     try {
       await clearJobSiteBrowserDataMutation.mutateAsync()
-      setSettingsMessage('Internal job-site browser data cleared.')
+      setSettingsMessage('Job-site browser data cleared.')
     } catch (error) {
-      setSettingsMessage(resolveErrorMessage(error, 'Unable to clear the internal browser data.'))
+      setSettingsMessage(
+        resolveErrorMessage(error, "We couldn't clear your job-site browser data."),
+      )
     }
   }
 
@@ -796,7 +798,7 @@ export function App() {
       await resetLocalAppDataMutation.mutateAsync()
     } catch (error) {
       setSettingsMessage(
-        resolveErrorMessage(error, 'Unable to reset local app data on this machine.'),
+        resolveErrorMessage(error, "We couldn't reset your local data on this Mac."),
       )
     }
   }
@@ -939,9 +941,7 @@ export function App() {
       await clearVacancyWorkspaceMutation.mutateAsync()
       showBlankDraftWorkspace()
     } catch (error) {
-      setVacancyReviewError(
-        resolveErrorMessage(error, 'Unable to clear the current vacancy draft.'),
-      )
+      setVacancyReviewError(resolveErrorMessage(error, "We couldn't clear this job draft."))
     }
   }
 
@@ -954,9 +954,7 @@ export function App() {
       await clearVacancyWorkspaceMutation.mutateAsync()
       showBlankDraftWorkspace()
     } catch (error) {
-      setVacancyReviewError(
-        resolveErrorMessage(error, 'Unable to clear the current vacancy draft.'),
-      )
+      setVacancyReviewError(resolveErrorMessage(error, "We couldn't clear this job draft."))
     }
   }
 
@@ -973,7 +971,7 @@ export function App() {
       )
       setReadinessError(null)
     } catch {
-      setReadinessError('Unable to copy the cover letter text.')
+      setReadinessError("We couldn't copy the cover letter text.")
     } finally {
       setIsCopyingCoverLetterText(false)
     }
@@ -1002,6 +1000,7 @@ export function App() {
   const workerStatusLabel = resolveWorkerStatusLabel(viewModel.status)
   const workerStatusTone = resolveWorkerStatusTone(viewModel.status)
   const rendererLoadingState = resolveRendererLoadingState({
+    hasActiveOriginalCv: originalCvWorkspaceState.activeOriginalCv !== null,
     isCheckingAiWorkerReadiness: viewModel.status === 'checking',
     isFetchingTailoredApplicationPreview:
       workspaceSelection.kind === 'tailored_application' &&
@@ -1030,9 +1029,10 @@ export function App() {
             handleAbandonDraft().catch(() => null)
           }}
           secondaryActionLabel="Cancel"
+          title={rendererLoadingState.label}
         />
       ) : (
-        <WorkspaceBlockingOverlay />
+        <WorkspaceBlockingOverlay title={rendererLoadingState.label} />
       )
   }
 
@@ -1218,7 +1218,7 @@ export function App() {
 
               openVacancyBrowserSessionMutation.mutateAsync(originalUrl).catch((error: unknown) => {
                 setVacancyReviewError(
-                  resolveErrorMessage(error, 'Unable to open the job page right now.'),
+                  resolveErrorMessage(error, "We couldn't open the job page right now."),
                 )
               })
             }}
@@ -1244,7 +1244,7 @@ export function App() {
 
               reviewPastedVacancyMutation.mutateAsync().catch((error: unknown) => {
                 setVacancyReviewError(
-                  resolveErrorMessage(error, 'Unable to review the pasted vacancy text.'),
+                  resolveErrorMessage(error, "We couldn't check the pasted job description."),
                 )
               })
             }}
@@ -1258,7 +1258,7 @@ export function App() {
 
               reviewVacancyUrlMutation.mutateAsync().catch((error: unknown) => {
                 setVacancyReviewError(
-                  resolveErrorMessage(error, 'Unable to review this vacancy URL.'),
+                  resolveErrorMessage(error, "We couldn't check that job link."),
                 )
               })
             }}
@@ -1274,7 +1274,7 @@ export function App() {
                   tailoredApplicationId,
                 })
                 .catch(() => {
-                  setReadinessError('Unable to persist the current workspace selection.')
+                  setReadinessError("We couldn't save where you left off.")
                 })
             }}
             onSelectDraft={() => {
@@ -1288,7 +1288,7 @@ export function App() {
                   kind: 'draft',
                 })
                 .catch(() => {
-                  setReadinessError('Unable to persist the current workspace selection.')
+                  setReadinessError("We couldn't save where you left off.")
                 })
             }}
             onSelectPreviewDocument={setPreviewDocumentKind}
@@ -1310,7 +1310,7 @@ export function App() {
                   kind: 'draft',
                 })
                 .catch(() => {
-                  setReadinessError('Unable to persist the current workspace selection.')
+                  setReadinessError("We couldn't save where you left off.")
                 })
             }}
             onUrlDraftChange={(event) => {
@@ -1330,7 +1330,7 @@ export function App() {
                   kind: 'draft',
                 })
                 .catch(() => {
-                  setReadinessError('Unable to persist the current workspace selection.')
+                  setReadinessError("We couldn't save where you left off.")
                 })
             }}
             originalCvFile={originalCvFile}

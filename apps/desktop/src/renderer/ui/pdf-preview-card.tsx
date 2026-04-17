@@ -131,7 +131,7 @@ function LoadedPdfPreviewCard({
         const canvasContext = canvas.getContext('2d')
 
         if (canvasContext === null) {
-          setRenderError('PDF preview unavailable in this environment.')
+          setRenderError("This document preview isn't available here.")
 
           return
         }
@@ -150,14 +150,14 @@ function LoadedPdfPreviewCard({
       } catch (error) {
         if (!isCancelled) {
           setRenderError(
-            error instanceof Error ? error.message : 'Unable to render the PDF preview.',
+            error instanceof Error ? error.message : "We couldn't show this document right now.",
           )
         }
       }
     }
 
     renderPdfPage().catch(() => {
-      setRenderError('Unable to render the PDF preview.')
+      setRenderError("We couldn't show this document right now.")
     })
 
     return () => {

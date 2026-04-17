@@ -1471,7 +1471,7 @@ test('rejects generation output when the JSON contract shape is invalid', async 
     path: 'adaptedCv',
   })
   await expect(resumePromise).rejects.toThrow(
-    'Generated tailored application failed contract validation.',
+    "We couldn't finish your CV and cover letter. Try tailoring this job again.",
   )
 })
 
@@ -2239,7 +2239,7 @@ test('rejects adapted output when the headline is not a canonical role label', a
     path: 'adaptedCv',
   })
   await expect(resumePromise).rejects.toThrow(
-    'Generated tailored application failed contract validation.',
+    "We couldn't finish your CV and cover letter. Try tailoring this job again.",
   )
 })
 
@@ -3144,7 +3144,7 @@ test('preserves the underlying generation failure as the thrown error cause', as
 
   await expect(service.resumePendingGeneration()).rejects.toMatchObject({
     cause: generationFailure,
-    message: 'Tailored application generation failed.',
+    message: "We couldn't tailor your CV right now. Try again.",
   })
 })
 
@@ -3386,7 +3386,7 @@ test('preserves the tailored-application generation timeout message for the load
   })
 
   await expect(service.resumePendingGeneration()).rejects.toThrow(
-    'Tailored application generation timed out.',
+    'Tailoring your CV took too long. Try again.',
   )
 })
 

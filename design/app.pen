@@ -2218,7 +2218,7 @@
                   "type": "frame",
                   "id": "TPR9E",
                   "name": "Workspace loading card",
-                  "width": 124,
+                  "width": 216,
                   "fill": "#FCFDFC",
                   "cornerRadius": 14,
                   "stroke": {
@@ -2237,6 +2237,7 @@
                     "blur": 24
                   },
                   "layout": "vertical",
+                  "gap": 12,
                   "padding": 24,
                   "justifyContent": "center",
                   "alignItems": "center",
@@ -2262,6 +2263,18 @@
                           "fill": "#74827B"
                         }
                       ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "overlayLabelA",
+                      "name": "Loading label",
+                      "width": "fill_container",
+                      "fill": "#1F2937",
+                      "content": "Checking job details...",
+                      "fontFamily": "Manrope",
+                      "fontSize": 13,
+                      "fontWeight": "800",
+                      "textAlign": "center"
                     }
                   ]
                 }
@@ -4927,7 +4940,7 @@
                       "id": "OZyXy",
                       "name": "logThree",
                       "fill": "#B8C3BE",
-                      "content": "09:41 Getting things ready",
+                      "content": "09:41 Getting AI ready",
                       "fontFamily": "Manrope",
                       "fontSize": 12,
                       "fontWeight": "normal"
@@ -7929,7 +7942,7 @@
                   "type": "frame",
                   "id": "EM4DL",
                   "name": "Workspace loading card / cancellable",
-                  "width": 168,
+                  "width": 216,
                   "fill": "#FCFDFC",
                   "cornerRadius": 14,
                   "stroke": {
@@ -7961,6 +7974,18 @@
                       "iconFontName": "loader-circle",
                       "iconFontFamily": "lucide",
                       "fill": "#74827B"
+                    },
+                    {
+                      "type": "text",
+                      "id": "overlayLabelB",
+                      "name": "Loading label",
+                      "width": "fill_container",
+                      "fill": "#1F2937",
+                      "content": "Tailoring your CV...",
+                      "fontFamily": "Manrope",
+                      "fontSize": 13,
+                      "fontWeight": "800",
+                      "textAlign": "center"
                     },
                     {
                       "type": "frame",
