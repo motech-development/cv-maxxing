@@ -1,23 +1,30 @@
 // @vitest-environment jsdom
 
-import { render, screen } from '@testing-library/react'
-import { expect, test } from 'vitest'
+import { cleanup, render, screen } from '@testing-library/react'
+import { afterEach, expect, test } from 'vitest'
 
 import { DesktopShell } from '../desktop-shell.js'
 import { SidebarContainer } from '../sidebar-container.js'
+
+afterEach(() => {
+  cleanup()
+})
 
 test('renders a full-bleed app shell that aligns with macOS window chrome', () => {
   const { container } = render(
     <DesktopShell
       activeRailItem="setup"
+      railItems={['setup']}
       sidebar={
         <SidebarContainer>
           <div>Sidebar</div>
         </SidebarContainer>
       }
       subtitle="AI worker setup"
-      workerLabel="Checking"
-      workerTone="muted"
+      statusPill={{
+        label: 'Checking',
+        tone: 'muted',
+      }}
     >
       <div>Body</div>
     </DesktopShell>,
@@ -49,31 +56,34 @@ test('renders a full-bleed app shell that aligns with macOS window chrome', () =
   expect(topbar?.className).not.toContain('pt-2')
   expect(sidebar?.className).toContain('min-h-0')
   expect(contentPane?.className).toContain('overflow-y-auto')
-  expect(container.querySelectorAll('nav svg')).toHaveLength(4)
+  expect(container.querySelectorAll('nav svg')).toHaveLength(1)
   expect(screen.queryByText('AI')).toBeNull()
   expect(screen.queryByText('JV')).toBeNull()
   expect(screen.getByText('CV Maxxing')).toBeDefined()
 })
 
-test('renders ambient shell activity separately from AI-worker health', () => {
+test('hides persistent AI status and subtitles in the normal connected shell', () => {
   render(
     <DesktopShell
       activeRailItem="job_vacancies"
       ambientActivityLabel="Background activity"
+      railItems={['job_vacancies', 'original_cv', 'settings']}
       sidebar={
         <SidebarContainer>
           <div>Sidebar</div>
         </SidebarContainer>
       }
-      subtitle="Workspace"
-      workerLabel="Local"
-      workerTone="ready"
     >
       <div>Body</div>
     </DesktopShell>,
   )
 
   expect(screen.getByRole('status', { name: 'Background activity' })).toBeDefined()
-  expect(screen.getByText('Local')).toBeDefined()
+  expect(screen.getByRole('button', { name: 'Jobs' })).toBeDefined()
+  expect(screen.getByRole('button', { name: 'Your CV' })).toBeDefined()
+  expect(screen.getByRole('button', { name: 'Settings' })).toBeDefined()
+  expect(screen.queryByRole('button', { name: 'AI' })).toBeNull()
+  expect(screen.queryByText('Workspace')).toBeNull()
+  expect(screen.queryByText('Local')).toBeNull()
   expect(screen.queryByText('Background activity')).toBeNull()
 })

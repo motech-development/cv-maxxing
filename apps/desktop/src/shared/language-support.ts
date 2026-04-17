@@ -10,7 +10,7 @@ export const ORIGINAL_CV_LANGUAGE_BLOCK_MESSAGE =
   'CV Maxxing v1 supports British English only. Use an English original CV to continue.'
 
 export const VACANCY_LANGUAGE_BLOCK_MESSAGE =
-  'CV Maxxing v1 supports British English only. Review an English job vacancy before adapting this CV.'
+  'CV Maxxing v1 supports British English only. Review an English job before tailoring your CV.'
 
 const ENGLISH_SIGNAL_WORDS = [
   'summary',

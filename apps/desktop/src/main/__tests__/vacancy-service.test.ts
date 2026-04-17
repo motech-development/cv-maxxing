@@ -735,7 +735,7 @@ test('returns an incomplete browser-assisted preview when AI normalization yield
   expect(result.vacancy.source).toBe('linkedin')
   expect(result.vacancy.canGenerate).toBe(false)
   expect(result.vacancy.blockingReason).toBe(
-    'Add the full job responsibilities or requirements before adapting this CV.',
+    'Add the full job responsibilities or requirements before tailoring your CV.',
   )
   expect(result.workspaceState.draft).toEqual({
     text: '',
@@ -997,7 +997,7 @@ test('blocks a non-English pasted vacancy while preserving the entered draft', a
   expect(result.kind).toBe('incomplete')
   expect(result.vacancy.canGenerate).toBe(false)
   expect(result.vacancy.blockingReason).toBe(
-    'CV Maxxing v1 supports British English only. Review an English job vacancy before adapting this CV.',
+    'CV Maxxing v1 supports British English only. Review an English job before tailoring your CV.',
   )
   const workspaceState = await vacancyService.getWorkspaceState()
 
@@ -1007,7 +1007,7 @@ test('blocks a non-English pasted vacancy while preserving the entered draft', a
   })
   expect(workspaceState.vacancy).toMatchObject({
     blockingReason:
-      'CV Maxxing v1 supports British English only. Review an English job vacancy before adapting this CV.',
+      'CV Maxxing v1 supports British English only. Review an English job before tailoring your CV.',
     canGenerate: false,
     id: 'vacancy-008',
     originalUrl: 'https://jobs.example.com/platform-engineer-es',
@@ -1071,7 +1071,7 @@ test('blocks a non-English fetched vacancy page while preserving the entered URL
   expect(result.kind).toBe('incomplete')
   expect(result.vacancy.canGenerate).toBe(false)
   expect(result.vacancy.blockingReason).toBe(
-    'CV Maxxing v1 supports British English only. Review an English job vacancy before adapting this CV.',
+    'CV Maxxing v1 supports British English only. Review an English job before tailoring your CV.',
   )
   const workspaceState = await vacancyService.getWorkspaceState()
 
@@ -1081,7 +1081,7 @@ test('blocks a non-English fetched vacancy page while preserving the entered URL
   })
   expect(workspaceState.vacancy).toMatchObject({
     blockingReason:
-      'CV Maxxing v1 supports British English only. Review an English job vacancy before adapting this CV.',
+      'CV Maxxing v1 supports British English only. Review an English job before tailoring your CV.',
     canGenerate: false,
     id: 'vacancy-009',
     resolvedUrl: 'https://careers.example.com/platform-engineer-es',

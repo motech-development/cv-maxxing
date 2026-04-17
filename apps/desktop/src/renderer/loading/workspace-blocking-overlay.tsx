@@ -10,7 +10,7 @@ interface WorkspaceBlockingOverlayProperties {
   title?: string
 }
 
-const defaultOverlayTitle = 'Loading workspace'
+const defaultOverlayTitle = 'Getting things ready'
 
 export function WorkspaceBlockingOverlay({
   isSecondaryActionPending = false,

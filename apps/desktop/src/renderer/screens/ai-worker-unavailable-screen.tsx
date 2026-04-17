@@ -25,6 +25,7 @@ export function AiWorkerUnavailableScreen({
   return (
     <DesktopShell
       activeRailItem="setup"
+      railItems={['setup']}
       sidebar={
         <SidebarContainer>
           <>
@@ -49,8 +50,10 @@ export function AiWorkerUnavailableScreen({
         </SidebarContainer>
       }
       subtitle="AI worker setup"
-      workerLabel="Unavailable"
-      workerTone="danger"
+      statusPill={{
+        label: 'Unavailable',
+        tone: 'danger',
+      }}
     >
       <h1 className="m-0 text-[30px] font-extrabold tracking-[-0.03em] text-[var(--color-copy-strong)]">
         Repair the local AI worker

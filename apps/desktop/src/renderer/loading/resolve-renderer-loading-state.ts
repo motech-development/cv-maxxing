@@ -68,7 +68,7 @@ export function resolveRendererLoadingState(
   if (input.isImportingOriginalCv) {
     activeLoadingStates.push({
       kind: 'original_cv_import',
-      label: 'Loading workspace',
+      label: 'Getting things ready',
       scope: 'workspace_blocking',
     })
   }
@@ -76,7 +76,7 @@ export function resolveRendererLoadingState(
   if (input.isReviewingVacancy) {
     activeLoadingStates.push({
       kind: 'vacancy_review',
-      label: 'Loading workspace',
+      label: 'Getting things ready',
       scope: 'workspace_blocking',
     })
   }
@@ -84,7 +84,7 @@ export function resolveRendererLoadingState(
   if (input.isGeneratingTailoredApplication) {
     activeLoadingStates.push({
       kind: 'tailored_application_generation',
-      label: 'Loading workspace',
+      label: 'Getting things ready',
       scope: 'workspace_blocking',
     })
   }

@@ -15,7 +15,7 @@ test('startup keeps the AI worker readiness gate blocked while the preflight is 
   })
 
   expect(viewModel).toEqual({
-    body: 'Checking the local AI worker before opening your workspace.',
+    body: 'Checking AI before opening the app.',
     canEnterWorkspace: false,
     diagnostic: 'Looking for the configured local worker, authentication state, and health probe.',
     heading: 'AI worker setup',
@@ -65,7 +65,7 @@ test('startup restores the saved workspace destination after readiness succeeds'
   })
 
   expect(viewModel).toEqual({
-    body: 'The local AI worker is ready. Returning you to your workspace.',
+    body: 'AI is ready. Opening your jobs.',
     canEnterWorkspace: true,
     diagnostic: 'Startup route restored: workspace.',
     heading: 'Workspace restored',

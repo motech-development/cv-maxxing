@@ -28,7 +28,7 @@ export function mapReadinessRouteViewModel({
 }): ReadinessRouteViewModel {
   if (preflight.status === 'checking') {
     return {
-      body: 'Checking the local AI worker before opening your workspace.',
+      body: 'Checking AI before opening the app.',
       canEnterWorkspace: false,
       diagnostic:
         'Looking for the configured local worker, authentication state, and health probe.',
@@ -118,10 +118,10 @@ function buildDiagnostic(
 
 function buildReadyBody(startupDestination: StartupDestination): string {
   if (startupDestination === 'workspace') {
-    return 'The local AI worker is ready. Returning you to your workspace.'
+    return 'AI is ready. Opening your jobs.'
   }
 
-  return 'The local AI worker is ready. Continue to import your original CV.'
+  return 'AI is ready. Add your CV to get started.'
 }
 
 function buildReadyHeading(startupDestination: StartupDestination): string {

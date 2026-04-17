@@ -27,8 +27,8 @@ const baseProperties = {
 test('keeps intake-card buttons separated from source fields with a flex spacer', () => {
   render(<WorkspaceDraftView {...baseProperties} />)
 
-  const reviewTextButton = screen.getByRole('button', { name: 'Review pasted vacancy' })
-  const reviewUrlButton = screen.getByRole('button', { name: 'Review vacancy from URL' })
+  const reviewTextButton = screen.getByRole('button', { name: 'Check pasted details' })
+  const reviewUrlButton = screen.getByRole('button', { name: 'Check job details' })
 
   const pasteCard = reviewTextButton.parentElement
   const urlCard = reviewUrlButton.parentElement
@@ -43,4 +43,7 @@ test('keeps intake-card buttons separated from source fields with a flex spacer'
   expect(urlSpacer?.className).toContain('flex-1')
   expect(pasteSpacer?.getAttribute('aria-hidden')).toBe('true')
   expect(urlSpacer?.getAttribute('aria-hidden')).toBe('true')
+  expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
+  expect(screen.getByLabelText('Job link')).toBeDefined()
+  expect(screen.getByLabelText('Job description')).toBeDefined()
 })

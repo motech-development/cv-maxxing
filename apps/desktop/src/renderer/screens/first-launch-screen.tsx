@@ -3,7 +3,6 @@ import type { ChangeEvent, DragEvent, KeyboardEvent, ReactNode } from 'react'
 import { DesktopShell, type RailItemId } from '../shell/desktop-shell.js'
 import { SidebarContainer } from '../shell/sidebar-container.js'
 import { Button } from '../ui/button.js'
-import { PanelCard } from '../ui/panel-card.js'
 import { SectionLabel } from '../ui/section-label.js'
 
 interface FirstLaunchScreenProperties {
@@ -29,13 +28,13 @@ function handleDropzoneKeyDown(event: KeyboardEvent<HTMLDivElement>): void {
 function FirstLaunchSidebar() {
   return (
     <>
-      <SectionLabel>Start</SectionLabel>
+      <SectionLabel>Your CV</SectionLabel>
       <h2 className="m-0 text-2xl font-extrabold tracking-[-0.02em] text-[var(--color-copy-strong)]">
-        Add your original CV
+        Get started
       </h2>
       <p className="m-0 text-sm leading-6 text-[var(--color-copy-muted)]">
-        One active original CV powers every tailored application. Replacing it later creates a new
-        snapshot.
+        This is the CV you'll tailor for each job. If you replace it later, your saved jobs stay the
+        same.
       </p>
       <div className="flex-1" />
     </>
@@ -56,26 +55,24 @@ export function FirstLaunchScreen({
     <DesktopShell
       activeRailItem="original_cv"
       onSelectRailItem={onSelectRailItem}
+      railItems={['job_vacancies', 'original_cv', 'settings']}
       sidebar={
         <SidebarContainer>
           <FirstLaunchSidebar />
         </SidebarContainer>
       }
-      subtitle="First launch"
       workspaceOverlay={workspaceOverlay}
-      workerLabel="Worker ready"
-      workerTone="ready"
     >
       <h1 className="m-0 text-[32px] font-extrabold tracking-[-0.03em] text-[var(--color-copy-strong)]">
-        Import your original CV
+        Add your CV
       </h1>
       <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--color-copy-muted)]">
-        Choose the PDF or DOCX that should become the source for adapted CVs and cover letters.
+        Choose the PDF or DOCX version of your CV that you want to tailor for jobs.
       </p>
 
       <input
         accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-        aria-label="Original CV file"
+        aria-label="Your CV file"
         className="sr-only"
         id="original-cv-file-input"
         onChange={onFileSelection}
@@ -100,10 +97,10 @@ export function FirstLaunchScreen({
             ↑
           </span>
           <span className="text-lg font-extrabold text-[var(--color-copy-strong)]">
-            Drop a PDF or DOCX here or browse
+            Drop a PDF or DOCX here or choose a file
           </span>
           <span className="mt-2 text-sm leading-6 text-[var(--color-copy-muted)]">
-            The imported CV becomes your active original CV snapshot.
+            We'll use this as the version you tailor for each job.
           </span>
           {originalCvFile ? (
             <span className="mt-3 text-sm font-bold text-[var(--color-copy-strong)]">
@@ -112,15 +109,6 @@ export function FirstLaunchScreen({
           ) : null}
         </div>
       </label>
-
-      <PanelCard className="mt-4 bg-[var(--color-surface-3)] p-4">
-        <p className="m-0 text-sm font-extrabold text-[var(--color-copy-strong)]">
-          AI worker ready
-        </p>
-        <p className="mt-1 text-xs leading-5 text-[var(--color-copy-muted)]">
-          Generation workflows can start after CV import.
-        </p>
-      </PanelCard>
 
       {importError ? (
         <p className="mt-4 text-sm leading-6 text-[var(--color-status-danger)]">{importError}</p>
@@ -132,7 +120,7 @@ export function FirstLaunchScreen({
           onClick={onImportOriginalCv}
           tone="primary"
         >
-          {isImportingOriginalCv ? 'Importing original CV...' : 'Import original CV'}
+          {isImportingOriginalCv ? 'Adding your CV...' : 'Add your CV'}
         </Button>
       </div>
     </DesktopShell>

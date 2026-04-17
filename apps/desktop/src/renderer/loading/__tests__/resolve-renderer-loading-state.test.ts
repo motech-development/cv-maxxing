@@ -53,7 +53,7 @@ test('prefers workspace-blocking loading over ambient activity', () => {
     ),
   ).toEqual({
     kind: 'vacancy_review',
-    label: 'Loading workspace',
+    label: 'Getting things ready',
     scope: 'workspace_blocking',
   })
 })

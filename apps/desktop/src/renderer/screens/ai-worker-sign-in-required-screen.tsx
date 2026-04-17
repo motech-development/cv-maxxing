@@ -25,6 +25,7 @@ export function AiWorkerSignInRequiredScreen({
   return (
     <DesktopShell
       activeRailItem="setup"
+      railItems={['setup']}
       sidebar={
         <SidebarContainer>
           <>
@@ -46,8 +47,10 @@ export function AiWorkerSignInRequiredScreen({
         </SidebarContainer>
       }
       subtitle="AI worker setup"
-      workerLabel="Sign in required"
-      workerTone="warning"
+      statusPill={{
+        label: 'Sign in required',
+        tone: 'warning',
+      }}
     >
       <h1 className="m-0 text-[30px] font-extrabold tracking-[-0.03em] text-[var(--color-copy-strong)]">
         Connect the local AI worker

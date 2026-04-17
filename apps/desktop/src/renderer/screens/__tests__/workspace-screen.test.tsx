@@ -57,9 +57,12 @@ const baseProperties = {
 test('keeps the vacancy sidebar structure stable while switching between draft and saved application views', () => {
   const { rerender } = render(<WorkspaceScreen {...baseProperties} selectedWorkspaceItem="draft" />)
 
-  expect(screen.getByRole('button', { name: 'Open current vacancy draft' })).toBeDefined()
+  expect(screen.getByRole('button', { name: 'Open new job' })).toBeDefined()
   expect(screen.getByRole('button', { name: 'Open platform product manager' })).toBeDefined()
-  expect(screen.getByRole('heading', { name: 'Current vacancy draft' })).toBeDefined()
+  expect(screen.getByRole('heading', { name: 'New job' })).toBeDefined()
+  expect(screen.getByRole('button', { name: 'Add a job' })).toBeDefined()
+  expect(screen.getByRole('button', { name: 'Jobs' })).toBeDefined()
+  expect(screen.getByRole('button', { name: 'Your CV' })).toBeDefined()
 
   rerender(
     <WorkspaceScreen
@@ -126,9 +129,7 @@ test('keeps the vacancy sidebar structure stable while switching between draft a
     />,
   )
 
-  expect(screen.getByRole('button', { name: 'Open current vacancy draft' })).toBeDefined()
+  expect(screen.getByRole('button', { name: 'Open new job' })).toBeDefined()
   expect(screen.getByRole('button', { name: 'Open platform product manager' })).toBeDefined()
-  expect(
-    screen.getByRole('heading', { name: 'Platform Product Manager · Nebula Labs' }),
-  ).toBeDefined()
+  expect(screen.getByRole('heading', { name: 'Platform Product Manager' })).toBeDefined()
 })

@@ -27,13 +27,13 @@ export function VacancyPreviewCard({
     return (
       <PanelCard className="mt-6 flex min-h-[256px] flex-col justify-between p-5">
         <div className="flex flex-col gap-3">
-          <SectionLabel>Vacancy preview</SectionLabel>
+          <SectionLabel>Job details</SectionLabel>
           <h2 className="m-0 text-[24px] font-extrabold tracking-[-0.02em] text-[var(--color-copy-strong)]">
-            Review a vacancy before adapting
+            Check this job before tailoring your CV
           </h2>
           <p className="m-0 max-w-3xl text-sm leading-6 text-[var(--color-copy-muted)]">
-            Use the URL or pasted-text intake above to lock a compact vacancy preview. `Adapt CV`
-            stays disabled until the role details are reviewable.
+            Use the job link or pasted description above to pull together the key details. Tailor
+            your CV is disabled until the job is ready.
           </p>
           {reviewError ? (
             <div className="rounded-[var(--radius-card)] border border-[var(--color-status-danger)]/20 bg-[var(--color-surface-danger)] px-4 py-3 text-sm leading-6 text-[var(--color-status-danger)]">
@@ -43,16 +43,16 @@ export function VacancyPreviewCard({
         </div>
         <div className="mt-5 grid gap-3 text-sm leading-6 text-[var(--color-copy-muted)] md:grid-cols-3">
           <PreviewHint
-            body="Deterministic URL fetches and pasted text both land in the same preview contract."
-            title="Single review surface"
+            body="You can review everything in one place before you tailor your CV."
+            title="One place to check"
           />
           <PreviewHint
-            body="Incomplete extraction keeps the entered URL or pasted text intact for the next attempt."
-            title="Draft preservation"
+            body="If something goes wrong, we keep what you entered so you can try again."
+            title="We keep your draft"
           />
           <PreviewHint
-            body="Authenticated LinkedIn and Indeed roles can hand off to the internal browser session."
-            title="Browser fallback"
+            body="If the job page needs more access, you can open it and come back here."
+            title="Open the job page if needed"
           />
         </div>
       </PanelCard>
@@ -71,13 +71,13 @@ export function VacancyPreviewCard({
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-3">
-            <SectionLabel>{isDraftReviewed ? 'Reviewed vacancy' : 'Vacancy preview'}</SectionLabel>
+            <SectionLabel>{isDraftReviewed ? 'Job details' : 'Job preview'}</SectionLabel>
             {isDraftReviewed ? null : (
               <StatusPill label={statusPill.label} tone={statusPill.tone} />
             )}
           </div>
           <h2 className="mt-3 text-[24px] font-extrabold tracking-[-0.02em] text-[var(--color-copy-strong)]">
-            {preview.title ?? 'Untitled vacancy'}
+            {preview.title ?? 'Untitled job'}
           </h2>
           {previewLines.length > 0 ? (
             <p className="mt-2 text-sm leading-6 text-[var(--color-copy-muted)]">
@@ -96,7 +96,7 @@ export function VacancyPreviewCard({
             onClick={onAdaptCv}
             tone="primary"
           >
-            Adapt CV
+            Tailor your CV
           </Button>
           {browserSessionAvailable ? (
             <Button
@@ -104,7 +104,7 @@ export function VacancyPreviewCard({
               onClick={onOpenBrowserSession}
               tone="secondary"
             >
-              Open internal browser session
+              Open the job page
             </Button>
           ) : null}
         </div>
@@ -125,22 +125,22 @@ export function VacancyPreviewCard({
       <div className="mt-5 grid gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
         <div className="rounded-[var(--radius-card)] border border-[var(--color-border)] bg-white p-4">
           <p className="m-0 text-[11px] font-extrabold uppercase tracking-[0.12em] text-[var(--color-copy-muted)]">
-            Normalized summary
+            About the job
           </p>
           <p className="mt-3 text-sm leading-6 text-[var(--color-copy-strong)]">
-            {preview.textPreview === '' ? 'No extracted summary yet.' : preview.textPreview}
+            {preview.textPreview === '' ? 'No job summary yet.' : preview.textPreview}
           </p>
         </div>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
           <PreviewList
             items={preview.responsibilities}
-            title="Responsibilities"
-            emptyState="No reviewable responsibilities were extracted yet."
+            title="What you'll be doing"
+            emptyState="No responsibilities yet."
           />
           <PreviewList
             items={preview.requirements}
-            title="Requirements"
-            emptyState="No reviewable requirements were extracted yet."
+            title="What they're looking for"
+            emptyState="No requirements yet."
           />
         </div>
       </div>
@@ -203,14 +203,14 @@ function getPreviewStatusPill(preview: VacancySummary): {
 } {
   if (preview.canGenerate) {
     return {
-      label: 'Ready to adapt',
+      label: 'Ready to tailor',
       tone: 'ready',
     }
   }
 
   if (isBrowserSessionAvailable(preview)) {
     return {
-      label: 'Browser sign-in required',
+      label: 'Open the job page',
       tone: 'warning',
     }
   }

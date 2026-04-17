@@ -110,20 +110,21 @@ export function WorkspaceScreen({
       activeRailItem="job_vacancies"
       ambientActivityLabel={ambientActivityLabel}
       onSelectRailItem={onSelectRailItem}
+      railItems={['job_vacancies', 'original_cv', 'settings']}
       sidebar={
         <SidebarContainer>
-          <SectionLabel>Job vacancies</SectionLabel>
+          <SectionLabel>Jobs</SectionLabel>
           <Button onClick={onCreateVacancy} tone="primary">
-            New vacancy
+            Add a job
           </Button>
           {hasVacancyItems ? null : (
             <>
               <h2 className="m-0 text-2xl font-extrabold tracking-[-0.02em] text-[var(--color-copy-strong)]">
-                No vacancy items yet
+                No jobs yet
               </h2>
               <p className="m-0 text-sm leading-6 text-[var(--color-copy-muted)]">
-                Start with a job vacancy URL or paste vacancy text. Current vacancy draft appears
-                here once the draft feels meaningful. Saved tailored applications stay below it.
+                Start with a job link, or paste the job description if you need to. Your current
+                draft appears here, then saved jobs stay below it.
               </p>
             </>
           )}
@@ -131,7 +132,7 @@ export function WorkspaceScreen({
             <WorkspaceSidebarItem
               description={resolveDraftDescription(vacancyPreview)}
               isSelected={selectedWorkspaceItem === 'draft'}
-              label="Current vacancy draft"
+              label="New job"
               onClick={onSelectDraft}
             />
           ) : null}
@@ -142,7 +143,7 @@ export function WorkspaceScreen({
 
             return (
               <WorkspaceSidebarItem
-                description={`${application.employer ? `${application.employer} · ` : ''}immutable PDF outputs`}
+                description={application.employer ?? 'CV and cover letter ready'}
                 isSelected={isSelected}
                 key={application.id}
                 label={application.vacancyTitle ?? application.title}
@@ -166,10 +167,7 @@ export function WorkspaceScreen({
           ) : null}
         </SidebarContainer>
       }
-      subtitle="Workspace"
       workspaceOverlay={workspaceOverlay}
-      workerLabel="Ready"
-      workerTone="ready"
     >
       {selectedWorkspaceItem === 'tailored_application' ? (
         <WorkspaceApplicationView
@@ -237,7 +235,7 @@ function WorkspaceSidebarItem({
 
 function resolveDraftDescription(vacancyPreview: VacancySummary | null): string {
   if (vacancyPreview?.canGenerate === true) {
-    return 'Ready to adapt'
+    return 'Ready to tailor'
   }
 
   return 'Draft in progress'

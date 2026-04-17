@@ -3204,7 +3204,7 @@ test('blocks generation before queueing when the reviewed vacancy is non-English
       },
     }),
   ).rejects.toThrow(
-    'CV Maxxing v1 supports British English only. Review an English job vacancy before adapting this CV.',
+    'CV Maxxing v1 supports British English only. Review an English job before tailoring your CV.',
   )
   await expect(service.getPendingGenerationCommand()).resolves.toBeNull()
 })

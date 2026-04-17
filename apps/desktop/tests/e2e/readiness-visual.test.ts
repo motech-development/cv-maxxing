@@ -62,7 +62,7 @@ test('captures the first-launch screen', async () => {
 
   const page = await electronApp.firstWindow()
 
-  await expect(page.getByRole('heading', { name: 'Import your original CV' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Add your CV' })).toBeVisible()
   await hideScrollbars(page)
   await expect(page).toHaveScreenshot('first-launch-screen.png', {
     animations: 'disabled',
@@ -73,7 +73,7 @@ test('captures the first-launch screen', async () => {
   await electronApp.close()
 })
 
-test('captures the AI worker repair screen', async () => {
+test('captures the AI repair screen', async () => {
   const electronApp = await launchDesktopApp({
     CV_MAXXING_AI_WORKER_PREFLIGHT_STATUS: 'runtime_missing',
     CV_MAXXING_MAIN_WINDOW_SHOW: 'false',
@@ -120,9 +120,9 @@ test('captures the workspace-empty state after the original CV import', async ()
 
   const page = await electronApp.firstWindow()
 
-  await page.getByLabel('Original CV file').setInputFiles(testPaths.pdfPath)
-  await page.getByRole('button', { name: 'Import original CV' }).click()
-  await expect(page.getByRole('heading', { name: 'Create a tailored application' })).toBeVisible()
+  await page.getByLabel('Your CV file').setInputFiles(testPaths.pdfPath)
+  await page.getByRole('button', { name: 'Add your CV' }).click()
+  await expect(page.getByRole('heading', { name: 'Add a job' })).toBeVisible()
   await hideScrollbars(page)
   await expect(page).toHaveScreenshot('workspace-empty-screen.png', {
     animations: 'disabled',
@@ -161,13 +161,13 @@ test('captures the workspace-active adapted CV preview', async () => {
 
   const page = await electronApp.firstWindow()
 
-  await page.getByLabel('Original CV file').setInputFiles(testPaths.pdfPath)
-  await page.getByRole('button', { name: 'Import original CV' }).click()
-  await page.getByLabel('Job vacancy text').fill(createPastedVacancyFixture())
-  await page.getByLabel('Job vacancy text').press('Tab')
-  await page.getByRole('button', { name: 'Review pasted vacancy' }).dispatchEvent('click')
-  await expect(page.getByText('Vacancy preview', { exact: true })).toBeVisible()
-  await page.getByRole('button', { name: 'Adapt CV' }).click()
+  await page.getByLabel('Your CV file').setInputFiles(testPaths.pdfPath)
+  await page.getByRole('button', { name: 'Add your CV' }).click()
+  await page.getByLabel('Job description').fill(createPastedVacancyFixture())
+  await page.getByLabel('Job description').press('Tab')
+  await page.getByRole('button', { name: 'Check pasted details' }).dispatchEvent('click')
+  await expect(page.getByText(/Job (details|preview)/)).toBeVisible()
+  await page.getByRole('button', { name: 'Tailor your CV' }).click()
   await expect
     .poll(
       async () => {
@@ -177,14 +177,12 @@ test('captures the workspace-active adapted CV preview', async () => {
         timeout: 15_000,
       },
     )
-    .toContain('Senior platform engineer · Example Labs')
-  await expect(
-    page.getByRole('heading', { name: 'Senior platform engineer · Example Labs' }),
-  ).toBeVisible({
+    .toContain('Senior platform engineer')
+  await expect(page.getByRole('heading', { name: 'Senior platform engineer' })).toBeVisible({
     timeout: 15_000,
   })
   await expect(page.getByText('Page 1 of 1')).toBeVisible()
-  await expect(page.getByLabel('Adapted CV PDF preview')).toBeVisible()
+  await expect(page.getByLabel('CV PDF preview')).toBeVisible()
   await hideScrollbars(page)
   await expect(page).toHaveScreenshot('workspace-active-adapted-cv-screen.png', {
     animations: 'disabled',
@@ -225,14 +223,14 @@ test('captures the workspace generation overlay', async () => {
 
   const page = await electronApp.firstWindow()
 
-  await page.getByLabel('Original CV file').setInputFiles(testPaths.pdfPath)
-  await page.getByRole('button', { name: 'Import original CV' }).click()
-  await page.getByLabel('Job vacancy text').fill(createPastedVacancyFixture())
-  await page.getByLabel('Job vacancy text').press('Tab')
-  await page.getByRole('button', { name: 'Review pasted vacancy' }).dispatchEvent('click')
-  await expect(page.getByText('Vacancy preview', { exact: true })).toBeVisible()
-  await page.getByRole('button', { name: 'Adapt CV' }).click()
-  await expect(page.getByRole('status', { name: 'Loading workspace' })).toBeVisible()
+  await page.getByLabel('Your CV file').setInputFiles(testPaths.pdfPath)
+  await page.getByRole('button', { name: 'Add your CV' }).click()
+  await page.getByLabel('Job description').fill(createPastedVacancyFixture())
+  await page.getByLabel('Job description').press('Tab')
+  await page.getByRole('button', { name: 'Check pasted details' }).dispatchEvent('click')
+  await expect(page.getByText(/Job (details|preview)/)).toBeVisible()
+  await page.getByRole('button', { name: 'Tailor your CV' }).click()
+  await expect(page.getByRole('status', { name: 'Getting things ready' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Cancel' })).toBeVisible()
   await hideScrollbars(page)
   await expect(page).toHaveScreenshot('workspace-generation-overlay-screen.png', {
@@ -272,14 +270,14 @@ test('captures ambient shell activity while reopening a saved tailored applicati
 
   let page = await electronApp.firstWindow()
 
-  await page.getByLabel('Original CV file').setInputFiles(testPaths.pdfPath)
-  await page.getByRole('button', { name: 'Import original CV' }).click()
-  await page.getByLabel('Job vacancy text').fill(createPastedVacancyFixture())
-  await page.getByLabel('Job vacancy text').press('Tab')
-  await page.getByRole('button', { name: 'Review pasted vacancy' }).dispatchEvent('click')
-  await expect(page.getByText('Vacancy preview', { exact: true })).toBeVisible()
-  await page.getByRole('button', { name: 'Adapt CV' }).click()
-  await expect(page.getByLabel('Adapted CV PDF preview')).toBeVisible({
+  await page.getByLabel('Your CV file').setInputFiles(testPaths.pdfPath)
+  await page.getByRole('button', { name: 'Add your CV' }).click()
+  await page.getByLabel('Job description').fill(createPastedVacancyFixture())
+  await page.getByLabel('Job description').press('Tab')
+  await page.getByRole('button', { name: 'Check pasted details' }).dispatchEvent('click')
+  await expect(page.getByText(/Job (details|preview)/)).toBeVisible()
+  await page.getByRole('button', { name: 'Tailor your CV' }).click()
+  await expect(page.getByLabel('CV PDF preview')).toBeVisible({
     timeout: 15_000,
   })
 
@@ -295,9 +293,7 @@ test('captures ambient shell activity while reopening a saved tailored applicati
 
   page = await electronApp.firstWindow()
 
-  await expect(
-    page.getByRole('heading', { name: 'Senior platform engineer · Example Labs' }),
-  ).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Senior platform engineer' })).toBeVisible()
   await expect(page.getByRole('status', { name: 'Background activity' })).toBeVisible()
   await hideScrollbars(page)
   await expect(page).toHaveScreenshot('workspace-active-ambient-activity-screen.png', {

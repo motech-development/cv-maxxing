@@ -150,7 +150,7 @@ export function createVacancyService({
         blockingReason = VACANCY_LANGUAGE_BLOCK_MESSAGE
       } else if (!canGenerate) {
         blockingReason =
-          'Add the full job responsibilities or requirements before adapting this CV.'
+          'Add the full job responsibilities or requirements before tailoring your CV.'
       }
 
       const vacancy = toVacancySummary({
@@ -425,7 +425,7 @@ async function persistFetchedVacancyPage({
   if (isLanguageBlocked) {
     blockingReason = VACANCY_LANGUAGE_BLOCK_MESSAGE
   } else if (!canGenerate) {
-    blockingReason = 'Add the full job responsibilities or requirements before adapting this CV.'
+    blockingReason = 'Add the full job responsibilities or requirements before tailoring your CV.'
   }
 
   const vacancy = toVacancySummary({

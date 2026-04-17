@@ -48,7 +48,7 @@ import { Button } from './ui/button.js'
 import { Dialog } from './ui/dialog.js'
 
 const initialReadinessViewModel: ReadinessRouteViewModel = {
-  body: 'Checking the local AI worker before opening your workspace.',
+  body: 'Checking AI before opening the app.',
   canEnterWorkspace: false,
   diagnostic: 'Looking for the configured local worker, authentication state, and health probe.',
   heading: 'AI worker setup',
@@ -1371,7 +1371,7 @@ export function App() {
                 </Button>
               </>
             }
-            eyebrow="New vacancy"
+            eyebrow="Add a job"
             isDismissable={false}
             isOpen={isConfirmingDraftDiscard}
             onOpenChange={(nextIsOpen) => {
@@ -1379,14 +1379,13 @@ export function App() {
                 setIsConfirmingDraftDiscard(false)
               }
             }}
-            title="Discard current vacancy draft?"
+            title="Discard this job draft?"
           >
             <p className="m-0">
-              Starting a new vacancy will remove the current draft from the workspace. If this draft
-              already has a reviewed vacancy, that reviewed result will be removed too. Saved
-              tailored applications stay in the sidebar.
+              Starting a new job will remove this draft and any checked job details attached to it.
+              Saved jobs stay in the list.
             </p>
-            <p className="m-0">Cancel leaves the workspace exactly as it is now.</p>
+            <p className="m-0">Cancel keeps everything as it is now.</p>
           </Dialog>
           <Dialog
             actions={
@@ -1407,11 +1406,11 @@ export function App() {
                   }}
                   tone="danger"
                 >
-                  Delete tailored application
+                  Delete this job
                 </Button>
               </>
             }
-            eyebrow="Saved tailored application"
+            eyebrow="Saved job"
             isDismissable={false}
             isOpen={isDeleteTailoredApplicationDialogOpen}
             onOpenChange={(nextIsOpen) => {
@@ -1419,13 +1418,12 @@ export function App() {
                 setIsDeleteTailoredApplicationDialogOpen(false)
               }
             }}
-            title="Delete tailored application?"
+            title="Delete this job?"
           >
             <p className="m-0">
-              This permanently removes the selected adapted CV and cover letter PDFs from the
-              workspace sidebar.
+              This permanently removes the saved CV and cover letter for this job.
             </p>
-            <p className="m-0">Cancel keeps the tailored application exactly as it is now.</p>
+            <p className="m-0">Cancel keeps this job exactly as it is now.</p>
           </Dialog>
         </>
       )

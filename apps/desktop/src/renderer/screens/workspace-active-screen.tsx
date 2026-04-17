@@ -32,9 +32,9 @@ export function WorkspaceApplicationView({
   previewDocumentKind,
   workspaceError,
 }: WorkspaceApplicationViewProperties) {
-  const resolvedApplicationTitle = preview?.title ?? applicationTitle ?? 'Tailored application'
-  const resolvedVacancySubtitle =
-    preview?.vacancyTitle ?? preview?.employer ?? resolvedApplicationTitle
+  const resolvedApplicationTitle =
+    preview?.vacancyTitle ?? preview?.title ?? applicationTitle ?? 'Saved job'
+  const resolvedVacancySubtitle = preview?.employer ?? preview?.vacancyTitle ?? applicationTitle
   let activeDocumentPreview = null
 
   if (preview !== null) {
@@ -42,16 +42,16 @@ export function WorkspaceApplicationView({
       previewDocumentKind === 'adapted_cv' ? preview.adaptedCv : preview.coverLetter
   }
 
-  const documentTitle = previewDocumentKind === 'adapted_cv' ? 'Adapted CV' : 'Cover letter'
+  const documentTitle = previewDocumentKind === 'adapted_cv' ? 'CV' : 'Cover letter'
   const documentEmptyStateCopy =
     previewDocumentKind === 'adapted_cv'
-      ? 'Generate an adapted CV to preview the PDF artifact here.'
-      : 'Generate a cover letter to preview the PDF artifact here.'
+      ? 'Your CV will appear here.'
+      : 'Your cover letter will appear here.'
   const previewStatusTags =
     preview === null
       ? []
       : [
-          `Adapted CV · ${String(preview.adaptedCv.pageCount)} page${preview.adaptedCv.pageCount === 1 ? '' : 's'}`,
+          `CV · ${String(preview.adaptedCv.pageCount)} page${preview.adaptedCv.pageCount === 1 ? '' : 's'}`,
           `Cover letter · ${String(preview.coverLetter.pageCount)} page${preview.coverLetter.pageCount === 1 ? '' : 's'}`,
         ]
 
@@ -62,9 +62,11 @@ export function WorkspaceApplicationView({
           <h1 className="m-0 text-[32px] font-extrabold tracking-[-0.03em] text-[var(--color-copy-strong)]">
             {resolvedApplicationTitle}
           </h1>
-          <p className="mt-2 text-sm leading-6 text-[var(--color-copy-muted)]">
-            Adapted CV and cover letter generated from the active original CV snapshot.
-          </p>
+          {resolvedVacancySubtitle ? (
+            <p className="mt-2 text-sm leading-6 text-[var(--color-copy-muted)]">
+              {resolvedVacancySubtitle}
+            </p>
+          ) : null}
           {workspaceError ? (
             <div className="mt-4 max-w-4xl rounded-[var(--radius-card)] border border-[var(--color-status-danger)]/20 bg-[var(--color-surface-danger)] px-4 py-3 text-sm leading-6 text-[var(--color-status-danger)]">
               {workspaceError}
@@ -72,7 +74,7 @@ export function WorkspaceApplicationView({
           ) : null}
         </div>
         <Button disabled={preview === null || isExportingPdf} onClick={onExportPdf} tone="primary">
-          Export PDFs
+          Save CV and cover letter
         </Button>
       </div>
 
@@ -90,7 +92,7 @@ export function WorkspaceApplicationView({
               }}
               type="button"
             >
-              Adapted CV
+              CV
             </button>
             <button
               className={`rounded-[8px] px-3 py-2 text-[12px] font-extrabold ${
@@ -118,7 +120,7 @@ export function WorkspaceApplicationView({
 
         <PanelCard className="flex w-[300px] shrink-0 flex-col gap-3 overflow-y-auto p-[18px]">
           <h2 className="m-0 text-sm font-extrabold text-[var(--color-copy-strong)]">
-            Job vacancy
+            About this job
           </h2>
           <p className="m-0 text-xs leading-5 text-[var(--color-copy-muted)]">
             {resolvedVacancySubtitle}
@@ -143,7 +145,7 @@ export function WorkspaceApplicationView({
           </div>
           {preview ? (
             <>
-              <DetailSection title="Original CV snapshot">
+              <DetailSection title="Your CV">
                 <p className="m-0 text-xs font-extrabold text-[var(--color-copy-strong)]">
                   {preview.originalCv.originalFilename}
                 </p>
@@ -154,9 +156,9 @@ export function WorkspaceApplicationView({
                   Imported {formatTimestamp(preview.originalCv.importedAt)}
                 </p>
               </DetailSection>
-              <DetailSection title="Adaptation summary">
+              <DetailSection title="Highlighted in your CV">
                 <DetailList
-                  emptyMessage="No adaptation notes recorded."
+                  emptyMessage="Nothing highlighted yet."
                   items={[
                     ...preview.adaptationSummary.emphasized.map((item) => {
                       return item.text
@@ -167,9 +169,9 @@ export function WorkspaceApplicationView({
                   ]}
                 />
               </DetailSection>
-              <DetailSection title="Gaps and validation hints">
+              <DetailSection title="Worth checking">
                 <DetailList
-                  emptyMessage="No gaps or validation hints recorded."
+                  emptyMessage="Nothing to double-check right now."
                   items={[
                     ...preview.adaptationSummary.gaps,
                     ...preview.adaptationSummary.validationHints,
@@ -191,7 +193,7 @@ export function WorkspaceApplicationView({
             onClick={onDeleteTailoredApplication}
             tone="secondary"
           >
-            Delete tailored application
+            Delete this job
           </Button>
         </PanelCard>
       </div>

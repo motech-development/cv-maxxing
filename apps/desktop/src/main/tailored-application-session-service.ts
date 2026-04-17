@@ -494,7 +494,7 @@ export function createTailoredApplicationSessionService({
     }
 
     if (!vacancyMetadata.canGenerate || vacancyMetadata.status !== 'ready') {
-      throw new Error('Review a complete job vacancy before adapting this CV.')
+      throw new Error('Review a complete job before tailoring your CV.')
     }
 
     if (assessEnglishLanguageSupport(vacancyTextBuffer.toString('utf8')).status === 'blocked') {
@@ -1399,7 +1399,7 @@ export function createTailoredApplicationSessionService({
         vacancyWorkspace.text !== vacancyDraft.text ||
         vacancyWorkspace.url !== vacancyDraft.url
       ) {
-        throw new Error('Review a complete job vacancy before adapting this CV.')
+        throw new Error('Review a complete job before tailoring your CV.')
       }
 
       const vacancyTextBuffer = await localAppData.artifacts.read({
@@ -1409,7 +1409,7 @@ export function createTailoredApplicationSessionService({
       })
 
       if (vacancyMetadata?.canGenerate !== true || vacancyMetadata.status !== 'ready') {
-        throw new Error('Review a complete job vacancy before adapting this CV.')
+        throw new Error('Review a complete job before tailoring your CV.')
       }
 
       if (vacancyTextBuffer === null) {

@@ -53,23 +53,20 @@ export function WorkspaceDraftView({
   const sourceFieldClassName = isDraftReviewed
     ? `${fieldClassName} bg-[var(--color-surface-2)] text-[var(--color-copy-muted)]`
     : fieldClassName
-  let subtitle =
-    'Add one job vacancy, review the extracted role details, then generate an adapted CV and cover letter.'
+  let subtitle = 'Start with a job link, or paste the job description if you need to.'
 
   if (isCurrentDraftMeaningful) {
-    subtitle =
-      'Current vacancy source content stays here until you review and generate a tailored application.'
+    subtitle = 'Check the job details before tailoring your CV and cover letter.'
   }
 
   if (isDraftReviewed) {
-    subtitle =
-      'This vacancy review is complete. Source fields stay read-only until you start a new vacancy.'
+    subtitle = 'These job details are locked until you start a new job.'
   }
 
   return (
     <>
       <h1 className="m-0 text-[32px] font-extrabold tracking-[-0.03em] text-[var(--color-copy-strong)]">
-        {isCurrentDraftMeaningful ? 'Current vacancy draft' : 'Create a tailored application'}
+        {isCurrentDraftMeaningful ? 'New job' : 'Add a job'}
       </h1>
       <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--color-copy-muted)]">{subtitle}</p>
       {workspaceError ? (
@@ -80,22 +77,20 @@ export function WorkspaceDraftView({
 
       <div className="mt-6 grid gap-[18px] md:grid-cols-2">
         <PanelCard className="flex min-h-[278px] flex-col gap-3 p-5">
-          <p className="m-0 text-lg font-extrabold text-[var(--color-copy-strong)]">
-            Open vacancy URL
-          </p>
+          <p className="m-0 text-lg font-extrabold text-[var(--color-copy-strong)]">Job link</p>
           <p className="text-sm leading-6 text-[var(--color-copy-muted)]">
             {isDraftReviewed
-              ? 'Reviewed vacancy source URL. Start a new vacancy to change the locked source content.'
-              : 'Paste one role URL to fetch and normalize the role first. The vacancy preview must be reviewed before tailoring can begin.'}
+              ? 'This job link is locked. Start a new job if you want to change it.'
+              : 'Paste the job link first. We’ll pull together the details before you tailor your CV.'}
           </p>
           <label
             className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-[var(--color-copy-muted)]"
             htmlFor="workspace-vacancy-url"
           >
-            Vacancy URL
+            Job link
           </label>
           <input
-            aria-label="Vacancy URL"
+            aria-label="Job link"
             className={sourceFieldClassName}
             id="workspace-vacancy-url"
             onChange={onUrlDraftChange}
@@ -106,27 +101,27 @@ export function WorkspaceDraftView({
           />
           <div aria-hidden="true" className="flex-1" />
           <Button disabled={isUrlSubmissionDisabled} onClick={onReviewVacancyUrl} tone="primary">
-            Review vacancy from URL
+            Check job details
           </Button>
         </PanelCard>
 
         <PanelCard className="flex min-h-[278px] flex-col gap-3 p-5">
           <p className="m-0 text-lg font-extrabold text-[var(--color-copy-strong)]">
-            Paste job text
+            Paste job description
           </p>
           <p className="text-sm leading-6 text-[var(--color-copy-muted)]">
             {isDraftReviewed
-              ? 'Unused source methods stay visible in the reviewed draft. Blank reviewed fields remain blank and read-only.'
-              : 'Use pasted vacancy text when the page is blocked or the role has no stable URL. The same preview contract is applied before `Adapt CV` becomes available.'}
+              ? 'This stays here for reference until you start a new job.'
+              : 'If the job link does not work, paste the job description instead.'}
           </p>
           <label
             className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-[var(--color-copy-muted)]"
             htmlFor="workspace-vacancy-text"
           >
-            Job vacancy text
+            Job description
           </label>
           <textarea
-            aria-label="Job vacancy text"
+            aria-label="Job description"
             className={`${sourceFieldClassName} min-h-[108px] resize-none`.trim()}
             id="workspace-vacancy-text"
             onChange={onTextDraftChange}
@@ -142,7 +137,7 @@ export function WorkspaceDraftView({
             onClick={onReviewPastedVacancy}
             tone="primary"
           >
-            Review pasted vacancy
+            Check pasted details
           </Button>
         </PanelCard>
       </div>

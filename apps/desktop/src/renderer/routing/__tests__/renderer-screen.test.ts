@@ -10,7 +10,7 @@ test('falls back to first_launch when no active original CV is available', () =>
         snapshotCount: 0,
       },
       readinessViewModel: {
-        body: 'The local AI worker is ready. Returning you to your workspace.',
+        body: 'AI is ready. Opening your jobs.',
         canEnterWorkspace: true,
         diagnostic: 'Startup route restored: workspace.',
         heading: 'Workspace restored',
@@ -46,7 +46,7 @@ test('resolves the post-import workspace to a single screen when an original CV 
         snapshotCount: 1,
       },
       readinessViewModel: {
-        body: 'The local AI worker is ready. Returning you to your workspace.',
+        body: 'AI is ready. Opening your jobs.',
         canEnterWorkspace: true,
         diagnostic: 'Startup route restored: workspace.',
         heading: 'Workspace restored',

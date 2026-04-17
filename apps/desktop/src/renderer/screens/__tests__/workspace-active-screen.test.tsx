@@ -13,7 +13,7 @@ test('keeps the document preview column shrinkable beside the vacancy panel', ()
 
   render(
     <WorkspaceApplicationView
-      applicationTitle="Tailored application"
+      applicationTitle="Senior platform engineer"
       isCopyingCoverLetterText={false}
       isExportingPdf={false}
       onCopyCoverLetterText={onCopyCoverLetterText}
@@ -26,7 +26,9 @@ test('keeps the document preview column shrinkable beside the vacancy panel', ()
     />,
   )
 
-  expect(screen.getByText('Job vacancy')).toBeDefined()
+  expect(screen.getByText('About this job')).toBeDefined()
+  expect(screen.getByRole('heading', { name: 'Senior platform engineer' })).toBeDefined()
+  expect(screen.getByRole('button', { name: 'Save CV and cover letter' })).toBeDefined()
 
   const panelCards = [...document.querySelectorAll('div')].filter((element) => {
     return (

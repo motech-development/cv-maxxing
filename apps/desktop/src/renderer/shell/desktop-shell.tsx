@@ -11,11 +11,14 @@ interface DesktopShellProperties {
   ambientActivityLabel?: string | null
   children: ReactNode
   onSelectRailItem?: (item: RailItemId) => void
+  railItems?: RailItemId[]
   sidebar: ReactNode
-  subtitle: string
+  statusPill?: {
+    label: string
+    tone: 'danger' | 'muted' | 'ready' | 'warning'
+  }
+  subtitle?: string
   workspaceOverlay?: ReactNode
-  workerTone: 'danger' | 'muted' | 'ready' | 'warning'
-  workerLabel: string
 }
 
 interface RailButtonProperties {
@@ -65,6 +68,22 @@ function RailButton({ icon, isActive, label, onSelect }: RailButtonProperties) {
   )
 }
 
+function getRailLabel(icon: RailItemId): string {
+  if (icon === 'setup') {
+    return 'AI'
+  }
+
+  if (icon === 'job_vacancies') {
+    return 'Jobs'
+  }
+
+  if (icon === 'original_cv') {
+    return 'Your CV'
+  }
+
+  return 'Settings'
+}
+
 function AmbientActivityIndicator({ label }: { label: string }) {
   return (
     <div
@@ -88,28 +107,39 @@ export function DesktopShell({
   ambientActivityLabel,
   children,
   onSelectRailItem,
+  railItems = ['setup', 'job_vacancies', 'original_cv', 'settings'],
   sidebar,
+  statusPill,
   subtitle,
   workspaceOverlay,
-  workerLabel,
-  workerTone,
 }: DesktopShellProperties) {
+  const leadingRailItems = railItems.filter((item) => {
+    return item !== 'settings'
+  })
+  const trailingRailItems = railItems.filter((item) => {
+    return item === 'settings'
+  })
+
   return (
     <main className="h-screen overflow-hidden bg-[var(--color-shell-topbar)] text-[var(--color-copy-strong)]">
       <section className="relative flex h-screen w-full flex-col overflow-hidden bg-[var(--color-shell-canvas)]">
         <header className="flex h-[52px] items-center gap-[14px] bg-[var(--color-shell-topbar)] pl-[84px] pr-[18px] [-webkit-app-region:drag]">
           <div className="min-w-0 flex-1">
             <p className="m-0 text-sm font-bold text-[var(--color-surface-3)]">CV Maxxing</p>
-            <p className="m-0 text-[11px] font-medium text-[var(--color-copy-subtle)]">
-              {subtitle}
-            </p>
-          </div>
-          <div className="flex items-center gap-[10px]">
-            {ambientActivityLabel ? (
-              <AmbientActivityIndicator label={ambientActivityLabel} />
+            {subtitle ? (
+              <p className="m-0 text-[11px] font-medium text-[var(--color-copy-subtle)]">
+                {subtitle}
+              </p>
             ) : null}
-            <StatusPill label={workerLabel} tone={workerTone} />
           </div>
+          {ambientActivityLabel || statusPill ? (
+            <div className="flex items-center gap-[10px]">
+              {ambientActivityLabel ? (
+                <AmbientActivityIndicator label={ambientActivityLabel} />
+              ) : null}
+              {statusPill ? <StatusPill label={statusPill.label} tone={statusPill.tone} /> : null}
+            </div>
+          ) : null}
         </header>
 
         <div className="flex min-h-0 flex-1 bg-[var(--color-shell-canvas)]">
@@ -118,32 +148,30 @@ export function DesktopShell({
             className="flex w-16 flex-col items-center justify-between bg-[var(--color-shell-rail)] px-[10px] py-4"
           >
             <div className="flex flex-col items-center gap-[14px]">
-              <RailButton
-                icon="setup"
-                isActive={activeRailItem === 'setup'}
-                label="AI worker"
-                onSelect={onSelectRailItem}
-              />
-              <RailButton
-                icon="job_vacancies"
-                isActive={activeRailItem === 'job_vacancies'}
-                label="Job vacancies"
-                onSelect={onSelectRailItem}
-              />
-              <RailButton
-                icon="original_cv"
-                isActive={activeRailItem === 'original_cv'}
-                label="Original CV"
-                onSelect={onSelectRailItem}
-              />
+              {leadingRailItems.map((item) => {
+                return (
+                  <RailButton
+                    icon={item}
+                    isActive={activeRailItem === item}
+                    key={item}
+                    label={getRailLabel(item)}
+                    onSelect={onSelectRailItem}
+                  />
+                )
+              })}
             </div>
             <div className="flex flex-col items-center gap-[14px]">
-              <RailButton
-                icon="settings"
-                isActive={activeRailItem === 'settings'}
-                label="Settings"
-                onSelect={onSelectRailItem}
-              />
+              {trailingRailItems.map((item) => {
+                return (
+                  <RailButton
+                    icon={item}
+                    isActive={activeRailItem === item}
+                    key={item}
+                    label={getRailLabel(item)}
+                    onSelect={onSelectRailItem}
+                  />
+                )
+              })}
             </div>
           </nav>
 

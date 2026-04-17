@@ -49,6 +49,7 @@ export function AiWorkerCheckingScreen({
   return (
     <DesktopShell
       activeRailItem="setup"
+      railItems={['setup']}
       sidebar={
         <SidebarContainer>
           <SetupSidebar body={viewModel.body} title="AI worker readiness">
@@ -66,8 +67,10 @@ export function AiWorkerCheckingScreen({
         </SidebarContainer>
       }
       subtitle="AI worker setup"
-      workerLabel="Checking"
-      workerTone="muted"
+      statusPill={{
+        label: 'Checking',
+        tone: 'muted',
+      }}
     >
       <div className="flex items-start justify-between gap-6">
         <div>

@@ -23,36 +23,34 @@ export function OriginalCvReplacementCard({
   onImportOriginalCv,
   originalCvFile,
 }: OriginalCvReplacementCardProperties) {
-  const nextSnapshotCount = activeOriginalCv.snapshotCount + 1
-  const snapshotLabel =
+  const nextVersionCount = activeOriginalCv.snapshotCount + 1
+  const versionLabel =
     activeOriginalCv.snapshotCount === 1
-      ? '1 snapshot'
-      : `${String(activeOriginalCv.snapshotCount)} snapshots`
+      ? '1 version'
+      : `${String(activeOriginalCv.snapshotCount)} versions`
 
   return (
     <PanelCard className="bg-[var(--color-surface-3)] p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="m-0 text-sm font-extrabold text-[var(--color-copy-strong)]">
-            Active original CV
-          </p>
+          <p className="m-0 text-sm font-extrabold text-[var(--color-copy-strong)]">Your CV</p>
           <p className="mt-1 truncate text-xs leading-5 text-[var(--color-copy-muted)]">
             {activeOriginalCv.originalFilename}
           </p>
         </div>
         <span className="rounded-full bg-white px-2 py-1 text-[10px] font-extrabold uppercase tracking-[0.12em] text-[var(--color-copy-muted)]">
-          {snapshotLabel}
+          {versionLabel}
         </span>
       </div>
 
       <p className="mt-3 text-xs leading-5 text-[var(--color-copy-muted)]">
-        Replace the active original CV to create snapshot {String(nextSnapshotCount)} without
-        mutating tailored applications that already reference an earlier snapshot.
+        Replace your CV to create version {String(nextVersionCount)}. Existing jobs will keep the CV
+        they were created from.
       </p>
 
       <input
         accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-        aria-label="Replacement original CV file"
+        aria-label="Replacement CV file"
         className="sr-only"
         id={inputId}
         onChange={onFileSelection}
@@ -63,7 +61,7 @@ export function OriginalCvReplacementCard({
         className="mt-3 inline-flex cursor-pointer items-center justify-center rounded-[var(--radius-card)] border border-[var(--color-border)] bg-white px-[14px] py-[10px] text-[13px] font-extrabold text-[var(--color-copy-strong)] transition hover:bg-[var(--color-surface-1)]"
         htmlFor={inputId}
       >
-        Choose replacement PDF or DOCX
+        Choose a new PDF or DOCX
       </label>
 
       {originalCvFile ? (
@@ -82,7 +80,7 @@ export function OriginalCvReplacementCard({
           onClick={onImportOriginalCv}
           tone="secondary"
         >
-          {isImportingOriginalCv ? 'Replacing original CV...' : 'Replace original CV'}
+          {isImportingOriginalCv ? 'Updating your CV...' : 'Update your CV'}
         </Button>
       </div>
     </PanelCard>

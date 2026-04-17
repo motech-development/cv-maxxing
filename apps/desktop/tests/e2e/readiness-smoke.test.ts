@@ -69,12 +69,12 @@ test('imports the first PDF original CV and lands on the workspace-empty screen'
 
   const page = await electronApp.firstWindow()
 
-  await expect(page.getByRole('heading', { name: 'Import your original CV' })).toBeVisible()
-  await page.getByLabel('Original CV file').setInputFiles(testPaths.pdfPath)
-  await page.getByRole('button', { name: 'Import original CV' }).click()
-  await expect(page.getByRole('heading', { name: 'Create a tailored application' })).toBeVisible()
-  await expect(page.getByText('No vacancy items yet')).toBeVisible()
-  await expect(page.getByText('Active original CV', { exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Add your CV' })).toBeVisible()
+  await page.getByLabel('Your CV file').setInputFiles(testPaths.pdfPath)
+  await page.getByRole('button', { name: 'Add your CV' }).click()
+  await expect(page.getByRole('heading', { name: 'Add a job' })).toBeVisible()
+  await expect(page.getByText('No jobs yet')).toBeVisible()
+  await expect(page.getByText('Your CV', { exact: true })).toBeVisible()
   await expect(page.getByText('ada-lovelace.pdf')).toBeVisible()
 
   await electronApp.close()
@@ -97,13 +97,13 @@ test('rejects unreadable original CV imports without leaving the first-launch fl
 
   const page = await electronApp.firstWindow()
 
-  await expect(page.getByRole('heading', { name: 'Import your original CV' })).toBeVisible()
-  await page.getByLabel('Original CV file').setInputFiles(testPaths.pdfPath)
-  await page.getByRole('button', { name: 'Import original CV' }).click()
+  await expect(page.getByRole('heading', { name: 'Add your CV' })).toBeVisible()
+  await page.getByLabel('Your CV file').setInputFiles(testPaths.pdfPath)
+  await page.getByRole('button', { name: 'Add your CV' }).click()
   await expect(
     page.getByText('This original CV could not be read reliably. Use a text-based PDF or DOCX.'),
   ).toBeVisible()
-  await expect(page.getByRole('heading', { name: 'Import your original CV' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Add your CV' })).toBeVisible()
 
   await electronApp.close()
 })
@@ -134,15 +134,15 @@ test('rejects non-English original CV imports without leaving the first-launch f
 
   const page = await electronApp.firstWindow()
 
-  await expect(page.getByRole('heading', { name: 'Import your original CV' })).toBeVisible()
-  await page.getByLabel('Original CV file').setInputFiles(testPaths.docxPath)
-  await page.getByRole('button', { name: 'Import original CV' }).click()
+  await expect(page.getByRole('heading', { name: 'Add your CV' })).toBeVisible()
+  await page.getByLabel('Your CV file').setInputFiles(testPaths.docxPath)
+  await page.getByRole('button', { name: 'Add your CV' }).click()
   await expect(
     page.getByText(
       'CV Maxxing v1 supports British English only. Use an English original CV to continue.',
     ),
   ).toBeVisible()
-  await expect(page.getByRole('heading', { name: 'Import your original CV' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Add your CV' })).toBeVisible()
 
   await electronApp.close()
 })
@@ -187,10 +187,10 @@ test('replaces the active original CV from the workspace with a DOCX snapshot', 
 
   let page = await electronApp.firstWindow()
 
-  await expect(page.getByRole('heading', { name: 'Import your original CV' })).toBeVisible()
-  await page.getByLabel('Original CV file').setInputFiles(testPaths.pdfPath)
-  await page.getByRole('button', { name: 'Import original CV' }).click()
-  await expect(page.getByRole('heading', { name: 'Create a tailored application' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Add your CV' })).toBeVisible()
+  await page.getByLabel('Your CV file').setInputFiles(testPaths.pdfPath)
+  await page.getByRole('button', { name: 'Add your CV' }).click()
+  await expect(page.getByRole('heading', { name: 'Add a job' })).toBeVisible()
   await expect(page.getByText('ada-lovelace.pdf')).toBeVisible()
 
   await electronApp.close()
@@ -216,13 +216,13 @@ test('replaces the active original CV from the workspace with a DOCX snapshot', 
 
   page = await electronApp.firstWindow()
 
-  await expect(page.getByRole('heading', { name: 'Create a tailored application' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Add a job' })).toBeVisible()
   await expect(page.getByText('ada-lovelace.pdf')).toBeVisible()
-  await page.getByLabel('Replacement original CV file').setInputFiles(testPaths.docxPath)
-  await page.getByRole('button', { name: 'Replace original CV' }).click()
-  await expect(page.getByRole('heading', { name: 'Create a tailored application' })).toBeVisible()
+  await page.getByLabel('Replacement CV file').setInputFiles(testPaths.docxPath)
+  await page.getByRole('button', { name: 'Update your CV' }).click()
+  await expect(page.getByRole('heading', { name: 'Add a job' })).toBeVisible()
   await expect(page.getByText('ada-lovelace-revised.docx')).toBeVisible()
-  await expect(page.getByText('2 snapshots')).toBeVisible()
+  await expect(page.getByText('2 versions')).toBeVisible()
 
   await electronApp.close()
 
@@ -259,18 +259,18 @@ test('rejects an unreadable original CV replacement without leaving the workspac
 
   const page = await electronApp.firstWindow()
 
-  await expect(page.getByRole('heading', { name: 'Import your original CV' })).toBeVisible()
-  await page.getByLabel('Original CV file').setInputFiles(testPaths.pdfPath)
-  await page.getByRole('button', { name: 'Import original CV' }).click()
-  await expect(page.getByRole('heading', { name: 'Create a tailored application' })).toBeVisible()
-  await page.getByLabel('Replacement original CV file').setInputFiles(testPaths.unreadablePdfPath)
-  await page.getByRole('button', { name: 'Replace original CV' }).click()
+  await expect(page.getByRole('heading', { name: 'Add your CV' })).toBeVisible()
+  await page.getByLabel('Your CV file').setInputFiles(testPaths.pdfPath)
+  await page.getByRole('button', { name: 'Add your CV' }).click()
+  await expect(page.getByRole('heading', { name: 'Add a job' })).toBeVisible()
+  await page.getByLabel('Replacement CV file').setInputFiles(testPaths.unreadablePdfPath)
+  await page.getByRole('button', { name: 'Update your CV' }).click()
   await expect(
     page.getByText('This original CV could not be read reliably. Use a text-based PDF or DOCX.'),
   ).toBeVisible()
-  await expect(page.getByRole('heading', { name: 'Create a tailored application' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Add a job' })).toBeVisible()
   await expect(page.getByText('ada-lovelace.pdf')).toBeVisible()
-  await expect(page.getByText('1 snapshot')).toBeVisible()
+  await expect(page.getByText('1 version')).toBeVisible()
 
   await electronApp.close()
 })
@@ -330,14 +330,14 @@ test('captures a LinkedIn vacancy through the internal browser session and resto
 
   const page = await electronApp.firstWindow()
 
-  await expect(page.getByRole('heading', { name: 'Import your original CV' })).toBeVisible()
-  await page.getByLabel('Original CV file').setInputFiles(testPaths.pdfPath)
-  await page.getByRole('button', { name: 'Import original CV' }).click()
-  await expect(page.getByRole('heading', { name: 'Create a tailored application' })).toBeVisible()
-  await page.getByLabel('Vacancy URL').fill('https://www.linkedin.com/jobs/view/123456')
-  await page.getByRole('button', { name: 'Review vacancy from URL' }).click()
+  await expect(page.getByRole('heading', { name: 'Add your CV' })).toBeVisible()
+  await page.getByLabel('Your CV file').setInputFiles(testPaths.pdfPath)
+  await page.getByRole('button', { name: 'Add your CV' }).click()
+  await expect(page.getByRole('heading', { name: 'Add a job' })).toBeVisible()
+  await page.getByLabel('Job link').fill('https://www.linkedin.com/jobs/view/123456')
+  await page.getByRole('button', { name: 'Check job details' }).click()
   await expect(page.getByText('Senior Product Designer')).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Adapt CV' })).toBeEnabled()
+  await expect(page.getByRole('button', { name: 'Tailor your CV' })).toBeEnabled()
 
   await electronApp.close()
 
@@ -396,12 +396,12 @@ test('returns cleanly to the vacancy intake with blocking guidance when the inte
 
   const page = await electronApp.firstWindow()
 
-  await expect(page.getByRole('heading', { name: 'Import your original CV' })).toBeVisible()
-  await page.getByLabel('Original CV file').setInputFiles(testPaths.pdfPath)
-  await page.getByRole('button', { name: 'Import original CV' }).click()
-  await expect(page.getByRole('heading', { name: 'Create a tailored application' })).toBeVisible()
-  await page.getByLabel('Vacancy URL').fill('https://www.linkedin.com/jobs/view/123456')
-  await page.getByRole('button', { name: 'Review vacancy from URL' }).click()
+  await expect(page.getByRole('heading', { name: 'Add your CV' })).toBeVisible()
+  await page.getByLabel('Your CV file').setInputFiles(testPaths.pdfPath)
+  await page.getByRole('button', { name: 'Add your CV' }).click()
+  await expect(page.getByRole('heading', { name: 'Add a job' })).toBeVisible()
+  await page.getByLabel('Job link').fill('https://www.linkedin.com/jobs/view/123456')
+  await page.getByRole('button', { name: 'Check job details' }).click()
   await expect
     .poll(
       async () => {
@@ -411,21 +411,19 @@ test('returns cleanly to the vacancy intake with blocking guidance when the inte
         timeout: 15_000,
       },
     )
-    .toContain('Add the full job responsibilities or requirements before adapting this CV.')
+    .toContain('Add the full job responsibilities or requirements before tailoring your CV.')
   await expect(
-    page.getByText('Add the full job responsibilities or requirements before adapting this CV.'),
+    page.getByText('Add the full job responsibilities or requirements before tailoring your CV.'),
   ).toBeVisible({
     timeout: 15_000,
   })
-  await expect(page.getByRole('button', { name: 'Adapt CV' })).toBeDisabled()
-  await expect(page.getByLabel('Vacancy URL')).toHaveValue(
-    'https://www.linkedin.com/jobs/view/123456',
-  )
+  await expect(page.getByRole('button', { name: 'Tailor your CV' })).toBeDisabled()
+  await expect(page.getByLabel('Job link')).toHaveValue('https://www.linkedin.com/jobs/view/123456')
 
   await electronApp.close()
 })
 
-test('blocks a non-English pasted vacancy, preserves the draft, and keeps Adapt CV disabled', async () => {
+test('blocks a non-English pasted vacancy, preserves the draft, and keeps Tailor your CV disabled', async () => {
   const testPaths = await createOriginalCvTestPaths()
 
   await writeFile(
@@ -464,23 +462,23 @@ test('blocks a non-English pasted vacancy, preserves the draft, and keeps Adapt 
     '- Comunicación escrita sólida.',
   ].join('\n')
 
-  await expect(page.getByRole('heading', { name: 'Import your original CV' })).toBeVisible()
-  await page.getByLabel('Original CV file').setInputFiles(testPaths.pdfPath)
-  await page.getByRole('button', { name: 'Import original CV' }).click()
-  await expect(page.getByRole('heading', { name: 'Create a tailored application' })).toBeVisible()
-  await page.getByLabel('Vacancy URL').fill('https://jobs.example.com/platform-engineer-es')
-  await page.getByLabel('Job vacancy text').fill(nonEnglishVacancyText)
-  await page.getByRole('button', { name: 'Review pasted vacancy' }).click()
+  await expect(page.getByRole('heading', { name: 'Add your CV' })).toBeVisible()
+  await page.getByLabel('Your CV file').setInputFiles(testPaths.pdfPath)
+  await page.getByRole('button', { name: 'Add your CV' }).click()
+  await expect(page.getByRole('heading', { name: 'Add a job' })).toBeVisible()
+  await page.getByLabel('Job link').fill('https://jobs.example.com/platform-engineer-es')
+  await page.getByLabel('Job description').fill(nonEnglishVacancyText)
+  await page.getByRole('button', { name: 'Check pasted details' }).click()
   await expect(
     page.getByText(
-      'CV Maxxing v1 supports British English only. Review an English job vacancy before adapting this CV.',
+      'CV Maxxing v1 supports British English only. Review an English job before tailoring your CV.',
     ),
   ).toBeVisible()
-  await expect(page.getByLabel('Vacancy URL')).toHaveValue(
+  await expect(page.getByLabel('Job link')).toHaveValue(
     'https://jobs.example.com/platform-engineer-es',
   )
-  await expect(page.getByLabel('Job vacancy text')).toHaveValue(nonEnglishVacancyText)
-  await expect(page.getByRole('button', { name: 'Adapt CV' })).toBeDisabled()
+  await expect(page.getByLabel('Job description')).toHaveValue(nonEnglishVacancyText)
+  await expect(page.getByRole('button', { name: 'Tailor your CV' })).toBeDisabled()
 
   await electronApp.close()
 })
@@ -496,8 +494,8 @@ test('retries from an unavailable startup state and returns to first launch afte
 
   await expect(page.getByRole('heading', { name: 'Repair the local AI worker' })).toBeVisible()
   await page.getByRole('button', { name: 'Retry check' }).click()
-  await expect(page.getByRole('heading', { name: 'Import your original CV' })).toBeVisible()
-  await expect(page.getByText('Add your original CV')).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Add your CV' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Add your CV' })).toBeVisible()
 
   await electronApp.close()
 })
@@ -532,12 +530,12 @@ test('returns to the workspace overlay after sign-in repair for a pending genera
 
   const page = await electronApp.firstWindow()
 
-  await expect(page.getByRole('heading', { name: 'Import your original CV' })).toBeVisible()
-  await page.getByLabel('Original CV file').setInputFiles(testPaths.pdfPath)
-  await page.getByRole('button', { name: 'Import original CV' }).click()
-  await expect(page.getByRole('heading', { name: 'Create a tailored application' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Add your CV' })).toBeVisible()
+  await page.getByLabel('Your CV file').setInputFiles(testPaths.pdfPath)
+  await page.getByRole('button', { name: 'Add your CV' }).click()
+  await expect(page.getByRole('heading', { name: 'Add a job' })).toBeVisible()
   await page
-    .getByLabel('Job vacancy text')
+    .getByLabel('Job description')
     .fill(
       [
         'Senior platform engineer',
@@ -553,15 +551,15 @@ test('returns to the workspace overlay after sign-in repair for a pending genera
         '- Strong written communication.',
       ].join('\n'),
     )
-  await page.getByLabel('Job vacancy text').press('Tab')
-  await expect(page.getByRole('button', { name: 'Review pasted vacancy' })).toBeEnabled()
-  await page.getByRole('button', { name: 'Review pasted vacancy' }).dispatchEvent('click')
-  await expect(page.getByText('Vacancy preview', { exact: true })).toBeVisible()
-  await page.getByRole('button', { name: 'Adapt CV' }).click()
+  await page.getByLabel('Job description').press('Tab')
+  await expect(page.getByRole('button', { name: 'Check pasted details' })).toBeEnabled()
+  await page.getByRole('button', { name: 'Check pasted details' }).dispatchEvent('click')
+  await expect(page.getByText(/Job (details|preview)/)).toBeVisible()
+  await page.getByRole('button', { name: 'Tailor your CV' }).click()
   await expect(page.getByRole('heading', { name: 'Connect the local AI worker' })).toBeVisible()
   await page.getByRole('button', { name: 'Continue sign-in' }).click()
-  await expect(page.getByRole('heading', { name: 'Current vacancy draft' })).toBeVisible()
-  await expect(page.getByRole('status', { name: 'Loading workspace' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'New job' })).toBeVisible()
+  await expect(page.getByRole('status', { name: 'Getting things ready' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Cancel' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Open tailored application' })).toHaveCount(0)
 
@@ -601,12 +599,12 @@ test('returns to the workspace with a visible error when generation fails contra
 
   const page = await electronApp.firstWindow()
 
-  await expect(page.getByRole('heading', { name: 'Import your original CV' })).toBeVisible()
-  await page.getByLabel('Original CV file').setInputFiles(testPaths.pdfPath)
-  await page.getByRole('button', { name: 'Import original CV' }).click()
-  await expect(page.getByRole('heading', { name: 'Create a tailored application' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Add your CV' })).toBeVisible()
+  await page.getByLabel('Your CV file').setInputFiles(testPaths.pdfPath)
+  await page.getByRole('button', { name: 'Add your CV' }).click()
+  await expect(page.getByRole('heading', { name: 'Add a job' })).toBeVisible()
   await page
-    .getByLabel('Job vacancy text')
+    .getByLabel('Job description')
     .fill(
       [
         'Senior platform engineer',
@@ -622,16 +620,16 @@ test('returns to the workspace with a visible error when generation fails contra
         '- Strong written communication.',
       ].join('\n'),
     )
-  await page.getByRole('button', { name: 'Review pasted vacancy' }).dispatchEvent('click')
-  await expect(page.getByText('Vacancy preview', { exact: true })).toBeVisible()
-  await page.getByRole('button', { name: 'Adapt CV' }).click()
+  await page.getByRole('button', { name: 'Check pasted details' }).dispatchEvent('click')
+  await expect(page.getByText(/Job (details|preview)/)).toBeVisible()
+  await page.getByRole('button', { name: 'Tailor your CV' }).click()
   await expect(
     page.getByText('Generated tailored application failed contract validation.'),
   ).toBeVisible({
     timeout: 15_000,
   })
-  await expect(page.getByRole('heading', { name: 'Current vacancy draft' })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Open current vacancy draft' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'New job' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Open new job' })).toBeVisible()
 
   await electronApp.close()
 })
@@ -663,12 +661,12 @@ test('persists pending generation before repair and clears it after completion',
 
   let page = await electronApp.firstWindow()
 
-  await expect(page.getByRole('heading', { name: 'Import your original CV' })).toBeVisible()
-  await page.getByLabel('Original CV file').setInputFiles(testPaths.pdfPath)
-  await page.getByRole('button', { name: 'Import original CV' }).click()
-  await expect(page.getByRole('heading', { name: 'Create a tailored application' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Add your CV' })).toBeVisible()
+  await page.getByLabel('Your CV file').setInputFiles(testPaths.pdfPath)
+  await page.getByRole('button', { name: 'Add your CV' }).click()
+  await expect(page.getByRole('heading', { name: 'Add a job' })).toBeVisible()
   await page
-    .getByLabel('Job vacancy text')
+    .getByLabel('Job description')
     .fill(
       [
         'Senior platform engineer',
@@ -684,11 +682,11 @@ test('persists pending generation before repair and clears it after completion',
         '- Strong written communication.',
       ].join('\n'),
     )
-  await page.getByLabel('Job vacancy text').press('Tab')
-  await expect(page.getByRole('button', { name: 'Review pasted vacancy' })).toBeEnabled()
-  await page.getByRole('button', { name: 'Review pasted vacancy' }).dispatchEvent('click')
-  await expect(page.getByText('Vacancy preview', { exact: true })).toBeVisible()
-  await page.getByRole('button', { name: 'Adapt CV' }).click()
+  await page.getByLabel('Job description').press('Tab')
+  await expect(page.getByRole('button', { name: 'Check pasted details' })).toBeEnabled()
+  await page.getByRole('button', { name: 'Check pasted details' }).dispatchEvent('click')
+  await expect(page.getByText(/Job (details|preview)/)).toBeVisible()
+  await page.getByRole('button', { name: 'Tailor your CV' }).click()
   await expect(page.getByRole('heading', { name: 'Connect the local AI worker' })).toBeVisible()
 
   await electronApp.close()
@@ -701,9 +699,7 @@ test('persists pending generation before repair and clears it after completion',
 
   page = await electronApp.firstWindow()
 
-  await expect(
-    page.getByRole('heading', { name: 'Senior platform engineer · Analytical Engines Ltd' }),
-  ).toBeVisible({
+  await expect(page.getByRole('heading', { name: 'Senior platform engineer' })).toBeVisible({
     timeout: 15_000,
   })
   await page.waitForTimeout(1000)
@@ -717,9 +713,7 @@ test('persists pending generation before repair and clears it after completion',
 
   page = await electronApp.firstWindow()
 
-  await expect(
-    page.getByRole('heading', { name: 'Senior platform engineer · Analytical Engines Ltd' }),
-  ).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Senior platform engineer' })).toBeVisible()
 
   await electronApp.close()
 })
@@ -770,12 +764,12 @@ test('renders the stored adapted CV PDF artifact and exports a readable non-over
     }
   })
 
-  await expect(page.getByRole('heading', { name: 'Import your original CV' })).toBeVisible()
-  await page.getByLabel('Original CV file').setInputFiles(testPaths.pdfPath)
-  await page.getByRole('button', { name: 'Import original CV' }).click()
-  await expect(page.getByRole('heading', { name: 'Create a tailored application' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Add your CV' })).toBeVisible()
+  await page.getByLabel('Your CV file').setInputFiles(testPaths.pdfPath)
+  await page.getByRole('button', { name: 'Add your CV' }).click()
+  await expect(page.getByRole('heading', { name: 'Add a job' })).toBeVisible()
   await page
-    .getByLabel('Job vacancy text')
+    .getByLabel('Job description')
     .fill(
       [
         'Senior platform engineer',
@@ -791,10 +785,10 @@ test('renders the stored adapted CV PDF artifact and exports a readable non-over
         '- Strong written communication.',
       ].join('\n'),
     )
-  await page.getByLabel('Job vacancy text').press('Tab')
-  await page.getByRole('button', { name: 'Review pasted vacancy' }).dispatchEvent('click')
-  await expect(page.getByText('Vacancy preview', { exact: true })).toBeVisible()
-  await page.getByRole('button', { name: 'Adapt CV' }).click()
+  await page.getByLabel('Job description').press('Tab')
+  await page.getByRole('button', { name: 'Check pasted details' }).dispatchEvent('click')
+  await expect(page.getByText(/Job (details|preview)/)).toBeVisible()
+  await page.getByRole('button', { name: 'Tailor your CV' }).click()
 
   await expect
     .poll(
@@ -805,16 +799,14 @@ test('renders the stored adapted CV PDF artifact and exports a readable non-over
         timeout: 15_000,
       },
     )
-    .toContain('Senior platform engineer · Example Labs')
+    .toContain('Senior platform engineer')
 
-  await expect(
-    page.getByRole('heading', { name: 'Senior platform engineer · Example Labs' }),
-  ).toBeVisible({
+  await expect(page.getByRole('heading', { name: 'Senior platform engineer' })).toBeVisible({
     timeout: 15_000,
   })
   await expect(page.getByText('Page 1 of 1')).toBeVisible()
   await expect(page.getByRole('button', { name: 'Zoom in' })).toBeVisible()
-  await page.getByRole('button', { name: 'Export PDF' }).click()
+  await page.getByRole('button', { name: 'Save CV and cover letter' }).click()
 
   await expect
     .poll(async () => {
@@ -862,12 +854,12 @@ test('does not infer a saved tailored application from the unified workspace sta
 
   const page = await electronApp.firstWindow()
 
-  await expect(page.getByRole('heading', { name: 'Import your original CV' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Add your CV' })).toBeVisible()
 
   await electronApp.close()
 })
 
-test('retries the AI worker from settings and routes back to repair when the fresh check fails', async () => {
+test('retries the AI from settings and routes back to repair when the fresh check fails', async () => {
   const electronApp = await launchDesktopApp({
     CV_MAXXING_AI_WORKER_PREFLIGHT_STATUS: 'ready',
     CV_MAXXING_AI_WORKER_RETRY_STATUS: 'runtime_missing',
@@ -876,9 +868,9 @@ test('retries the AI worker from settings and routes back to repair when the fre
 
   const page = await electronApp.firstWindow()
 
-  await expect(page.getByRole('heading', { name: 'Import your original CV' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Add your CV' })).toBeVisible()
   await page.getByRole('button', { name: 'Settings' }).click()
-  await expect(page.getByRole('heading', { name: 'AI worker' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'AI' })).toBeVisible()
   await page.getByRole('button', { name: 'Retry status check' }).click()
   await expect(page.getByRole('heading', { name: 'Repair the local AI worker' })).toBeVisible()
 
@@ -921,9 +913,9 @@ test('clears job-site browser data from settings without deleting the active ori
 
   const page = await electronApp.firstWindow()
 
-  await page.getByLabel('Original CV file').setInputFiles(testPaths.pdfPath)
-  await page.getByRole('button', { name: 'Import original CV' }).click()
-  await expect(page.getByRole('heading', { name: 'Create a tailored application' })).toBeVisible()
+  await page.getByLabel('Your CV file').setInputFiles(testPaths.pdfPath)
+  await page.getByRole('button', { name: 'Add your CV' }).click()
+  await expect(page.getByRole('heading', { name: 'Add a job' })).toBeVisible()
   await page.getByRole('button', { name: 'Settings' }).click()
   await page.getByRole('button', { name: 'Show Local data settings' }).click()
   await expect(page.getByRole('heading', { name: 'Local data' })).toBeVisible()
@@ -931,7 +923,7 @@ test('clears job-site browser data from settings without deleting the active ori
   await expect(page.getByText('Telemetry')).toBeVisible()
   await page.getByRole('button', { name: 'Clear browser data' }).click()
   await expect(page.getByText('Internal job-site browser data cleared.')).toBeVisible()
-  await page.getByRole('button', { name: 'Job vacancies' }).click()
+  await page.getByRole('button', { name: 'Jobs' }).click()
   await expect(page.getByText('ada-lovelace.pdf')).toBeVisible()
 
   await electronApp.close()
@@ -977,9 +969,9 @@ test('requires RESET before destructive local reset and returns to first launch 
 
   const page = await electronApp.firstWindow()
 
-  await page.getByLabel('Original CV file').setInputFiles(testPaths.pdfPath)
-  await page.getByRole('button', { name: 'Import original CV' }).click()
-  await expect(page.getByRole('heading', { name: 'Create a tailored application' })).toBeVisible()
+  await page.getByLabel('Your CV file').setInputFiles(testPaths.pdfPath)
+  await page.getByRole('button', { name: 'Add your CV' }).click()
+  await expect(page.getByRole('heading', { name: 'Add a job' })).toBeVisible()
   await page.getByRole('button', { name: 'Settings' }).click()
   await page.getByRole('button', { name: 'Show Local data settings' }).click()
   await page.getByRole('button', { name: 'Reset local app data' }).click()
@@ -989,7 +981,7 @@ test('requires RESET before destructive local reset and returns to first launch 
   await page.getByLabel('Type RESET to confirm destructive reset').fill('RESET')
   await expect(resetButton).toBeEnabled()
   await resetButton.click()
-  await expect(page.getByRole('heading', { name: 'Import your original CV' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Add your CV' })).toBeVisible()
 
   await electronApp.close()
 

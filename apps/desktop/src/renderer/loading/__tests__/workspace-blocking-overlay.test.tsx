@@ -19,12 +19,12 @@ test('renders a compact loading spinner with an optional secondary action', () =
     />,
   )
 
-  expect(screen.getByRole('status', { name: 'Loading workspace' })).toBeDefined()
+  expect(screen.getByRole('status', { name: 'Getting things ready' })).toBeDefined()
   expect(container.firstElementChild?.className).toContain('bg-[#DEE6E1E8]')
-  expect(screen.getByRole('status', { name: 'Loading workspace' }).className).toContain(
+  expect(screen.getByRole('status', { name: 'Getting things ready' }).className).toContain(
     'bg-[#FCFDFC]',
   )
-  expect(screen.getByRole('status', { name: 'Loading workspace' }).className).toContain(
+  expect(screen.getByRole('status', { name: 'Getting things ready' }).className).toContain(
     'border-[#C7D0CA]',
   )
   expect(screen.getByRole('button', { name: 'Cancel' }).className).toContain(

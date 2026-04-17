@@ -65,6 +65,7 @@ export function SettingsScreen({
       appOverlay={appOverlay}
       ambientActivityLabel={ambientActivityLabel}
       onSelectRailItem={onSelectRailItem}
+      railItems={['job_vacancies', 'original_cv', 'settings']}
       sidebar={
         <SidebarContainer>
           <SectionLabel>Settings</SectionLabel>
@@ -75,7 +76,7 @@ export function SettingsScreen({
             <SettingsSectionButton
               icon={<Sparkles aria-hidden="true" size={16} strokeWidth={2.1} />}
               isActive={activeSection === 'ai_worker'}
-              label="AI worker"
+              label="AI"
               onClick={() => {
                 onSelectSection('ai_worker')
               }}
@@ -92,9 +93,6 @@ export function SettingsScreen({
           <div className="flex-1" />
         </SidebarContainer>
       }
-      subtitle="Settings"
-      workerLabel={workerStatusLabel}
-      workerTone={workerStatusTone}
     >
       {activeSection === 'ai_worker' ? (
         <AiWorkerSettingsSection
@@ -173,11 +171,10 @@ function AiWorkerSettingsSection({
   return (
     <>
       <h1 className="m-0 text-[30px] font-extrabold tracking-[-0.03em] text-[var(--color-copy-strong)]">
-        AI worker
+        AI
       </h1>
       <p className="mt-2 max-w-3xl text-[13px] leading-[1.4] text-[var(--color-copy-muted)]">
-        Configure the local worker adapter used for CV adaptation and cover-letter generation.
-        Background work surfaces in the shell without blocking the current view.
+        Check your AI connection, retry setup, or open the setup guide for this Mac.
       </p>
 
       <PanelCard className="mt-6 p-6">
