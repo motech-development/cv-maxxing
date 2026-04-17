@@ -165,7 +165,7 @@ test('captures the workspace-active adapted CV preview', async () => {
   await page.getByRole('button', { name: 'Add your CV' }).click()
   await page.getByLabel('Job description').fill(createPastedVacancyFixture())
   await page.getByLabel('Job description').press('Tab')
-  await page.getByRole('button', { name: 'Check pasted details' }).dispatchEvent('click')
+  await page.getByRole('button', { name: 'Check job details' }).nth(1).dispatchEvent('click')
   await expect(page.getByText(/Job (details|preview)/)).toBeVisible()
   await page.getByRole('button', { name: 'Tailor your CV' }).click()
   await expect
@@ -227,7 +227,7 @@ test('captures the workspace generation overlay', async () => {
   await page.getByRole('button', { name: 'Add your CV' }).click()
   await page.getByLabel('Job description').fill(createPastedVacancyFixture())
   await page.getByLabel('Job description').press('Tab')
-  await page.getByRole('button', { name: 'Check pasted details' }).dispatchEvent('click')
+  await page.getByRole('button', { name: 'Check job details' }).nth(1).dispatchEvent('click')
   await expect(page.getByText(/Job (details|preview)/)).toBeVisible()
   await page.getByRole('button', { name: 'Tailor your CV' }).click()
   await expect(page.getByRole('status', { name: 'Getting things ready' })).toBeVisible()
@@ -274,7 +274,7 @@ test('captures ambient shell activity while reopening a saved tailored applicati
   await page.getByRole('button', { name: 'Add your CV' }).click()
   await page.getByLabel('Job description').fill(createPastedVacancyFixture())
   await page.getByLabel('Job description').press('Tab')
-  await page.getByRole('button', { name: 'Check pasted details' }).dispatchEvent('click')
+  await page.getByRole('button', { name: 'Check job details' }).nth(1).dispatchEvent('click')
   await expect(page.getByText(/Job (details|preview)/)).toBeVisible()
   await page.getByRole('button', { name: 'Tailor your CV' }).click()
   await expect(page.getByLabel('CV PDF preview')).toBeVisible({

@@ -30,6 +30,10 @@ const VACANCY_DRAFT_SCOPE = 'vacancy-workspace'
 const VACANCY_FETCH_TIMEOUT_MS = 15_000
 const VACANCY_SCOPE = 'vacancies'
 const VACANCY_WORKSPACE_RECORD_ID = 'current'
+const OPEN_JOB_PAGE_BLOCKING_REASON =
+  'This job page may need more access. Open the job page or paste the job description instead.'
+const RELOAD_JOB_PAGE_BLOCKING_REASON =
+  'Open the job page and close it after the full details load, or paste the job description instead.'
 
 interface VacancyServiceDependencies {
   captureVacancyBrowserSessionPage?: (input: {
@@ -321,8 +325,7 @@ export function createVacancyService({
         })
       ) {
         const incompleteVacancy = createBlockedVacancySummary({
-          blockingReason:
-            'Close the internal browser session after the vacancy page loads, or paste the full job text instead.',
+          blockingReason: RELOAD_JOB_PAGE_BLOCKING_REASON,
           fetchedAt: getCurrentTimestamp(),
           inputType: 'url',
           originalUrl: normalizedUrl,
@@ -370,8 +373,7 @@ async function createInteractiveBrowserFallbackResult({
   source: VacancySource
 }): Promise<VacancyIngestResult> {
   const incompleteVacancy = createBlockedVacancySummary({
-    blockingReason:
-      'Open the internal browser session for authenticated pages, or paste the full job text instead.',
+    blockingReason: OPEN_JOB_PAGE_BLOCKING_REASON,
     fetchedAt: getCurrentTimestamp(),
     inputType: 'url',
     originalUrl,

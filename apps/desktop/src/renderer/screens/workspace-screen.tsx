@@ -132,7 +132,7 @@ export function WorkspaceScreen({
             <WorkspaceSidebarItem
               description={resolveDraftDescription(vacancyPreview)}
               isSelected={selectedWorkspaceItem === 'draft'}
-              label="New job"
+              label="Add a job"
               onClick={onSelectDraft}
             />
           ) : null}

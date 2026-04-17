@@ -1218,10 +1218,7 @@ export function App() {
 
               openVacancyBrowserSessionMutation.mutateAsync(originalUrl).catch((error: unknown) => {
                 setVacancyReviewError(
-                  resolveErrorMessage(
-                    error,
-                    'Unable to open the internal browser session for this vacancy.',
-                  ),
+                  resolveErrorMessage(error, 'Unable to open the job page right now.'),
                 )
               })
             }}

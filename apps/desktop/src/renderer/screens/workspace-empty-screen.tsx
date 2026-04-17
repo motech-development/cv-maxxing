@@ -60,13 +60,13 @@ export function WorkspaceDraftView({
   }
 
   if (isDraftReviewed) {
-    subtitle = 'These job details are locked until you start a new job.'
+    subtitle = 'These job details are locked until you add another job.'
   }
 
   return (
     <>
       <h1 className="m-0 text-[32px] font-extrabold tracking-[-0.03em] text-[var(--color-copy-strong)]">
-        {isCurrentDraftMeaningful ? 'New job' : 'Add a job'}
+        Add a job
       </h1>
       <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--color-copy-muted)]">{subtitle}</p>
       {workspaceError ? (
@@ -80,7 +80,7 @@ export function WorkspaceDraftView({
           <p className="m-0 text-lg font-extrabold text-[var(--color-copy-strong)]">Job link</p>
           <p className="text-sm leading-6 text-[var(--color-copy-muted)]">
             {isDraftReviewed
-              ? 'This job link is locked. Start a new job if you want to change it.'
+              ? 'This job link is locked. Add another job if you want to change it.'
               : 'Paste the job link first. We’ll pull together the details before you tailor your CV.'}
           </p>
           <label
@@ -111,7 +111,7 @@ export function WorkspaceDraftView({
           </p>
           <p className="text-sm leading-6 text-[var(--color-copy-muted)]">
             {isDraftReviewed
-              ? 'This stays here for reference until you start a new job.'
+              ? 'This stays here for reference until you add another job.'
               : 'If the job link does not work, paste the job description instead.'}
           </p>
           <label
@@ -137,7 +137,7 @@ export function WorkspaceDraftView({
             onClick={onReviewPastedVacancy}
             tone="primary"
           >
-            Check pasted details
+            Check job details
           </Button>
         </PanelCard>
       </div>

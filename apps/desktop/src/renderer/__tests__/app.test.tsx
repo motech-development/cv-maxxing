@@ -278,6 +278,21 @@ async function waitForVacancyDraftValues({
   })
 }
 
+function getReviewButtons() {
+  const [reviewUrlButton, reviewTextButton] = screen.getAllByRole('button', {
+    name: 'Check job details',
+  })
+
+  if (reviewUrlButton === undefined || reviewTextButton === undefined) {
+    throw new Error('Expected job-link and pasted-description review buttons.')
+  }
+
+  return {
+    reviewTextButton,
+    reviewUrlButton,
+  }
+}
+
 function createDeferredPromise<T>() {
   let resolvePromise!: (value: T) => void
 
@@ -576,8 +591,7 @@ test('imports the first original CV and transitions into the design-aligned work
   )
   expect(screen.getByLabelText('Job link')).toBeDefined()
   expect(screen.getByLabelText('Job description')).toBeDefined()
-  expect(screen.getByRole('button', { name: 'Check job details' })).toBeDefined()
-  expect(screen.getByRole('button', { name: 'Check pasted details' })).toBeDefined()
+  expect(screen.getAllByRole('button', { name: 'Check job details' })).toHaveLength(2)
   expect(screen.getByRole('button', { name: 'Update your CV' })).toBeDefined()
   expect(screen.getByText('Check this job before tailoring your CV')).toBeDefined()
 })
@@ -875,15 +889,91 @@ test('loads a persisted vacancy preview and keeps Tailor your CV enabled for a r
   })
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'New job' })).toBeDefined()
+    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
   })
 
   await waitFor(() => {
     expect(screen.getByText(/Job (details|preview)/)).toBeDefined()
     expect(screen.getByText('Senior Product Designer')).toBeDefined()
     expect(screen.getByText('Example Labs · London, United Kingdom')).toBeDefined()
+    expect(screen.getByText('About the job')).toBeDefined()
+    expect(screen.getByText("What you'll be doing")).toBeDefined()
+    expect(screen.getByText("What they're looking for")).toBeDefined()
     expect(screen.getByRole('button', { name: 'Tailor your CV' })).toHaveProperty('disabled', false)
   })
+})
+
+test('shows generic open-job-page fallback guidance for reviewed links that need more access', async () => {
+  renderApp({
+    aiWorker: createAiWorkerApi({
+      getAiWorkerPreflight: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+      getStartupDestination: vi.fn().mockResolvedValue('workspace'),
+    }),
+    originalCv: createOriginalCvApi({
+      getOriginalCvWorkspaceState: vi.fn().mockResolvedValue({
+        activeOriginalCv: {
+          fileType: 'pdf',
+          headline: 'Principal Product Designer',
+          id: 'original-cv-123',
+          importedAt: '2026-04-08T14:30:00.000Z',
+          originalFilename: 'ada-lovelace.pdf',
+          pageCount: 1,
+          snapshotCount: 1,
+          summary: 'Design leader focused on complex workflow products.',
+          writingStyle: {
+            averageSentenceLength: 7,
+            clicheDetections: [],
+            firstPersonUsage: 'absent',
+            formality: 'direct',
+          },
+        },
+        snapshotCount: 1,
+      }),
+    }),
+    vacancy: createVacancyApi({
+      getVacancyWorkspaceState: vi.fn().mockResolvedValue({
+        draft: {
+          text: '',
+          url: 'https://www.linkedin.com/jobs/view/123456',
+        },
+        vacancy: {
+          blockingReason:
+            'This job page may need more access. Open the job page or paste the job description instead.',
+          canGenerate: false,
+          employer: null,
+          fetchedAt: '2026-04-08T21:15:00.000Z',
+          id: 'vacancy-pending-browser',
+          inputType: 'url',
+          location: null,
+          originalUrl: 'https://www.linkedin.com/jobs/view/123456',
+          requirements: [],
+          resolvedUrl: null,
+          responsibilities: [],
+          source: 'linkedin',
+          status: 'incomplete',
+          textPreview: '',
+          title: null,
+        },
+      }),
+    }),
+  })
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
+  })
+
+  expect(
+    screen.getByText(
+      'This job page may need more access. Open the job page or paste the job description instead.',
+    ),
+  ).toBeDefined()
+  expect(screen.getByRole('button', { name: 'Open the job page' })).toBeDefined()
+  expect(screen.queryByText(/internal browser session/i)).toBeNull()
 })
 
 test('shows shell-level ambient activity while a tailored-application preview refreshes in the background', async () => {
@@ -1803,7 +1893,9 @@ test('reviews a ready vacancy URL and only starts tailoring after Tailor your CV
       value: 'https://jobs.example.com/roles/123',
     },
   })
-  fireEvent.click(screen.getByRole('button', { name: 'Check job details' }))
+  const { reviewUrlButton } = getReviewButtons()
+
+  fireEvent.click(reviewUrlButton)
 
   await waitFor(() => {
     expect(globalThis.window.cvMaxxing.vacancy.ingestVacancyUrl).toHaveBeenCalledWith({
@@ -1831,7 +1923,7 @@ test('reviews a ready vacancy URL and only starts tailoring after Tailor your CV
   })
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'New job' })).toBeDefined()
+    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
   })
 
   expect(screen.getByRole('status', { name: 'Getting things ready' })).toBeDefined()
@@ -1898,7 +1990,9 @@ test('shows the workspace overlay while reviewing a vacancy URL without surfacin
       value: 'https://boards.greenhouse.io/example/jobs/123',
     },
   })
-  fireEvent.click(screen.getByRole('button', { name: 'Check job details' }))
+  const { reviewUrlButton } = getReviewButtons()
+
+  fireEvent.click(reviewUrlButton)
 
   await waitFor(() => {
     expect(ingestVacancyUrl).toHaveBeenCalledWith({
@@ -1909,7 +2003,7 @@ test('shows the workspace overlay while reviewing a vacancy URL without surfacin
   expect(screen.getByRole('status', { name: 'Getting things ready' })).toBeDefined()
   expect(screen.queryByRole('button', { name: 'Cancel' })).toBeNull()
   expect(screen.getByRole('button', { name: 'Settings' })).toBeDefined()
-  expect(screen.getByRole('heading', { name: 'New job' })).toBeDefined()
+  expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
 
   ingestVacancyUrlDeferredPromise.resolve({
     kind: 'ingested',
@@ -2052,7 +2146,7 @@ test('routes to AI worker repair when starting adaptation returns a sign-in requ
   })
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'New job' })).toBeDefined()
+    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
   })
   await waitFor(() => {
     expect(screen.getByRole('button', { name: 'Tailor your CV' })).toHaveProperty('disabled', false)
@@ -2203,7 +2297,9 @@ test('preserves pasted vacancy context in a blocking preview and keeps Tailor yo
       value: 'Short pasted vacancy draft.',
     },
   })
-  fireEvent.click(screen.getByRole('button', { name: 'Check pasted details' }))
+  const { reviewTextButton: initialReviewTextButton } = getReviewButtons()
+
+  fireEvent.click(initialReviewTextButton)
 
   await waitFor(() => {
     expect(globalThis.window.cvMaxxing.vacancy.ingestPastedVacancy).toHaveBeenCalledWith({
@@ -2359,7 +2455,9 @@ test('refreshes the vacancy workspace query after review instead of rendering th
       value: 'Mutation payload reviewed vacancy draft.',
     },
   })
-  fireEvent.click(screen.getByRole('button', { name: 'Check pasted details' }))
+  const { reviewTextButton: initialReviewTextButton } = getReviewButtons()
+
+  fireEvent.click(initialReviewTextButton)
 
   await waitFor(() => {
     expect(ingestPastedVacancy).toHaveBeenCalledTimes(1)
@@ -2511,7 +2609,9 @@ test('locks the current vacancy draft after a successful review and keeps review
       value: 'Mutation payload reviewed vacancy draft.',
     },
   })
-  fireEvent.click(screen.getByRole('button', { name: 'Check pasted details' }))
+  const { reviewTextButton: initialReviewTextButton } = getReviewButtons()
+
+  fireEvent.click(initialReviewTextButton)
 
   await waitFor(() => {
     expect(ingestPastedVacancy).toHaveBeenCalledTimes(1)
@@ -2524,8 +2624,7 @@ test('locks the current vacancy draft after a successful review and keeps review
 
   const vacancyUrlInput = screen.getByLabelText('Job link')
   const vacancyTextInput = screen.getByLabelText('Job description')
-  const reviewUrlButton = screen.getByRole('button', { name: 'Check job details' })
-  const reviewTextButton = screen.getByRole('button', { name: 'Check pasted details' })
+  const { reviewTextButton, reviewUrlButton } = getReviewButtons()
 
   expect(vacancyUrlInput).toHaveProperty('value', 'https://jobs.example.com/reviewed-role')
   expect(vacancyUrlInput).toHaveProperty('readOnly', true)
@@ -2628,7 +2727,7 @@ test('restores a reviewed vacancy draft as locked source inputs on startup', asy
   })
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'New job' })).toBeDefined()
+    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
   })
 
   const vacancyUrlInput = screen.getByLabelText('Job link')
@@ -2638,15 +2737,14 @@ test('restores a reviewed vacancy draft as locked source inputs on startup', asy
   expect(vacancyUrlInput).toHaveProperty('readOnly', true)
   expect(vacancyTextInput).toHaveProperty('value', '')
   expect(vacancyTextInput).toHaveProperty('readOnly', true)
-  expect(screen.getByRole('button', { name: 'Check job details' })).toHaveProperty('disabled', true)
-  expect(screen.getByRole('button', { name: 'Check pasted details' })).toHaveProperty(
-    'disabled',
-    true,
-  )
+  const { reviewTextButton, reviewUrlButton } = getReviewButtons()
+
+  expect(reviewUrlButton).toHaveProperty('disabled', true)
+  expect(reviewTextButton).toHaveProperty('disabled', true)
   expect(screen.getByRole('button', { name: 'Tailor your CV' })).toHaveProperty('disabled', false)
 
-  fireEvent.click(screen.getByRole('button', { name: 'Check job details' }))
-  fireEvent.click(screen.getByRole('button', { name: 'Check pasted details' }))
+  fireEvent.click(reviewUrlButton)
+  fireEvent.click(reviewTextButton)
 
   expect(ingestVacancyUrl).not.toHaveBeenCalled()
   expect(ingestPastedVacancy).not.toHaveBeenCalled()
@@ -2765,7 +2863,7 @@ test('submitting a LinkedIn vacancy URL automatically continues into the interna
         kind: 'incomplete',
         vacancy: {
           blockingReason:
-            'Open the internal browser session for authenticated pages, or paste the full job text instead.',
+            'This job page may need more access. Open the job page or paste the job description instead.',
           canGenerate: false,
           employer: null,
           fetchedAt: '2026-04-08T21:15:00.000Z',
@@ -2806,7 +2904,9 @@ test('submitting a LinkedIn vacancy URL automatically continues into the interna
       value: 'https://www.linkedin.com/jobs/view/123456',
     },
   })
-  fireEvent.click(screen.getByRole('button', { name: 'Check job details' }))
+  const { reviewUrlButton } = getReviewButtons()
+
+  fireEvent.click(reviewUrlButton)
 
   await waitFor(() => {
     expect(openVacancyBrowserSession).toHaveBeenCalledWith({
@@ -3264,8 +3364,7 @@ test('returns to the workspace with a visible error when generation fails contra
     ).toBeDefined()
   })
 
-  expect(screen.getByRole('button', { name: 'Check job details' })).toBeDefined()
-  expect(screen.getByRole('button', { name: 'Check pasted details' })).toBeDefined()
+  expect(screen.getAllByRole('button', { name: 'Check job details' })).toHaveLength(2)
 })
 
 test('returns to the workspace immediately when overlay recovery stalls after generation failure', async () => {
@@ -3697,7 +3796,7 @@ test('replaces the current draft row with the new saved tailored application row
   })
 
   await waitFor(() => {
-    expect(screen.getByRole('button', { name: 'Open new job' })).toBeDefined()
+    expect(screen.getByRole('button', { name: 'Open add a job' })).toBeDefined()
     expect(screen.getByRole('button', { name: 'Open platform product manager' })).toBeDefined()
   })
 
@@ -3709,7 +3808,7 @@ test('replaces the current draft row with the new saved tailored application row
   })
 
   await waitFor(() => {
-    expect(screen.queryByRole('button', { name: 'Open new job' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Open add a job' })).toBeNull()
   })
 
   expect(screen.queryByText('No jobs yet')).toBeNull()
@@ -4250,7 +4349,7 @@ test('switches between saved tailored applications without discarding the curren
   })
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'New job' })).toBeDefined()
+    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
   })
   await waitForVacancyDraftValues(draft)
 
@@ -4260,7 +4359,7 @@ test('switches between saved tailored applications without discarding the curren
     expect(screen.getByRole('heading', { name: 'Platform Product Manager' })).toBeDefined()
   })
 
-  expect(screen.getByRole('button', { name: 'Open new job' })).toBeDefined()
+  expect(screen.getByRole('button', { name: 'Open add a job' })).toBeDefined()
 
   fireEvent.click(screen.getByRole('button', { name: 'Open senior platform engineer' }))
 
@@ -4268,10 +4367,10 @@ test('switches between saved tailored applications without discarding the curren
     expect(screen.getByRole('heading', { name: 'Senior platform engineer' })).toBeDefined()
   })
 
-  fireEvent.click(screen.getByRole('button', { name: 'Open new job' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Open add a job' }))
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'New job' })).toBeDefined()
+    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
   })
   await waitForVacancyDraftValues(draft)
 })
@@ -4365,7 +4464,7 @@ test('deleting the selected saved tailored application returns to the current dr
   })
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'New job' })).toBeDefined()
+    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
   })
 
   fireEvent.click(screen.getByRole('button', { name: 'Open senior platform engineer' }))
@@ -4387,7 +4486,7 @@ test('deleting the selected saved tailored application returns to the current dr
   })
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'New job' })).toBeDefined()
+    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
   })
   await waitForVacancyDraftValues(draft)
 })

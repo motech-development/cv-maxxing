@@ -335,8 +335,11 @@ test('captures a LinkedIn vacancy through the internal browser session and resto
   await page.getByRole('button', { name: 'Add your CV' }).click()
   await expect(page.getByRole('heading', { name: 'Add a job' })).toBeVisible()
   await page.getByLabel('Job link').fill('https://www.linkedin.com/jobs/view/123456')
-  await page.getByRole('button', { name: 'Check job details' }).click()
+  await page.getByRole('button', { name: 'Check job details' }).first().click()
   await expect(page.getByText('Senior Product Designer')).toBeVisible()
+  await expect(page.getByText('About the job')).toBeVisible()
+  await expect(page.getByText("What you'll be doing")).toBeVisible()
+  await expect(page.getByText("What they're looking for")).toBeVisible()
   await expect(page.getByRole('button', { name: 'Tailor your CV' })).toBeEnabled()
 
   await electronApp.close()
@@ -401,7 +404,7 @@ test('returns cleanly to the vacancy intake with blocking guidance when the inte
   await page.getByRole('button', { name: 'Add your CV' }).click()
   await expect(page.getByRole('heading', { name: 'Add a job' })).toBeVisible()
   await page.getByLabel('Job link').fill('https://www.linkedin.com/jobs/view/123456')
-  await page.getByRole('button', { name: 'Check job details' }).click()
+  await page.getByRole('button', { name: 'Check job details' }).first().click()
   await expect
     .poll(
       async () => {
@@ -417,6 +420,7 @@ test('returns cleanly to the vacancy intake with blocking guidance when the inte
   ).toBeVisible({
     timeout: 15_000,
   })
+  await expect(page.getByRole('button', { name: 'Open the job page' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Tailor your CV' })).toBeDisabled()
   await expect(page.getByLabel('Job link')).toHaveValue('https://www.linkedin.com/jobs/view/123456')
 
@@ -468,7 +472,7 @@ test('blocks a non-English pasted vacancy, preserves the draft, and keeps Tailor
   await expect(page.getByRole('heading', { name: 'Add a job' })).toBeVisible()
   await page.getByLabel('Job link').fill('https://jobs.example.com/platform-engineer-es')
   await page.getByLabel('Job description').fill(nonEnglishVacancyText)
-  await page.getByRole('button', { name: 'Check pasted details' }).click()
+  await page.getByRole('button', { name: 'Check job details' }).nth(1).click()
   await expect(
     page.getByText(
       'CV Maxxing v1 supports British English only. Review an English job before tailoring your CV.',
@@ -552,13 +556,13 @@ test('returns to the workspace overlay after sign-in repair for a pending genera
       ].join('\n'),
     )
   await page.getByLabel('Job description').press('Tab')
-  await expect(page.getByRole('button', { name: 'Check pasted details' })).toBeEnabled()
-  await page.getByRole('button', { name: 'Check pasted details' }).dispatchEvent('click')
+  await expect(page.getByRole('button', { name: 'Check job details' }).nth(1)).toBeEnabled()
+  await page.getByRole('button', { name: 'Check job details' }).nth(1).dispatchEvent('click')
   await expect(page.getByText(/Job (details|preview)/)).toBeVisible()
   await page.getByRole('button', { name: 'Tailor your CV' }).click()
   await expect(page.getByRole('heading', { name: 'Connect the local AI worker' })).toBeVisible()
   await page.getByRole('button', { name: 'Continue sign-in' }).click()
-  await expect(page.getByRole('heading', { name: 'New job' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Add a job' })).toBeVisible()
   await expect(page.getByRole('status', { name: 'Getting things ready' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Cancel' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Open tailored application' })).toHaveCount(0)
@@ -620,7 +624,7 @@ test('returns to the workspace with a visible error when generation fails contra
         '- Strong written communication.',
       ].join('\n'),
     )
-  await page.getByRole('button', { name: 'Check pasted details' }).dispatchEvent('click')
+  await page.getByRole('button', { name: 'Check job details' }).nth(1).dispatchEvent('click')
   await expect(page.getByText(/Job (details|preview)/)).toBeVisible()
   await page.getByRole('button', { name: 'Tailor your CV' }).click()
   await expect(
@@ -628,8 +632,8 @@ test('returns to the workspace with a visible error when generation fails contra
   ).toBeVisible({
     timeout: 15_000,
   })
-  await expect(page.getByRole('heading', { name: 'New job' })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Open new job' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Add a job' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Open add a job' })).toBeVisible()
 
   await electronApp.close()
 })
@@ -683,8 +687,8 @@ test('persists pending generation before repair and clears it after completion',
       ].join('\n'),
     )
   await page.getByLabel('Job description').press('Tab')
-  await expect(page.getByRole('button', { name: 'Check pasted details' })).toBeEnabled()
-  await page.getByRole('button', { name: 'Check pasted details' }).dispatchEvent('click')
+  await expect(page.getByRole('button', { name: 'Check job details' }).nth(1)).toBeEnabled()
+  await page.getByRole('button', { name: 'Check job details' }).nth(1).dispatchEvent('click')
   await expect(page.getByText(/Job (details|preview)/)).toBeVisible()
   await page.getByRole('button', { name: 'Tailor your CV' }).click()
   await expect(page.getByRole('heading', { name: 'Connect the local AI worker' })).toBeVisible()
@@ -786,7 +790,7 @@ test('renders the stored adapted CV PDF artifact and exports a readable non-over
       ].join('\n'),
     )
   await page.getByLabel('Job description').press('Tab')
-  await page.getByRole('button', { name: 'Check pasted details' }).dispatchEvent('click')
+  await page.getByRole('button', { name: 'Check job details' }).nth(1).dispatchEvent('click')
   await expect(page.getByText(/Job (details|preview)/)).toBeVisible()
   await page.getByRole('button', { name: 'Tailor your CV' }).click()
 

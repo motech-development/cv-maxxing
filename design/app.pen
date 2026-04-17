@@ -1083,7 +1083,7 @@
                               "type": "text",
                               "id": "u4z0P",
                               "fill": "#FFFFFF",
-                              "content": "Check pasted details",
+                              "content": "Check job details",
                               "fontFamily": "Manrope",
                               "fontSize": 13,
                               "fontWeight": "800"
@@ -1253,7 +1253,7 @@
                               "id": "dIVkC",
                               "name": "hintCardCTitle",
                               "fill": "#1E2428",
-                              "content": "Open the job page if needed",
+                              "content": "Open the job page",
                               "fontFamily": "Manrope",
                               "fontSize": 13,
                               "fontWeight": "800"
@@ -1265,7 +1265,7 @@
                               "fill": "#5E6872",
                               "textGrowth": "fixed-width",
                               "width": "fill_container",
-                              "content": "If the job page needs more access, you can open it and come back here.",
+                              "content": "If the job page needs more access, open it and come back here.",
                               "lineHeight": 1.4,
                               "fontFamily": "Manrope",
                               "fontSize": 13,
@@ -2548,7 +2548,7 @@
                           "type": "text",
                           "id": "xh33b",
                           "fill": "#1E2428",
-                          "content": "New job",
+                          "content": "Add a job",
                           "fontFamily": "Manrope",
                           "fontSize": 13,
                           "fontWeight": "800"

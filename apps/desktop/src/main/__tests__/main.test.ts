@@ -72,7 +72,7 @@ function createVacancyDouble() {
       kind: 'incomplete',
       vacancy: {
         blockingReason:
-          'Close the internal browser session after the vacancy page loads, or paste the full job text instead.',
+          'Open the job page and close it after the full details load, or paste the job description instead.',
         canGenerate: false,
         employer: null,
         fetchedAt: '2026-04-08T21:15:00.000Z',
@@ -334,7 +334,7 @@ test('bootstrap registers the full AI worker onboarding IPC surface and opens th
       kind: 'incomplete',
       vacancy: {
         blockingReason:
-          'Open the internal browser session for authenticated pages, or paste the full job text instead.',
+          'This job page may need more access. Open the job page or paste the job description instead.',
         canGenerate: false,
         employer: null,
         fetchedAt: '2026-04-08T21:15:00.000Z',
@@ -362,7 +362,7 @@ test('bootstrap registers the full AI worker onboarding IPC surface and opens th
       kind: 'incomplete',
       vacancy: {
         blockingReason:
-          'Close the internal browser session after the vacancy page loads, or paste the full job text instead.',
+          'Open the job page and close it after the full details load, or paste the job description instead.',
         canGenerate: false,
         employer: null,
         fetchedAt: '2026-04-08T21:15:00.000Z',
@@ -588,7 +588,7 @@ test('bootstrap registers the full AI worker onboarding IPC surface and opens th
     kind: 'incomplete',
     vacancy: {
       blockingReason:
-        'Open the internal browser session for authenticated pages, or paste the full job text instead.',
+        'This job page may need more access. Open the job page or paste the job description instead.',
       canGenerate: false,
       employer: null,
       fetchedAt: '2026-04-08T21:15:00.000Z',
@@ -668,7 +668,7 @@ test('bootstrap registers the full AI worker onboarding IPC surface and opens th
     kind: 'incomplete',
     vacancy: {
       blockingReason:
-        'Close the internal browser session after the vacancy page loads, or paste the full job text instead.',
+        'Open the job page and close it after the full details load, or paste the job description instead.',
       canGenerate: false,
       employer: null,
       fetchedAt: '2026-04-08T21:15:00.000Z',

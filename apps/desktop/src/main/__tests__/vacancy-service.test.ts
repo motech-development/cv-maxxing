@@ -349,7 +349,7 @@ test('preserves a LinkedIn vacancy URL and falls back to the interactive browser
   expect(result.kind).toBe('incomplete')
   expect(result.vacancy.source).toBe('linkedin')
   expect(result.vacancy.canGenerate).toBe(false)
-  expect(result.vacancy.blockingReason).toContain('Open the internal browser session')
+  expect(result.vacancy.blockingReason).toContain('Open the job page')
   expect(captureVacancyBrowserSessionPage).toHaveBeenCalledTimes(1)
   expect(fetchVacancyPage).not.toHaveBeenCalled()
 
@@ -621,7 +621,7 @@ test('keeps the internal browser session blocked when LinkedIn redirects away fr
 
   expect(result.kind).toBe('incomplete')
   expect(result.vacancy.canGenerate).toBe(false)
-  expect(result.vacancy.blockingReason).toContain('Close the internal browser session')
+  expect(result.vacancy.blockingReason).toContain('Open the job page')
   expect(result.workspaceState.draft).toEqual({
     text: '',
     url: 'https://www.linkedin.com/jobs/view/123456',

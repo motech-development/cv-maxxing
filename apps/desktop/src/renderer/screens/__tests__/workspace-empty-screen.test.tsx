@@ -24,11 +24,25 @@ const baseProperties = {
   workspaceError: null,
 }
 
+function getReviewButtons() {
+  const [reviewUrlButton, reviewTextButton] = screen.getAllByRole('button', {
+    name: 'Check job details',
+  })
+
+  if (reviewUrlButton === undefined || reviewTextButton === undefined) {
+    throw new Error('Expected job-link and pasted-description review buttons.')
+  }
+
+  return {
+    reviewTextButton,
+    reviewUrlButton,
+  }
+}
+
 test('keeps intake-card buttons separated from source fields with a flex spacer', () => {
   render(<WorkspaceDraftView {...baseProperties} />)
 
-  const reviewTextButton = screen.getByRole('button', { name: 'Check pasted details' })
-  const reviewUrlButton = screen.getByRole('button', { name: 'Check job details' })
+  const { reviewTextButton, reviewUrlButton } = getReviewButtons()
 
   const pasteCard = reviewTextButton.parentElement
   const urlCard = reviewUrlButton.parentElement

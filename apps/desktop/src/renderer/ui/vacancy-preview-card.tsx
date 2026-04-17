@@ -51,8 +51,8 @@ export function VacancyPreviewCard({
             title="We keep your draft"
           />
           <PreviewHint
-            body="If the job page needs more access, you can open it and come back here."
-            title="Open the job page if needed"
+            body="If the job page needs more access, open it and come back here."
+            title="Open the job page"
           />
         </div>
       </PanelCard>
@@ -71,7 +71,7 @@ export function VacancyPreviewCard({
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-3">
-            <SectionLabel>{isDraftReviewed ? 'Job details' : 'Job preview'}</SectionLabel>
+            <SectionLabel>Job details</SectionLabel>
             {isDraftReviewed ? null : (
               <StatusPill label={statusPill.label} tone={statusPill.tone} />
             )}
