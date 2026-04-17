@@ -33,7 +33,7 @@ import type { VacancyDraft, VacancyIngestResult, VacancySummary } from '../share
 import { AiWorkerCheckingScreen } from './screens/ai-worker-checking-screen.js'
 import { AiWorkerSignInRequiredScreen } from './screens/ai-worker-sign-in-required-screen.js'
 import { AiWorkerUnavailableScreen } from './screens/ai-worker-unavailable-screen.js'
-import { FirstLaunchScreen } from './screens/first-launch-screen.js'
+import { OriginalCvScreen } from './screens/original-cv-screen.js'
 import { SettingsScreen, type SettingsSection } from './screens/settings-screen.js'
 import { WorkspaceScreen } from './screens/workspace-screen.js'
 import {
@@ -101,6 +101,10 @@ function isSupportedOriginalCvFile(file: File): boolean {
 }
 
 type OriginalCvImportDestination = 'workspace'
+type OriginalCvImportTopLevelSection = Extract<
+  WorkspaceTopLevelSection,
+  'job_vacancies' | 'original_cv'
+>
 type RendererStartupDestinationOverride = OriginalCvImportDestination
 type PreviewDocumentKind = 'adapted_cv' | 'cover_letter'
 type WorkspaceSelectionOverride = JobsWorkspaceSelection | null
@@ -374,13 +378,17 @@ export function App() {
     }: {
       file: File
       nextStartupDestination: OriginalCvImportDestination
+      topLevelSectionAfterImport: OriginalCvImportTopLevelSection
     }): Promise<ImportOriginalCvMutationResult> => {
       return await globalThis.window.cvMaxxing.originalCv.importOriginalCv({
         content: new Uint8Array(await file.arrayBuffer()),
         filename: file.name,
       })
     },
-    onSuccess: async (result, { nextStartupDestination }): Promise<void> => {
+    onSuccess: async (
+      result,
+      { nextStartupDestination, topLevelSectionAfterImport },
+    ): Promise<void> => {
       if (result.kind === 'ai_worker_not_ready') {
         setImportError(null)
         setReadinessError(null)
@@ -397,24 +405,32 @@ export function App() {
         return
       }
 
+      const nextWorkspaceSelection: WorkspaceSelection = {
+        jobs: persistedWorkspaceSelection.jobs,
+        originalCv: {
+          kind: 'active_original_cv',
+        },
+        topLevelSection: topLevelSectionAfterImport,
+      }
+
       setImportError(null)
       setIsConfirmingDraftDiscard(false)
       setOriginalCvFile(null)
       setPreviewDocumentKind('adapted_cv')
       setReadinessError(null)
       setStartupDestinationOverride(nextStartupDestination)
-      setWorkspaceSelectionOverride({
-        kind: 'draft',
-      })
+      setWorkspaceSelectionOverride(null)
       setVacancyReviewError(null)
       setVacancyPreviewOverride(null)
       queryClient.setQueryData(rendererQueryKeys.originalCvWorkspace, {
         activeOriginalCv: result.originalCv,
         snapshotCount: result.originalCv.snapshotCount,
       })
+      setPersistedWorkspaceSelection(nextWorkspaceSelection)
       await globalThis.window.cvMaxxing.vacancy.clearVacancyWorkspaceState()
       queryClient.setQueryData(rendererQueryKeys.vacancyWorkspace, initialVacancyWorkspaceState)
       await Promise.all([
+        persistWorkspaceSelectionMutation.mutateAsync(nextWorkspaceSelection),
         invalidateReadinessQuery(),
         queryClient.invalidateQueries({
           queryKey: rendererQueryKeys.originalCvWorkspace,
@@ -856,9 +872,13 @@ export function App() {
     }
   }
 
-  const handleOriginalCvImport = async (
-    nextStartupDestination: OriginalCvImportDestination,
-  ): Promise<void> => {
+  const handleOriginalCvImport = async ({
+    nextStartupDestination,
+    topLevelSectionAfterImport,
+  }: {
+    nextStartupDestination: OriginalCvImportDestination
+    topLevelSectionAfterImport: OriginalCvImportTopLevelSection
+  }): Promise<void> => {
     if (originalCvFile === null || importOriginalCvMutation.isPending) {
       return
     }
@@ -870,6 +890,7 @@ export function App() {
       await importOriginalCvMutation.mutateAsync({
         file: originalCvFile,
         nextStartupDestination,
+        topLevelSectionAfterImport,
       })
     } catch {
       setReadinessError(`${readinessErrorMessage} ${readinessErrorAction}`)
@@ -1225,13 +1246,18 @@ export function App() {
     },
     first_launch: () => {
       return (
-        <FirstLaunchScreen
+        <OriginalCvScreen
+          activeOriginalCv={null}
+          ambientActivityLabel={ambientActivityLabel}
           importError={importError}
           isImportingOriginalCv={isImportingOriginalCv}
           onFileDrop={handleOriginalCvDrop}
           onFileSelection={handleOriginalCvSelection}
           onImportOriginalCv={() => {
-            handleOriginalCvImport('workspace').catch(() => null)
+            handleOriginalCvImport({
+              nextStartupDestination: 'workspace',
+              topLevelSectionAfterImport: 'original_cv',
+            }).catch(() => null)
           }}
           onSelectRailItem={handleSelectRailItem}
           originalCvFile={originalCvFile}
@@ -1240,6 +1266,28 @@ export function App() {
       )
     },
     workspace: () => {
+      if (activeWorkspaceSection === 'original_cv') {
+        return (
+          <OriginalCvScreen
+            activeOriginalCv={originalCvWorkspaceState.activeOriginalCv}
+            ambientActivityLabel={ambientActivityLabel}
+            importError={importError}
+            isImportingOriginalCv={isImportingOriginalCv}
+            onFileDrop={handleOriginalCvDrop}
+            onFileSelection={handleOriginalCvSelection}
+            onImportOriginalCv={() => {
+              handleOriginalCvImport({
+                nextStartupDestination: 'workspace',
+                topLevelSectionAfterImport: 'original_cv',
+              }).catch(() => null)
+            }}
+            onSelectRailItem={handleSelectRailItem}
+            originalCvFile={originalCvFile}
+            workspaceOverlay={workspaceOverlay}
+          />
+        )
+      }
+
       return (
         <>
           <WorkspaceScreen
@@ -1324,7 +1372,10 @@ export function App() {
             }}
             onOriginalCvFileSelection={handleOriginalCvSelection}
             onReplaceOriginalCv={() => {
-              handleOriginalCvImport('workspace').catch(() => null)
+              handleOriginalCvImport({
+                nextStartupDestination: 'workspace',
+                topLevelSectionAfterImport: 'job_vacancies',
+              }).catch(() => null)
             }}
             onSelectApplication={(tailoredApplicationId) => {
               handleSelectTailoredApplication(tailoredApplicationId)

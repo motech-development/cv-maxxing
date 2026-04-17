@@ -84,7 +84,7 @@ test('uses action-first copy when adding your first CV', () => {
     ),
   ).toEqual({
     kind: 'original_cv_import',
-    label: 'Adding your CV...',
+    label: 'Adding a CV...',
     scope: 'workspace_blocking',
   })
 })

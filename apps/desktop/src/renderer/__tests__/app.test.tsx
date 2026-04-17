@@ -484,7 +484,7 @@ test('renders the dedicated unavailable setup screen', async () => {
   expect(screen.getByRole('button', { name: 'Try again' })).toBeDefined()
 })
 
-test('renders the first-launch screen after readiness succeeds with no original CV', async () => {
+test('renders the empty Your CV section after readiness succeeds with no original CV', async () => {
   renderApp({
     aiWorker: createAiWorkerApi({
       getAiWorkerPreflight: vi.fn().mockResolvedValue({
@@ -497,11 +497,13 @@ test('renders the first-launch screen after readiness succeeds with no original 
   })
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Add your CV' })).toBeDefined()
+    expect(screen.getByRole('heading', { name: 'Add a CV' })).toBeDefined()
   })
 
-  expect(screen.getByRole('button', { name: 'Add your CV' })).toBeDefined()
+  expect(screen.getByRole('button', { name: 'Add a CV' })).toBeDefined()
+  expect(screen.getByText('No original CV yet')).toBeDefined()
   expect(screen.getByText('Drop a PDF or DOCX here or choose a file')).toBeDefined()
+  expect(screen.getByRole('button', { name: 'Your CV' }).getAttribute('aria-current')).toBe('page')
 })
 
 test('accepts an original CV dropped onto the first-launch import surface', async () => {
@@ -517,7 +519,7 @@ test('accepts an original CV dropped onto the first-launch import surface', asyn
   })
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Add your CV' })).toBeDefined()
+    expect(screen.getByRole('heading', { name: 'Add a CV' })).toBeDefined()
   })
 
   fireEvent.drop(screen.getByText('Drop a PDF or DOCX here or choose a file'), {
@@ -526,11 +528,11 @@ test('accepts an original CV dropped onto the first-launch import surface', asyn
     },
   })
 
-  expect(screen.getByText('Selected: ada-lovelace.docx')).toBeDefined()
+  expect(screen.getAllByText('Selected: ada-lovelace.docx')).toHaveLength(2)
 })
 
-test('imports the first original CV and transitions into the design-aligned workspace-empty screen', async () => {
-  const retryAiWorkerPreflight = vi.fn()
+test('imports the first original CV into Your CV and persists the resulting section selection', async () => {
+  const setWorkspaceSelection = vi.fn().mockImplementation(() => Promise.resolve())
   const importedOriginalCv = {
     fileType: 'pdf' as const,
     headline: 'Principal Product Designer',
@@ -560,7 +562,6 @@ test('imports the first original CV and transitions into the design-aligned work
         provider: 'codex',
         status: 'ready',
       }),
-      retryAiWorkerPreflight,
     }),
     originalCv: createOriginalCvApi({
       getOriginalCvWorkspaceState: vi
@@ -575,10 +576,22 @@ test('imports the first original CV and transitions into the design-aligned work
         }),
       importOriginalCv,
     }),
+    tailoredApplication: createTailoredApplicationApi({
+      getWorkspaceSelection: vi.fn().mockResolvedValue({
+        jobs: {
+          kind: 'none',
+        },
+        originalCv: {
+          kind: 'none',
+        },
+        topLevelSection: 'job_vacancies',
+      }),
+      setWorkspaceSelection,
+    }),
   })
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Add your CV' })).toBeDefined()
+    expect(screen.getByRole('heading', { name: 'Add a CV' })).toBeDefined()
   })
 
   fireEvent.change(screen.getByLabelText('Your CV file'), {
@@ -586,28 +599,30 @@ test('imports the first original CV and transitions into the design-aligned work
       files: [new File(['%PDF-1.7'], 'ada-lovelace.pdf', { type: 'application/pdf' })],
     },
   })
-  fireEvent.click(screen.getByRole('button', { name: 'Add your CV' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Add a CV' }))
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
+    expect(importOriginalCv).toHaveBeenCalledTimes(1)
   })
 
-  expect(retryAiWorkerPreflight).not.toHaveBeenCalled()
-  expect(importOriginalCv).toHaveBeenCalledTimes(1)
-  expect(screen.getByText('Jobs')).toBeDefined()
-  const emptyVacancyHeading = screen.getByRole('heading', { name: 'No jobs yet' })
-  const newVacancyButton = screen.getByRole('button', { name: 'Add a job' })
+  await waitFor(() => {
+    expect(setWorkspaceSelection).toHaveBeenCalledWith({
+      jobs: {
+        kind: 'none',
+      },
+      originalCv: {
+        kind: 'active_original_cv',
+      },
+      topLevelSection: 'original_cv',
+    })
+  })
 
-  expect(emptyVacancyHeading).toBeDefined()
-  expect(newVacancyButton).toBeDefined()
-  expect(newVacancyButton.compareDocumentPosition(emptyVacancyHeading)).toBe(
-    Node.DOCUMENT_POSITION_FOLLOWING,
-  )
-  expect(screen.getByLabelText('Job link')).toBeDefined()
-  expect(screen.getByLabelText('Job description')).toBeDefined()
-  expect(screen.getAllByRole('button', { name: 'Check job details' })).toHaveLength(2)
-  expect(screen.getByRole('button', { name: 'Update your CV' })).toBeDefined()
-  expect(screen.getByText('Check this job before tailoring your CV')).toBeDefined()
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Active original CV' })).toBeDefined()
+  })
+
+  expect(screen.getByRole('button', { name: 'Your CV' }).getAttribute('aria-current')).toBe('page')
+  expect(screen.getByText('ada-lovelace.pdf')).toBeDefined()
 })
 
 test('shows the workspace overlay while importing the first original CV from first launch', async () => {
@@ -636,7 +651,7 @@ test('shows the workspace overlay while importing the first original CV from fir
   })
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Add your CV' })).toBeDefined()
+    expect(screen.getByRole('heading', { name: 'Add a CV' })).toBeDefined()
   })
 
   fireEvent.change(screen.getByLabelText('Your CV file'), {
@@ -644,16 +659,16 @@ test('shows the workspace overlay while importing the first original CV from fir
       files: [new File(['%PDF-1.7'], 'ada-lovelace.pdf', { type: 'application/pdf' })],
     },
   })
-  fireEvent.click(screen.getByRole('button', { name: 'Add your CV' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Add a CV' }))
 
   await waitFor(() => {
     expect(importOriginalCv).toHaveBeenCalledTimes(1)
   })
 
-  expect(screen.getByRole('status', { name: 'Adding your CV...' })).toBeDefined()
+  expect(screen.getByRole('status', { name: 'Adding a CV...' })).toBeDefined()
   expect(screen.queryByRole('button', { name: 'Cancel' })).toBeNull()
   expect(screen.getByRole('button', { name: 'Settings' })).toBeDefined()
-  expect(screen.getByRole('heading', { name: 'Add your CV' })).toBeDefined()
+  expect(screen.getByRole('heading', { name: 'Add a CV' })).toBeDefined()
 
   importOriginalCvDeferredPromise.resolve({
     kind: 'imported',
@@ -676,7 +691,7 @@ test('shows the workspace overlay while importing the first original CV from fir
   })
 
   await waitFor(() => {
-    expect(screen.queryByRole('status', { name: 'Adding your CV...' })).toBeNull()
+    expect(screen.queryByRole('status', { name: 'Adding a CV...' })).toBeNull()
   })
 })
 
@@ -728,7 +743,7 @@ test('imports the first original CV from the mutation payload while the workspac
   })
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Add your CV' })).toBeDefined()
+    expect(screen.getByRole('heading', { name: 'Add a CV' })).toBeDefined()
   })
 
   fireEvent.change(screen.getByLabelText('Your CV file'), {
@@ -736,14 +751,14 @@ test('imports the first original CV from the mutation payload while the workspac
       files: [new File(['%PDF-1.7'], 'ada-lovelace.pdf', { type: 'application/pdf' })],
     },
   })
-  fireEvent.click(screen.getByRole('button', { name: 'Add your CV' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Add a CV' }))
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
+    expect(screen.getByRole('heading', { name: 'Active original CV' })).toBeDefined()
   })
 
   expect(screen.getByText('ada-lovelace.pdf')).toBeDefined()
-  expect(screen.queryByRole('heading', { name: 'Add your CV' })).toBeNull()
+  expect(screen.queryByRole('heading', { name: 'Add a CV' })).toBeNull()
 })
 
 test('routes first-launch import into the AI worker sign-in flow when the import boundary reports sign-in required', async () => {
@@ -775,7 +790,7 @@ test('routes first-launch import into the AI worker sign-in flow when the import
   })
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Add your CV' })).toBeDefined()
+    expect(screen.getByRole('heading', { name: 'Add a CV' })).toBeDefined()
   })
 
   fireEvent.change(screen.getByLabelText('Your CV file'), {
@@ -783,7 +798,7 @@ test('routes first-launch import into the AI worker sign-in flow when the import
       files: [new File(['%PDF-1.7'], 'ada-lovelace.pdf', { type: 'application/pdf' })],
     },
   })
-  fireEvent.click(screen.getByRole('button', { name: 'Add your CV' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Add a CV' }))
 
   await waitFor(() => {
     expect(importOriginalCv).toHaveBeenCalledTimes(1)
@@ -1058,9 +1073,8 @@ test('restores Your CV as the active top-level section while preserving the save
     )
   })
 
-  expect(
-    screen.getByRole('heading', { name: 'Senior platform engineer · Example Labs' }),
-  ).toBeDefined()
+  expect(screen.getByRole('heading', { name: 'Active original CV' })).toBeDefined()
+  expect(screen.getByText('ada-lovelace.pdf')).toBeDefined()
   fireEvent.click(screen.getByRole('button', { name: 'Jobs' }))
 
   await waitFor(() => {
@@ -1069,6 +1083,43 @@ test('restores Your CV as the active top-level section while preserving the save
       screen.getByRole('heading', { name: 'Senior platform engineer · Example Labs' }),
     ).toBeDefined()
   })
+})
+
+test('selecting Your CV from settings with no active original CV opens the empty Your CV section', async () => {
+  renderApp({
+    aiWorker: createAiWorkerApi({
+      getAiWorkerPreflight: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+      getStartupDestination: vi.fn().mockResolvedValue('workspace'),
+    }),
+    tailoredApplication: createTailoredApplicationApi({
+      getWorkspaceSelection: vi.fn().mockResolvedValue({
+        jobs: {
+          kind: 'none',
+        },
+        originalCv: {
+          kind: 'none',
+        },
+        topLevelSection: 'settings',
+      }),
+    }),
+  })
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'AI' })).toBeDefined()
+  })
+
+  fireEvent.click(screen.getByRole('button', { name: 'Your CV' }))
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Add a CV' })).toBeDefined()
+  })
+
+  expect(screen.getByText('No original CV yet')).toBeDefined()
 })
 
 test('shows generic open-job-page fallback guidance for reviewed links that need more access', async () => {
@@ -1339,7 +1390,7 @@ test('replaces the active original CV from the workspace-empty screen and keeps 
   })
 
   expect(screen.getByText('ada-lovelace-revised.docx')).toBeDefined()
-  expect(screen.queryByRole('heading', { name: 'Add your CV' })).toBeNull()
+  expect(screen.queryByRole('heading', { name: 'Add a CV' })).toBeNull()
 })
 
 test('shows the replacement snapshot count from the mutation payload while the workspace refetch is pending', async () => {
@@ -5016,7 +5067,7 @@ test('opens settings from the rail, shows version and privacy guardrails, and re
   })
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Add your CV' })).toBeDefined()
+    expect(screen.getByRole('heading', { name: 'Add a CV' })).toBeDefined()
   })
 
   fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
@@ -5209,7 +5260,7 @@ test('requires the destructive confirmation phrase before resetting local app da
   })
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Add your CV' })).toBeDefined()
+    expect(screen.getByRole('heading', { name: 'Add a CV' })).toBeDefined()
   })
 })
 

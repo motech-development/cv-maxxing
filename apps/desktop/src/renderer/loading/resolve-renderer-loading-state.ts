@@ -69,7 +69,7 @@ export function resolveRendererLoadingState(
   if (input.isImportingOriginalCv) {
     activeLoadingStates.push({
       kind: 'original_cv_import',
-      label: input.hasActiveOriginalCv ? 'Updating your CV...' : 'Adding your CV...',
+      label: input.hasActiveOriginalCv ? 'Updating your CV...' : 'Adding a CV...',
       scope: 'workspace_blocking',
     })
   }
