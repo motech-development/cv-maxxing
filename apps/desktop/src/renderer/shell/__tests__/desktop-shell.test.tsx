@@ -20,7 +20,7 @@ test('renders a full-bleed app shell that aligns with macOS window chrome', () =
           <div>Sidebar</div>
         </SidebarContainer>
       }
-      subtitle="AI worker setup"
+      subtitle="Connect AI"
       statusPill={{
         label: 'Checking',
         tone: 'muted',

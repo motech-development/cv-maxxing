@@ -9,10 +9,10 @@ import { AiWorkerSignInRequiredScreen } from '../ai-worker-sign-in-required-scre
 import { AiWorkerUnavailableScreen } from '../ai-worker-unavailable-screen.js'
 
 const baseViewModel: ReadinessRouteViewModel = {
-  body: 'The local AI worker needs attention before the workspace can open.',
+  body: 'AI needs attention before the app can continue.',
   canEnterWorkspace: false,
-  diagnostic: 'Codex CLI was not found on this machine.',
-  heading: 'AI worker setup',
+  diagnostic: "Codex CLI isn't installed on this Mac.",
+  heading: 'Connect AI',
   status: 'unavailable',
 }
 
@@ -28,7 +28,7 @@ test('renders the unavailable AI worker sidebar inside the shared shell containe
     />,
   )
 
-  expect(screen.getByRole('heading', { name: 'Repair the local AI worker' })).toBeDefined()
+  expect(screen.getAllByRole('heading', { level: 1, name: 'Connect AI' }).length).toBeGreaterThan(0)
 
   const sidebarContainer = container.querySelector('aside > div')
 
@@ -46,13 +46,13 @@ test('renders the sign-in-required AI worker sidebar inside the shared shell con
       readinessError={null}
       viewModel={{
         ...baseViewModel,
-        body: 'The local CLI session must be authenticated before generation can begin.',
+        body: 'AI needs you to sign in before CV Maxxing can continue.',
         status: 'sign_in_required',
       }}
     />,
   )
 
-  expect(screen.getByRole('heading', { name: 'Connect the local AI worker' })).toBeDefined()
+  expect(screen.getAllByRole('heading', { level: 1, name: 'Connect AI' }).length).toBeGreaterThan(0)
 
   const sidebarContainer = container.querySelector('aside > div')
 
@@ -67,14 +67,14 @@ test('renders the checking AI worker sidebar inside the shared shell container',
       readinessError={null}
       viewModel={{
         ...baseViewModel,
-        body: 'Checking the local AI worker before opening the workspace.',
+        body: 'Getting AI ready before you enter the app.',
         diagnostic: undefined,
         status: 'checking',
       }}
     />,
   )
 
-  expect(screen.getByRole('heading', { name: 'Checking the local AI worker' })).toBeDefined()
+  expect(screen.getByRole('heading', { name: 'Getting AI ready' })).toBeDefined()
 
   const sidebarContainer = container.querySelector('aside > div')
 

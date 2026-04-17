@@ -380,7 +380,7 @@ function mapProbeOutcomeToPreflightResult({
   if (probeOutcome === 'ready') {
     return {
       canResumeGeneration: true,
-      message: 'The local AI worker is ready.',
+      message: 'AI is ready.',
       provider: 'codex',
       status: 'ready',
     }
@@ -392,8 +392,8 @@ function mapProbeOutcomeToPreflightResult({
       failureCode: 'auth_missing',
       message:
         pendingGenerationCommand === null
-          ? 'The local AI worker needs a valid sign-in before CV Maxxing can continue.'
-          : 'The local AI worker needs a valid sign-in before CV Maxxing can resume your tailored application.',
+          ? 'AI needs you to sign in before CV Maxxing can continue.'
+          : 'AI needs you to sign in before CV Maxxing can finish your CV and cover letter.',
       provider: 'codex',
       status: 'sign_in_required',
     }
@@ -405,8 +405,8 @@ function mapProbeOutcomeToPreflightResult({
       failureCode: 'auth_expired',
       message:
         pendingGenerationCommand === null
-          ? 'The local AI worker sign-in has expired. Sign in again before CV Maxxing can continue.'
-          : 'The local AI worker sign-in has expired. Sign in again before CV Maxxing can resume your tailored application.',
+          ? 'Your AI sign-in has expired. Sign in again before CV Maxxing can continue.'
+          : 'Your AI sign-in has expired. Sign in again before CV Maxxing can finish your CV and cover letter.',
       provider: 'codex',
       status: 'sign_in_required',
     }
@@ -416,8 +416,7 @@ function mapProbeOutcomeToPreflightResult({
     return {
       canResumeGeneration: false,
       failureCode: 'healthcheck_failed',
-      message:
-        'The local AI worker health check timed out. Repair the local setup, then retry the check.',
+      message: 'AI took too long to respond. Check the setup on this Mac, then try again.',
       provider: 'codex',
       status: 'unavailable',
     }
@@ -427,8 +426,7 @@ function mapProbeOutcomeToPreflightResult({
     return {
       canResumeGeneration: false,
       failureCode: 'launch_failed',
-      message:
-        'The local AI worker could not be launched. Repair the local setup, then retry the check.',
+      message: "CV Maxxing couldn't start AI on this Mac. Check the setup, then try again.",
       provider: 'codex',
       status: 'unavailable',
     }
@@ -437,7 +435,7 @@ function mapProbeOutcomeToPreflightResult({
   return {
     canResumeGeneration: false,
     failureCode: 'runtime_missing',
-    message: 'The local AI worker is unavailable. Check setup, then retry.',
+    message: "AI isn't available on this Mac yet. Check the setup, then try again.",
     provider: 'codex',
     status: 'unavailable',
   }

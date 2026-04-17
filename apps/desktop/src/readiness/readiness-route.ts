@@ -28,11 +28,10 @@ export function mapReadinessRouteViewModel({
 }): ReadinessRouteViewModel {
   if (preflight.status === 'checking') {
     return {
-      body: 'Checking AI before opening the app.',
+      body: 'Getting AI ready before you enter the app.',
       canEnterWorkspace: false,
-      diagnostic:
-        'Looking for the configured local worker, authentication state, and health probe.',
-      heading: 'AI worker setup',
+      diagnostic: 'Checking your AI connection on this Mac.',
+      heading: 'Connect AI',
       primaryActionLabel: undefined,
       secondaryActionLabel: undefined,
       startupDestination: undefined,
@@ -45,9 +44,9 @@ export function mapReadinessRouteViewModel({
       body: preflight.message,
       canEnterWorkspace: false,
       diagnostic: buildDiagnostic(preflight),
-      heading: 'AI worker setup',
-      primaryActionLabel: 'Continue sign-in',
-      secondaryActionLabel: 'Open setup guide',
+      heading: 'Connect AI',
+      primaryActionLabel: 'Continue',
+      secondaryActionLabel: 'Get help',
       startupDestination: undefined,
       status: preflight.status,
     }
@@ -58,9 +57,9 @@ export function mapReadinessRouteViewModel({
       body: preflight.message,
       canEnterWorkspace: false,
       diagnostic: buildDiagnostic(preflight),
-      heading: 'AI worker setup',
-      primaryActionLabel: 'Retry check',
-      secondaryActionLabel: 'Open setup guide',
+      heading: 'Connect AI',
+      primaryActionLabel: 'Try again',
+      secondaryActionLabel: 'Get help',
       startupDestination: undefined,
       status: preflight.status,
     }
@@ -98,22 +97,22 @@ function buildDiagnostic(
   preflight: Extract<AiWorkerPreflightResult, { status: 'sign_in_required' | 'unavailable' }>,
 ): string {
   if (preflight.failureCode === 'auth_expired') {
-    return 'Codex CLI session expired.'
+    return 'Codex CLI sign-in expired.'
   }
 
   if (preflight.failureCode === 'auth_missing') {
-    return 'Codex CLI session missing.'
+    return 'Codex CLI needs sign-in.'
   }
 
   if (preflight.failureCode === 'healthcheck_failed') {
-    return 'Codex CLI health check timed out.'
+    return "Codex CLI didn't respond in time."
   }
 
   if (preflight.failureCode === 'launch_failed') {
-    return 'Codex CLI failed to launch.'
+    return "Codex CLI couldn't start."
   }
 
-  return 'Codex CLI was not found on this machine.'
+  return "Codex CLI isn't installed on this Mac."
 }
 
 function buildReadyBody(startupDestination: StartupDestination): string {

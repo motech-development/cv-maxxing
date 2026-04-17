@@ -48,10 +48,10 @@ import { Button } from './ui/button.js'
 import { Dialog } from './ui/dialog.js'
 
 const initialReadinessViewModel: ReadinessRouteViewModel = {
-  body: 'Checking AI before opening the app.',
+  body: 'Getting AI ready before you enter the app.',
   canEnterWorkspace: false,
-  diagnostic: 'Looking for the configured local worker, authentication state, and health probe.',
-  heading: 'AI worker setup',
+  diagnostic: 'Checking your AI connection on this Mac.',
+  heading: 'Connect AI',
   primaryActionLabel: undefined,
   secondaryActionLabel: undefined,
   startupDestination: undefined,
@@ -79,8 +79,8 @@ const initialVacancyWorkspaceState = {
   vacancy: null,
 }
 
-const readinessErrorMessage = 'Unable to complete the AI worker startup check.'
-const readinessErrorAction = 'Restart the app or verify the local AI worker setup.'
+const readinessErrorMessage = "We couldn't check AI."
+const readinessErrorAction = 'Restart the app or get help with AI setup on this Mac.'
 const originalCvFileTypeErrorMessage = 'Choose a PDF or DOCX file.'
 
 function isSupportedOriginalCvFile(file: File): boolean {
@@ -1664,15 +1664,15 @@ function resolveWorkspaceSelection({
 
 function resolveWorkerStatusLabel(status: ReadinessRouteViewModel['status']): string {
   if (status === 'ready') {
-    return 'Local'
+    return 'Connected'
   }
 
   if (status === 'sign_in_required') {
-    return 'Sign in required'
+    return 'Sign in needed'
   }
 
   if (status === 'unavailable') {
-    return 'Unavailable'
+    return 'Needs attention'
   }
 
   return 'Checking'

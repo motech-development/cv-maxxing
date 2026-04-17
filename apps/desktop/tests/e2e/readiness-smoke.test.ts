@@ -496,8 +496,8 @@ test('retries from an unavailable startup state and returns to first launch afte
 
   const page = await electronApp.firstWindow()
 
-  await expect(page.getByRole('heading', { name: 'Repair the local AI worker' })).toBeVisible()
-  await page.getByRole('button', { name: 'Retry check' }).click()
+  await expect(page.getByRole('button', { name: 'Try again' })).toBeVisible()
+  await page.getByRole('button', { name: 'Try again' }).click()
   await expect(page.getByRole('heading', { name: 'Add your CV' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Add your CV' })).toBeVisible()
 
@@ -560,8 +560,8 @@ test('returns to the workspace overlay after sign-in repair for a pending genera
   await page.getByRole('button', { name: 'Check job details' }).nth(1).dispatchEvent('click')
   await expect(page.getByText(/Job (details|preview)/)).toBeVisible()
   await page.getByRole('button', { name: 'Tailor your CV' }).click()
-  await expect(page.getByRole('heading', { name: 'Connect the local AI worker' })).toBeVisible()
-  await page.getByRole('button', { name: 'Continue sign-in' }).click()
+  await expect(page.getByRole('button', { name: 'Continue' })).toBeVisible()
+  await page.getByRole('button', { name: 'Continue' }).click()
   await expect(page.getByRole('heading', { name: 'Add a job' })).toBeVisible()
   await expect(page.getByRole('status', { name: 'Getting things ready' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Cancel' })).toBeVisible()
@@ -691,7 +691,7 @@ test('persists pending generation before repair and clears it after completion',
   await page.getByRole('button', { name: 'Check job details' }).nth(1).dispatchEvent('click')
   await expect(page.getByText(/Job (details|preview)/)).toBeVisible()
   await page.getByRole('button', { name: 'Tailor your CV' }).click()
-  await expect(page.getByRole('heading', { name: 'Connect the local AI worker' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Continue' })).toBeVisible()
 
   await electronApp.close()
 
@@ -897,8 +897,8 @@ test('retries the AI from settings and routes back to repair when the fresh chec
   await expect(page.getByRole('heading', { name: 'Add your CV' })).toBeVisible()
   await page.getByRole('button', { name: 'Settings' }).click()
   await expect(page.getByRole('heading', { name: 'AI' })).toBeVisible()
-  await page.getByRole('button', { name: 'Retry status check' }).click()
-  await expect(page.getByRole('heading', { name: 'Repair the local AI worker' })).toBeVisible()
+  await page.getByRole('button', { name: 'Try again' }).click()
+  await expect(page.getByRole('button', { name: 'Get help' })).toBeVisible()
 
   await electronApp.close()
 })
@@ -1294,8 +1294,8 @@ test('fails closed on a bounded health-check timeout and offers a retry path', a
 
   const page = await electronApp.firstWindow()
 
-  await expect(page.getByRole('heading', { name: 'Repair the local AI worker' })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Retry check' })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1, name: 'Connect AI' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Try again' })).toBeVisible()
 
   await electronApp.close()
 })

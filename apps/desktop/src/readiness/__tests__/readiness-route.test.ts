@@ -15,10 +15,10 @@ test('startup keeps the AI worker readiness gate blocked while the preflight is 
   })
 
   expect(viewModel).toEqual({
-    body: 'Checking AI before opening the app.',
+    body: 'Getting AI ready before you enter the app.',
     canEnterWorkspace: false,
-    diagnostic: 'Looking for the configured local worker, authentication state, and health probe.',
-    heading: 'AI worker setup',
+    diagnostic: 'Checking your AI connection on this Mac.',
+    heading: 'Connect AI',
     primaryActionLabel: undefined,
     secondaryActionLabel: undefined,
     startupDestination: undefined,
@@ -32,8 +32,7 @@ test('startup renders sign-in-required guidance with provider-neutral copy and C
       Promise.resolve({
         canResumeGeneration: false,
         failureCode: 'auth_expired',
-        message:
-          'The local AI worker sign-in has expired. Sign in again before CV Maxxing can continue.',
+        message: 'Your AI sign-in has expired. Sign in again before CV Maxxing can continue.',
         provider: 'codex',
         status: 'sign_in_required',
       }),
@@ -41,12 +40,12 @@ test('startup renders sign-in-required guidance with provider-neutral copy and C
   })
 
   expect(viewModel).toEqual({
-    body: 'The local AI worker sign-in has expired. Sign in again before CV Maxxing can continue.',
+    body: 'Your AI sign-in has expired. Sign in again before CV Maxxing can continue.',
     canEnterWorkspace: false,
-    diagnostic: 'Codex CLI session expired.',
-    heading: 'AI worker setup',
-    primaryActionLabel: 'Continue sign-in',
-    secondaryActionLabel: 'Open setup guide',
+    diagnostic: 'Codex CLI sign-in expired.',
+    heading: 'Connect AI',
+    primaryActionLabel: 'Continue',
+    secondaryActionLabel: 'Get help',
     startupDestination: undefined,
     status: 'sign_in_required',
   })
@@ -82,8 +81,7 @@ test('timeout failures render retry-first local repair guidance', async () => {
       Promise.resolve({
         canResumeGeneration: false,
         failureCode: 'healthcheck_failed',
-        message:
-          'The local AI worker health check timed out. Repair the local setup, then retry the check.',
+        message: 'AI took too long to respond. Check the setup on this Mac, then try again.',
         provider: 'codex',
         status: 'unavailable',
       }),
@@ -91,12 +89,12 @@ test('timeout failures render retry-first local repair guidance', async () => {
   })
 
   expect(viewModel).toEqual({
-    body: 'The local AI worker health check timed out. Repair the local setup, then retry the check.',
+    body: 'AI took too long to respond. Check the setup on this Mac, then try again.',
     canEnterWorkspace: false,
-    diagnostic: 'Codex CLI health check timed out.',
-    heading: 'AI worker setup',
-    primaryActionLabel: 'Retry check',
-    secondaryActionLabel: 'Open setup guide',
+    diagnostic: "Codex CLI didn't respond in time.",
+    heading: 'Connect AI',
+    primaryActionLabel: 'Try again',
+    secondaryActionLabel: 'Get help',
     startupDestination: undefined,
     status: 'unavailable',
   })

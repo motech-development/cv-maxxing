@@ -174,19 +174,19 @@ function AiWorkerSettingsSection({
         AI
       </h1>
       <p className="mt-2 max-w-3xl text-[13px] leading-[1.4] text-[var(--color-copy-muted)]">
-        Check your AI connection, retry setup, or open the setup guide for this Mac.
+        Use this area if AI needs attention or you need setup help on this Mac.
       </p>
 
       <PanelCard className="mt-6 p-6">
         <p className="m-0 text-[18px] font-extrabold text-[var(--color-copy-strong)]">
-          Provider-neutral worker
+          AI connection
         </p>
         <p className="mt-2 max-w-3xl text-[13px] leading-[1.4] text-[var(--color-copy-muted)]">
-          V1 uses a bring-your-own Codex CLI adapter while the app UI keeps provider-neutral AI
-          worker language.
+          Your normal app experience stays focused on jobs and documents. Come back here only if AI
+          needs attention.
         </p>
         <div className="mt-4 grid gap-3">
-          <SettingsValueRow label="Worker command" value={snapshot.workerCommand} />
+          <SettingsValueRow label="Using" value={snapshot.workerCommand} />
           <div className="rounded-[var(--radius-card)] border border-[var(--color-border)] bg-white p-3">
             <div className="flex items-center justify-between gap-3">
               <p className="m-0 text-[13px] font-extrabold text-[var(--color-copy-strong)]">
@@ -203,10 +203,10 @@ function AiWorkerSettingsSection({
         ) : null}
         <div className="mt-5 flex gap-3">
           <Button disabled={isRetryingAiWorker} onClick={onRetryAiWorker} tone="primary">
-            {isRetryingAiWorker ? 'Retrying status check...' : 'Retry status check'}
+            {isRetryingAiWorker ? 'Trying again...' : 'Try again'}
           </Button>
           <Button disabled={isOpeningSetupGuide} onClick={onOpenSetupGuide} tone="secondary">
-            {isOpeningSetupGuide ? 'Opening setup guide...' : 'Open setup guide'}
+            {isOpeningSetupGuide ? 'Opening help...' : 'Get help'}
           </Button>
         </div>
       </PanelCard>

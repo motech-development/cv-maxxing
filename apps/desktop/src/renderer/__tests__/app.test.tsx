@@ -390,10 +390,10 @@ function createTailoredApplicationWorkspaceStateFixture(
 test('renders the dedicated checking setup screen before workspace entry', async () => {
   renderApp()
 
-  expect(screen.getByRole('heading', { name: 'Checking the local AI worker' })).toBeDefined()
-  expect(screen.getByText('AI worker readiness')).toBeDefined()
+  expect(screen.getByRole('heading', { name: 'Getting AI ready' })).toBeDefined()
+  expect(screen.getAllByText('Connect AI')).toHaveLength(2)
   expect(screen.getByText('Checking')).toBeDefined()
-  expect(screen.queryByText('AI worker readiness gate')).toBeNull()
+  expect(screen.queryByText(/worker/i)).toBeNull()
 
   await waitFor(() => {
     expect(globalThis.window.cvMaxxing.aiWorker.getAiWorkerPreflight).toHaveBeenCalledTimes(1)
@@ -406,7 +406,7 @@ test('renders the dedicated sign-in-required setup screen', async () => {
       getAiWorkerPreflight: vi.fn().mockResolvedValue({
         canResumeGeneration: false,
         failureCode: 'auth_missing',
-        message: 'The local AI worker needs a valid sign-in before the workspace can open.',
+        message: 'AI needs you to sign in before CV Maxxing can continue.',
         provider: 'codex',
         status: 'sign_in_required',
       }),
@@ -414,12 +414,12 @@ test('renders the dedicated sign-in-required setup screen', async () => {
   })
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Connect the local AI worker' })).toBeDefined()
+    expect(screen.getByRole('button', { name: 'Continue' })).toBeDefined()
   })
 
-  expect(screen.getByText('Sign in required')).toBeDefined()
-  expect(screen.getByRole('button', { name: 'Continue sign-in' })).toBeDefined()
-  expect(screen.getByRole('button', { name: 'Open setup guide' })).toBeDefined()
+  expect(screen.getByText('Sign in needed')).toBeDefined()
+  expect(screen.getByRole('button', { name: 'Continue' })).toBeDefined()
+  expect(screen.getByRole('button', { name: 'Get help' })).toBeDefined()
 })
 
 test('opens the setup guide from the repair flow', async () => {
@@ -430,7 +430,7 @@ test('opens the setup guide from the repair flow', async () => {
       getAiWorkerPreflight: vi.fn().mockResolvedValue({
         canResumeGeneration: false,
         failureCode: 'runtime_missing',
-        message: 'The local AI worker is unavailable. Check setup, then retry.',
+        message: "AI isn't available on this Mac yet. Check the setup, then try again.",
         provider: 'codex',
         status: 'unavailable',
       }),
@@ -439,10 +439,10 @@ test('opens the setup guide from the repair flow', async () => {
   })
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Repair the local AI worker' })).toBeDefined()
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeDefined()
   })
 
-  fireEvent.click(screen.getByRole('button', { name: 'Open setup guide' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Get help' }))
 
   await waitFor(() => {
     expect(openAiWorkerSetupGuide).toHaveBeenCalledTimes(1)
@@ -455,7 +455,7 @@ test('renders the dedicated unavailable setup screen', async () => {
       getAiWorkerPreflight: vi.fn().mockResolvedValue({
         canResumeGeneration: false,
         failureCode: 'runtime_missing',
-        message: 'The local AI worker is unavailable. Check setup, then retry.',
+        message: "AI isn't available on this Mac yet. Check the setup, then try again.",
         provider: 'codex',
         status: 'unavailable',
       }),
@@ -463,11 +463,11 @@ test('renders the dedicated unavailable setup screen', async () => {
   })
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Repair the local AI worker' })).toBeDefined()
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeDefined()
   })
 
-  expect(screen.getByText('Unavailable')).toBeDefined()
-  expect(screen.getByRole('button', { name: 'Retry check' })).toBeDefined()
+  expect(screen.getByText('Needs attention')).toBeDefined()
+  expect(screen.getByRole('button', { name: 'Try again' })).toBeDefined()
 })
 
 test('renders the first-launch screen after readiness succeeds with no original CV', async () => {
@@ -778,7 +778,7 @@ test('routes first-launch import into the AI worker sign-in flow when the import
   expect(retryAiWorkerPreflight).not.toHaveBeenCalled()
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Connect the local AI worker' })).toBeDefined()
+    expect(screen.getByRole('button', { name: 'Continue' })).toBeDefined()
   })
 })
 
@@ -1651,7 +1651,7 @@ test('routes original CV replacement into the AI worker repair flow when the imp
     preflight: {
       canResumeGeneration: false,
       failureCode: 'runtime_missing',
-      message: 'The local AI worker is unavailable. Check setup, then retry.',
+      message: "AI isn't available on this Mac yet. Check the setup, then try again.",
       provider: 'codex',
       status: 'unavailable',
     },
@@ -1710,7 +1710,7 @@ test('routes original CV replacement into the AI worker repair flow when the imp
   expect(retryAiWorkerPreflight).not.toHaveBeenCalled()
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Repair the local AI worker' })).toBeDefined()
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeDefined()
   })
 })
 
@@ -2159,7 +2159,7 @@ test('routes to AI worker repair when starting adaptation returns a sign-in requ
   })
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Connect the local AI worker' })).toBeDefined()
+    expect(screen.getByRole('button', { name: 'Continue' })).toBeDefined()
   })
 
   expect(resumePendingGeneration).not.toHaveBeenCalled()
@@ -2987,10 +2987,10 @@ test('resumes the pending flow into the workspace overlay after sign-in repair',
   })
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Connect the local AI worker' })).toBeDefined()
+    expect(screen.getByRole('button', { name: 'Continue' })).toBeDefined()
   })
 
-  fireEvent.click(screen.getByRole('button', { name: 'Continue sign-in' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Continue' }))
 
   await waitFor(() => {
     expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
@@ -4859,8 +4859,8 @@ test('opens settings from the rail, shows version and privacy guardrails, and re
     expect(screen.getByRole('heading', { name: 'AI' })).toBeDefined()
   })
 
-  expect(screen.getByText('Provider-neutral worker')).toBeDefined()
-  expect(screen.getByText('Worker command')).toBeDefined()
+  expect(screen.getByText('AI connection')).toBeDefined()
+  expect(screen.getByText('Using')).toBeDefined()
   expect(screen.getByText('codex')).toBeDefined()
 
   fireEvent.click(screen.getByRole('button', { name: 'Show Local data settings' }))
@@ -4875,7 +4875,7 @@ test('opens settings from the rail, shows version and privacy guardrails, and re
   expect(screen.getByText('Automatic update checks')).toBeDefined()
 
   fireEvent.click(screen.getByRole('button', { name: 'Show AI settings' }))
-  fireEvent.click(screen.getByRole('button', { name: 'Retry status check' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
 
   await waitFor(() => {
     expect(retryAiWorkerPreflight).toHaveBeenCalledTimes(1)
@@ -4935,14 +4935,14 @@ test('leaves settings and returns to the repair screen when the AI worker retry 
     expect(screen.getByRole('heading', { name: 'AI' })).toBeDefined()
   })
 
-  fireEvent.click(screen.getByRole('button', { name: 'Retry status check' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
 
   await waitFor(() => {
     expect(retryAiWorkerPreflight).toHaveBeenCalledTimes(1)
   })
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Repair the local AI worker' })).toBeDefined()
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeDefined()
   })
 })
 

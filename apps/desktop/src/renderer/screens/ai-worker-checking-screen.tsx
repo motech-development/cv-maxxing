@@ -30,11 +30,9 @@ function SetupSidebar({ body, children, title }: SetupSidebarProperties) {
       <div className="flex flex-col gap-2">{children}</div>
       <div className="flex-1" />
       <PanelCard className="bg-[var(--color-surface-3)] p-3">
-        <p className="m-0 text-[13px] font-extrabold text-[var(--color-copy-strong)]">
-          Local desktop gate
-        </p>
+        <p className="m-0 text-[13px] font-extrabold text-[var(--color-copy-strong)]">AI check</p>
         <p className="mt-2 text-xs leading-5 text-[var(--color-copy-muted)]">
-          Sensitive CV and vacancy data stays blocked until the worker is ready.
+          Your CV and job details stay on hold until AI is ready.
         </p>
       </PanelCard>
     </>
@@ -52,21 +50,21 @@ export function AiWorkerCheckingScreen({
       railItems={['setup']}
       sidebar={
         <SidebarContainer>
-          <SetupSidebar body={viewModel.body} title="AI worker readiness">
+          <SetupSidebar body={viewModel.body} title={viewModel.heading}>
             <PanelCard className="bg-[var(--color-surface-success)] p-2.5">
               <p className="m-0 text-[13px] font-extrabold text-[var(--color-copy-strong)]">
-                Find Codex CLI
+                Check AI on this Mac
               </p>
             </PanelCard>
             <PanelCard className="bg-[var(--color-surface-0)] p-2.5">
               <p className="m-0 text-[13px] font-extrabold text-[var(--color-copy-strong)]">
-                Verify signed-in session
+                Confirm you can continue
               </p>
             </PanelCard>
           </SetupSidebar>
         </SidebarContainer>
       }
-      subtitle="AI worker setup"
+      subtitle="Connect AI"
       statusPill={{
         label: 'Checking',
         tone: 'muted',
@@ -75,14 +73,14 @@ export function AiWorkerCheckingScreen({
       <div className="flex items-start justify-between gap-6">
         <div>
           <h1 className="m-0 text-[30px] font-extrabold tracking-[-0.03em] text-[var(--color-copy-strong)]">
-            Checking the local AI worker
+            Getting AI ready
           </h1>
           <p className="mt-2 max-w-3xl text-[13px] leading-[1.4] text-[var(--color-copy-muted)]">
-            The workspace will unlock automatically when the required local worker is ready.
+            We&apos;ll open the app as soon as AI is ready on this Mac.
           </p>
         </div>
         <Button onClick={onOpenSetupGuide} tone="primary">
-          Open setup help
+          Get help
         </Button>
       </div>
 
@@ -93,11 +91,10 @@ export function AiWorkerCheckingScreen({
           </div>
           <div className="flex-1">
             <p className="m-0 text-[18px] font-extrabold text-[var(--color-copy-strong)]">
-              Readiness check in progress
+              Checking AI
             </p>
             <p className="mt-1 text-[13px] leading-[1.4] text-[var(--color-copy-muted)]">
-              Looking for the configured local worker, authentication state, and access to the
-              readiness probe.
+              We&apos;re checking your AI connection and whether you&apos;re ready to continue.
             </p>
           </div>
         </div>
@@ -108,12 +105,12 @@ export function AiWorkerCheckingScreen({
 
       <PanelCard className="mt-4 min-h-[24rem] bg-[var(--color-shell-topbar)] p-[18px]">
         <p className="m-0 text-[13px] font-extrabold text-[var(--color-surface-0)]">
-          Startup checks
+          Setup details
         </p>
         <div className="mt-3 space-y-2 text-xs leading-5 text-[var(--color-copy-subtle)]">
-          <p className="m-0">09:41 Codex CLI path detected</p>
-          <p className="m-0">09:41 Reading local auth status</p>
-          <p className="m-0">09:41 Preparing workspace readiness gate</p>
+          <p className="m-0">09:41 Looking for AI on this Mac</p>
+          <p className="m-0">09:41 Checking sign-in</p>
+          <p className="m-0">09:41 Getting things ready</p>
           {readinessError ? (
             <p className="m-0 text-[var(--color-status-danger)]">{readinessError}</p>
           ) : null}

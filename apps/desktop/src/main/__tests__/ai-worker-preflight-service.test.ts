@@ -52,7 +52,7 @@ test('probes the configured Codex CLI when no test override status is present', 
 
   await expect(service.getAiWorkerPreflight()).resolves.toEqual({
     canResumeGeneration: true,
-    message: 'The local AI worker is ready.',
+    message: 'AI is ready.',
     provider: 'codex',
     status: 'ready',
   })
@@ -74,7 +74,7 @@ test('maps a CLI login-status auth failure to sign-in-required guidance', async 
   await expect(service.getAiWorkerPreflight()).resolves.toEqual({
     canResumeGeneration: false,
     failureCode: 'auth_missing',
-    message: 'The local AI worker needs a valid sign-in before CV Maxxing can continue.',
+    message: 'AI needs you to sign in before CV Maxxing can continue.',
     provider: 'codex',
     status: 'sign_in_required',
   })
@@ -96,8 +96,7 @@ test('maps an expired CLI session to the expired-auth guidance', async () => {
   await expect(service.getAiWorkerPreflight()).resolves.toEqual({
     canResumeGeneration: false,
     failureCode: 'auth_expired',
-    message:
-      'The local AI worker sign-in has expired. Sign in again before CV Maxxing can continue.',
+    message: 'Your AI sign-in has expired. Sign in again before CV Maxxing can continue.',
     provider: 'codex',
     status: 'sign_in_required',
   })
@@ -126,8 +125,7 @@ test('returns sign-in-required guidance and keeps resumability when a pending ge
   await expect(service.getAiWorkerPreflight()).resolves.toEqual({
     canResumeGeneration: true,
     failureCode: 'auth_missing',
-    message:
-      'The local AI worker needs a valid sign-in before CV Maxxing can resume your tailored application.',
+    message: 'AI needs you to sign in before CV Maxxing can finish your CV and cover letter.',
     provider: 'codex',
     status: 'sign_in_required',
   })
@@ -158,8 +156,7 @@ test('maps a hanging health probe to an unavailable timeout failure using the re
   await expect(preflightPromise).resolves.toEqual({
     canResumeGeneration: false,
     failureCode: 'healthcheck_failed',
-    message:
-      'The local AI worker health check timed out. Repair the local setup, then retry the check.',
+    message: 'AI took too long to respond. Check the setup on this Mac, then try again.',
     provider: 'codex',
     status: 'unavailable',
   })

@@ -31,15 +31,14 @@ export function AiWorkerUnavailableScreen({
           <>
             <SectionLabel>Setup</SectionLabel>
             <h2 className="m-0 text-2xl font-extrabold tracking-[-0.02em] text-[var(--color-copy-strong)]">
-              Worker unavailable
+              {viewModel.heading}
             </h2>
             <p className="m-0 text-[13px] leading-[1.4] text-[var(--color-copy-muted)]">
-              CV Maxxing cannot enter the workspace until the local AI worker can be started and
-              verified.
+              Something needs attention before the app can continue.
             </p>
             <PanelCard className="bg-[var(--color-surface-danger)] p-3">
               <p className="m-0 text-sm font-bold text-[var(--color-status-danger)]">
-                Startup failed
+                AI needs attention
               </p>
               <p className="mt-1 text-xs leading-5 text-[var(--color-status-danger)]">
                 {viewModel.diagnostic ?? viewModel.body}
@@ -49,22 +48,22 @@ export function AiWorkerUnavailableScreen({
           </>
         </SidebarContainer>
       }
-      subtitle="AI worker setup"
+      subtitle="Connect AI"
       statusPill={{
-        label: 'Unavailable',
+        label: 'Needs attention',
         tone: 'danger',
       }}
     >
       <h1 className="m-0 text-[30px] font-extrabold tracking-[-0.03em] text-[var(--color-copy-strong)]">
-        Repair the local AI worker
+        {viewModel.heading}
       </h1>
       <p className="mt-2 max-w-3xl text-[13px] leading-[1.4] text-[var(--color-copy-muted)]">
-        Install or configure the bring-your-own CLI adapter, then re-run the startup check.
+        Fix AI on this Mac, then try again.
       </p>
 
       <PanelCard className="mt-6 p-6">
         <p className="m-0 text-[18px] font-extrabold text-[var(--color-copy-strong)]">
-          Required before workspace access
+          What needs fixing
         </p>
         <p className="mt-2 max-w-2xl text-[13px] leading-[1.4] text-[var(--color-copy-muted)]">
           {viewModel.body}
@@ -76,10 +75,10 @@ export function AiWorkerUnavailableScreen({
         ) : null}
         <div className="mt-5 flex gap-3">
           <Button disabled={isPrimaryActionPending} onClick={onPrimaryAction} tone="primary">
-            {isPrimaryActionPending ? 'Retrying check...' : 'Retry check'}
+            {isPrimaryActionPending ? 'Trying again...' : 'Try again'}
           </Button>
           <Button disabled={isSecondaryActionPending} onClick={onSecondaryAction} tone="secondary">
-            {isSecondaryActionPending ? 'Opening setup guide...' : 'Open setup guide'}
+            {isSecondaryActionPending ? 'Opening help...' : 'Get help'}
           </Button>
         </div>
       </PanelCard>

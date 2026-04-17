@@ -82,7 +82,7 @@ test('captures the AI repair screen', async () => {
 
   const page = await electronApp.firstWindow()
 
-  await expect(page.getByRole('heading', { name: 'Repair the local AI worker' })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1, name: 'Connect AI' })).toBeVisible()
   await hideScrollbars(page)
   await expect(page).toHaveScreenshot('ai-worker-repair-screen.png', {
     animations: 'disabled',
