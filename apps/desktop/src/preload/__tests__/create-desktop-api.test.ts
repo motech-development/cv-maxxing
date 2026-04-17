@@ -514,7 +514,7 @@ test('preload exposes tailored-application repair and resume commands over typed
       canResumeGeneration: true,
       failureCode: 'auth_expired',
       message:
-        'The local AI worker sign-in has expired. Sign in again before CV Maxxing can resume your tailored application.',
+        'Your AI sign-in has expired. Sign in again before CV Maxxing can finish your CV and cover letter.',
       provider: 'codex',
       status: 'sign_in_required',
     })
@@ -657,7 +657,7 @@ test('preload exposes tailored-application repair and resume commands over typed
     canResumeGeneration: true,
     failureCode: 'auth_expired',
     message:
-      'The local AI worker sign-in has expired. Sign in again before CV Maxxing can resume your tailored application.',
+      'Your AI sign-in has expired. Sign in again before CV Maxxing can finish your CV and cover letter.',
     provider: 'codex',
     status: 'sign_in_required',
   })

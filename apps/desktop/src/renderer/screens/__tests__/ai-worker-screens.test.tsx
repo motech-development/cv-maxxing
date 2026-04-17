@@ -11,7 +11,7 @@ import { AiWorkerUnavailableScreen } from '../ai-worker-unavailable-screen.js'
 const baseViewModel: ReadinessRouteViewModel = {
   body: 'AI needs attention before the app can continue.',
   canEnterWorkspace: false,
-  diagnostic: "Codex CLI isn't installed on this Mac.",
+  diagnostic: "AI isn't available on this Mac yet.",
   heading: 'Connect AI',
   status: 'unavailable',
 }

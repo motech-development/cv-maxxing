@@ -886,9 +886,7 @@ test('keeps existing original CV snapshots unavailable when required artifacts a
     },
   })
 
-  await expect(service.resumePendingGeneration()).rejects.toThrow(
-    'The selected original CV is incomplete or unavailable.',
-  )
+  await expect(service.resumePendingGeneration()).rejects.toThrow("We couldn't load your CV.")
   await expect(
     harness.localAppData.artifacts.read({
       id: 'original-cv-123',
@@ -3479,8 +3477,7 @@ test('persists a resumable pending command before sign-in repair and resumes the
     .mockResolvedValueOnce({
       canResumeGeneration: true,
       failureCode: 'auth_missing',
-      message:
-        'The local AI worker needs a valid sign-in before CV Maxxing can resume your tailored application.',
+      message: 'AI needs you to sign in before CV Maxxing can finish your CV and cover letter.',
       provider: 'codex',
       status: 'sign_in_required',
     })

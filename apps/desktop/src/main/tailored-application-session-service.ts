@@ -445,7 +445,7 @@ export function createTailoredApplicationSessionService({
       originalCvTextBuffer === null ||
       writingStyleProfileBuffer === null
     ) {
-      throw new Error('The selected original CV is incomplete or unavailable.')
+      throw new Error("We couldn't load your CV.")
     }
 
     if (assessEnglishLanguageSupport(originalCvTextBuffer.toString('utf8')).status === 'blocked') {
@@ -499,7 +499,7 @@ export function createTailoredApplicationSessionService({
       normalizedJsonBuffer === null ||
       vacancyTextBuffer === null
     ) {
-      throw new Error('The selected vacancy preview is incomplete or unavailable.')
+      throw new Error("We couldn't load the checked job details.")
     }
 
     if (!vacancyMetadata.canGenerate || vacancyMetadata.status !== 'ready') {
@@ -901,7 +901,7 @@ export function createTailoredApplicationSessionService({
         pendingSession.generationRunId === null ||
         pendingSession.tailoredApplicationId === null
       ) {
-        throw new Error('The pending generation session is incomplete.')
+        throw new Error("The unfinished CV and cover letter couldn't be restored.")
       }
 
       return {
@@ -1356,7 +1356,7 @@ export function createTailoredApplicationSessionService({
       const command = await readinessStore.getPendingGenerationCommand()
 
       if (command === null) {
-        throw new Error('There is no pending tailored-application generation to resume.')
+        throw new Error('There is no unfinished CV and cover letter to continue.')
       }
 
       activeAbortController = new AbortController()
@@ -1369,7 +1369,7 @@ export function createTailoredApplicationSessionService({
     },
     startPendingGeneration: async ({ originalCvId, originalCvLabel, vacancyDraft }) => {
       if (activeRunPromise !== null) {
-        throw new Error('A tailored application is already being generated.')
+        throw new Error('Your CV and cover letter are already being prepared.')
       }
 
       const originalCvTextBuffer = await localAppData.artifacts.read({
@@ -1379,7 +1379,7 @@ export function createTailoredApplicationSessionService({
       })
 
       if (originalCvTextBuffer === null) {
-        throw new Error('The selected original CV is incomplete or unavailable.')
+        throw new Error("We couldn't load your CV.")
       }
 
       if (
@@ -1424,7 +1424,7 @@ export function createTailoredApplicationSessionService({
       }
 
       if (vacancyTextBuffer === null) {
-        throw new Error('The selected vacancy preview is incomplete or unavailable.')
+        throw new Error("We couldn't load the checked job details.")
       }
 
       if (assessEnglishLanguageSupport(vacancyTextBuffer.toString('utf8')).status === 'blocked') {
@@ -1581,11 +1581,11 @@ function parseNormalizedOriginalCvJson(normalizedJson: string): NormalizedOrigin
   try {
     parsedValue = JSON.parse(normalizedJson) as unknown
   } catch {
-    throw new Error('The selected original CV is incomplete or unavailable.')
+    throw new Error("We couldn't load your CV.")
   }
 
   if (!isNormalizedOriginalCv(parsedValue)) {
-    throw new Error('The selected original CV is incomplete or unavailable.')
+    throw new Error("We couldn't load your CV.")
   }
 
   return parsedValue

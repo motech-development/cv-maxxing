@@ -17,6 +17,11 @@ afterEach(() => {
   cleanup()
 })
 
+const aiSignInContinueMessage = 'AI needs you to sign in before CV Maxxing can continue.'
+const aiSignInFinishDocumentsMessage =
+  'AI needs you to sign in before CV Maxxing can finish your CV and cover letter.'
+const aiUnavailableMessage = "AI isn't available on this Mac yet. Check the setup, then try again."
+
 function createAiWorkerApi(overrides?: Partial<(typeof globalThis.window.cvMaxxing)['aiWorker']>) {
   return {
     getAiWorkerPreflight: vi.fn().mockResolvedValue({
@@ -406,7 +411,7 @@ test('renders the dedicated sign-in-required setup screen', async () => {
       getAiWorkerPreflight: vi.fn().mockResolvedValue({
         canResumeGeneration: false,
         failureCode: 'auth_missing',
-        message: 'AI needs you to sign in before CV Maxxing can continue.',
+        message: aiSignInContinueMessage,
         provider: 'codex',
         status: 'sign_in_required',
       }),
@@ -430,7 +435,7 @@ test('opens the setup guide from the repair flow', async () => {
       getAiWorkerPreflight: vi.fn().mockResolvedValue({
         canResumeGeneration: false,
         failureCode: 'runtime_missing',
-        message: "AI isn't available on this Mac yet. Check the setup, then try again.",
+        message: aiUnavailableMessage,
         provider: 'codex',
         status: 'unavailable',
       }),
@@ -455,7 +460,7 @@ test('renders the dedicated unavailable setup screen', async () => {
       getAiWorkerPreflight: vi.fn().mockResolvedValue({
         canResumeGeneration: false,
         failureCode: 'runtime_missing',
-        message: "AI isn't available on this Mac yet. Check the setup, then try again.",
+        message: aiUnavailableMessage,
         provider: 'codex',
         status: 'unavailable',
       }),
@@ -739,7 +744,7 @@ test('routes first-launch import into the AI worker sign-in flow when the import
     preflight: {
       canResumeGeneration: false,
       failureCode: 'auth_missing',
-      message: 'The local AI worker needs a valid sign-in before the workspace can open.',
+      message: aiSignInContinueMessage,
       provider: 'codex',
       status: 'sign_in_required',
     },
@@ -1649,7 +1654,7 @@ test('routes original CV replacement into the AI worker repair flow when the imp
     preflight: {
       canResumeGeneration: false,
       failureCode: 'runtime_missing',
-      message: "AI isn't available on this Mac yet. Check the setup, then try again.",
+      message: aiUnavailableMessage,
       provider: 'codex',
       status: 'unavailable',
     },
@@ -2055,8 +2060,7 @@ test('routes to AI worker repair when starting adaptation returns a sign-in requ
   const startPendingGeneration = vi.fn().mockResolvedValue({
     canResumeGeneration: true,
     failureCode: 'auth_missing',
-    message:
-      'The local AI worker needs a valid sign-in before CV Maxxing can resume your tailored application.',
+    message: aiSignInFinishDocumentsMessage,
     provider: 'codex',
     status: 'sign_in_required',
   })
@@ -2933,8 +2937,7 @@ test('resumes the pending flow into the workspace overlay after sign-in repair',
       getAiWorkerPreflight: vi.fn().mockResolvedValue({
         canResumeGeneration: false,
         failureCode: 'auth_missing',
-        message:
-          'The local AI worker needs a valid sign-in before CV Maxxing can resume your tailored application.',
+        message: aiSignInFinishDocumentsMessage,
         provider: 'codex',
         status: 'sign_in_required',
       }),
@@ -4869,6 +4872,16 @@ test('opens settings from the rail, shows version and privacy guardrails, and re
     expect(screen.getByRole('heading', { name: 'Local data' })).toBeDefined()
   })
 
+  expect(
+    screen.getByText(
+      'Clear saved sign-ins and browsing data for job pages without deleting your CV, saved jobs, or app settings.',
+    ),
+  ).toBeDefined()
+  expect(
+    screen.getByText(
+      'This permanently removes your CV, saved jobs, documents, settings, and sign-ins from this Mac. Bulk backup or export is not available in v1.',
+    ),
+  ).toBeDefined()
   expect(screen.getByText('App version')).toBeDefined()
   expect(screen.getByText('1.0.0')).toBeDefined()
   expect(screen.getByText('Telemetry')).toBeDefined()
@@ -4886,7 +4899,7 @@ test('leaves settings and returns to the repair screen when the AI worker retry 
   const retryAiWorkerPreflight = vi.fn().mockResolvedValue({
     canResumeGeneration: false,
     failureCode: 'runtime_missing',
-    message: 'The local AI worker is unavailable. Check setup, then retry.',
+    message: aiUnavailableMessage,
     provider: 'codex',
     status: 'unavailable',
   })

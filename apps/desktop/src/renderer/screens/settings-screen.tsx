@@ -235,7 +235,7 @@ function LocalDataSettingsSection({
         Local data
       </h1>
       <p className="mt-2 max-w-3xl text-[13px] leading-[1.4] text-[var(--color-copy-muted)]">
-        Control app-managed browser sessions and destructive local resets for this machine.
+        Manage saved sign-ins for job pages and fully reset the app on this Mac.
       </p>
 
       <div className="mt-6 grid gap-4">
@@ -244,8 +244,8 @@ function LocalDataSettingsSection({
             Job-site browser data
           </p>
           <p className="mt-2 max-w-3xl text-[13px] leading-[1.4] text-[var(--color-copy-muted)]">
-            Clear the internal LinkedIn and Indeed browser profile without deleting original CVs,
-            vacancies, tailored applications, or app settings.
+            Clear saved sign-ins and browsing data for job pages without deleting your CV, saved
+            jobs, or app settings.
           </p>
           <div className="mt-5">
             <Button
@@ -263,8 +263,8 @@ function LocalDataSettingsSection({
             Reset local app data
           </p>
           <p className="mt-2 max-w-3xl text-[13px] leading-[1.4] text-[var(--color-status-danger)]">
-            This permanently removes encrypted metadata, app-managed artifacts, run workspaces, and
-            browser session data. Bulk backup or export is not available in v1.
+            This permanently removes your CV, saved jobs, documents, settings, and sign-ins from
+            this Mac. Bulk backup or export is not available in v1.
           </p>
           <div className="mt-5">
             <Button disabled={isResettingLocalAppData} onClick={onResetLocalAppData} tone="primary">

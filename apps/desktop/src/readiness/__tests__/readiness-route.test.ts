@@ -26,7 +26,7 @@ test('startup keeps the AI worker readiness gate blocked while the preflight is 
   })
 })
 
-test('startup renders sign-in-required guidance with provider-neutral copy and Codex-specific diagnostics', async () => {
+test('startup renders sign-in-required guidance with provider-neutral copy and diagnostics', async () => {
   const viewModel = await createReadinessRouteViewModel({
     getAiWorkerPreflight: () =>
       Promise.resolve({
@@ -42,7 +42,7 @@ test('startup renders sign-in-required guidance with provider-neutral copy and C
   expect(viewModel).toEqual({
     body: 'Your AI sign-in has expired. Sign in again before CV Maxxing can continue.',
     canEnterWorkspace: false,
-    diagnostic: 'Codex CLI sign-in expired.',
+    diagnostic: 'Your sign-in expired on this Mac.',
     heading: 'Connect AI',
     primaryActionLabel: 'Continue',
     secondaryActionLabel: 'Get help',
@@ -66,8 +66,8 @@ test('startup restores the saved workspace destination after readiness succeeds'
   expect(viewModel).toEqual({
     body: 'AI is ready. Opening your jobs.',
     canEnterWorkspace: true,
-    diagnostic: 'Startup route restored: workspace.',
-    heading: 'Workspace restored',
+    diagnostic: undefined,
+    heading: 'Ready',
     primaryActionLabel: undefined,
     secondaryActionLabel: undefined,
     startupDestination: 'workspace',
@@ -91,7 +91,7 @@ test('timeout failures render retry-first local repair guidance', async () => {
   expect(viewModel).toEqual({
     body: 'AI took too long to respond. Check the setup on this Mac, then try again.',
     canEnterWorkspace: false,
-    diagnostic: "Codex CLI didn't respond in time.",
+    diagnostic: "AI didn't respond in time.",
     heading: 'Connect AI',
     primaryActionLabel: 'Try again',
     secondaryActionLabel: 'Get help',

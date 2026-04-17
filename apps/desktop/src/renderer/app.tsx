@@ -1507,8 +1507,8 @@ export function App() {
           title="Reset local app data?"
         >
           <p className="m-0">
-            This permanently removes encrypted metadata, app-managed artifacts, run workspaces, and
-            browser session data from this machine.
+            This permanently removes your CV, saved jobs, documents, settings, and sign-ins from
+            this Mac.
           </p>
           <label
             className="block text-[11px] font-extrabold uppercase tracking-[0.12em] text-[var(--color-status-danger)]"

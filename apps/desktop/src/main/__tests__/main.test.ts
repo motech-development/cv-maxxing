@@ -144,8 +144,7 @@ function createTailoredApplicationDouble() {
     startPendingGeneration: vi.fn().mockResolvedValue({
       canResumeGeneration: true,
       failureCode: 'auth_missing',
-      message:
-        'The local AI worker needs a valid sign-in before CV Maxxing can resume your tailored application.',
+      message: 'AI needs you to sign in before CV Maxxing can finish your CV and cover letter.',
       provider: 'codex',
       status: 'sign_in_required',
     }),
@@ -746,8 +745,7 @@ test('bootstrap registers the full AI worker onboarding IPC surface and opens th
   ).resolves.toEqual({
     canResumeGeneration: true,
     failureCode: 'auth_missing',
-    message:
-      'The local AI worker needs a valid sign-in before CV Maxxing can resume your tailored application.',
+    message: 'AI needs you to sign in before CV Maxxing can finish your CV and cover letter.',
     provider: 'codex',
     status: 'sign_in_required',
   })

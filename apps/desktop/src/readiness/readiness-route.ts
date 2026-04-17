@@ -70,7 +70,7 @@ export function mapReadinessRouteViewModel({
   return {
     body: buildReadyBody(resolvedStartupDestination),
     canEnterWorkspace: true,
-    diagnostic: `Startup route restored: ${resolvedStartupDestination}.`,
+    diagnostic: undefined,
     heading: buildReadyHeading(resolvedStartupDestination),
     primaryActionLabel: undefined,
     secondaryActionLabel: undefined,
@@ -97,22 +97,22 @@ function buildDiagnostic(
   preflight: Extract<AiWorkerPreflightResult, { status: 'sign_in_required' | 'unavailable' }>,
 ): string {
   if (preflight.failureCode === 'auth_expired') {
-    return 'Codex CLI sign-in expired.'
+    return 'Your sign-in expired on this Mac.'
   }
 
   if (preflight.failureCode === 'auth_missing') {
-    return 'Codex CLI needs sign-in.'
+    return 'AI needs sign-in on this Mac.'
   }
 
   if (preflight.failureCode === 'healthcheck_failed') {
-    return "Codex CLI didn't respond in time."
+    return "AI didn't respond in time."
   }
 
   if (preflight.failureCode === 'launch_failed') {
-    return "Codex CLI couldn't start."
+    return "AI couldn't start."
   }
 
-  return "Codex CLI isn't installed on this Mac."
+  return "AI isn't available on this Mac yet."
 }
 
 function buildReadyBody(startupDestination: StartupDestination): string {
@@ -124,9 +124,7 @@ function buildReadyBody(startupDestination: StartupDestination): string {
 }
 
 function buildReadyHeading(startupDestination: StartupDestination): string {
-  if (startupDestination === 'first_launch') {
-    return 'First launch'
-  }
+  void startupDestination
 
-  return 'Workspace restored'
+  return 'Ready'
 }
