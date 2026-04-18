@@ -44,7 +44,7 @@ test.afterEach(async () => {
 })
 
 async function expectActiveOriginalCv(page: Page, filename: string) {
-  await expect(page.getByRole('heading', { name: 'Active original CV' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Your CV' })).toBeVisible()
   await expect(page.getByText('Extracted profile')).toBeVisible()
   await expect(page.getByText(filename)).toBeVisible()
 }
@@ -62,6 +62,14 @@ async function importOriginalCvFromFirstLaunch({
   await page.getByLabel('Your CV file').setInputFiles(filePath)
   await page.getByRole('button', { name: 'Add a CV' }).click()
   await expectActiveOriginalCv(page, filename)
+}
+
+async function openOriginalCvReplacementScreen(page: Page) {
+  await page.getByRole('button', { name: 'Add a CV' }).click()
+  await expect(page.getByRole('heading', { name: 'Add a CV' })).toBeVisible()
+  await expect(
+    page.getByText("Replacing your CV changes the one you'll use for new jobs."),
+  ).toBeVisible()
 }
 
 async function openJobsFromYourCv(page: Page) {
@@ -100,7 +108,7 @@ test('imports the first PDF original CV and lands on the populated Your CV scree
     filePath: testPaths.pdfPath,
     page,
   })
-  await expect(page.getByText('Your CV', { exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Your CV' })).toBeVisible()
   await expect(page.getByText('ada-lovelace.pdf')).toBeVisible()
 
   await electronApp.close()
@@ -175,7 +183,7 @@ test('rejects non-English original CV imports without leaving the first-launch f
   await electronApp.close()
 })
 
-test('replaces the active original CV from the workspace with a DOCX snapshot', async () => {
+test('replaces the active CV from the workspace with a DOCX file', async () => {
   const testPaths = await createOriginalCvTestPaths()
 
   await writeFile(
@@ -245,10 +253,15 @@ test('replaces the active original CV from the workspace with a DOCX snapshot', 
   page = await electronApp.firstWindow()
 
   await expectActiveOriginalCv(page, 'ada-lovelace.pdf')
-  await page.getByLabel('Replacement CV file').setInputFiles(testPaths.docxPath)
-  await page.getByRole('button', { name: 'Update your CV' }).click()
+  await openOriginalCvReplacementScreen(page)
+  await page.getByLabel('Your CV file').setInputFiles(testPaths.docxPath)
+  await page.getByRole('button', { name: 'Add a CV' }).click()
   await expectActiveOriginalCv(page, 'ada-lovelace-revised.docx')
-  await expect(page.getByText('2 versions')).toBeVisible()
+  await expect(
+    page.getByText(
+      "Add a CV to use a different one for future jobs. Your saved jobs won't change.",
+    ),
+  ).toBeVisible()
 
   await electronApp.close()
 
@@ -290,13 +303,16 @@ test('rejects an unreadable original CV replacement without leaving the workspac
     filePath: testPaths.pdfPath,
     page,
   })
-  await page.getByLabel('Replacement CV file').setInputFiles(testPaths.unreadablePdfPath)
-  await page.getByRole('button', { name: 'Update your CV' }).click()
+  await openOriginalCvReplacementScreen(page)
+  await page.getByLabel('Your CV file').setInputFiles(testPaths.unreadablePdfPath)
+  await page.getByRole('button', { name: 'Add a CV' }).click()
   await expect(
     page.getByText("We couldn't read enough from this CV. Use a text-based PDF or DOCX.").first(),
   ).toBeVisible()
-  await expectActiveOriginalCv(page, 'ada-lovelace.pdf')
-  await expect(page.getByText('1 version')).toBeVisible()
+  await expect(page.getByText('ada-lovelace.pdf')).toBeVisible()
+  await expect(
+    page.getByText("Replacing your CV changes the one you'll use for new jobs."),
+  ).toBeVisible()
 
   await electronApp.close()
 })

@@ -67,7 +67,7 @@ export function FirstLaunchScreen({
         Add your CV
       </h1>
       <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--color-copy-muted)]">
-        Choose the PDF or DOCX version of your CV that you want to tailor for jobs.
+        Choose the PDF or DOCX copy of your CV you'd like to tailor for jobs.
       </p>
 
       <input
@@ -100,7 +100,7 @@ export function FirstLaunchScreen({
             Drop a PDF or DOCX here or choose a file
           </span>
           <span className="mt-2 text-sm leading-6 text-[var(--color-copy-muted)]">
-            We'll use this as the version you tailor for each job.
+            We'll use this CV when you tailor it for a job.
           </span>
           {originalCvFile ? (
             <span className="mt-3 text-sm font-bold text-[var(--color-copy-strong)]">

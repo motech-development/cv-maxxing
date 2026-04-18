@@ -46,6 +46,7 @@ test('persists the selected top-level section alongside jobs and original-CV nes
     },
     originalCv: {
       kind: 'active_original_cv',
+      originalCvId: 'original-cv-123',
     },
     topLevelSection: 'original_cv',
   })
@@ -69,6 +70,7 @@ test('persists the selected top-level section alongside jobs and original-CV nes
     },
     originalCv: {
       kind: 'active_original_cv',
+      originalCvId: 'original-cv-123',
     },
     topLevelSection: 'original_cv',
   })
@@ -114,6 +116,54 @@ test('normalizes legacy jobs-only persisted selection into the generalized works
       kind: 'none',
     },
     topLevelSection: 'job_vacancies',
+  })
+
+  await store.close()
+})
+
+test('normalizes legacy original-CV selections that predate originalCvId persistence', async () => {
+  const rootDirectoryPath = await mkdtemp(
+    path.join(tmpdir(), 'cv-maxxing-workspace-selection-store-'),
+  )
+
+  temporaryDirectories.push(rootDirectoryPath)
+
+  const paths = createLocalAppDataPaths(rootDirectoryPath)
+  const store = await openLocalAppData({
+    keychain: {
+      clearAppDataKey: vi.fn(() => Promise.resolve()),
+      getOrCreateAppDataKey: vi.fn(() => Promise.resolve(Buffer.alloc(32, 9))),
+    },
+    paths,
+  })
+
+  await store.metadata.put({
+    id: 'current',
+    scope: 'workspace-selection',
+    value: {
+      jobs: {
+        kind: 'none',
+      },
+      originalCv: {
+        kind: 'active_original_cv',
+      },
+      topLevelSection: 'original_cv',
+    },
+  })
+
+  const workspaceSelectionStore = createWorkspaceSelectionStore({
+    localAppData: store,
+  })
+
+  await expect(workspaceSelectionStore.getSelection()).resolves.toEqual({
+    jobs: {
+      kind: 'none',
+    },
+    originalCv: {
+      kind: 'active_original_cv',
+      originalCvId: null,
+    },
+    topLevelSection: 'original_cv',
   })
 
   await store.close()

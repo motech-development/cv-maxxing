@@ -106,6 +106,7 @@ type OriginalCvImportTopLevelSection = Extract<
   WorkspaceTopLevelSection,
   'job_vacancies' | 'original_cv'
 >
+type OriginalCvSectionMode = 'detail' | 'replace'
 type RendererStartupDestinationOverride = OriginalCvImportDestination
 type PreviewDocumentKind = 'adapted_cv' | 'cover_letter'
 type WorkspaceSelectionOverride = JobsWorkspaceSelection | null
@@ -124,7 +125,9 @@ export function App() {
   const [importError, setImportError] = useState<string | null>(null)
   const [isResetLocalAppDataDialogOpen, setIsResetLocalAppDataDialogOpen] = useState(false)
   const [isSecondaryActionPending, setIsSecondaryActionPending] = useState(false)
-  const [originalCvFile, setOriginalCvFile] = useState<File | null>(null)
+  const [originalCvSectionFile, setOriginalCvSectionFile] = useState<File | null>(null)
+  const [originalCvSectionMode, setOriginalCvSectionMode] =
+    useState<OriginalCvSectionMode>('detail')
   const [previewDocumentKind, setPreviewDocumentKind] = useState<PreviewDocumentKind>('adapted_cv')
   const [readinessError, setReadinessError] = useState<string | null>(null)
   const [resetConfirmationPhrase, setResetConfirmationPhrase] = useState('')
@@ -135,6 +138,7 @@ export function App() {
   const [settingsSection, setSettingsSection] = useState<SettingsSection>('ai_worker')
   const [startupDestinationOverride, setStartupDestinationOverride] =
     useState<RendererStartupDestinationOverride | null>(null)
+  const [workspaceOriginalCvFile, setWorkspaceOriginalCvFile] = useState<File | null>(null)
   const [workspaceSelectionOverride, setWorkspaceSelectionOverride] =
     useState<WorkspaceSelectionOverride>(null)
   const [vacancyDraft, setVacancyDraft] = useState(initialVacancyDraft)
@@ -350,13 +354,15 @@ export function App() {
       setIsConfirmingDraftDiscard(false)
       setImportError(null)
       setIsResetLocalAppDataDialogOpen(false)
-      setOriginalCvFile(null)
+      setOriginalCvSectionFile(null)
+      setOriginalCvSectionMode('detail')
       setPreviewDocumentKind('adapted_cv')
       setReadinessError(null)
       setResetConfirmationPhrase('')
       setSelectedTailoredApplicationId(null)
       setSettingsMessage(null)
       setStartupDestinationOverride(null)
+      setWorkspaceOriginalCvFile(null)
       setWorkspaceSelectionOverride(null)
       setVacancyDraft(initialVacancyDraft)
       setVacancyPreviewOverride(null)
@@ -428,16 +434,19 @@ export function App() {
         jobs: persistedWorkspaceSelection.jobs,
         originalCv: {
           kind: 'active_original_cv',
+          originalCvId: result.originalCv.id,
         },
         topLevelSection: topLevelSectionAfterImport,
       }
 
       setImportError(null)
       setIsConfirmingDraftDiscard(false)
-      setOriginalCvFile(null)
+      setOriginalCvSectionFile(null)
+      setOriginalCvSectionMode('detail')
       setPreviewDocumentKind('adapted_cv')
       setReadinessError(null)
       setStartupDestinationOverride(nextStartupDestination)
+      setWorkspaceOriginalCvFile(null)
       setWorkspaceSelectionOverride(null)
       setVacancyReviewError(null)
       setVacancyPreviewOverride(null)
@@ -489,6 +498,7 @@ export function App() {
             }
           : {
               kind: 'active_original_cv',
+              originalCvId: originalCvWorkspaceState.activeOriginalCv.id,
             },
       topLevelSection,
     }
@@ -848,6 +858,13 @@ export function App() {
       topLevelSection: nextTopLevelSection,
     })
 
+    setImportError(null)
+
+    if (item === 'original_cv') {
+      setOriginalCvSectionFile(null)
+      setOriginalCvSectionMode('detail')
+    }
+
     setSettingsMessage(null)
 
     saveWorkspaceSelection(nextWorkspaceSelection).catch(() => {
@@ -859,6 +876,10 @@ export function App() {
     const nextWorkspaceSelection = buildWorkspaceSelection({
       topLevelSection: 'original_cv',
     })
+
+    setImportError(null)
+    setOriginalCvSectionFile(null)
+    setOriginalCvSectionMode('detail')
 
     saveWorkspaceSelection(nextWorkspaceSelection).catch(() => {
       setReadinessError("We couldn't save where you left off.")
@@ -905,13 +926,15 @@ export function App() {
   }
 
   const handleOriginalCvImport = async ({
+    file,
     nextStartupDestination,
     topLevelSectionAfterImport,
   }: {
+    file: File | null
     nextStartupDestination: OriginalCvImportDestination
     topLevelSectionAfterImport: OriginalCvImportTopLevelSection
   }): Promise<void> => {
-    if (originalCvFile === null || importOriginalCvMutation.isPending) {
+    if (file === null || importOriginalCvMutation.isPending) {
       return
     }
 
@@ -920,7 +943,7 @@ export function App() {
 
     try {
       await importOriginalCvMutation.mutateAsync({
-        file: originalCvFile,
+        file,
         nextStartupDestination,
         topLevelSectionAfterImport,
       })
@@ -929,32 +952,57 @@ export function App() {
     }
   }
 
-  const handleOriginalCvFile = (nextFile: File | null): void => {
+  const handleOriginalCvFile = ({
+    nextFile,
+    setFile,
+  }: {
+    nextFile: File | null
+    setFile: (file: File | null) => void
+  }): void => {
     if (nextFile === null) {
       setImportError(null)
-      setOriginalCvFile(null)
+      setFile(null)
 
       return
     }
 
     if (!isSupportedOriginalCvFile(nextFile)) {
       setImportError(originalCvFileTypeErrorMessage)
-      setOriginalCvFile(null)
+      setFile(null)
 
       return
     }
 
     setImportError(null)
-    setOriginalCvFile(nextFile)
+    setFile(nextFile)
   }
 
-  const handleOriginalCvSelection = (event: ChangeEvent<HTMLInputElement>): void => {
-    handleOriginalCvFile(event.target.files?.[0] ?? null)
+  const handleOriginalCvSectionSelection = (event: ChangeEvent<HTMLInputElement>): void => {
+    handleOriginalCvFile({
+      nextFile: event.target.files?.[0] ?? null,
+      setFile: setOriginalCvSectionFile,
+    })
   }
 
-  const handleOriginalCvDrop = (event: DragEvent<HTMLElement>): void => {
+  const handleOriginalCvSectionDrop = (event: DragEvent<HTMLElement>): void => {
     event.preventDefault()
-    handleOriginalCvFile(event.dataTransfer.files[0] ?? null)
+    handleOriginalCvFile({
+      nextFile: event.dataTransfer.files[0] ?? null,
+      setFile: setOriginalCvSectionFile,
+    })
+  }
+
+  const handleWorkspaceOriginalCvSelection = (event: ChangeEvent<HTMLInputElement>): void => {
+    handleOriginalCvFile({
+      nextFile: event.target.files?.[0] ?? null,
+      setFile: setWorkspaceOriginalCvFile,
+    })
+  }
+
+  const handleStartOriginalCvReplacement = (): void => {
+    setImportError(null)
+    setOriginalCvSectionFile(null)
+    setOriginalCvSectionMode('replace')
   }
 
   const handleStartPendingGeneration = async (
@@ -1284,17 +1332,18 @@ export function App() {
           ambientActivityLabel={ambientActivityLabel}
           importError={importError}
           isImportingOriginalCv={isImportingOriginalCv}
-          onFileDrop={handleOriginalCvDrop}
-          onFileSelection={handleOriginalCvSelection}
+          onFileDrop={handleOriginalCvSectionDrop}
+          onFileSelection={handleOriginalCvSectionSelection}
           onImportOriginalCv={() => {
             handleOriginalCvImport({
+              file: originalCvSectionFile,
               nextStartupDestination: 'workspace',
               topLevelSectionAfterImport: 'original_cv',
             }).catch(() => null)
           }}
           onSelectOriginalCv={handleSelectOriginalCv}
           onSelectRailItem={handleSelectRailItem}
-          originalCvFile={originalCvFile}
+          originalCvFile={originalCvSectionFile}
           workspaceError={readinessError}
           workspaceOverlay={workspaceOverlay}
         />
@@ -1306,20 +1355,23 @@ export function App() {
           <OriginalCvScreen
             activeOriginalCvDetail={activeOriginalCvDetail}
             activeOriginalCv={originalCvWorkspaceState.activeOriginalCv}
+            activeView={originalCvSectionMode}
             ambientActivityLabel={ambientActivityLabel}
             importError={importError}
             isImportingOriginalCv={isImportingOriginalCv}
-            onFileDrop={handleOriginalCvDrop}
-            onFileSelection={handleOriginalCvSelection}
+            onFileDrop={handleOriginalCvSectionDrop}
+            onFileSelection={handleOriginalCvSectionSelection}
             onImportOriginalCv={() => {
               handleOriginalCvImport({
+                file: originalCvSectionFile,
                 nextStartupDestination: 'workspace',
                 topLevelSectionAfterImport: 'original_cv',
               }).catch(() => null)
             }}
             onSelectOriginalCv={handleSelectOriginalCv}
             onSelectRailItem={handleSelectRailItem}
-            originalCvFile={originalCvFile}
+            onStartAddCv={handleStartOriginalCvReplacement}
+            originalCvFile={originalCvSectionFile}
             workspaceError={readinessError}
             workspaceOverlay={workspaceOverlay}
           />
@@ -1406,9 +1458,10 @@ export function App() {
                 )
               })
             }}
-            onOriginalCvFileSelection={handleOriginalCvSelection}
+            onOriginalCvFileSelection={handleWorkspaceOriginalCvSelection}
             onReplaceOriginalCv={() => {
               handleOriginalCvImport({
+                file: workspaceOriginalCvFile,
                 nextStartupDestination: 'workspace',
                 topLevelSectionAfterImport: 'job_vacancies',
               }).catch(() => null)
@@ -1498,7 +1551,7 @@ export function App() {
                 setReadinessError("We couldn't save where you left off.")
               })
             }}
-            originalCvFile={originalCvFile}
+            originalCvFile={workspaceOriginalCvFile}
             preview={tailoredApplicationPreview}
             previewDocumentKind={previewDocumentKind}
             selectedTailoredApplicationId={resolvedTailoredApplicationId}

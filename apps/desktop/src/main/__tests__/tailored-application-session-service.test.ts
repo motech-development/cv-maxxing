@@ -3709,6 +3709,7 @@ test('restores the explicit saved tailored application selection when no meaning
     },
     originalCv: {
       kind: 'active_original_cv',
+      originalCvId: 'original-cv-123',
     },
     topLevelSection: 'original_cv',
   })
@@ -3776,6 +3777,7 @@ test('falls back from a stale saved selection to the meaningful current draft be
     },
     originalCv: {
       kind: 'active_original_cv',
+      originalCvId: 'original-cv-123',
     },
     topLevelSection: 'settings',
   })
@@ -3855,6 +3857,7 @@ test('falls back from a stale saved selection to the newest saved tailored appli
     },
     originalCv: {
       kind: 'active_original_cv',
+      originalCvId: 'original-cv-123',
     },
     topLevelSection: 'original_cv',
   })

@@ -788,9 +788,20 @@ function parseOriginalCvWorkspaceSelection(value: unknown): WorkspaceSelection['
     throw new Error('Workspace selection payload is invalid.')
   }
 
-  if (value.kind === 'active_original_cv' || value.kind === 'none') {
+  if (value.kind === 'none') {
     return {
       kind: value.kind,
+    }
+  }
+
+  if (
+    value.kind === 'active_original_cv' &&
+    'originalCvId' in value &&
+    (typeof value.originalCvId === 'string' || value.originalCvId === null)
+  ) {
+    return {
+      kind: value.kind,
+      originalCvId: value.originalCvId,
     }
   }
 

@@ -644,6 +644,7 @@ test('preload exposes tailored-application repair and resume commands over typed
       },
       originalCv: {
         kind: 'active_original_cv',
+        originalCvId: 'original-cv-123',
       },
       topLevelSection: 'settings',
     })
@@ -801,6 +802,7 @@ test('preload exposes tailored-application repair and resume commands over typed
     },
     originalCv: {
       kind: 'active_original_cv',
+      originalCvId: 'original-cv-123',
     },
     topLevelSection: 'settings',
   })

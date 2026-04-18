@@ -27,6 +27,7 @@ type JobsWorkspaceSelectionValue =
 type OriginalCvWorkspaceSelectionValue =
   | {
       kind: 'active_original_cv'
+      originalCvId?: string | null
     }
   | {
       kind: 'none'
@@ -70,6 +71,11 @@ export function createWorkspaceSelectionStore({
               },
         originalCv: {
           kind: selection.originalCv.kind,
+          ...(selection.originalCv.kind === 'active_original_cv'
+            ? {
+                originalCvId: selection.originalCv.originalCvId,
+              }
+            : {}),
         },
         topLevelSection: selection.topLevelSection,
       }
@@ -156,9 +162,27 @@ function normalizeOriginalCvWorkspaceSelection(
 
   const candidate = value as Record<string, unknown>
 
-  if (candidate.kind === 'active_original_cv' || candidate.kind === 'none') {
+  if (candidate.kind === 'none') {
     return {
       kind: candidate.kind,
+    }
+  }
+
+  if (candidate.kind === 'active_original_cv') {
+    if (
+      'originalCvId' in candidate &&
+      candidate.originalCvId !== null &&
+      typeof candidate.originalCvId !== 'string'
+    ) {
+      return null
+    }
+
+    return {
+      kind: candidate.kind,
+      originalCvId:
+        'originalCvId' in candidate && typeof candidate.originalCvId === 'string'
+          ? candidate.originalCvId
+          : null,
     }
   }
 

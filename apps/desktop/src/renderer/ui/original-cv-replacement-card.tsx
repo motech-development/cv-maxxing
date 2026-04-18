@@ -23,11 +23,10 @@ export function OriginalCvReplacementCard({
   onImportOriginalCv,
   originalCvFile,
 }: OriginalCvReplacementCardProperties) {
-  const nextVersionCount = activeOriginalCv.snapshotCount + 1
-  const versionLabel =
+  const savedCvLabel =
     activeOriginalCv.snapshotCount === 1
-      ? '1 version'
-      : `${String(activeOriginalCv.snapshotCount)} versions`
+      ? '1 CV saved'
+      : `${String(activeOriginalCv.snapshotCount)} CVs saved`
 
   return (
     <PanelCard className="bg-[var(--color-surface-3)] p-4">
@@ -39,13 +38,12 @@ export function OriginalCvReplacementCard({
           </p>
         </div>
         <span className="rounded-full bg-white px-2 py-1 text-[10px] font-extrabold uppercase tracking-[0.12em] text-[var(--color-copy-muted)]">
-          {versionLabel}
+          {savedCvLabel}
         </span>
       </div>
 
       <p className="mt-3 text-xs leading-5 text-[var(--color-copy-muted)]">
-        Replace your CV to create version {String(nextVersionCount)}. Existing jobs will keep the CV
-        they were created from.
+        Choose a different CV for new jobs. Your saved jobs won't change.
       </p>
 
       <input

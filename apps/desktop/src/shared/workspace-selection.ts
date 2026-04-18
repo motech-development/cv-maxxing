@@ -13,6 +13,7 @@ export type JobsWorkspaceSelection =
 export type OriginalCvWorkspaceSelection =
   | {
       kind: 'active_original_cv'
+      originalCvId: string | null
     }
   | {
       kind: 'none'

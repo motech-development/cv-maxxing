@@ -8,9 +8,12 @@ import { OriginalCvPreviewCard } from '../ui/original-cv-preview-card.js'
 import { PanelCard } from '../ui/panel-card.js'
 import { SectionLabel } from '../ui/section-label.js'
 
+type OriginalCvScreenMode = 'detail' | 'replace'
+
 interface OriginalCvScreenProperties {
   activeOriginalCvDetail?: OriginalCvDetail | null
   activeOriginalCv: OriginalCvSummary | null
+  activeView?: OriginalCvScreenMode
   ambientActivityLabel?: string | null
   importError: string | null
   isImportingOriginalCv: boolean
@@ -19,6 +22,7 @@ interface OriginalCvScreenProperties {
   onImportOriginalCv: () => void
   onSelectOriginalCv?: () => void
   onSelectRailItem?: (item: RailItemId) => void
+  onStartAddCv?: () => void
   originalCvFile: File | null
   workspaceError?: string | null
   workspaceOverlay?: ReactNode
@@ -38,6 +42,7 @@ function handleDropzoneKeyDown(event: KeyboardEvent<HTMLDivElement>): void {
 export function OriginalCvScreen({
   activeOriginalCvDetail,
   activeOriginalCv,
+  activeView = 'detail',
   ambientActivityLabel,
   importError,
   isImportingOriginalCv,
@@ -46,12 +51,19 @@ export function OriginalCvScreen({
   onImportOriginalCv,
   onSelectOriginalCv,
   onSelectRailItem,
+  onStartAddCv,
   originalCvFile,
   workspaceError,
   workspaceOverlay,
 }: OriginalCvScreenProperties) {
   const handleSidebarAction = (): void => {
     if (isImportingOriginalCv) {
+      return
+    }
+
+    if (activeOriginalCv !== null && activeView === 'detail') {
+      onStartAddCv?.()
+
       return
     }
 
@@ -62,6 +74,34 @@ export function OriginalCvScreen({
     }
 
     onImportOriginalCv()
+  }
+
+  let content: ReactNode
+
+  if (activeOriginalCv === null) {
+    content = (
+      <OriginalCvEmptyState
+        importError={importError}
+        onFileDrop={onFileDrop}
+        originalCvFile={originalCvFile}
+      />
+    )
+  } else if (activeView === 'replace') {
+    content = (
+      <OriginalCvReplaceState
+        importError={importError}
+        onFileDrop={onFileDrop}
+        originalCvFile={originalCvFile}
+      />
+    )
+  } else {
+    content = (
+      <OriginalCvActiveState
+        originalCv={activeOriginalCv}
+        originalCvDetail={activeOriginalCvDetail}
+        workspaceError={workspaceError ?? null}
+      />
+    )
   }
 
   return (
@@ -84,14 +124,18 @@ export function OriginalCvScreen({
           {activeOriginalCv === null ? (
             <>
               <h2 className="m-0 text-2xl font-extrabold tracking-[-0.02em] text-[var(--color-copy-strong)]">
-                No original CV yet
+                No CV yet
               </h2>
               <p className="m-0 text-sm leading-6 text-[var(--color-copy-muted)]">
-                Add a CV to create the original CV snapshot used for future tailored applications.
+                Add a CV to tailor it for future jobs.
               </p>
             </>
           ) : (
-            <OriginalCvSidebarItem onSelect={onSelectOriginalCv} originalCv={activeOriginalCv} />
+            <OriginalCvSidebarItem
+              isSelected={activeView === 'detail'}
+              onSelect={onSelectOriginalCv}
+              originalCv={activeOriginalCv}
+            />
           )}
           {importError ? (
             <p className="m-0 text-xs leading-5 text-[var(--color-status-danger)]">{importError}</p>
@@ -109,19 +153,7 @@ export function OriginalCvScreen({
         onChange={onFileSelection}
         type="file"
       />
-      {activeOriginalCv === null ? (
-        <OriginalCvEmptyState
-          importError={importError}
-          onFileDrop={onFileDrop}
-          originalCvFile={originalCvFile}
-        />
-      ) : (
-        <OriginalCvActiveState
-          originalCv={activeOriginalCv}
-          originalCvDetail={activeOriginalCvDetail}
-          workspaceError={workspaceError ?? null}
-        />
-      )}
+      {content}
     </DesktopShell>
   )
 }
@@ -141,45 +173,111 @@ function OriginalCvEmptyState({
         Add a CV
       </h1>
       <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--color-copy-muted)]">
-        Choose the PDF or DOCX version of your CV that future tailored applications should start
-        from.
+        Choose the PDF or DOCX copy of your CV you'd like to tailor for jobs.
       </p>
 
-      <label className="mt-6 block cursor-pointer" htmlFor={originalCvFileInputId}>
-        <div
-          className="flex min-h-[360px] flex-col items-center justify-center rounded-[var(--radius-card)] border border-[var(--color-border)] bg-[var(--color-surface-1)] px-7 py-10 text-center"
-          onDragOver={(event) => {
-            event.preventDefault()
-          }}
-          onDrop={onFileDrop}
-          onKeyDown={handleDropzoneKeyDown}
-          role="button"
-          tabIndex={0}
-        >
-          <span
-            aria-hidden="true"
-            className="mb-4 flex h-[34px] w-[34px] items-center justify-center rounded-full bg-[var(--color-surface-success)] text-lg text-[var(--color-copy-strong)]"
-          >
-            ↑
-          </span>
-          <span className="text-lg font-extrabold text-[var(--color-copy-strong)]">
-            Drop a PDF or DOCX here or choose a file
-          </span>
-          <span className="mt-2 text-sm leading-6 text-[var(--color-copy-muted)]">
-            We&apos;ll use this as the original CV for future tailored applications.
-          </span>
-          {originalCvFile ? (
-            <span className="mt-3 text-sm font-bold text-[var(--color-copy-strong)]">
-              Selected: {originalCvFile.name}
-            </span>
-          ) : null}
-        </div>
-      </label>
+      <OriginalCvImportDropzone
+        className="mt-6 min-h-[360px]"
+        copy="We'll use this CV when you tailor it for a job."
+        onFileDrop={onFileDrop}
+        originalCvFile={originalCvFile}
+        title="Drop a PDF or DOCX here or choose a file"
+      />
 
       {importError ? (
         <p className="mt-4 text-sm leading-6 text-[var(--color-status-danger)]">{importError}</p>
       ) : null}
     </>
+  )
+}
+
+function OriginalCvReplaceState({
+  importError,
+  onFileDrop,
+  originalCvFile,
+}: {
+  importError: string | null
+  onFileDrop: (event: DragEvent<HTMLElement>) => void
+  originalCvFile: File | null
+}) {
+  return (
+    <>
+      <h1 className="m-0 text-[32px] font-extrabold tracking-[-0.03em] text-[var(--color-copy-strong)]">
+        Add a CV
+      </h1>
+      <p className="mt-2 max-w-4xl text-sm leading-6 text-[var(--color-copy-muted)]">
+        Choose the PDF or DOCX copy of your CV you'd like to use from now on. Your saved jobs won't
+        change.
+      </p>
+
+      <PanelCard className="mt-5 max-w-4xl border border-[var(--color-border)] bg-[var(--color-surface-1)] p-[18px]">
+        <div className="flex flex-col gap-[10px]">
+          <p className="m-0 text-sm font-extrabold text-[var(--color-copy-strong)]">
+            Replacing your CV changes the one you'll use for new jobs.
+          </p>
+          <p className="m-0 max-w-4xl text-sm leading-6 text-[var(--color-copy-muted)]">
+            Your saved jobs keep the CV and cover letter you've already made.
+          </p>
+        </div>
+      </PanelCard>
+
+      <OriginalCvImportDropzone
+        className="mt-5 min-h-[320px] flex-1"
+        copy="We'll use this CV for new jobs. Your saved jobs stay the same."
+        onFileDrop={onFileDrop}
+        originalCvFile={originalCvFile}
+        title="Drop a PDF or DOCX here or choose a file"
+      />
+
+      {importError ? (
+        <p className="mt-4 text-sm leading-6 text-[var(--color-status-danger)]">{importError}</p>
+      ) : null}
+    </>
+  )
+}
+
+function OriginalCvImportDropzone({
+  className,
+  copy,
+  onFileDrop,
+  originalCvFile,
+  title,
+}: {
+  className?: string
+  copy: string
+  onFileDrop: (event: DragEvent<HTMLElement>) => void
+  originalCvFile: File | null
+  title: string
+}) {
+  return (
+    <label className="block cursor-pointer" htmlFor={originalCvFileInputId}>
+      <div
+        className={`flex flex-col items-center justify-center rounded-[var(--radius-card)] border border-[var(--color-border)] bg-[var(--color-surface-1)] px-7 py-10 text-center ${className ?? ''}`}
+        onDragOver={(event) => {
+          event.preventDefault()
+        }}
+        onDrop={onFileDrop}
+        onKeyDown={handleDropzoneKeyDown}
+        role="button"
+        tabIndex={0}
+      >
+        <span
+          aria-hidden="true"
+          className="mb-4 flex h-[34px] w-[34px] items-center justify-center rounded-full bg-[var(--color-surface-success)] text-lg text-[var(--color-copy-strong)]"
+        >
+          ↑
+        </span>
+        <span className="text-lg font-extrabold text-[var(--color-copy-strong)]">{title}</span>
+        <span className="mt-2 max-w-[360px] text-sm leading-6 text-[var(--color-copy-muted)]">
+          {copy}
+        </span>
+        {originalCvFile ? (
+          <span className="mt-3 text-sm font-bold text-[var(--color-copy-strong)]">
+            Selected: {originalCvFile.name}
+          </span>
+        ) : null}
+      </div>
+    </label>
   )
 }
 
@@ -196,16 +294,15 @@ function OriginalCvActiveState({
     originalCvDetail?.profile.fullName.trim() === ''
       ? originalCv.headline
       : (originalCvDetail?.profile.fullName ?? originalCv.headline)
-  const previewEmptyStateCopy = 'Your original CV preview will appear here.'
+  const previewEmptyStateCopy = 'Your CV preview will appear here.'
 
   return (
     <>
       <h1 className="m-0 text-[32px] font-extrabold tracking-[-0.03em] text-[var(--color-copy-strong)]">
-        Active original CV
+        Your CV
       </h1>
       <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--color-copy-muted)]">
-        Add a CV to create a new snapshot. Existing tailored applications keep the snapshot they
-        were generated from.
+        Add a CV to use a different one for future jobs. Your saved jobs won't change.
       </p>
       {workspaceError ? (
         <div
@@ -239,7 +336,7 @@ function OriginalCvActiveState({
               emptyStateCopy={previewEmptyStateCopy}
               preview={originalCvDetail.preview}
               previewKey={originalCvDetail.originalCv.id}
-              title="Original CV"
+              title="Your CV"
             />
           </div>
 
@@ -323,18 +420,20 @@ function OriginalCvMetadataRow({ label, value }: { label: string; value: string 
 }
 
 function OriginalCvSidebarItem({
+  isSelected,
   onSelect,
   originalCv,
 }: {
+  isSelected: boolean
   onSelect?: () => void
   originalCv: OriginalCvSummary
 }) {
   return (
-    <PanelCard className="bg-[var(--color-surface-3)] p-3">
+    <PanelCard className={`${isSelected ? 'bg-[var(--color-surface-3)]' : 'bg-white'} p-3`}>
       <button
-        aria-current="page"
-        aria-label="Open active original CV"
-        className="w-full rounded-[8px] text-left outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ink-900)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-surface-3)]"
+        aria-current={isSelected ? 'page' : undefined}
+        aria-label="Open your CV"
+        className={`w-full rounded-[8px] text-left outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ink-900)] focus-visible:ring-offset-2 ${isSelected ? 'focus-visible:ring-offset-[var(--color-surface-3)]' : 'focus-visible:ring-offset-white'}`}
         onClick={onSelect}
         type="button"
       >

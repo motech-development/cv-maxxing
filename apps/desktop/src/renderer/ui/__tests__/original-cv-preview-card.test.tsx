@@ -19,19 +19,19 @@ import { OriginalCvPreviewCard } from '../original-cv-preview-card.js'
 
 beforeEach(() => {
   vi.clearAllMocks()
-  renderAsyncMock.mockResolvedValue()
+  renderAsyncMock.mockImplementation(() => Promise.resolve())
 })
 
 test('renders DOCX previews locally inside the original CV preview pane', async () => {
   render(
     <OriginalCvPreviewCard
-      emptyStateCopy="Your original CV preview will appear here."
+      emptyStateCopy="Your CV preview will appear here."
       preview={{
         docxBytes: new Uint8Array([80, 75, 3, 4]),
         kind: 'docx',
       }}
       previewKey="original-cv-docx-preview"
-      title="Original CV"
+      title="Your CV"
     />,
   )
 
@@ -39,7 +39,7 @@ test('renders DOCX previews locally inside the original CV preview pane', async 
     expect(renderAsyncMock).toHaveBeenCalledTimes(1)
   })
 
-  const previewScrollport = screen.getByLabelText('Original CV DOCX preview')
+  const previewScrollport = screen.getByLabelText('Your CV DOCX preview')
 
   expect(previewScrollport.className).toContain('overflow-auto')
   expect(previewScrollport.className).toContain('h-full')
@@ -61,13 +61,13 @@ test('falls back inside the preview pane when DOCX rendering fails', async () =>
 
   render(
     <OriginalCvPreviewCard
-      emptyStateCopy="Your original CV preview will appear here."
+      emptyStateCopy="Your CV preview will appear here."
       preview={{
         docxBytes: new Uint8Array([80, 75, 3, 4]),
         kind: 'docx',
       }}
       previewKey="original-cv-docx-preview"
-      title="Original CV"
+      title="Your CV"
     />,
   )
 

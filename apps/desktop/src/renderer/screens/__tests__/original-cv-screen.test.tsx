@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
-import { fireEvent, render, screen } from '@testing-library/react'
-import { expect, test, vi } from 'vitest'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { afterEach, expect, test, vi } from 'vitest'
 
 import type { OriginalCvDetail } from '../../../shared/original-cv.js'
 
@@ -22,6 +22,10 @@ vi.mock('../../ui/original-cv-preview-card.js', () => {
 })
 
 import { OriginalCvScreen } from '../original-cv-screen.js'
+
+afterEach(() => {
+  cleanup()
+})
 
 function createOriginalCvDetailFixture(
   overrides: Partial<OriginalCvDetail> = {},
@@ -90,8 +94,11 @@ test('renders the populated Your CV screen with a selectable sidebar item, PDF p
     />,
   )
 
-  expect(screen.getByRole('button', { name: 'Open active original CV' })).toBeDefined()
-  expect(screen.getAllByRole('heading', { name: 'Active original CV' }).length).toBeGreaterThan(0)
+  expect(screen.getByRole('button', { name: 'Open your CV' })).toBeDefined()
+  expect(screen.getByRole('button', { name: 'Open your CV' }).getAttribute('aria-current')).toBe(
+    'page',
+  )
+  expect(screen.getAllByRole('heading', { name: 'Your CV' }).length).toBeGreaterThan(0)
   expect(screen.getAllByText('Extracted profile').length).toBeGreaterThan(0)
   expect(screen.getByText('ada@lovelace.dev')).toBeDefined()
   expect(screen.getByText('Workflow design')).toBeDefined()
@@ -104,16 +111,16 @@ test('renders the populated Your CV screen with a selectable sidebar item, PDF p
   expect(profilePanel?.className).toContain('overflow-y-auto')
 
   expect(originalCvPreviewCardProperties.lastProperties).toMatchObject({
-    emptyStateCopy: 'Your original CV preview will appear here.',
+    emptyStateCopy: 'Your CV preview will appear here.',
     preview: {
       kind: 'pdf',
       pageCount: 2,
       pdfBytes: new Uint8Array([37, 80, 68, 70]),
     },
-    title: 'Original CV',
+    title: 'Your CV',
   })
 
-  fireEvent.click(screen.getByRole('button', { name: 'Open active original CV' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Open your CV' }))
 
   expect(onSelectOriginalCv).toHaveBeenCalledTimes(1)
 })
@@ -150,15 +157,52 @@ test('uses the same populated Your CV preview pane for DOCX original CVs', () =>
     />,
   )
 
-  expect(screen.getAllByRole('heading', { name: 'Active original CV' }).length).toBeGreaterThan(0)
+  expect(screen.getAllByRole('heading', { name: 'Your CV' }).length).toBeGreaterThan(0)
   expect(screen.getAllByText('Extracted profile').length).toBeGreaterThan(0)
   expect(screen.queryByText('Previews are only available for PDF uploads.')).toBeNull()
   expect(originalCvPreviewCardProperties.lastProperties).toMatchObject({
-    emptyStateCopy: 'Your original CV preview will appear here.',
+    emptyStateCopy: 'Your CV preview will appear here.',
     preview: {
       docxBytes: new Uint8Array([80, 75, 3, 4]),
       kind: 'docx',
     },
-    title: 'Original CV',
+    title: 'Your CV',
   })
+})
+
+test('renders the populated add-a-cv replacement view from design/app.pen', () => {
+  render(
+    <OriginalCvScreen
+      activeOriginalCv={createOriginalCvDetailFixture().originalCv}
+      activeOriginalCvDetail={createOriginalCvDetailFixture()}
+      activeView="replace"
+      importError={null}
+      isImportingOriginalCv={false}
+      onFileDrop={vi.fn()}
+      onFileSelection={vi.fn()}
+      onImportOriginalCv={vi.fn()}
+      onSelectOriginalCv={vi.fn()}
+      originalCvFile={null}
+      workspaceError={null}
+    />,
+  )
+
+  expect(
+    screen.getByRole('button', { name: 'Open your CV' }).getAttribute('aria-current'),
+  ).toBeNull()
+  expect(screen.getByRole('heading', { name: 'Add a CV' })).toBeDefined()
+  expect(
+    screen.getByText(
+      "Choose the PDF or DOCX copy of your CV you'd like to use from now on. Your saved jobs won't change.",
+    ),
+  ).toBeDefined()
+  expect(
+    screen.getByText("Replacing your CV changes the one you'll use for new jobs."),
+  ).toBeDefined()
+  expect(
+    screen.getByText("Your saved jobs keep the CV and cover letter you've already made."),
+  ).toBeDefined()
+  expect(
+    screen.getByText("We'll use this CV for new jobs. Your saved jobs stay the same."),
+  ).toBeDefined()
 })

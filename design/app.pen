@@ -224,7 +224,7 @@
                   "id": "DCL2X",
                   "name": "labelLaunch",
                   "fill": "$app.subtle",
-                  "content": "Original CV",
+                  "content": "Your CV",
                   "fontFamily": "Manrope",
                   "fontSize": 11,
                   "fontWeight": "800"
@@ -262,7 +262,7 @@
                   "fill": "$app.ink",
                   "textGrowth": "fixed-width",
                   "width": "fill_container",
-                  "content": "No original CV yet",
+                  "content": "No CV yet",
                   "lineHeight": 1.08,
                   "fontFamily": "Manrope",
                   "fontSize": 22,
@@ -275,7 +275,7 @@
                   "fill": "$app.muted",
                   "textGrowth": "fixed-width",
                   "width": "fill_container",
-                  "content": "Add a CV to create the original CV snapshot used for future tailored applications.",
+                  "content": "Add a CV to tailor it for future jobs.",
                   "lineHeight": 1.4,
                   "fontFamily": "Manrope",
                   "fontSize": 13,
@@ -318,7 +318,7 @@
                   "fill": "$app.muted",
                   "textGrowth": "fixed-width",
                   "width": "fill_container",
-                  "content": "Choose the PDF or DOCX version of your CV to create the original CV snapshot for future tailored applications.",
+                  "content": "Choose the PDF or DOCX copy of your CV you'd like to tailor for jobs.",
                   "fontFamily": "Manrope",
                   "fontSize": 13,
                   "fontWeight": "normal"
@@ -367,7 +367,7 @@
                       "id": "PIs75",
                       "name": "dropTextLaunch",
                       "fill": "$app.muted",
-                      "content": "We'll use this as your original CV for future tailored applications.",
+                      "content": "We'll use this CV when you tailor it for a job.",
                       "fontFamily": "Manrope",
                       "fontSize": 13,
                       "fontWeight": "normal"
@@ -2664,7 +2664,7 @@
                           "id": "49u8s",
                           "name": "activeBadge",
                           "fill": "#5E6872",
-                          "content": "1 version",
+                          "content": "1 CV saved",
                           "fontFamily": "Manrope",
                           "fontSize": 10,
                           "fontWeight": "800"
@@ -2688,7 +2688,7 @@
                       "fill": "#5E6872",
                       "textGrowth": "fixed-width",
                       "width": "fill_container",
-                      "content": "Replace your CV to create version 2. Existing jobs will keep the CV they were created from.",
+                      "content": "Choose a different CV for new jobs. Your saved jobs won't change.",
                       "lineHeight": 1.4,
                       "fontFamily": "Manrope",
                       "fontSize": 12,
@@ -3504,7 +3504,7 @@
                   "id": "EqxgI",
                   "name": "labelCvEmpty",
                   "fill": "#7A838B",
-                  "content": "Original CV",
+                  "content": "Your CV",
                   "fontFamily": "Manrope",
                   "fontSize": 11,
                   "fontWeight": "800"
@@ -3542,7 +3542,7 @@
                   "fill": "#1E2428",
                   "textGrowth": "fixed-width",
                   "width": "fill_container",
-                  "content": "No original CV yet",
+                  "content": "No CV yet",
                   "lineHeight": 1.08,
                   "fontFamily": "Manrope",
                   "fontSize": 22,
@@ -3555,7 +3555,7 @@
                   "fill": "#5E6872",
                   "textGrowth": "fixed-width",
                   "width": "fill_container",
-                  "content": "Add a CV to create the original CV snapshot used for future tailored applications.",
+                  "content": "Add a CV to tailor it for future jobs.",
                   "lineHeight": 1.4,
                   "fontFamily": "Manrope",
                   "fontSize": 13,
@@ -3598,7 +3598,7 @@
                   "fill": "$app.muted",
                   "textGrowth": "fixed-width",
                   "width": "fill_container",
-                  "content": "Choose the PDF or DOCX version of your CV to create the original CV snapshot for future tailored applications.",
+                  "content": "Choose the PDF or DOCX copy of your CV you'd like to tailor for jobs.",
                   "fontFamily": "Manrope",
                   "fontSize": 13,
                   "fontWeight": "normal"
@@ -3647,7 +3647,7 @@
                       "id": "W0y6H",
                       "name": "dropCvTextEmpty",
                       "fill": "$app.muted",
-                      "content": "We'll use this as your original CV for future tailored applications.",
+                      "content": "We'll use this CV when you tailor it for a job.",
                       "fontFamily": "Manrope",
                       "fontSize": 13,
                       "fontWeight": "normal"
@@ -3950,7 +3950,7 @@
                   "id": "JTpF2",
                   "name": "labelCv",
                   "fill": "#7A838B",
-                  "content": "Original CV",
+                  "content": "Your CV",
                   "fontFamily": "Manrope",
                   "fontSize": 11,
                   "fontWeight": "800"
@@ -4065,7 +4065,7 @@
                           "id": "hsCSK",
                           "name": "hCv",
                           "fill": "$app.ink",
-                          "content": "Active original CV",
+                          "content": "Your CV",
                           "fontFamily": "Manrope",
                           "fontSize": 26,
                           "fontWeight": "800"
@@ -4077,7 +4077,7 @@
                           "fill": "$app.muted",
                           "textGrowth": "fixed-width",
                           "width": "fill_container",
-                          "content": "Add a CV to create a new snapshot. Existing tailored applications keep the snapshot they were generated from.",
+                          "content": "Add a CV to use a different one for future jobs. Your saved jobs won't change.",
                           "lineHeight": 1.4,
                           "fontFamily": "Manrope",
                           "fontSize": 13,
@@ -8444,7 +8444,7 @@
                           "type": "text",
                           "id": "nAWj9",
                           "fill": "#1E2428",
-                          "content": "Active original CV",
+                          "content": "Your CV",
                           "fontFamily": "Manrope",
                           "fontSize": 13,
                           "fontWeight": "800"
@@ -8453,7 +8453,7 @@
                           "type": "text",
                           "id": "30jAj",
                           "fill": "#5E6872",
-                          "content": "1 snapshot",
+                          "content": "1 CV saved",
                           "fontFamily": "Manrope",
                           "fontSize": 10,
                           "fontWeight": "800"
@@ -8475,7 +8475,7 @@
                       "fill": "#5E6872",
                       "textGrowth": "fixed-width",
                       "width": "fill_container",
-                      "content": "Replace the active original CV to create snapshot 2 without mutating tailored applications that already reference an earlier snapshot.",
+                      "content": "Choose a different CV for new jobs. Your saved jobs won't change.",
                       "lineHeight": 1.4,
                       "fontFamily": "Manrope",
                       "fontSize": 12,
@@ -8504,7 +8504,7 @@
                           "type": "text",
                           "id": "vW8vW",
                           "fill": "#1E2428",
-                          "content": "Choose replacement PDF or DOCX",
+                          "content": "Choose a new PDF or DOCX",
                           "fontFamily": "Manrope",
                           "fontSize": 13,
                           "fontWeight": "800"
@@ -8529,7 +8529,7 @@
                           "type": "text",
                           "id": "wkbub",
                           "fill": "#7A838B",
-                          "content": "Replace original CV",
+                          "content": "Update your CV",
                           "fontFamily": "Manrope",
                           "fontSize": 13,
                           "fontWeight": "800"
@@ -9516,7 +9516,7 @@
                           "type": "text",
                           "id": "Tf440",
                           "fill": "#1E2428",
-                          "content": "Active original CV",
+                          "content": "Your CV",
                           "fontFamily": "Manrope",
                           "fontSize": 13,
                           "fontWeight": "800"
@@ -9525,7 +9525,7 @@
                           "type": "text",
                           "id": "t0Bds",
                           "fill": "#5E6872",
-                          "content": "1 snapshot",
+                          "content": "1 CV saved",
                           "fontFamily": "Manrope",
                           "fontSize": 10,
                           "fontWeight": "800"
@@ -9547,7 +9547,7 @@
                       "fill": "#5E6872",
                       "textGrowth": "fixed-width",
                       "width": "fill_container",
-                      "content": "Replace the active original CV to create snapshot 2 without mutating tailored applications that already reference an earlier snapshot.",
+                      "content": "Choose a different CV for new jobs. Your saved jobs won't change.",
                       "lineHeight": 1.4,
                       "fontFamily": "Manrope",
                       "fontSize": 12,
@@ -9576,7 +9576,7 @@
                           "type": "text",
                           "id": "b0k8U",
                           "fill": "#1E2428",
-                          "content": "Choose replacement PDF or DOCX",
+                          "content": "Choose a new PDF or DOCX",
                           "fontFamily": "Manrope",
                           "fontSize": 13,
                           "fontWeight": "800"
@@ -9601,7 +9601,7 @@
                           "type": "text",
                           "id": "RJerK",
                           "fill": "#7A838B",
-                          "content": "Replace original CV",
+                          "content": "Update your CV",
                           "fontFamily": "Manrope",
                           "fontSize": 13,
                           "fontWeight": "800"
@@ -11323,6 +11323,517 @@
                           ]
                         }
                       ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "hih7A",
+      "x": 24436,
+      "y": 0,
+      "name": "CV Maxxing / Original CV / Replace",
+      "clip": true,
+      "width": 1512,
+      "height": 982,
+      "fill": "#10181D",
+      "cornerRadius": 12,
+      "layout": "vertical",
+      "children": [
+        {
+          "type": "frame",
+          "id": "djoH8",
+          "name": "barCv",
+          "width": "fill_container",
+          "height": 52,
+          "fill": "#1B252B",
+          "gap": 14,
+          "padding": [
+            0,
+            18
+          ],
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "Myenu",
+              "name": "Window controls",
+              "gap": 8,
+              "children": [
+                {
+                  "type": "ellipse",
+                  "id": "gLuuN",
+                  "name": "Close",
+                  "fill": "#FF5F57",
+                  "width": 12,
+                  "height": 12
+                },
+                {
+                  "type": "ellipse",
+                  "id": "VSFsm",
+                  "name": "Minimise",
+                  "fill": "#FFBD2E",
+                  "width": 12,
+                  "height": 12
+                },
+                {
+                  "type": "ellipse",
+                  "id": "UdaoD",
+                  "name": "Zoom",
+                  "fill": "#28C840",
+                  "width": 12,
+                  "height": 12
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "hxcku",
+              "name": "Window title",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "fokmU",
+                  "name": "titleText",
+                  "fill": "#F7F8F6",
+                  "content": "CV Maxxing",
+                  "fontFamily": "Manrope",
+                  "fontSize": 14,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "Gxmcf",
+                  "name": "subtitleText",
+                  "fill": "#AAB4B0",
+                  "content": "Original CV",
+                  "fontFamily": "Manrope",
+                  "fontSize": 11,
+                  "fontWeight": "500"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "wQf4Q",
+              "name": "Worker status",
+              "fill": "#26343C",
+              "cornerRadius": 999,
+              "gap": 8,
+              "padding": [
+                7,
+                10
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "ellipse",
+                  "id": "QZTvp",
+                  "name": "Status dot",
+                  "fill": "#28C840",
+                  "width": 8,
+                  "height": 8
+                },
+                {
+                  "type": "text",
+                  "id": "k5ZgH",
+                  "name": "statusLabel",
+                  "fill": "#F7F8F6",
+                  "content": "Active CV",
+                  "fontFamily": "Manrope",
+                  "fontSize": 12,
+                  "fontWeight": "700"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "Esurr",
+          "name": "Desktop body",
+          "width": "fill_container",
+          "height": "fill_container",
+          "fill": "$app.canvas",
+          "children": [
+            {
+              "type": "frame",
+              "id": "J8WhE",
+              "name": "railCv",
+              "width": 64,
+              "height": "fill_container",
+              "fill": "#182126",
+              "layout": "vertical",
+              "padding": [
+                16,
+                10
+              ],
+              "justifyContent": "space_between",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "YDttE",
+                  "name": "Primary tabs",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 14,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "F9oWW",
+                      "name": "Tab / AI worker",
+                      "width": 44,
+                      "height": 44,
+                      "fill": "#182126",
+                      "cornerRadius": 8,
+                      "layout": "vertical",
+                      "justifyContent": "center",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon_font",
+                          "id": "EOXwt",
+                          "name": "tabWorkerIcon",
+                          "width": 20,
+                          "height": 20,
+                          "iconFontName": "sparkles",
+                          "iconFontFamily": "lucide",
+                          "fill": "#93A29A"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "TrsNd",
+                      "name": "Tab / Job vacancies",
+                      "width": 44,
+                      "height": 44,
+                      "fill": "#182126",
+                      "cornerRadius": 8,
+                      "layout": "vertical",
+                      "justifyContent": "center",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon_font",
+                          "id": "pYrTM",
+                          "name": "tabVacanciesIcon",
+                          "width": 20,
+                          "height": 20,
+                          "iconFontName": "briefcase",
+                          "iconFontFamily": "lucide",
+                          "fill": "#93A29A"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "XGUNE",
+                      "name": "Tab / Original CV",
+                      "width": 44,
+                      "height": 44,
+                      "fill": "#2D3B43",
+                      "cornerRadius": 8,
+                      "layout": "vertical",
+                      "justifyContent": "center",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon_font",
+                          "id": "lnfg3",
+                          "name": "tabCvIcon",
+                          "width": 20,
+                          "height": 20,
+                          "iconFontName": "file-text",
+                          "iconFontFamily": "lucide",
+                          "fill": "#F7F8F6"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "tbZ1H",
+                  "name": "Utility tabs",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 14,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "wNvGE",
+                      "name": "Tab / Settings",
+                      "width": 44,
+                      "height": 44,
+                      "fill": "#182126",
+                      "cornerRadius": 8,
+                      "layout": "vertical",
+                      "justifyContent": "center",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon_font",
+                          "id": "jyPOL",
+                          "name": "tabSettingsIcon",
+                          "width": 20,
+                          "height": 20,
+                          "iconFontName": "settings",
+                          "iconFontFamily": "lucide",
+                          "fill": "#93A29A"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "6TYhi",
+              "name": "Original CV panel",
+              "width": 328,
+              "height": "fill_container",
+              "fill": "#F7F8F6",
+              "stroke": {
+                "align": "inside",
+                "thickness": {
+                  "right": 1
+                },
+                "fill": "#D9DEDA"
+              },
+              "layout": "vertical",
+              "gap": 16,
+              "padding": 20,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "dulJd",
+                  "name": "labelCv",
+                  "fill": "#7A838B",
+                  "content": "Your CV",
+                  "fontFamily": "Manrope",
+                  "fontSize": 11,
+                  "fontWeight": "800"
+                },
+                {
+                  "type": "frame",
+                  "id": "cczrE",
+                  "name": "addCv",
+                  "width": "fill_container",
+                  "fill": "#1E2428",
+                  "cornerRadius": 8,
+                  "padding": [
+                    11,
+                    14
+                  ],
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "40G8e",
+                      "name": "addCvText",
+                      "fill": "#FFFFFF",
+                      "content": "Add a CV",
+                      "fontFamily": "Manrope",
+                      "fontSize": 13,
+                      "fontWeight": "800"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "izXwG",
+                  "name": "Original CV items",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 10,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "mT6it",
+                      "name": "selectedCvRow",
+                      "width": "fill_container",
+                      "fill": "#EAF0EC",
+                      "cornerRadius": 8,
+                      "layout": "vertical",
+                      "gap": 6,
+                      "padding": 12,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "idaqz",
+                          "name": "selectedCvRowTitle",
+                          "fill": "#1E2428",
+                          "content": "Senior Frontend Engineer.pdf",
+                          "fontFamily": "Manrope",
+                          "fontSize": 13,
+                          "fontWeight": "800"
+                        },
+                        {
+                          "type": "text",
+                          "id": "DmyWp",
+                          "name": "selectedCvRowMeta",
+                          "fill": "#5E6872",
+                          "content": "Imported today · 2 pages",
+                          "fontFamily": "Manrope",
+                          "fontSize": 12,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "CwiSf",
+                  "name": "spacerCv",
+                  "width": "fill_container",
+                  "height": "fill_container"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "oF4qZ",
+              "name": "Original CV replace main",
+              "width": "fill_container",
+              "height": "fill_container",
+              "fill": "#FFFFFF",
+              "layout": "vertical",
+              "gap": 20,
+              "padding": 28,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "BIsQ6",
+                  "name": "replaceCvHeading",
+                  "fill": "#1E2428",
+                  "content": "Add a CV",
+                  "fontFamily": "Manrope",
+                  "fontSize": 30,
+                  "fontWeight": "800"
+                },
+                {
+                  "type": "text",
+                  "id": "RkSKi",
+                  "name": "replaceCvCopy",
+                  "fill": "#5E6872",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Choose the PDF or DOCX copy of your CV you'd like to use from now on. Your saved jobs won't change.",
+                  "lineHeight": 1.4,
+                  "fontFamily": "Manrope",
+                  "fontSize": 13,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "frame",
+                  "id": "1SnEU",
+                  "name": "replaceCvNotice",
+                  "width": "fill_container",
+                  "fill": "#F7F8F6",
+                  "cornerRadius": 8,
+                  "stroke": {
+                    "align": "inside",
+                    "thickness": 1,
+                    "fill": "#D9DEDA"
+                  },
+                  "layout": "vertical",
+                  "gap": 10,
+                  "padding": 18,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "ArQVB",
+                      "name": "replaceCvNoticeTitle",
+                      "fill": "#1E2428",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Replacing your CV changes the one you'll use for new jobs.",
+                      "fontFamily": "Manrope",
+                      "fontSize": 14,
+                      "fontWeight": "800"
+                    },
+                    {
+                      "type": "text",
+                      "id": "6E354",
+                      "name": "replaceCvNoticeCopy",
+                      "fill": "#5E6872",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Your saved jobs keep the CV and cover letter you've already made.",
+                      "lineHeight": 1.4,
+                      "fontFamily": "Manrope",
+                      "fontSize": 13,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "lqusl",
+                  "name": "Original CV replace dropzone",
+                  "width": "fill_container",
+                  "height": "fill_container",
+                  "fill": "#F7F8F6",
+                  "cornerRadius": 8,
+                  "stroke": {
+                    "align": "inside",
+                    "thickness": 1,
+                    "fill": "#D9DEDA"
+                  },
+                  "layout": "vertical",
+                  "gap": 14,
+                  "padding": 28,
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon_font",
+                      "id": "yiaFl",
+                      "name": "replaceCvIcon",
+                      "width": 34,
+                      "height": 34,
+                      "iconFontName": "file-plus",
+                      "iconFontFamily": "lucide",
+                      "fill": "#4D6258"
+                    },
+                    {
+                      "type": "text",
+                      "id": "qP8AP",
+                      "name": "replaceCvDropTitle",
+                      "fill": "#1E2428",
+                      "content": "Drop a PDF or DOCX here or choose a file",
+                      "fontFamily": "Manrope",
+                      "fontSize": 18,
+                      "fontWeight": "800"
+                    },
+                    {
+                      "type": "text",
+                      "id": "96SyO",
+                      "name": "replaceCvDropCopy",
+                      "fill": "#5E6872",
+                      "textGrowth": "fixed-width",
+                      "width": 360,
+                      "content": "We'll use this CV for new jobs. Your saved jobs stay the same.",
+                      "lineHeight": 1.4,
+                      "textAlign": "center",
+                      "fontFamily": "Manrope",
+                      "fontSize": 13,
+                      "fontWeight": "normal"
                     }
                   ]
                 }
