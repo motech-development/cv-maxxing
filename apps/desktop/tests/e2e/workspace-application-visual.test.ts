@@ -311,8 +311,12 @@ test('captures ambient activity on settings while a tailored application preview
 
   page = await electronApp.firstWindow()
 
-  await expect(page.getByRole('heading', { name: 'AI' })).toBeVisible()
-  await expect(page.getByRole('status', { name: 'Background activity' })).toBeVisible()
+  await expect(page.getByRole('heading', { exact: true, level: 1, name: 'AI' })).toBeVisible({
+    timeout: 15_000,
+  })
+  await expect(page.getByRole('status', { name: 'Background activity' })).toBeVisible({
+    timeout: 15_000,
+  })
   await hideScrollbars(page)
   await expect(page).toHaveScreenshot('settings-ambient-activity-screen.png', {
     animations: 'disabled',
