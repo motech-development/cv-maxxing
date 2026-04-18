@@ -1,7 +1,7 @@
 import { writeFile } from 'node:fs/promises'
 import path from 'node:path'
 
-import { expect, test } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
 
 import {
   createTailoredApplicationFromPastedVacancy,
@@ -29,6 +29,35 @@ test.afterEach(async () => {
   await cleanupVisualTestArtifacts()
 })
 
+async function expectStableTailoredApplicationPreview(page: Page) {
+  await expect
+    .poll(
+      async () => {
+        return (await page.locator('body').textContent()) ?? ''
+      },
+      {
+        timeout: 15_000,
+      },
+    )
+    .toContain('Senior platform engineer')
+  await expect(page.getByRole('heading', { name: 'Senior platform engineer' })).toBeVisible({
+    timeout: 15_000,
+  })
+  await expect(page.getByText(/Page 1 of \d+/u)).toBeVisible({
+    timeout: 15_000,
+  })
+  await expect(page.getByLabel('CV PDF preview')).toBeVisible({
+    timeout: 15_000,
+  })
+  await expect(page.getByRole('button', { exact: true, name: 'CV' })).toBeVisible()
+  await expect(page.getByRole('button', { exact: true, name: 'Cover letter' })).toBeVisible()
+  await expect(page.getByText('About this job')).toBeVisible()
+  await expect(page.getByText('Highlighted in your CV')).toBeVisible()
+  await expect(page.getByText('Worth checking')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Save CV and cover letter' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Delete this job' })).toBeVisible()
+}
+
 test('captures the workspace active adapted CV screen', async () => {
   const testPaths = await createVisualTestPaths()
 
@@ -50,10 +79,10 @@ test('captures the workspace active adapted CV screen', async () => {
   })
   await openJobsFromYourCv(page)
   await createTailoredApplicationFromPastedVacancy({
-    expectPreview: false,
     page,
     vacancyText: createPastedVacancyFixture(),
   })
+  await expectStableTailoredApplicationPreview(page)
   await hideScrollbars(page)
   await expect(page).toHaveScreenshot('workspace-active-adapted-cv-screen.png', {
     animations: 'disabled',
@@ -86,12 +115,14 @@ test('captures the workspace active cover letter screen', async () => {
   })
   await openJobsFromYourCv(page)
   await createTailoredApplicationFromPastedVacancy({
-    expectPreview: false,
     page,
     vacancyText: createPastedVacancyFixture(),
   })
+  await expectStableTailoredApplicationPreview(page)
   await page.getByRole('button', { exact: true, name: 'Cover letter' }).click()
-  await expect(page.getByLabel('Cover letter PDF preview')).toBeVisible()
+  await expect(page.getByLabel('Cover letter PDF preview')).toBeVisible({
+    timeout: 15_000,
+  })
   await hideScrollbars(page)
   await expect(page).toHaveScreenshot('workspace-active-cover-letter-screen.png', {
     animations: 'disabled',
@@ -171,6 +202,7 @@ test('captures the workspace application error banner when PDF export fails', as
     page,
     vacancyText: createPastedVacancyFixture(),
   })
+  await expectStableTailoredApplicationPreview(page)
   await page.getByRole('button', { name: 'Save CV and cover letter' }).click()
   await expect(
     page.getByText(
@@ -217,6 +249,7 @@ test('captures the second page of a multi-page tailored CV preview', async () =>
     page,
     vacancyText: createPastedVacancyFixture(),
   })
+  await expectStableTailoredApplicationPreview(page)
   await expect(page.getByRole('button', { exact: true, name: 'Cover letter' })).toBeVisible({
     timeout: 60_000,
   })
@@ -229,7 +262,7 @@ test('captures the second page of a multi-page tailored CV preview', async () =>
   })
   await page.getByRole('button', { name: 'Next page' }).click()
   await expect(page.getByText(/Page 2 of (?:[2-9]|[1-9]\d+)/u)).toBeVisible()
-  await expect(page.getByLabel('Cover letter PDF preview')).toHaveScreenshot(
+  await expect(page.locator('[data-testid="pdf-preview-toolbar"]')).toHaveScreenshot(
     'workspace-multipage-preview-page-2.png',
     {
       animations: 'disabled',

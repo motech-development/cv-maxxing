@@ -173,7 +173,10 @@ function LoadedPdfPreviewCard({
 
   return (
     <div className="flex h-full min-h-[520px] min-w-0 max-w-full flex-col gap-4 rounded-[8px] border border-[var(--color-border)] bg-[var(--color-surface-1)] p-[18px]">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div
+        className="flex flex-wrap items-center justify-between gap-3"
+        data-testid="pdf-preview-toolbar"
+      >
         <div className="flex items-center gap-2">
           <Button
             disabled={currentPage === 1}
