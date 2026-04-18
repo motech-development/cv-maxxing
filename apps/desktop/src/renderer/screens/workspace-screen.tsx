@@ -1,6 +1,5 @@
 import type { ChangeEvent, ReactNode } from 'react'
 
-import type { OriginalCvSummary } from '../../shared/original-cv.js'
 import type {
   TailoredApplicationListItem,
   TailoredApplicationPreview,
@@ -9,7 +8,6 @@ import type { VacancyReviewState, VacancySummary } from '../../shared/vacancy.js
 import { DesktopShell, type RailItemId } from '../shell/desktop-shell.js'
 import { SidebarContainer } from '../shell/sidebar-container.js'
 import { Button } from '../ui/button.js'
-import { OriginalCvReplacementCard } from '../ui/original-cv-replacement-card.js'
 import { PanelCard } from '../ui/panel-card.js'
 import { SectionLabel } from '../ui/section-label.js'
 import { WorkspaceApplicationView } from './workspace-active-screen.js'
@@ -20,17 +18,14 @@ type WorkspaceSelectionKind = 'draft' | 'tailored_application'
 
 interface WorkspaceScreenProperties {
   activeRailItem?: Extract<RailItemId, 'job_vacancies' | 'original_cv'>
-  activeOriginalCv: OriginalCvSummary | null
   ambientActivityLabel?: string | null
   applicationTitle: string | null
   applications: TailoredApplicationListItem[]
   draftReviewState: VacancyReviewState
-  importError: string | null
   isAdaptingCv: boolean
   isCopyingCoverLetterText: boolean
   isCurrentDraftMeaningful: boolean
   isExportingPdf: boolean
-  isImportingOriginalCv: boolean
   isOpeningVacancyBrowser: boolean
   isReviewingVacancy: boolean
   onAdaptCv: () => void
@@ -39,8 +34,6 @@ interface WorkspaceScreenProperties {
   onDeleteTailoredApplication: () => void
   onExportPdf: () => void
   onOpenVacancyBrowserSession: () => void
-  onOriginalCvFileSelection: (event: ChangeEvent<HTMLInputElement>) => void
-  onReplaceOriginalCv: () => void
   onReviewPastedVacancy: () => void
   onReviewVacancyUrl: () => void
   onSelectApplication: (tailoredApplicationId: string) => void
@@ -49,7 +42,6 @@ interface WorkspaceScreenProperties {
   onSelectRailItem?: (item: RailItemId) => void
   onTextDraftChange: (event: ChangeEvent<HTMLTextAreaElement>) => void
   onUrlDraftChange: (event: ChangeEvent<HTMLInputElement>) => void
-  originalCvFile: File | null
   preview: TailoredApplicationPreview | null
   previewDocumentKind: PreviewDocumentKind
   selectedTailoredApplicationId: string | null
@@ -64,17 +56,14 @@ interface WorkspaceScreenProperties {
 
 export function WorkspaceScreen({
   activeRailItem = 'job_vacancies',
-  activeOriginalCv,
   ambientActivityLabel,
   applicationTitle,
   applications,
   draftReviewState,
-  importError,
   isAdaptingCv,
   isCopyingCoverLetterText,
   isCurrentDraftMeaningful,
   isExportingPdf,
-  isImportingOriginalCv,
   isOpeningVacancyBrowser,
   isReviewingVacancy,
   onAdaptCv,
@@ -83,8 +72,6 @@ export function WorkspaceScreen({
   onDeleteTailoredApplication,
   onExportPdf,
   onOpenVacancyBrowserSession,
-  onOriginalCvFileSelection,
-  onReplaceOriginalCv,
   onReviewPastedVacancy,
   onReviewVacancyUrl,
   onSelectApplication,
@@ -93,7 +80,6 @@ export function WorkspaceScreen({
   onSelectRailItem,
   onTextDraftChange,
   onUrlDraftChange,
-  originalCvFile,
   preview,
   previewDocumentKind,
   selectedTailoredApplicationId,
@@ -156,17 +142,6 @@ export function WorkspaceScreen({
             )
           })}
           <div className="flex-1" />
-          {activeOriginalCv ? (
-            <OriginalCvReplacementCard
-              activeOriginalCv={activeOriginalCv}
-              importError={importError}
-              inputId="workspace-original-cv-file-input"
-              isImportingOriginalCv={isImportingOriginalCv}
-              onFileSelection={onOriginalCvFileSelection}
-              onImportOriginalCv={onReplaceOriginalCv}
-              originalCvFile={originalCvFile}
-            />
-          ) : null}
         </SidebarContainer>
       }
       workspaceOverlay={workspaceOverlay}

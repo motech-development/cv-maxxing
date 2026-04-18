@@ -6,7 +6,6 @@ import { expect, test, vi } from 'vitest'
 import { WorkspaceScreen } from '../workspace-screen.js'
 
 const baseProperties = {
-  activeOriginalCv: null,
   applicationTitle: null,
   applications: [
     {
@@ -20,12 +19,10 @@ const baseProperties = {
     },
   ],
   draftReviewState: 'editable' as const,
-  importError: null,
   isAdaptingCv: false,
   isCopyingCoverLetterText: false,
   isCurrentDraftMeaningful: true,
   isExportingPdf: false,
-  isImportingOriginalCv: false,
   isOpeningVacancyBrowser: false,
   isReviewingVacancy: false,
   onAdaptCv: vi.fn(),
@@ -34,8 +31,6 @@ const baseProperties = {
   onDeleteTailoredApplication: vi.fn(),
   onExportPdf: vi.fn(),
   onOpenVacancyBrowserSession: vi.fn(),
-  onOriginalCvFileSelection: vi.fn(),
-  onReplaceOriginalCv: vi.fn(),
   onReviewPastedVacancy: vi.fn(),
   onReviewVacancyUrl: vi.fn(),
   onSelectApplication: vi.fn(),
@@ -43,7 +38,6 @@ const baseProperties = {
   onSelectPreviewDocument: vi.fn(),
   onTextDraftChange: vi.fn(),
   onUrlDraftChange: vi.fn(),
-  originalCvFile: null,
   preview: null,
   previewDocumentKind: 'adapted_cv' as const,
   selectedTailoredApplicationId: null,
@@ -63,6 +57,7 @@ test('keeps the vacancy sidebar structure stable while switching between draft a
   expect(screen.getByRole('button', { name: 'Add a job' })).toBeDefined()
   expect(screen.getByRole('button', { name: 'Jobs' })).toBeDefined()
   expect(screen.getByRole('button', { name: 'Your CV' })).toBeDefined()
+  expect(screen.queryByRole('button', { name: 'Update your CV' })).toBeNull()
 
   rerender(
     <WorkspaceScreen

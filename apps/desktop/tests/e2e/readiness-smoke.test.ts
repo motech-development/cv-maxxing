@@ -536,9 +536,12 @@ test('blocks a non-English pasted vacancy, preserves the draft, and keeps Tailor
 })
 
 test('retries from an unavailable startup state and returns to first launch after repair', async () => {
+  const testPaths = await createOriginalCvTestPaths()
+
   const electronApp = await launchDesktopApp({
     CV_MAXXING_AI_WORKER_PREFLIGHT_STATUS: 'runtime_missing',
     CV_MAXXING_AI_WORKER_RETRY_STATUS: 'ready',
+    CV_MAXXING_LOCAL_APP_DATA_ROOT: testPaths.appDataRoot,
     CV_MAXXING_STARTUP_DESTINATION: 'workspace',
   })
 
@@ -929,8 +932,11 @@ test('renders the stored adapted CV PDF artifact and exports a readable non-over
 })
 
 test('does not infer a saved tailored application from the unified workspace startup destination', async () => {
+  const testPaths = await createOriginalCvTestPaths()
+
   const electronApp = await launchDesktopApp({
     CV_MAXXING_AI_WORKER_PREFLIGHT_STATUS: 'ready',
+    CV_MAXXING_LOCAL_APP_DATA_ROOT: testPaths.appDataRoot,
     CV_MAXXING_STARTUP_DESTINATION: 'workspace',
   })
 
@@ -942,9 +948,12 @@ test('does not infer a saved tailored application from the unified workspace sta
 })
 
 test('retries the AI from settings and routes back to repair when the fresh check fails', async () => {
+  const testPaths = await createOriginalCvTestPaths()
+
   const electronApp = await launchDesktopApp({
     CV_MAXXING_AI_WORKER_PREFLIGHT_STATUS: 'ready',
     CV_MAXXING_AI_WORKER_RETRY_STATUS: 'runtime_missing',
+    CV_MAXXING_LOCAL_APP_DATA_ROOT: testPaths.appDataRoot,
     CV_MAXXING_STARTUP_DESTINATION: 'first_launch',
   })
 
@@ -1008,7 +1017,9 @@ test('clears job-site browser data from settings without deleting the active ori
   await page.getByRole('button', { name: 'Clear browser data' }).click()
   await expect(page.getByText('Job-site browser data cleared.')).toBeVisible()
   await page.getByRole('button', { name: 'Jobs' }).click()
-  await expect(page.getByText('ada-lovelace.pdf')).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Add a job' })).toBeVisible()
+  await page.getByRole('button', { name: 'Your CV' }).click()
+  await expectActiveOriginalCv(page, 'ada-lovelace.pdf')
 
   await electronApp.close()
 

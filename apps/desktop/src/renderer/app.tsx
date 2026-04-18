@@ -138,7 +138,6 @@ export function App() {
   const [settingsSection, setSettingsSection] = useState<SettingsSection>('ai_worker')
   const [startupDestinationOverride, setStartupDestinationOverride] =
     useState<RendererStartupDestinationOverride | null>(null)
-  const [workspaceOriginalCvFile, setWorkspaceOriginalCvFile] = useState<File | null>(null)
   const [workspaceSelectionOverride, setWorkspaceSelectionOverride] =
     useState<WorkspaceSelectionOverride>(null)
   const [vacancyDraft, setVacancyDraft] = useState(initialVacancyDraft)
@@ -362,7 +361,6 @@ export function App() {
       setSelectedTailoredApplicationId(null)
       setSettingsMessage(null)
       setStartupDestinationOverride(null)
-      setWorkspaceOriginalCvFile(null)
       setWorkspaceSelectionOverride(null)
       setVacancyDraft(initialVacancyDraft)
       setVacancyPreviewOverride(null)
@@ -446,7 +444,6 @@ export function App() {
       setPreviewDocumentKind('adapted_cv')
       setReadinessError(null)
       setStartupDestinationOverride(nextStartupDestination)
-      setWorkspaceOriginalCvFile(null)
       setWorkspaceSelectionOverride(null)
       setVacancyReviewError(null)
       setVacancyPreviewOverride(null)
@@ -992,13 +989,6 @@ export function App() {
     })
   }
 
-  const handleWorkspaceOriginalCvSelection = (event: ChangeEvent<HTMLInputElement>): void => {
-    handleOriginalCvFile({
-      nextFile: event.target.files?.[0] ?? null,
-      setFile: setWorkspaceOriginalCvFile,
-    })
-  }
-
   const handleStartOriginalCvReplacement = (): void => {
     setImportError(null)
     setOriginalCvSectionFile(null)
@@ -1382,17 +1372,14 @@ export function App() {
         <>
           <WorkspaceScreen
             activeRailItem="job_vacancies"
-            activeOriginalCv={originalCvWorkspaceState.activeOriginalCv}
             ambientActivityLabel={ambientActivityLabel}
             applicationTitle={selectedTailoredApplication?.title ?? null}
             applications={tailoredApplicationWorkspaceState.applications}
             draftReviewState={draftReviewState}
-            importError={importError}
             isAdaptingCv={isPendingGenerationActionPending}
             isCopyingCoverLetterText={isCopyingCoverLetterText}
             isCurrentDraftMeaningful={isCurrentDraftMeaningful}
             isExportingPdf={isPendingGenerationActionPending}
-            isImportingOriginalCv={isImportingOriginalCv}
             isOpeningVacancyBrowser={isOpeningVacancyBrowser}
             isReviewingVacancy={isSubmittingVacancyReview}
             onAdaptCv={() => {
@@ -1457,14 +1444,6 @@ export function App() {
                   resolveErrorMessage(error, "We couldn't check that job link."),
                 )
               })
-            }}
-            onOriginalCvFileSelection={handleWorkspaceOriginalCvSelection}
-            onReplaceOriginalCv={() => {
-              handleOriginalCvImport({
-                file: workspaceOriginalCvFile,
-                nextStartupDestination: 'workspace',
-                topLevelSectionAfterImport: 'job_vacancies',
-              }).catch(() => null)
             }}
             onSelectApplication={(tailoredApplicationId) => {
               handleSelectTailoredApplication(tailoredApplicationId)
@@ -1551,7 +1530,6 @@ export function App() {
                 setReadinessError("We couldn't save where you left off.")
               })
             }}
-            originalCvFile={workspaceOriginalCvFile}
             preview={tailoredApplicationPreview}
             previewDocumentKind={previewDocumentKind}
             selectedTailoredApplicationId={resolvedTailoredApplicationId}
