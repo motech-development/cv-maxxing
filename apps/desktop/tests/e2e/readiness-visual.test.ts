@@ -51,6 +51,32 @@ test.afterEach(async () => {
   )
 })
 
+async function expectActiveOriginalCv(page: Page, filename: string) {
+  await expect(page.getByRole('heading', { name: 'Your CV' })).toBeVisible()
+  await expect(page.getByText('Extracted profile')).toBeVisible()
+  await expect(page.getByText(filename)).toBeVisible()
+}
+
+async function importOriginalCvFromFirstLaunch({
+  filename,
+  filePath,
+  page,
+}: {
+  filename: string
+  filePath: string
+  page: Page
+}) {
+  await expect(page.getByRole('heading', { name: 'Add a CV' })).toBeVisible()
+  await page.getByLabel('Your CV file').setInputFiles(filePath)
+  await page.getByRole('button', { name: 'Add a CV' }).click()
+  await expectActiveOriginalCv(page, filename)
+}
+
+async function openJobsFromYourCv(page: Page) {
+  await page.getByRole('button', { name: 'Jobs' }).click()
+  await expect(page.getByRole('heading', { name: 'Add a job' })).toBeVisible()
+}
+
 test('captures the first-launch screen', async () => {
   const testPaths = await createOriginalCvTestPaths()
   const electronApp = await launchDesktopApp({
@@ -120,9 +146,12 @@ test('captures the workspace-empty state after the original CV import', async ()
 
   const page = await electronApp.firstWindow()
 
-  await page.getByLabel('Your CV file').setInputFiles(testPaths.pdfPath)
-  await page.getByRole('button', { name: 'Add a CV' }).click()
-  await expect(page.getByRole('heading', { name: 'Add a job' })).toBeVisible()
+  await importOriginalCvFromFirstLaunch({
+    filename: 'ada-lovelace.pdf',
+    filePath: testPaths.pdfPath,
+    page,
+  })
+  await openJobsFromYourCv(page)
   await hideScrollbars(page)
   await expect(page).toHaveScreenshot('workspace-empty-screen.png', {
     animations: 'disabled',
@@ -161,8 +190,12 @@ test('captures the workspace-active adapted CV preview', async () => {
 
   const page = await electronApp.firstWindow()
 
-  await page.getByLabel('Your CV file').setInputFiles(testPaths.pdfPath)
-  await page.getByRole('button', { name: 'Add a CV' }).click()
+  await importOriginalCvFromFirstLaunch({
+    filename: 'ada-lovelace.pdf',
+    filePath: testPaths.pdfPath,
+    page,
+  })
+  await openJobsFromYourCv(page)
   await page.getByLabel('Job description').fill(createPastedVacancyFixture())
   await page.getByLabel('Job description').press('Tab')
   await page.getByRole('button', { name: 'Check job details' }).nth(1).dispatchEvent('click')
@@ -230,8 +263,12 @@ test('captures the workspace generation overlay', async () => {
 
   const page = await electronApp.firstWindow()
 
-  await page.getByLabel('Your CV file').setInputFiles(testPaths.pdfPath)
-  await page.getByRole('button', { name: 'Add a CV' }).click()
+  await importOriginalCvFromFirstLaunch({
+    filename: 'ada-lovelace.pdf',
+    filePath: testPaths.pdfPath,
+    page,
+  })
+  await openJobsFromYourCv(page)
   await page.getByLabel('Job description').fill(createPastedVacancyFixture())
   await page.getByLabel('Job description').press('Tab')
   await page.getByRole('button', { name: 'Check job details' }).nth(1).dispatchEvent('click')
@@ -277,8 +314,12 @@ test('captures ambient shell activity while reopening a saved tailored applicati
 
   let page = await electronApp.firstWindow()
 
-  await page.getByLabel('Your CV file').setInputFiles(testPaths.pdfPath)
-  await page.getByRole('button', { name: 'Add a CV' }).click()
+  await importOriginalCvFromFirstLaunch({
+    filename: 'ada-lovelace.pdf',
+    filePath: testPaths.pdfPath,
+    page,
+  })
+  await openJobsFromYourCv(page)
   await page.getByLabel('Job description').fill(createPastedVacancyFixture())
   await page.getByLabel('Job description').press('Tab')
   await page.getByRole('button', { name: 'Check job details' }).nth(1).dispatchEvent('click')
