@@ -91,115 +91,24 @@
           "fill": "$app.canvas",
           "children": [
             {
-              "type": "frame",
-              "id": "aMnBD",
-              "name": "railLaunch",
-              "width": 64,
-              "height": "fill_container",
-              "fill": "#182126",
-              "layout": "vertical",
-              "padding": [
-                16,
-                10
-              ],
-              "justifyContent": "space_between",
-              "alignItems": "center",
-              "children": [
-                {
-                  "type": "frame",
-                  "id": "N8M45",
-                  "name": "Primary tabs",
-                  "width": "fill_container",
-                  "layout": "vertical",
-                  "gap": 14,
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "frame",
-                      "id": "hgxx4",
-                      "name": "Tab / Job vacancies",
-                      "width": 44,
-                      "height": 44,
-                      "fill": "#182126",
-                      "cornerRadius": 8,
-                      "layout": "vertical",
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "icon_font",
-                          "id": "uIUC0",
-                          "name": "tabVacanciesIcon",
-                          "width": 20,
-                          "height": 20,
-                          "iconFontName": "briefcase",
-                          "iconFontFamily": "lucide",
-                          "fill": "#93A29A"
-                        }
-                      ]
-                    },
-                    {
-                      "type": "frame",
-                      "id": "2vMCu",
-                      "name": "Tab / Original CV",
-                      "width": 44,
-                      "height": 44,
-                      "fill": "#2D3B43",
-                      "cornerRadius": 8,
-                      "layout": "vertical",
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "icon_font",
-                          "id": "D253M",
-                          "name": "tabCvIcon",
-                          "width": 20,
-                          "height": 20,
-                          "iconFontName": "file-text",
-                          "iconFontFamily": "lucide",
-                          "fill": "#F7F8F6"
-                        }
-                      ]
-                    }
-                  ]
+              "id": "IetKb",
+              "type": "ref",
+              "ref": "Zt2Mk",
+              "name": "launchRail",
+              "descendants": {
+                "l3nfW": {
+                  "enabled": false
                 },
-                {
-                  "type": "frame",
-                  "id": "bvYv7",
-                  "name": "Utility tabs",
-                  "width": "fill_container",
-                  "layout": "vertical",
-                  "gap": 14,
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "frame",
-                      "id": "vgYa2",
-                      "name": "Tab / Settings",
-                      "width": 44,
-                      "height": 44,
-                      "fill": "#182126",
-                      "cornerRadius": 8,
-                      "layout": "vertical",
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "icon_font",
-                          "id": "UKMEm",
-                          "name": "tabSettingsIcon",
-                          "width": 20,
-                          "height": 20,
-                          "iconFontName": "settings",
-                          "iconFontFamily": "lucide",
-                          "fill": "#93A29A"
-                        }
-                      ]
-                    }
-                  ]
+                "Gtxel": {
+                  "fill": "#2D3B43"
+                },
+                "8IxsS": {
+                  "fill": "#F7F8F6"
+                },
+                "7BIN0": {
+                  "fill": "#F7F8F6"
                 }
-              ]
+              }
             },
             {
               "type": "frame",
@@ -470,115 +379,24 @@
           "fill": "$app.canvas",
           "children": [
             {
-              "type": "frame",
-              "id": "KLQJ2",
-              "name": "railEmpty",
-              "width": 64,
-              "height": "fill_container",
-              "fill": "#182126",
-              "layout": "vertical",
-              "padding": [
-                16,
-                10
-              ],
-              "justifyContent": "space_between",
-              "alignItems": "center",
-              "children": [
-                {
-                  "type": "frame",
-                  "id": "hdOTw",
-                  "name": "Primary tabs",
-                  "width": "fill_container",
-                  "layout": "vertical",
-                  "gap": 14,
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "frame",
-                      "id": "YWrMO",
-                      "name": "Tab / Job vacancies",
-                      "width": 44,
-                      "height": 44,
-                      "fill": "#2D3B43",
-                      "cornerRadius": 8,
-                      "layout": "vertical",
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "icon_font",
-                          "id": "Y14Zp",
-                          "name": "tabVacanciesIcon",
-                          "width": 20,
-                          "height": 20,
-                          "iconFontName": "briefcase",
-                          "iconFontFamily": "lucide",
-                          "fill": "#F7F8F6"
-                        }
-                      ]
-                    },
-                    {
-                      "type": "frame",
-                      "id": "xXcJk",
-                      "name": "Tab / Original CV",
-                      "width": 44,
-                      "height": 44,
-                      "fill": "#182126",
-                      "cornerRadius": 8,
-                      "layout": "vertical",
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "icon_font",
-                          "id": "hoRsI",
-                          "name": "tabCvIcon",
-                          "width": 20,
-                          "height": 20,
-                          "iconFontName": "file-text",
-                          "iconFontFamily": "lucide",
-                          "fill": "#93A29A"
-                        }
-                      ]
-                    }
-                  ]
+              "id": "kFafw",
+              "type": "ref",
+              "ref": "Zt2Mk",
+              "name": "emptyRail",
+              "descendants": {
+                "l3nfW": {
+                  "enabled": false
                 },
-                {
-                  "type": "frame",
-                  "id": "olisK",
-                  "name": "Utility tabs",
-                  "width": "fill_container",
-                  "layout": "vertical",
-                  "gap": 14,
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "frame",
-                      "id": "MzAPk",
-                      "name": "Tab / Settings",
-                      "width": 44,
-                      "height": 44,
-                      "fill": "#182126",
-                      "cornerRadius": 8,
-                      "layout": "vertical",
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "icon_font",
-                          "id": "3ALkz",
-                          "name": "tabSettingsIcon",
-                          "width": 20,
-                          "height": 20,
-                          "iconFontName": "settings",
-                          "iconFontFamily": "lucide",
-                          "fill": "#93A29A"
-                        }
-                      ]
-                    }
-                  ]
+                "Hde28": {
+                  "fill": "#2D3B43"
+                },
+                "PN9Kh": {
+                  "fill": "#F7F8F6"
+                },
+                "F5iKt": {
+                  "fill": "#F7F8F6"
                 }
-              ]
+              }
             },
             {
               "type": "frame",
@@ -1223,115 +1041,24 @@
           "fill": "$app.canvas",
           "children": [
             {
-              "type": "frame",
-              "id": "KrWjt",
-              "name": "railLoading",
-              "width": 64,
-              "height": "fill_container",
-              "fill": "#182126",
-              "layout": "vertical",
-              "padding": [
-                16,
-                10
-              ],
-              "justifyContent": "space_between",
-              "alignItems": "center",
-              "children": [
-                {
-                  "type": "frame",
-                  "id": "upo8Y",
-                  "name": "Primary tabs",
-                  "width": "fill_container",
-                  "layout": "vertical",
-                  "gap": 14,
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "frame",
-                      "id": "NkKMz",
-                      "name": "Tab / Job vacancies",
-                      "width": 44,
-                      "height": 44,
-                      "fill": "#2D3B43",
-                      "cornerRadius": 8,
-                      "layout": "vertical",
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "icon_font",
-                          "id": "SiVCx",
-                          "name": "tabVacanciesIcon",
-                          "width": 20,
-                          "height": 20,
-                          "iconFontName": "briefcase",
-                          "iconFontFamily": "lucide",
-                          "fill": "#F7F8F6"
-                        }
-                      ]
-                    },
-                    {
-                      "type": "frame",
-                      "id": "IQBit",
-                      "name": "Tab / Original CV",
-                      "width": 44,
-                      "height": 44,
-                      "fill": "#182126",
-                      "cornerRadius": 8,
-                      "layout": "vertical",
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "icon_font",
-                          "id": "0H9ZA",
-                          "name": "tabCvIcon",
-                          "width": 20,
-                          "height": 20,
-                          "iconFontName": "file-text",
-                          "iconFontFamily": "lucide",
-                          "fill": "#93A29A"
-                        }
-                      ]
-                    }
-                  ]
+              "id": "nEkiW",
+              "type": "ref",
+              "ref": "Zt2Mk",
+              "name": "blockingRail",
+              "descendants": {
+                "l3nfW": {
+                  "enabled": false
                 },
-                {
-                  "type": "frame",
-                  "id": "P7HzD",
-                  "name": "Utility tabs",
-                  "width": "fill_container",
-                  "layout": "vertical",
-                  "gap": 14,
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "frame",
-                      "id": "PpOqj",
-                      "name": "Tab / Settings",
-                      "width": 44,
-                      "height": 44,
-                      "fill": "#182126",
-                      "cornerRadius": 8,
-                      "layout": "vertical",
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "icon_font",
-                          "id": "I917d",
-                          "name": "tabSettingsIcon",
-                          "width": 20,
-                          "height": 20,
-                          "iconFontName": "settings",
-                          "iconFontFamily": "lucide",
-                          "fill": "#93A29A"
-                        }
-                      ]
-                    }
-                  ]
+                "Hde28": {
+                  "fill": "#2D3B43"
+                },
+                "PN9Kh": {
+                  "fill": "#F7F8F6"
+                },
+                "F5iKt": {
+                  "fill": "#F7F8F6"
                 }
-              ]
+              }
             },
             {
               "type": "frame",
@@ -1931,10 +1658,10 @@
               "type": "frame",
               "id": "LDQcs",
               "layoutPosition": "absolute",
-              "x": 64,
+              "x": 80,
               "y": 0,
               "name": "Workspace blocking overlay",
-              "width": 1448,
+              "width": 1432,
               "height": 930,
               "fill": "#DEE6E1E8",
               "layout": "vertical",
@@ -2100,115 +1827,24 @@
           "fill": "$app.canvas",
           "children": [
             {
-              "type": "frame",
-              "id": "7zFiI",
-              "name": "railActive",
-              "width": 64,
-              "height": "fill_container",
-              "fill": "#182126",
-              "layout": "vertical",
-              "padding": [
-                16,
-                10
-              ],
-              "justifyContent": "space_between",
-              "alignItems": "center",
-              "children": [
-                {
-                  "type": "frame",
-                  "id": "2Eee3",
-                  "name": "Primary tabs",
-                  "width": "fill_container",
-                  "layout": "vertical",
-                  "gap": 14,
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "frame",
-                      "id": "50MWZ",
-                      "name": "Tab / Job vacancies",
-                      "width": 44,
-                      "height": 44,
-                      "fill": "#2D3B43",
-                      "cornerRadius": 8,
-                      "layout": "vertical",
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "icon_font",
-                          "id": "SaXPk",
-                          "name": "tabVacanciesIcon",
-                          "width": 20,
-                          "height": 20,
-                          "iconFontName": "briefcase",
-                          "iconFontFamily": "lucide",
-                          "fill": "#F7F8F6"
-                        }
-                      ]
-                    },
-                    {
-                      "type": "frame",
-                      "id": "OskGZ",
-                      "name": "Tab / Original CV",
-                      "width": 44,
-                      "height": 44,
-                      "fill": "#182126",
-                      "cornerRadius": 8,
-                      "layout": "vertical",
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "icon_font",
-                          "id": "wBVAE",
-                          "name": "tabCvIcon",
-                          "width": 20,
-                          "height": 20,
-                          "iconFontName": "file-text",
-                          "iconFontFamily": "lucide",
-                          "fill": "#93A29A"
-                        }
-                      ]
-                    }
-                  ]
+              "id": "5zSil",
+              "type": "ref",
+              "ref": "Zt2Mk",
+              "name": "savedRail",
+              "descendants": {
+                "l3nfW": {
+                  "enabled": false
                 },
-                {
-                  "type": "frame",
-                  "id": "TVCM6",
-                  "name": "Utility tabs",
-                  "width": "fill_container",
-                  "layout": "vertical",
-                  "gap": 14,
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "frame",
-                      "id": "aAlKv",
-                      "name": "Tab / Settings",
-                      "width": 44,
-                      "height": 44,
-                      "fill": "#182126",
-                      "cornerRadius": 8,
-                      "layout": "vertical",
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "icon_font",
-                          "id": "g1bXO",
-                          "name": "tabSettingsIcon",
-                          "width": 20,
-                          "height": 20,
-                          "iconFontName": "settings",
-                          "iconFontFamily": "lucide",
-                          "fill": "#93A29A"
-                        }
-                      ]
-                    }
-                  ]
+                "Hde28": {
+                  "fill": "#2D3B43"
+                },
+                "PN9Kh": {
+                  "fill": "#F7F8F6"
+                },
+                "F5iKt": {
+                  "fill": "#F7F8F6"
                 }
-              ]
+              }
             },
             {
               "type": "frame",
@@ -2968,139 +2604,21 @@
           "fill": "$app.canvas",
           "children": [
             {
-              "type": "frame",
-              "id": "1qoiK",
-              "name": "railCvEmpty",
-              "width": 64,
-              "height": "fill_container",
-              "fill": "#182126",
-              "layout": "vertical",
-              "padding": [
-                16,
-                10
-              ],
-              "justifyContent": "space_between",
-              "alignItems": "center",
-              "children": [
-                {
-                  "type": "frame",
-                  "id": "pQ65H",
-                  "name": "Primary tabs",
-                  "width": "fill_container",
-                  "layout": "vertical",
-                  "gap": 14,
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "frame",
-                      "id": "VHE1T",
-                      "name": "Tab / AI worker",
-                      "width": 44,
-                      "height": 44,
-                      "fill": "#182126",
-                      "cornerRadius": 8,
-                      "layout": "vertical",
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "icon_font",
-                          "id": "bCYGl",
-                          "name": "tabWorkerIcon",
-                          "width": 20,
-                          "height": 20,
-                          "iconFontName": "sparkles",
-                          "iconFontFamily": "lucide",
-                          "fill": "#93A29A"
-                        }
-                      ]
-                    },
-                    {
-                      "type": "frame",
-                      "id": "nVlMQ",
-                      "name": "Tab / Job vacancies",
-                      "width": 44,
-                      "height": 44,
-                      "fill": "#182126",
-                      "cornerRadius": 8,
-                      "layout": "vertical",
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "icon_font",
-                          "id": "MoIhk",
-                          "name": "tabVacanciesIcon",
-                          "width": 20,
-                          "height": 20,
-                          "iconFontName": "briefcase",
-                          "iconFontFamily": "lucide",
-                          "fill": "#93A29A"
-                        }
-                      ]
-                    },
-                    {
-                      "type": "frame",
-                      "id": "tkP40",
-                      "name": "Tab / Original CV",
-                      "width": 44,
-                      "height": 44,
-                      "fill": "#2D3B43",
-                      "cornerRadius": 8,
-                      "layout": "vertical",
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "icon_font",
-                          "id": "IvEYA",
-                          "name": "tabCvIcon",
-                          "width": 20,
-                          "height": 20,
-                          "iconFontName": "file-text",
-                          "iconFontFamily": "lucide",
-                          "fill": "#F7F8F6"
-                        }
-                      ]
-                    }
-                  ]
+              "id": "ghrp9",
+              "type": "ref",
+              "ref": "Zt2Mk",
+              "name": "originalCvEmptyRail",
+              "descendants": {
+                "Gtxel": {
+                  "fill": "#2D3B43"
                 },
-                {
-                  "type": "frame",
-                  "id": "y39uz",
-                  "name": "Utility tabs",
-                  "width": "fill_container",
-                  "layout": "vertical",
-                  "gap": 14,
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "frame",
-                      "id": "V1N37",
-                      "name": "Tab / Settings",
-                      "width": 44,
-                      "height": 44,
-                      "fill": "#182126",
-                      "cornerRadius": 8,
-                      "layout": "vertical",
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "icon_font",
-                          "id": "ciaL5",
-                          "name": "tabSettingsIcon",
-                          "width": 20,
-                          "height": 20,
-                          "iconFontName": "settings",
-                          "iconFontFamily": "lucide",
-                          "fill": "#93A29A"
-                        }
-                      ]
-                    }
-                  ]
+                "8IxsS": {
+                  "fill": "#F7F8F6"
+                },
+                "7BIN0": {
+                  "fill": "#F7F8F6"
                 }
-              ]
+              }
             },
             {
               "type": "frame",
@@ -3414,139 +2932,21 @@
           "fill": "$app.canvas",
           "children": [
             {
-              "type": "frame",
-              "id": "Aljvj",
-              "name": "railCv",
-              "width": 64,
-              "height": "fill_container",
-              "fill": "#182126",
-              "layout": "vertical",
-              "padding": [
-                16,
-                10
-              ],
-              "justifyContent": "space_between",
-              "alignItems": "center",
-              "children": [
-                {
-                  "type": "frame",
-                  "id": "EqLKb",
-                  "name": "Primary tabs",
-                  "width": "fill_container",
-                  "layout": "vertical",
-                  "gap": 14,
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "frame",
-                      "id": "Saxzg",
-                      "name": "Tab / AI worker",
-                      "width": 44,
-                      "height": 44,
-                      "fill": "#182126",
-                      "cornerRadius": 8,
-                      "layout": "vertical",
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "icon_font",
-                          "id": "LTPCY",
-                          "name": "tabWorkerIcon",
-                          "width": 20,
-                          "height": 20,
-                          "iconFontName": "sparkles",
-                          "iconFontFamily": "lucide",
-                          "fill": "#93A29A"
-                        }
-                      ]
-                    },
-                    {
-                      "type": "frame",
-                      "id": "db9H9",
-                      "name": "Tab / Job vacancies",
-                      "width": 44,
-                      "height": 44,
-                      "fill": "#182126",
-                      "cornerRadius": 8,
-                      "layout": "vertical",
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "icon_font",
-                          "id": "F7Ica",
-                          "name": "tabVacanciesIcon",
-                          "width": 20,
-                          "height": 20,
-                          "iconFontName": "briefcase",
-                          "iconFontFamily": "lucide",
-                          "fill": "#93A29A"
-                        }
-                      ]
-                    },
-                    {
-                      "type": "frame",
-                      "id": "Dd2hw",
-                      "name": "Tab / Original CV",
-                      "width": 44,
-                      "height": 44,
-                      "fill": "#2D3B43",
-                      "cornerRadius": 8,
-                      "layout": "vertical",
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "icon_font",
-                          "id": "NAJCd",
-                          "name": "tabCvIcon",
-                          "width": 20,
-                          "height": 20,
-                          "iconFontName": "file-text",
-                          "iconFontFamily": "lucide",
-                          "fill": "#F7F8F6"
-                        }
-                      ]
-                    }
-                  ]
+              "id": "nm0Na",
+              "type": "ref",
+              "ref": "Zt2Mk",
+              "name": "originalCvRail",
+              "descendants": {
+                "Gtxel": {
+                  "fill": "#2D3B43"
                 },
-                {
-                  "type": "frame",
-                  "id": "pQA2q",
-                  "name": "Utility tabs",
-                  "width": "fill_container",
-                  "layout": "vertical",
-                  "gap": 14,
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "frame",
-                      "id": "XmLqi",
-                      "name": "Tab / Settings",
-                      "width": 44,
-                      "height": 44,
-                      "fill": "#182126",
-                      "cornerRadius": 8,
-                      "layout": "vertical",
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "icon_font",
-                          "id": "XzB5Y",
-                          "name": "tabSettingsIcon",
-                          "width": 20,
-                          "height": 20,
-                          "iconFontName": "settings",
-                          "iconFontFamily": "lucide",
-                          "fill": "#93A29A"
-                        }
-                      ]
-                    }
-                  ]
+                "8IxsS": {
+                  "fill": "#F7F8F6"
+                },
+                "7BIN0": {
+                  "fill": "#F7F8F6"
                 }
-              ]
+              }
             },
             {
               "type": "frame",
@@ -3993,139 +3393,30 @@
           "fill": "$app.canvas",
           "children": [
             {
-              "type": "frame",
-              "id": "h9hk9",
-              "name": "Activity rail",
-              "width": 64,
-              "height": "fill_container",
-              "fill": "#182126",
-              "layout": "vertical",
-              "padding": [
-                16,
-                10
-              ],
-              "justifyContent": "space_between",
-              "alignItems": "center",
-              "children": [
-                {
-                  "type": "frame",
-                  "id": "itxyC",
-                  "name": "Primary tabs",
-                  "width": "fill_container",
-                  "layout": "vertical",
-                  "gap": 14,
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "frame",
-                      "id": "sO5SF",
-                      "name": "Tab / AI worker",
-                      "width": 44,
-                      "height": 44,
-                      "fill": "#2D3B43",
-                      "cornerRadius": 8,
-                      "layout": "vertical",
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "icon_font",
-                          "id": "d9IAe",
-                          "name": "tabWorkerIcon",
-                          "width": 20,
-                          "height": 20,
-                          "iconFontName": "sparkles",
-                          "iconFontFamily": "lucide",
-                          "fill": "#F7F8F6"
-                        }
-                      ]
-                    },
-                    {
-                      "type": "frame",
-                      "id": "xf1e8",
-                      "name": "Tab / Job vacancies",
-                      "width": 44,
-                      "height": 44,
-                      "fill": "#182126",
-                      "cornerRadius": 8,
-                      "layout": "vertical",
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "icon_font",
-                          "id": "lXQEm",
-                          "name": "tabVacanciesIcon",
-                          "width": 20,
-                          "height": 20,
-                          "iconFontName": "briefcase",
-                          "iconFontFamily": "lucide",
-                          "fill": "#93A29A"
-                        }
-                      ]
-                    },
-                    {
-                      "type": "frame",
-                      "id": "8jzJW",
-                      "name": "Tab / Original CV",
-                      "width": 44,
-                      "height": 44,
-                      "fill": "#182126",
-                      "cornerRadius": 8,
-                      "layout": "vertical",
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "icon_font",
-                          "id": "IWAVx",
-                          "name": "tabCvIcon",
-                          "width": 20,
-                          "height": 20,
-                          "iconFontName": "file-text",
-                          "iconFontFamily": "lucide",
-                          "fill": "#93A29A"
-                        }
-                      ]
-                    }
-                  ]
+              "id": "qYKxZ",
+              "type": "ref",
+              "ref": "Zt2Mk",
+              "name": "setupCheckingRail",
+              "descendants": {
+                "l3nfW": {
+                  "fill": "#2D3B43"
                 },
-                {
-                  "type": "frame",
-                  "id": "pJss6",
-                  "name": "Utility tabs",
-                  "width": "fill_container",
-                  "layout": "vertical",
-                  "gap": 14,
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "frame",
-                      "id": "F6GjU",
-                      "name": "Tab / Settings",
-                      "width": 44,
-                      "height": 44,
-                      "fill": "#182126",
-                      "cornerRadius": 8,
-                      "layout": "vertical",
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "icon_font",
-                          "id": "IMQOc",
-                          "name": "tabSettingsIcon",
-                          "width": 20,
-                          "height": 20,
-                          "iconFontName": "settings",
-                          "iconFontFamily": "lucide",
-                          "fill": "#93A29A"
-                        }
-                      ]
-                    }
-                  ]
+                "9YBbZ": {
+                  "fill": "#F7F8F6"
+                },
+                "pLsgC": {
+                  "fill": "#F7F8F6"
+                },
+                "Hde28": {
+                  "enabled": false
+                },
+                "Gtxel": {
+                  "enabled": false
+                },
+                "hqlp3": {
+                  "enabled": false
                 }
-              ]
+              }
             },
             {
               "type": "frame",
@@ -4676,139 +3967,30 @@
           "fill": "$app.canvas",
           "children": [
             {
-              "type": "frame",
-              "id": "bVN4L",
-              "name": "railSignIn",
-              "width": 64,
-              "height": "fill_container",
-              "fill": "#182126",
-              "layout": "vertical",
-              "padding": [
-                16,
-                10
-              ],
-              "justifyContent": "space_between",
-              "alignItems": "center",
-              "children": [
-                {
-                  "type": "frame",
-                  "id": "8aAMD",
-                  "name": "Primary tabs",
-                  "width": "fill_container",
-                  "layout": "vertical",
-                  "gap": 14,
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "frame",
-                      "id": "vEOrJ",
-                      "name": "Tab / AI worker",
-                      "width": 44,
-                      "height": 44,
-                      "fill": "#2D3B43",
-                      "cornerRadius": 8,
-                      "layout": "vertical",
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "icon_font",
-                          "id": "wrKmz",
-                          "name": "tabWorkerIcon",
-                          "width": 20,
-                          "height": 20,
-                          "iconFontName": "sparkles",
-                          "iconFontFamily": "lucide",
-                          "fill": "#F7F8F6"
-                        }
-                      ]
-                    },
-                    {
-                      "type": "frame",
-                      "id": "mlpu2",
-                      "name": "Tab / Job vacancies",
-                      "width": 44,
-                      "height": 44,
-                      "fill": "#182126",
-                      "cornerRadius": 8,
-                      "layout": "vertical",
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "icon_font",
-                          "id": "vOs83",
-                          "name": "tabVacanciesIcon",
-                          "width": 20,
-                          "height": 20,
-                          "iconFontName": "briefcase",
-                          "iconFontFamily": "lucide",
-                          "fill": "#93A29A"
-                        }
-                      ]
-                    },
-                    {
-                      "type": "frame",
-                      "id": "TVasp",
-                      "name": "Tab / Original CV",
-                      "width": 44,
-                      "height": 44,
-                      "fill": "#182126",
-                      "cornerRadius": 8,
-                      "layout": "vertical",
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "icon_font",
-                          "id": "bX5fE",
-                          "name": "tabCvIcon",
-                          "width": 20,
-                          "height": 20,
-                          "iconFontName": "file-text",
-                          "iconFontFamily": "lucide",
-                          "fill": "#93A29A"
-                        }
-                      ]
-                    }
-                  ]
+              "id": "sz99q",
+              "type": "ref",
+              "ref": "Zt2Mk",
+              "name": "setupSignInRail",
+              "descendants": {
+                "l3nfW": {
+                  "fill": "#2D3B43"
                 },
-                {
-                  "type": "frame",
-                  "id": "diCPN",
-                  "name": "Utility tabs",
-                  "width": "fill_container",
-                  "layout": "vertical",
-                  "gap": 14,
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "frame",
-                      "id": "osqsF",
-                      "name": "Tab / Settings",
-                      "width": 44,
-                      "height": 44,
-                      "fill": "#182126",
-                      "cornerRadius": 8,
-                      "layout": "vertical",
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "icon_font",
-                          "id": "N5hZC",
-                          "name": "tabSettingsIcon",
-                          "width": 20,
-                          "height": 20,
-                          "iconFontName": "settings",
-                          "iconFontFamily": "lucide",
-                          "fill": "#93A29A"
-                        }
-                      ]
-                    }
-                  ]
+                "9YBbZ": {
+                  "fill": "#F7F8F6"
+                },
+                "pLsgC": {
+                  "fill": "#F7F8F6"
+                },
+                "Hde28": {
+                  "enabled": false
+                },
+                "Gtxel": {
+                  "enabled": false
+                },
+                "hqlp3": {
+                  "enabled": false
                 }
-              ]
+              }
             },
             {
               "type": "frame",
@@ -5178,139 +4360,30 @@
           "fill": "$app.canvas",
           "children": [
             {
-              "type": "frame",
-              "id": "CyHpP",
-              "name": "railUnavailable",
-              "width": 64,
-              "height": "fill_container",
-              "fill": "#182126",
-              "layout": "vertical",
-              "padding": [
-                16,
-                10
-              ],
-              "justifyContent": "space_between",
-              "alignItems": "center",
-              "children": [
-                {
-                  "type": "frame",
-                  "id": "xTGtA",
-                  "name": "Primary tabs",
-                  "width": "fill_container",
-                  "layout": "vertical",
-                  "gap": 14,
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "frame",
-                      "id": "U1jmb",
-                      "name": "Tab / AI worker",
-                      "width": 44,
-                      "height": 44,
-                      "fill": "#2D3B43",
-                      "cornerRadius": 8,
-                      "layout": "vertical",
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "icon_font",
-                          "id": "5lNjE",
-                          "name": "tabWorkerIcon",
-                          "width": 20,
-                          "height": 20,
-                          "iconFontName": "sparkles",
-                          "iconFontFamily": "lucide",
-                          "fill": "#F7F8F6"
-                        }
-                      ]
-                    },
-                    {
-                      "type": "frame",
-                      "id": "PBibQ",
-                      "name": "Tab / Job vacancies",
-                      "width": 44,
-                      "height": 44,
-                      "fill": "#182126",
-                      "cornerRadius": 8,
-                      "layout": "vertical",
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "icon_font",
-                          "id": "bYWAD",
-                          "name": "tabVacanciesIcon",
-                          "width": 20,
-                          "height": 20,
-                          "iconFontName": "briefcase",
-                          "iconFontFamily": "lucide",
-                          "fill": "#93A29A"
-                        }
-                      ]
-                    },
-                    {
-                      "type": "frame",
-                      "id": "08GnB",
-                      "name": "Tab / Original CV",
-                      "width": 44,
-                      "height": 44,
-                      "fill": "#182126",
-                      "cornerRadius": 8,
-                      "layout": "vertical",
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "icon_font",
-                          "id": "MuuCB",
-                          "name": "tabCvIcon",
-                          "width": 20,
-                          "height": 20,
-                          "iconFontName": "file-text",
-                          "iconFontFamily": "lucide",
-                          "fill": "#93A29A"
-                        }
-                      ]
-                    }
-                  ]
+              "id": "ZUfo6",
+              "type": "ref",
+              "ref": "Zt2Mk",
+              "name": "setupUnavailableRail",
+              "descendants": {
+                "l3nfW": {
+                  "fill": "#2D3B43"
                 },
-                {
-                  "type": "frame",
-                  "id": "RXqZe",
-                  "name": "Utility tabs",
-                  "width": "fill_container",
-                  "layout": "vertical",
-                  "gap": 14,
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "frame",
-                      "id": "1kNYJ",
-                      "name": "Tab / Settings",
-                      "width": 44,
-                      "height": 44,
-                      "fill": "#182126",
-                      "cornerRadius": 8,
-                      "layout": "vertical",
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "icon_font",
-                          "id": "29awE",
-                          "name": "tabSettingsIcon",
-                          "width": 20,
-                          "height": 20,
-                          "iconFontName": "settings",
-                          "iconFontFamily": "lucide",
-                          "fill": "#93A29A"
-                        }
-                      ]
-                    }
-                  ]
+                "9YBbZ": {
+                  "fill": "#F7F8F6"
+                },
+                "pLsgC": {
+                  "fill": "#F7F8F6"
+                },
+                "Hde28": {
+                  "enabled": false
+                },
+                "Gtxel": {
+                  "enabled": false
+                },
+                "hqlp3": {
+                  "enabled": false
                 }
-              ]
+              }
             },
             {
               "type": "frame",
@@ -5667,115 +4740,24 @@
           "fill": "$app.canvas",
           "children": [
             {
-              "type": "frame",
-              "id": "EhBoE",
-              "name": "railSettings",
-              "width": 64,
-              "height": "fill_container",
-              "fill": "#182126",
-              "layout": "vertical",
-              "padding": [
-                16,
-                10
-              ],
-              "justifyContent": "space_between",
-              "alignItems": "center",
-              "children": [
-                {
-                  "type": "frame",
-                  "id": "twhYu",
-                  "name": "Primary tabs",
-                  "width": "fill_container",
-                  "layout": "vertical",
-                  "gap": 14,
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "frame",
-                      "id": "4gja1",
-                      "name": "Tab / Job vacancies",
-                      "width": 44,
-                      "height": 44,
-                      "fill": "#182126",
-                      "cornerRadius": 8,
-                      "layout": "vertical",
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "icon_font",
-                          "id": "1Uuvj",
-                          "name": "tabVacanciesIcon",
-                          "width": 20,
-                          "height": 20,
-                          "iconFontName": "briefcase",
-                          "iconFontFamily": "lucide",
-                          "fill": "#93A29A"
-                        }
-                      ]
-                    },
-                    {
-                      "type": "frame",
-                      "id": "K9LBP",
-                      "name": "Tab / Original CV",
-                      "width": 44,
-                      "height": 44,
-                      "fill": "#182126",
-                      "cornerRadius": 8,
-                      "layout": "vertical",
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "icon_font",
-                          "id": "o7H3T",
-                          "name": "tabCvIcon",
-                          "width": 20,
-                          "height": 20,
-                          "iconFontName": "file-text",
-                          "iconFontFamily": "lucide",
-                          "fill": "#93A29A"
-                        }
-                      ]
-                    }
-                  ]
+              "id": "xamdb",
+              "type": "ref",
+              "ref": "Zt2Mk",
+              "name": "settingsAmbientRail",
+              "descendants": {
+                "l3nfW": {
+                  "enabled": false
                 },
-                {
-                  "type": "frame",
-                  "id": "uyCyD",
-                  "name": "Utility tabs",
-                  "width": "fill_container",
-                  "layout": "vertical",
-                  "gap": 14,
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "frame",
-                      "id": "D1xXh",
-                      "name": "Tab / Settings",
-                      "width": 44,
-                      "height": 44,
-                      "fill": "#2D3B43",
-                      "cornerRadius": 8,
-                      "layout": "vertical",
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "icon_font",
-                          "id": "Irw3F",
-                          "name": "tabSettingsIcon",
-                          "width": 20,
-                          "height": 20,
-                          "iconFontName": "settings",
-                          "iconFontFamily": "lucide",
-                          "fill": "#F7F8F6"
-                        }
-                      ]
-                    }
-                  ]
+                "hqlp3": {
+                  "fill": "#2D3B43"
+                },
+                "hccjg": {
+                  "fill": "#F7F8F6"
+                },
+                "rUdhy": {
+                  "fill": "#F7F8F6"
                 }
-              ]
+              }
             },
             {
               "type": "frame",
@@ -6149,139 +5131,21 @@
           "fill": "$app.canvas",
           "children": [
             {
-              "type": "frame",
-              "id": "POTi0",
-              "name": "railSettings",
-              "width": 64,
-              "height": "fill_container",
-              "fill": "#182126",
-              "layout": "vertical",
-              "padding": [
-                16,
-                10
-              ],
-              "justifyContent": "space_between",
-              "alignItems": "center",
-              "children": [
-                {
-                  "type": "frame",
-                  "id": "WGzY2",
-                  "name": "Primary tabs",
-                  "width": "fill_container",
-                  "layout": "vertical",
-                  "gap": 14,
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "frame",
-                      "id": "u1VZ2",
-                      "name": "Tab / AI worker",
-                      "width": 44,
-                      "height": 44,
-                      "fill": "#182126",
-                      "cornerRadius": 8,
-                      "layout": "vertical",
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "icon_font",
-                          "id": "MCgyF",
-                          "name": "tabWorkerIcon",
-                          "width": 20,
-                          "height": 20,
-                          "iconFontName": "sparkles",
-                          "iconFontFamily": "lucide",
-                          "fill": "#93A29A"
-                        }
-                      ]
-                    },
-                    {
-                      "type": "frame",
-                      "id": "gXpRw",
-                      "name": "Tab / Job vacancies",
-                      "width": 44,
-                      "height": 44,
-                      "fill": "#182126",
-                      "cornerRadius": 8,
-                      "layout": "vertical",
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "icon_font",
-                          "id": "di7dD",
-                          "name": "tabVacanciesIcon",
-                          "width": 20,
-                          "height": 20,
-                          "iconFontName": "briefcase",
-                          "iconFontFamily": "lucide",
-                          "fill": "#93A29A"
-                        }
-                      ]
-                    },
-                    {
-                      "type": "frame",
-                      "id": "xwzXF",
-                      "name": "Tab / Original CV",
-                      "width": 44,
-                      "height": 44,
-                      "fill": "#182126",
-                      "cornerRadius": 8,
-                      "layout": "vertical",
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "icon_font",
-                          "id": "T14P2",
-                          "name": "tabCvIcon",
-                          "width": 20,
-                          "height": 20,
-                          "iconFontName": "file-text",
-                          "iconFontFamily": "lucide",
-                          "fill": "#93A29A"
-                        }
-                      ]
-                    }
-                  ]
+              "id": "PfOv6",
+              "type": "ref",
+              "ref": "Zt2Mk",
+              "name": "settingsLocalDataRail",
+              "descendants": {
+                "hqlp3": {
+                  "fill": "#2D3B43"
                 },
-                {
-                  "type": "frame",
-                  "id": "y18BA",
-                  "name": "Utility tabs",
-                  "width": "fill_container",
-                  "layout": "vertical",
-                  "gap": 14,
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "frame",
-                      "id": "0j3lm",
-                      "name": "Tab / Settings",
-                      "width": 44,
-                      "height": 44,
-                      "fill": "#2D3B43",
-                      "cornerRadius": 8,
-                      "layout": "vertical",
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "icon_font",
-                          "id": "IQiSy",
-                          "name": "tabSettingsIcon",
-                          "width": 20,
-                          "height": 20,
-                          "iconFontName": "settings",
-                          "iconFontFamily": "lucide",
-                          "fill": "#F7F8F6"
-                        }
-                      ]
-                    }
-                  ]
+                "hccjg": {
+                  "fill": "#F7F8F6"
+                },
+                "rUdhy": {
+                  "fill": "#F7F8F6"
                 }
-              ]
+              }
             },
             {
               "type": "frame",
@@ -6663,139 +5527,21 @@
           "fill": "$app.canvas",
           "children": [
             {
-              "type": "frame",
-              "id": "hH87l",
-              "name": "railLoading",
-              "width": 64,
-              "height": "fill_container",
-              "fill": "#182126",
-              "layout": "vertical",
-              "padding": [
-                16,
-                10
-              ],
-              "justifyContent": "space_between",
-              "alignItems": "center",
-              "children": [
-                {
-                  "type": "frame",
-                  "id": "SZb3W",
-                  "name": "Primary tabs",
-                  "width": "fill_container",
-                  "layout": "vertical",
-                  "gap": 14,
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "frame",
-                      "id": "2emTT",
-                      "name": "Tab / AI worker",
-                      "width": 44,
-                      "height": 44,
-                      "fill": "#182126",
-                      "cornerRadius": 8,
-                      "layout": "vertical",
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "icon_font",
-                          "id": "5FpBf",
-                          "name": "tabWorkerIcon",
-                          "width": 20,
-                          "height": 20,
-                          "iconFontName": "sparkles",
-                          "iconFontFamily": "lucide",
-                          "fill": "#93A29A"
-                        }
-                      ]
-                    },
-                    {
-                      "type": "frame",
-                      "id": "U6kLY",
-                      "name": "Tab / Job vacancies",
-                      "width": 44,
-                      "height": 44,
-                      "fill": "#2D3B43",
-                      "cornerRadius": 8,
-                      "layout": "vertical",
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "icon_font",
-                          "id": "2FZtO",
-                          "name": "tabVacanciesIcon",
-                          "width": 20,
-                          "height": 20,
-                          "iconFontName": "briefcase",
-                          "iconFontFamily": "lucide",
-                          "fill": "#F7F8F6"
-                        }
-                      ]
-                    },
-                    {
-                      "type": "frame",
-                      "id": "3QOS2",
-                      "name": "Tab / Original CV",
-                      "width": 44,
-                      "height": 44,
-                      "fill": "#182126",
-                      "cornerRadius": 8,
-                      "layout": "vertical",
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "icon_font",
-                          "id": "NKPGo",
-                          "name": "tabCvIcon",
-                          "width": 20,
-                          "height": 20,
-                          "iconFontName": "file-text",
-                          "iconFontFamily": "lucide",
-                          "fill": "#93A29A"
-                        }
-                      ]
-                    }
-                  ]
+              "id": "355Zf",
+              "type": "ref",
+              "ref": "Zt2Mk",
+              "name": "cancellableBlockingRail",
+              "descendants": {
+                "Hde28": {
+                  "fill": "#2D3B43"
                 },
-                {
-                  "type": "frame",
-                  "id": "5VdHZ",
-                  "name": "Utility tabs",
-                  "width": "fill_container",
-                  "layout": "vertical",
-                  "gap": 14,
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "frame",
-                      "id": "KeqyY",
-                      "name": "Tab / Settings",
-                      "width": 44,
-                      "height": 44,
-                      "fill": "#182126",
-                      "cornerRadius": 8,
-                      "layout": "vertical",
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "icon_font",
-                          "id": "TO7k7",
-                          "name": "tabSettingsIcon",
-                          "width": 20,
-                          "height": 20,
-                          "iconFontName": "settings",
-                          "iconFontFamily": "lucide",
-                          "fill": "#93A29A"
-                        }
-                      ]
-                    }
-                  ]
+                "PN9Kh": {
+                  "fill": "#F7F8F6"
+                },
+                "F5iKt": {
+                  "fill": "#F7F8F6"
                 }
-              ]
+              }
             },
             {
               "type": "frame",
@@ -7395,10 +6141,10 @@
               "type": "frame",
               "id": "u86xF",
               "layoutPosition": "absolute",
-              "x": 64,
+              "x": 80,
               "y": 0,
               "name": "Workspace blocking overlay",
-              "width": 1448,
+              "width": 1432,
               "height": 930,
               "fill": "#DEE6E1E8",
               "layout": "vertical",
@@ -7623,139 +6369,21 @@
           "fill": "$app.canvas",
           "children": [
             {
-              "type": "frame",
-              "id": "nFh6X",
-              "name": "railActive",
-              "width": 64,
-              "height": "fill_container",
-              "fill": "#182126",
-              "layout": "vertical",
-              "padding": [
-                16,
-                10
-              ],
-              "justifyContent": "space_between",
-              "alignItems": "center",
-              "children": [
-                {
-                  "type": "frame",
-                  "id": "FHDv2",
-                  "name": "Primary tabs",
-                  "width": "fill_container",
-                  "layout": "vertical",
-                  "gap": 14,
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "frame",
-                      "id": "HFYDj",
-                      "name": "Tab / AI worker",
-                      "width": 44,
-                      "height": 44,
-                      "fill": "#182126",
-                      "cornerRadius": 8,
-                      "layout": "vertical",
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "icon_font",
-                          "id": "yZTk1",
-                          "name": "tabWorkerIcon",
-                          "width": 20,
-                          "height": 20,
-                          "iconFontName": "sparkles",
-                          "iconFontFamily": "lucide",
-                          "fill": "#93A29A"
-                        }
-                      ]
-                    },
-                    {
-                      "type": "frame",
-                      "id": "0CLs9",
-                      "name": "Tab / Job vacancies",
-                      "width": 44,
-                      "height": 44,
-                      "fill": "#2D3B43",
-                      "cornerRadius": 8,
-                      "layout": "vertical",
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "icon_font",
-                          "id": "n8VYZ",
-                          "name": "tabVacanciesIcon",
-                          "width": 20,
-                          "height": 20,
-                          "iconFontName": "briefcase",
-                          "iconFontFamily": "lucide",
-                          "fill": "#F7F8F6"
-                        }
-                      ]
-                    },
-                    {
-                      "type": "frame",
-                      "id": "I6e1F",
-                      "name": "Tab / Original CV",
-                      "width": 44,
-                      "height": 44,
-                      "fill": "#182126",
-                      "cornerRadius": 8,
-                      "layout": "vertical",
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "icon_font",
-                          "id": "yjMWV",
-                          "name": "tabCvIcon",
-                          "width": 20,
-                          "height": 20,
-                          "iconFontName": "file-text",
-                          "iconFontFamily": "lucide",
-                          "fill": "#93A29A"
-                        }
-                      ]
-                    }
-                  ]
+              "id": "RCuLq",
+              "type": "ref",
+              "ref": "Zt2Mk",
+              "name": "editableDraftRail",
+              "descendants": {
+                "Hde28": {
+                  "fill": "#2D3B43"
                 },
-                {
-                  "type": "frame",
-                  "id": "WvIyB",
-                  "name": "Utility tabs",
-                  "width": "fill_container",
-                  "layout": "vertical",
-                  "gap": 14,
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "frame",
-                      "id": "ABTZH",
-                      "name": "Tab / Settings",
-                      "width": 44,
-                      "height": 44,
-                      "fill": "#182126",
-                      "cornerRadius": 8,
-                      "layout": "vertical",
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "icon_font",
-                          "id": "Bc5YQ",
-                          "name": "tabSettingsIcon",
-                          "width": 20,
-                          "height": 20,
-                          "iconFontName": "settings",
-                          "iconFontFamily": "lucide",
-                          "fill": "#93A29A"
-                        }
-                      ]
-                    }
-                  ]
+                "PN9Kh": {
+                  "fill": "#F7F8F6"
+                },
+                "F5iKt": {
+                  "fill": "#F7F8F6"
                 }
-              ]
+              }
             },
             {
               "type": "frame",
@@ -8578,139 +7206,21 @@
           "fill": "$app.canvas",
           "children": [
             {
-              "type": "frame",
-              "id": "CYxdo",
-              "name": "railActive",
-              "width": 64,
-              "height": "fill_container",
-              "fill": "#182126",
-              "layout": "vertical",
-              "padding": [
-                16,
-                10
-              ],
-              "justifyContent": "space_between",
-              "alignItems": "center",
-              "children": [
-                {
-                  "type": "frame",
-                  "id": "mN9Z3",
-                  "name": "Primary tabs",
-                  "width": "fill_container",
-                  "layout": "vertical",
-                  "gap": 14,
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "frame",
-                      "id": "2vEp8",
-                      "name": "Tab / AI worker",
-                      "width": 44,
-                      "height": 44,
-                      "fill": "#182126",
-                      "cornerRadius": 8,
-                      "layout": "vertical",
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "icon_font",
-                          "id": "HCzhT",
-                          "name": "tabWorkerIcon",
-                          "width": 20,
-                          "height": 20,
-                          "iconFontName": "sparkles",
-                          "iconFontFamily": "lucide",
-                          "fill": "#93A29A"
-                        }
-                      ]
-                    },
-                    {
-                      "type": "frame",
-                      "id": "i5SxW",
-                      "name": "Tab / Job vacancies",
-                      "width": 44,
-                      "height": 44,
-                      "fill": "#2D3B43",
-                      "cornerRadius": 8,
-                      "layout": "vertical",
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "icon_font",
-                          "id": "K9YUU",
-                          "name": "tabVacanciesIcon",
-                          "width": 20,
-                          "height": 20,
-                          "iconFontName": "briefcase",
-                          "iconFontFamily": "lucide",
-                          "fill": "#F7F8F6"
-                        }
-                      ]
-                    },
-                    {
-                      "type": "frame",
-                      "id": "1fwSs",
-                      "name": "Tab / Original CV",
-                      "width": 44,
-                      "height": 44,
-                      "fill": "#182126",
-                      "cornerRadius": 8,
-                      "layout": "vertical",
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "icon_font",
-                          "id": "gGhPo",
-                          "name": "tabCvIcon",
-                          "width": 20,
-                          "height": 20,
-                          "iconFontName": "file-text",
-                          "iconFontFamily": "lucide",
-                          "fill": "#93A29A"
-                        }
-                      ]
-                    }
-                  ]
+              "id": "mxuTO",
+              "type": "ref",
+              "ref": "Zt2Mk",
+              "name": "reviewedDraftRail",
+              "descendants": {
+                "Hde28": {
+                  "fill": "#2D3B43"
                 },
-                {
-                  "type": "frame",
-                  "id": "KqjoR",
-                  "name": "Utility tabs",
-                  "width": "fill_container",
-                  "layout": "vertical",
-                  "gap": 14,
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "frame",
-                      "id": "XTzHq",
-                      "name": "Tab / Settings",
-                      "width": 44,
-                      "height": 44,
-                      "fill": "#182126",
-                      "cornerRadius": 8,
-                      "layout": "vertical",
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "icon_font",
-                          "id": "afQpl",
-                          "name": "tabSettingsIcon",
-                          "width": 20,
-                          "height": 20,
-                          "iconFontName": "settings",
-                          "iconFontFamily": "lucide",
-                          "fill": "#93A29A"
-                        }
-                      ]
-                    }
-                  ]
+                "PN9Kh": {
+                  "fill": "#F7F8F6"
+                },
+                "F5iKt": {
+                  "fill": "#F7F8F6"
                 }
-              ]
+              }
             },
             {
               "type": "frame",
@@ -9522,139 +8032,21 @@
           "fill": "$app.canvas",
           "children": [
             {
-              "type": "frame",
-              "id": "kgR9i",
-              "name": "railLoading",
-              "width": 64,
-              "height": "fill_container",
-              "fill": "#182126",
-              "layout": "vertical",
-              "padding": [
-                16,
-                10
-              ],
-              "justifyContent": "space_between",
-              "alignItems": "center",
-              "children": [
-                {
-                  "type": "frame",
-                  "id": "X81Pa",
-                  "name": "Primary tabs",
-                  "width": "fill_container",
-                  "layout": "vertical",
-                  "gap": 14,
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "frame",
-                      "id": "YVrSp",
-                      "name": "Tab / AI worker",
-                      "width": 44,
-                      "height": 44,
-                      "fill": "#182126",
-                      "cornerRadius": 8,
-                      "layout": "vertical",
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "icon_font",
-                          "id": "bHgdr",
-                          "name": "tabWorkerIcon",
-                          "width": 20,
-                          "height": 20,
-                          "iconFontName": "sparkles",
-                          "iconFontFamily": "lucide",
-                          "fill": "#93A29A"
-                        }
-                      ]
-                    },
-                    {
-                      "type": "frame",
-                      "id": "fVOiS",
-                      "name": "Tab / Job vacancies",
-                      "width": 44,
-                      "height": 44,
-                      "fill": "#2D3B43",
-                      "cornerRadius": 8,
-                      "layout": "vertical",
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "icon_font",
-                          "id": "Uy1yd",
-                          "name": "tabVacanciesIcon",
-                          "width": 20,
-                          "height": 20,
-                          "iconFontName": "briefcase",
-                          "iconFontFamily": "lucide",
-                          "fill": "#F7F8F6"
-                        }
-                      ]
-                    },
-                    {
-                      "type": "frame",
-                      "id": "ho5zd",
-                      "name": "Tab / Original CV",
-                      "width": 44,
-                      "height": 44,
-                      "fill": "#182126",
-                      "cornerRadius": 8,
-                      "layout": "vertical",
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "icon_font",
-                          "id": "cqwym",
-                          "name": "tabCvIcon",
-                          "width": 20,
-                          "height": 20,
-                          "iconFontName": "file-text",
-                          "iconFontFamily": "lucide",
-                          "fill": "#93A29A"
-                        }
-                      ]
-                    }
-                  ]
+              "id": "OZMVq",
+              "type": "ref",
+              "ref": "Zt2Mk",
+              "name": "discardRail",
+              "descendants": {
+                "Hde28": {
+                  "fill": "#2D3B43"
                 },
-                {
-                  "type": "frame",
-                  "id": "zIObJ",
-                  "name": "Utility tabs",
-                  "width": "fill_container",
-                  "layout": "vertical",
-                  "gap": 14,
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "frame",
-                      "id": "3RAfp",
-                      "name": "Tab / Settings",
-                      "width": 44,
-                      "height": 44,
-                      "fill": "#182126",
-                      "cornerRadius": 8,
-                      "layout": "vertical",
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "icon_font",
-                          "id": "1yRvP",
-                          "name": "tabSettingsIcon",
-                          "width": 20,
-                          "height": 20,
-                          "iconFontName": "settings",
-                          "iconFontFamily": "lucide",
-                          "fill": "#93A29A"
-                        }
-                      ]
-                    }
-                  ]
+                "PN9Kh": {
+                  "fill": "#F7F8F6"
+                },
+                "F5iKt": {
+                  "fill": "#F7F8F6"
                 }
-              ]
+              }
             },
             {
               "type": "frame",
@@ -10325,10 +8717,10 @@
               "type": "frame",
               "id": "hJZmY",
               "layoutPosition": "absolute",
-              "x": 64,
+              "x": 80,
               "y": 0,
               "name": "Draft discard overlay",
-              "width": 1448,
+              "width": 1432,
               "height": 930,
               "fill": "#1E242861",
               "layout": "vertical",
@@ -10612,139 +9004,21 @@
           "fill": "$app.canvas",
           "children": [
             {
-              "type": "frame",
-              "id": "J8WhE",
-              "name": "railCv",
-              "width": 64,
-              "height": "fill_container",
-              "fill": "#182126",
-              "layout": "vertical",
-              "padding": [
-                16,
-                10
-              ],
-              "justifyContent": "space_between",
-              "alignItems": "center",
-              "children": [
-                {
-                  "type": "frame",
-                  "id": "YDttE",
-                  "name": "Primary tabs",
-                  "width": "fill_container",
-                  "layout": "vertical",
-                  "gap": 14,
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "frame",
-                      "id": "F9oWW",
-                      "name": "Tab / AI worker",
-                      "width": 44,
-                      "height": 44,
-                      "fill": "#182126",
-                      "cornerRadius": 8,
-                      "layout": "vertical",
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "icon_font",
-                          "id": "EOXwt",
-                          "name": "tabWorkerIcon",
-                          "width": 20,
-                          "height": 20,
-                          "iconFontName": "sparkles",
-                          "iconFontFamily": "lucide",
-                          "fill": "#93A29A"
-                        }
-                      ]
-                    },
-                    {
-                      "type": "frame",
-                      "id": "TrsNd",
-                      "name": "Tab / Job vacancies",
-                      "width": 44,
-                      "height": 44,
-                      "fill": "#182126",
-                      "cornerRadius": 8,
-                      "layout": "vertical",
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "icon_font",
-                          "id": "pYrTM",
-                          "name": "tabVacanciesIcon",
-                          "width": 20,
-                          "height": 20,
-                          "iconFontName": "briefcase",
-                          "iconFontFamily": "lucide",
-                          "fill": "#93A29A"
-                        }
-                      ]
-                    },
-                    {
-                      "type": "frame",
-                      "id": "XGUNE",
-                      "name": "Tab / Original CV",
-                      "width": 44,
-                      "height": 44,
-                      "fill": "#2D3B43",
-                      "cornerRadius": 8,
-                      "layout": "vertical",
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "icon_font",
-                          "id": "lnfg3",
-                          "name": "tabCvIcon",
-                          "width": 20,
-                          "height": 20,
-                          "iconFontName": "file-text",
-                          "iconFontFamily": "lucide",
-                          "fill": "#F7F8F6"
-                        }
-                      ]
-                    }
-                  ]
+              "id": "thCrt",
+              "type": "ref",
+              "ref": "Zt2Mk",
+              "name": "replaceCvRail",
+              "descendants": {
+                "Gtxel": {
+                  "fill": "#2D3B43"
                 },
-                {
-                  "type": "frame",
-                  "id": "tbZ1H",
-                  "name": "Utility tabs",
-                  "width": "fill_container",
-                  "layout": "vertical",
-                  "gap": 14,
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "frame",
-                      "id": "wNvGE",
-                      "name": "Tab / Settings",
-                      "width": 44,
-                      "height": 44,
-                      "fill": "#182126",
-                      "cornerRadius": 8,
-                      "layout": "vertical",
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "icon_font",
-                          "id": "jyPOL",
-                          "name": "tabSettingsIcon",
-                          "width": 20,
-                          "height": 20,
-                          "iconFontName": "settings",
-                          "iconFontFamily": "lucide",
-                          "fill": "#93A29A"
-                        }
-                      ]
-                    }
-                  ]
+                "8IxsS": {
+                  "fill": "#F7F8F6"
+                },
+                "7BIN0": {
+                  "fill": "#F7F8F6"
                 }
-              ]
+              }
             },
             {
               "type": "frame",
@@ -10981,6 +9255,211 @@
                       "fontFamily": "Manrope",
                       "fontSize": 13,
                       "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "6vvGa",
+      "x": 26068,
+      "y": 0,
+      "name": "Component shelf / Shell rail",
+      "width": 220,
+      "layout": "vertical",
+      "gap": 24,
+      "padding": 24,
+      "children": [
+        {
+          "type": "frame",
+          "id": "Zt2Mk",
+          "name": "Component / Shell rail",
+          "reusable": true,
+          "width": 80,
+          "height": 930,
+          "fill": "#182126",
+          "layout": "vertical",
+          "padding": [
+            16,
+            10
+          ],
+          "justifyContent": "space_between",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "hWfY0",
+              "name": "Primary tabs",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 12,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "l3nfW",
+                  "name": "Tab / AI",
+                  "width": 60,
+                  "height": 60,
+                  "cornerRadius": 10,
+                  "layout": "vertical",
+                  "gap": 6,
+                  "padding": [
+                    8,
+                    6
+                  ],
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon_font",
+                      "id": "9YBbZ",
+                      "name": "tabWorkerIcon",
+                      "width": 20,
+                      "height": 20,
+                      "iconFontName": "sparkles",
+                      "iconFontFamily": "lucide",
+                      "fill": "#93A29A"
+                    },
+                    {
+                      "type": "text",
+                      "id": "pLsgC",
+                      "name": "tabWorkerLabel",
+                      "fill": "#93A29A",
+                      "content": "AI",
+                      "fontFamily": "Inter",
+                      "fontSize": 10,
+                      "fontWeight": "700"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "Hde28",
+                  "name": "Tab / Jobs",
+                  "width": 60,
+                  "height": 60,
+                  "cornerRadius": 10,
+                  "layout": "vertical",
+                  "gap": 6,
+                  "padding": [
+                    8,
+                    6
+                  ],
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon_font",
+                      "id": "PN9Kh",
+                      "name": "tabVacanciesIcon",
+                      "width": 20,
+                      "height": 20,
+                      "iconFontName": "briefcase",
+                      "iconFontFamily": "lucide",
+                      "fill": "#93A29A"
+                    },
+                    {
+                      "type": "text",
+                      "id": "F5iKt",
+                      "name": "tabVacanciesLabel",
+                      "fill": "#93A29A",
+                      "content": "Jobs",
+                      "fontFamily": "Inter",
+                      "fontSize": 10,
+                      "fontWeight": "700"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "Gtxel",
+                  "name": "Tab / Original CV",
+                  "width": 60,
+                  "height": 60,
+                  "cornerRadius": 10,
+                  "layout": "vertical",
+                  "gap": 6,
+                  "padding": [
+                    8,
+                    6
+                  ],
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon_font",
+                      "id": "8IxsS",
+                      "name": "tabCvIcon",
+                      "width": 20,
+                      "height": 20,
+                      "iconFontName": "file-text",
+                      "iconFontFamily": "lucide",
+                      "fill": "#93A29A"
+                    },
+                    {
+                      "type": "text",
+                      "id": "7BIN0",
+                      "name": "tabCvLabel",
+                      "fill": "#93A29A",
+                      "content": "Your CV",
+                      "fontFamily": "Inter",
+                      "fontSize": 10,
+                      "fontWeight": "700"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "kxlX0",
+              "name": "Utility tabs",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 12,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "hqlp3",
+                  "name": "Tab / Settings",
+                  "width": 60,
+                  "height": 60,
+                  "cornerRadius": 10,
+                  "layout": "vertical",
+                  "gap": 6,
+                  "padding": [
+                    8,
+                    6
+                  ],
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon_font",
+                      "id": "hccjg",
+                      "name": "tabSettingsIcon",
+                      "width": 20,
+                      "height": 20,
+                      "iconFontName": "settings",
+                      "iconFontFamily": "lucide",
+                      "fill": "#93A29A"
+                    },
+                    {
+                      "type": "text",
+                      "id": "rUdhy",
+                      "name": "tabSettingsLabel",
+                      "fill": "#93A29A",
+                      "content": "Settings",
+                      "fontFamily": "Inter",
+                      "fontSize": 10,
+                      "fontWeight": "700"
                     }
                   ]
                 }

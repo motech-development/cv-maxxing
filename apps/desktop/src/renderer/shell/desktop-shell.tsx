@@ -48,15 +48,15 @@ function RailIcon({ icon, isActive }: Pick<RailButtonProperties, 'icon' | 'isAct
 }
 
 function RailButton({ icon, isActive, label, onSelect }: RailButtonProperties) {
+  const stateClasses = isActive
+    ? 'bg-[var(--color-rail-active)] text-[var(--color-surface-0)]'
+    : 'bg-transparent text-[var(--color-copy-subtle)]'
+
   return (
     <button
       aria-label={label}
       aria-current={isActive ? 'page' : undefined}
-      className={`flex h-11 w-11 items-center justify-center rounded-[8px] border border-transparent text-[11px] font-bold ${
-        isActive
-          ? 'bg-[var(--color-rail-active)] text-[var(--color-surface-0)]'
-          : 'bg-[var(--color-rail-idle)] text-[var(--color-copy-subtle)]'
-      }`}
+      className={`flex h-[60px] w-[60px] flex-col items-center justify-center gap-1.5 rounded-[10px] px-1.5 text-[10px] font-bold leading-none ${stateClasses}`}
       onClick={() => {
         onSelect?.(icon)
       }}
@@ -64,6 +64,7 @@ function RailButton({ icon, isActive, label, onSelect }: RailButtonProperties) {
       type="button"
     >
       <RailIcon icon={icon} isActive={isActive} />
+      <span>{label}</span>
     </button>
   )
 }
@@ -123,7 +124,7 @@ export function DesktopShell({
   return (
     <main className="h-screen overflow-hidden bg-[var(--color-shell-topbar)] text-[var(--color-copy-strong)]">
       <section className="relative flex h-screen w-full flex-col overflow-hidden bg-[var(--color-shell-canvas)]">
-        <header className="flex h-[52px] items-center gap-[14px] bg-[var(--color-shell-topbar)] pl-[84px] pr-[18px] [-webkit-app-region:drag]">
+        <header className="flex h-[52px] items-center gap-[14px] bg-[var(--color-shell-topbar)] pl-[100px] pr-[18px] [-webkit-app-region:drag]">
           <div className="min-w-0 flex-1">
             <p className="m-0 text-sm font-bold text-[var(--color-surface-3)]">CV Maxxing</p>
             {subtitle ? (
@@ -145,9 +146,9 @@ export function DesktopShell({
         <div className="flex min-h-0 flex-1 bg-[var(--color-shell-canvas)]">
           <nav
             aria-label="Primary"
-            className="flex w-16 flex-col items-center justify-between bg-[var(--color-shell-rail)] px-[10px] py-4"
+            className="flex w-20 flex-col items-center justify-between bg-[var(--color-shell-rail)] px-[10px] py-4"
           >
-            <div className="flex flex-col items-center gap-[14px]">
+            <div className="flex flex-col items-center gap-3">
               {leadingRailItems.map((item) => {
                 return (
                   <RailButton
@@ -160,7 +161,7 @@ export function DesktopShell({
                 )
               })}
             </div>
-            <div className="flex flex-col items-center gap-[14px]">
+            <div className="flex flex-col items-center gap-3">
               {trailingRailItems.map((item) => {
                 return (
                   <RailButton
