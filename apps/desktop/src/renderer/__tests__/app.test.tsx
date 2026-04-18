@@ -3386,6 +3386,152 @@ test('opens the tailored application when generation completes from the workspac
   })
 })
 
+test('shows a PDF save error when exporting the tailored CV fails', async () => {
+  const getStartupDestination = vi.fn().mockResolvedValue('workspace')
+  const completedWorkspaceState = createTailoredApplicationWorkspaceStateFixture({
+    activeApplicationId: 'tailored-application-123',
+    applications: [
+      {
+        createdAt: '2026-04-09T09:30:00.000Z',
+        employer: 'Example Labs',
+        id: 'tailored-application-123',
+        pageCount: 4,
+        pageWarning: 'This adapted CV runs to 4 pages. Export is still available.',
+        title: 'Senior platform engineer',
+        vacancyTitle: 'Senior platform engineer',
+      },
+    ],
+  })
+  const exportAdaptedCvPdf = vi
+    .fn()
+    .mockRejectedValue(new Error('The destination folder is missing.'))
+
+  renderApp({
+    aiWorker: createAiWorkerApi({
+      getAiWorkerPreflight: vi.fn().mockResolvedValue({
+        canResumeGeneration: false,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+      getStartupDestination,
+    }),
+    originalCv: createOriginalCvApi({
+      getOriginalCvWorkspaceState: vi.fn().mockResolvedValue({
+        activeOriginalCv: {
+          fileType: 'pdf',
+          headline: 'Principal Product Designer',
+          id: 'original-cv-123',
+          importedAt: '2026-04-08T14:30:00.000Z',
+          originalFilename: 'ada-lovelace.pdf',
+          pageCount: 1,
+          snapshotCount: 1,
+          summary: 'Design leader focused on complex workflow products.',
+          writingStyle: {
+            averageSentenceLength: 7,
+            clicheDetections: [],
+            firstPersonUsage: 'absent',
+            formality: 'direct',
+          },
+        },
+        snapshotCount: 1,
+      }),
+    }),
+    tailoredApplication: createTailoredApplicationApi({
+      exportAdaptedCvPdf,
+      exportCoverLetterPdf: vi.fn(),
+      getPendingGenerationCommand: vi.fn().mockResolvedValue(null),
+      getTailoredApplicationPreview: vi.fn().mockResolvedValue({
+        adaptedCv: {
+          pageCount: 4,
+          pageWarning: 'This adapted CV runs to 4 pages. Export is still available.',
+          pdfBytes: new Uint8Array([37, 80, 68, 70]),
+        },
+        adaptationSummary: {
+          emphasized: [
+            {
+              text: 'Emphasises desktop workflow leadership for the job vacancy.',
+            },
+          ],
+          gaps: ['Add stronger quantified delivery evidence from the original CV.'],
+          omitted: [
+            {
+              text: 'Compresses broader communication language so the adapted CV stays vacancy-specific.',
+            },
+          ],
+          validationHints: ['Validate performance claims against the original CV snapshot.'],
+        },
+        coverLetter: {
+          pageCount: 2,
+          pageWarning: 'This cover letter runs to 2 pages. Export and copy remain available.',
+          pdfBytes: new Uint8Array([37, 80, 68, 70, 45, 67, 76]),
+          plainText: 'Dear Hiring Manager,\n\nAda Lovelace',
+        },
+        createdAt: '2026-04-09T09:30:00.000Z',
+        employer: 'Example Labs',
+        id: 'tailored-application-123',
+        originalCv: {
+          fileType: 'pdf',
+          headline: 'Principal Product Designer',
+          id: 'original-cv-123',
+          importedAt: '2026-04-08T14:30:00.000Z',
+          originalFilename: 'ada-lovelace.pdf',
+          pageCount: 1,
+          snapshotCount: 1,
+          summary: 'Design leader focused on complex workflow products.',
+          writingStyle: {
+            averageSentenceLength: 7,
+            clicheDetections: [],
+            firstPersonUsage: 'absent',
+            formality: 'direct',
+          },
+        },
+        title: 'Senior platform engineer',
+        vacancy: {
+          blockingReason: null,
+          canGenerate: true,
+          employer: 'Example Labs',
+          fetchedAt: '2026-04-09T08:30:00.000Z',
+          id: 'vacancy-123',
+          inputType: 'url',
+          location: 'London, United Kingdom',
+          originalUrl: 'https://jobs.example.com/roles/123',
+          requirements: ['Experience shipping workflow software.'],
+          resolvedUrl: 'https://jobs.example.com/roles/123',
+          responsibilities: ['Lead product design for authenticated desktop workflows.'],
+          source: 'generic',
+          status: 'ready',
+          textPreview: 'Lead product design for authenticated desktop workflows.',
+          title: 'Senior platform engineer',
+        },
+        vacancyTitle: 'Senior platform engineer',
+      }),
+      getWorkspaceState: vi.fn().mockResolvedValue(completedWorkspaceState),
+      resumePendingGeneration: vi.fn().mockResolvedValue(null),
+    }),
+  })
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Senior platform engineer' })).toBeDefined()
+  })
+
+  await waitFor(() => {
+    expect(screen.getByText('Page 1 of 4')).toBeDefined()
+  })
+
+  fireEvent.click(screen.getByRole('button', { name: 'Save CV and cover letter' }))
+
+  await waitFor(() => {
+    expect(exportAdaptedCvPdf).toHaveBeenCalledWith('tailored-application-123')
+  })
+
+  expect(
+    screen.getByText(
+      "We couldn't save the PDF. Check that the destination folder is available on this Mac, then try again.",
+    ),
+  ).toBeDefined()
+})
+
 test('replaces the current draft row with the new saved tailored application row without sidebar churn', async () => {
   const getStartupDestination = vi
     .fn()

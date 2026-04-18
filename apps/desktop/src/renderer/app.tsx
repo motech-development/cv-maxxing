@@ -88,6 +88,8 @@ const initialVacancyWorkspaceState = {
 
 const readinessErrorMessage = "We couldn't check AI."
 const readinessErrorAction = 'Restart the app or get help with AI setup on this Mac.'
+const exportPdfErrorMessage =
+  "We couldn't save the PDF. Check that the destination folder is available on this Mac, then try again."
 const originalCvFileTypeErrorMessage = 'Choose a PDF or DOCX file.'
 
 function isSupportedOriginalCvFile(file: File): boolean {
@@ -1021,7 +1023,7 @@ export function App() {
     try {
       await exportPdfMutation.mutateAsync(previewDocumentKind)
     } catch {
-      setReadinessError(`${readinessErrorMessage} ${readinessErrorAction}`)
+      setReadinessError(exportPdfErrorMessage)
     }
   }
 
