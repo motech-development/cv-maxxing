@@ -48,16 +48,19 @@ These rules always apply. Follow project-local rules first when they are more sp
 - The product is Electron-first and local desktop-first; do not introduce a required web backend unless a later task proves it necessary.
 - V1 targets both macOS Intel and Apple Silicon.
 - Use a provider-neutral local AI worker architecture for generation workflows; v1 ships a bring-your-own Codex CLI adapter only.
-- Treat local AI worker setup as a required startup readiness gate before the user can enter the workspace, import the first CV, or create vacancy drafts.
-- Use provider-neutral product language such as `AI worker` except in provider-specific Codex setup details.
+- Treat local AI worker setup as a required startup readiness gate before the user can enter the jobs experience, import the first CV, or create job drafts.
+- In user-facing setup, repair, and settings flows, call the capability `AI`. Do not expose `AI worker`, `worker`, `runtime`, `probe`, or similar backend terms in normal product copy unless the task explicitly requires technical troubleshooting detail.
 - Keep Codex CLI output schemas within the Codex-supported JSON Schema subset; avoid composition keywords such as `oneOf` and `allOf`, and enforce stricter tailored-application invariants in prompt text and runtime validation instead.
 - Support one dynamic CV template family in v1; the renderer must handle single-page and multi-page CVs with continued headers after page 1.
-- User-facing product language should describe adapting CVs for job vacancies; use terms like `original CV`, `adapted CV`, `job vacancy`, and `tailored application` instead of abstract terms like `source CV`, `version`, or `package`.
+- Keep user-facing product language calm, polished, helpful, and short by default. Prefer outcome-led copy over system-led copy, and reserve longer explanations for setup, troubleshooting, destructive actions, and key reassurance moments.
+- Organize normal user-facing copy around `Jobs`, `Your CV`, `CV`, and `Cover letter`. Prefer `job link` over `URL`, `job description` over `vacancy text`, and `tailor` over `adapt` in visible UI copy.
+- In normal user-facing UI, avoid internal domain and implementation terms such as `workspace`, `original CV`, `adapted CV`, `tailored application`, `job vacancy`, `snapshot`, `generated`, `normalized`, `worker`, and `URL` unless the screen is explicitly technical or diagnostic.
+- Keep provider-specific names such as `Codex` out of primary product copy. Mention them only in secondary setup or troubleshooting detail when materially helpful.
 - Generated CVs and cover letters are immutable outputs in v1; do not add a regeneration action or tailored-application comparison workflow.
 - Cover letters must be previewable in-app as generated PDFs, exportable as PDFs, and copyable as plain text from inside the app in v1.
 - Exports are PDF-only; do not add DOCX or other editable export formats.
 - Encrypt sensitive local app data at rest using a Keychain-backed key, SQLCipher-backed metadata storage, and encrypted artifact storage.
-- V1 has one active original CV in the UI. Replacing it creates a new original CV snapshot; existing tailored applications keep references to the snapshot used at generation time.
+- V1 still has one active original CV in the underlying product model. In user-facing copy, present it as `Your CV`, and explain replacement behaviour in plain language such as that replacing it does not change jobs already created, rather than exposing snapshot terminology.
 - Use browser-assisted vacancy ingestion for authenticated LinkedIn/Indeed pages, with pasted job text as the fallback. Do not add saved page/file vacancy import in v1.
 - Do not add telemetry, analytics, crash reporting, remote config, runtime font CDN calls, v1 automatic update checks, or bulk app-data backup/export.
 - Do not use MUI or Redux. Prefer Tailwind with CSS-variable tokens, Radix primitives where useful, and TanStack Query for IPC-backed async renderer state.
