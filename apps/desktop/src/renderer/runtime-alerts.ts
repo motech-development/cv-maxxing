@@ -16,6 +16,7 @@ export interface RuntimeAlertItem {
   description?: string
   id: string
   label?: string
+  targetId?: string
 }
 
 export interface RuntimeAlert {
@@ -78,6 +79,27 @@ export function pickHigherPriorityAlert(
   }
 
   return currentAlert
+}
+
+export function resolveNextRuntimeAlert(
+  currentAlert: RuntimeAlert | null,
+  nextAlert: RuntimeAlert | null,
+): RuntimeAlert | null {
+  if (nextAlert === null) {
+    return null
+  }
+
+  if (currentAlert === null) {
+    return nextAlert
+  }
+
+  if (areRuntimeAlertsEquivalent(currentAlert, nextAlert)) {
+    return currentAlert
+  }
+
+  return pickHigherPriorityAlert(currentAlert, nextAlert) === currentAlert
+    ? currentAlert
+    : nextAlert
 }
 
 export function createSetupActionRuntimeAlert({
@@ -168,4 +190,42 @@ function resolveSetupRuntimeAlertView(
   }
 
   return 'ai_worker_checking'
+}
+
+function areRuntimeAlertsEquivalent(currentAlert: RuntimeAlert, nextAlert: RuntimeAlert): boolean {
+  return (
+    currentAlert.body === nextAlert.body &&
+    areRuntimeAlertItemsEquivalent(currentAlert.items, nextAlert.items) &&
+    currentAlert.owner.scope === nextAlert.owner.scope &&
+    currentAlert.owner.view === nextAlert.owner.view &&
+    currentAlert.priority === nextAlert.priority &&
+    currentAlert.source === nextAlert.source &&
+    currentAlert.title === nextAlert.title &&
+    currentAlert.variant === nextAlert.variant
+  )
+}
+
+function areRuntimeAlertItemsEquivalent(
+  currentItems: RuntimeAlertItem[] | undefined,
+  nextItems: RuntimeAlertItem[] | undefined,
+): boolean {
+  if (currentItems === undefined || nextItems === undefined) {
+    return currentItems === nextItems
+  }
+
+  if (currentItems.length !== nextItems.length) {
+    return false
+  }
+
+  return currentItems.every((item, index) => {
+    const nextItem = nextItems[index]
+
+    return (
+      nextItem !== undefined &&
+      item.description === nextItem.description &&
+      item.id === nextItem.id &&
+      item.label === nextItem.label &&
+      item.targetId === nextItem.targetId
+    )
+  })
 }

@@ -2,6 +2,7 @@ import {
   getRuntimeAlertLiveRegionProperties,
   resolveRuntimeAlertLabel,
   type RuntimeAlert,
+  type RuntimeAlertItem,
   type RuntimeAlertVariant,
 } from '../runtime-alerts.js'
 
@@ -15,6 +16,34 @@ const toneClassNames: Record<RuntimeAlertVariant, string> = {
   success:
     'border-[var(--color-status-muted)]/30 bg-[var(--color-surface-success)] text-[var(--color-copy-strong)]',
   warning: 'border-[#E4D5A7] bg-[var(--color-surface-warning)] text-[var(--color-copy-strong)]',
+}
+
+function renderAlertItemLabel(item: RuntimeAlertItem) {
+  if (!item.label) {
+    return null
+  }
+
+  if (!item.targetId) {
+    return <span className="font-extrabold">{item.label}</span>
+  }
+
+  const targetId = item.targetId
+
+  return (
+    <button
+      className="cursor-pointer border-0 bg-transparent p-0 font-extrabold text-inherit underline underline-offset-2"
+      onClick={() => {
+        const target = globalThis.document.querySelector<HTMLElement>(`#${targetId}`)
+
+        if (target) {
+          target.focus()
+        }
+      }}
+      type="button"
+    >
+      {item.label}
+    </button>
+  )
 }
 
 export function RuntimeAlertBanner({ alert }: RuntimeAlertBannerProperties) {
@@ -37,7 +66,8 @@ export function RuntimeAlertBanner({ alert }: RuntimeAlertBannerProperties) {
             {alert.items.map((item) => {
               return (
                 <li key={item.id}>
-                  {item.label ? <span className="font-extrabold">{item.label}: </span> : null}
+                  {renderAlertItemLabel(item)}
+                  {item.label ? <span>{': '}</span> : null}
                   <span>{item.description}</span>
                 </li>
               )

@@ -55,7 +55,9 @@ import {
   createSetupActionRuntimeAlert,
   createSetupStatusRuntimeAlert,
   pickHigherPriorityAlert,
+  resolveNextRuntimeAlert,
   type RuntimeAlert,
+  type RuntimeAlertItem,
 } from './runtime-alerts.js'
 import { resolveRendererScreen, type RendererScreenKind } from './routing/renderer-screen.js'
 import { Button } from './ui/button.js'
@@ -125,6 +127,7 @@ interface ResolvedWorkspaceSelection {
 }
 type ImportOriginalCvMutationResult = OriginalCvImportResult
 type RuntimeAlertOwnerView =
+  | 'draft'
   | SettingsSection
   | 'delete_tailored_application_dialog'
   | 'draft_discard_dialog'
@@ -163,6 +166,68 @@ function createScopedRuntimeAlert({
   })
 }
 
+function resolveDraftFieldTargetId(inputType: VacancySummary['inputType']): string {
+  return inputType === 'url' ? 'workspace-vacancy-url' : 'workspace-vacancy-text'
+}
+
+function resolveDraftFieldLabel(inputType: VacancySummary['inputType']): string {
+  return inputType === 'url' ? 'Job link' : 'Job description'
+}
+
+function createDraftValidationItems(preview: VacancySummary): RuntimeAlertItem[] {
+  if (preview.canGenerate) {
+    return []
+  }
+
+  const fieldLabel = resolveDraftFieldLabel(preview.inputType)
+  const targetId = resolveDraftFieldTargetId(preview.inputType)
+  const items: RuntimeAlertItem[] = []
+
+  if (preview.responsibilities.length === 0) {
+    items.push({
+      description: 'Add the main responsibilities.',
+      id: 'responsibilities',
+      label: fieldLabel,
+      targetId,
+    })
+  }
+
+  if (preview.requirements.length === 0) {
+    items.push({
+      description: "Add what they're looking for.",
+      id: 'requirements',
+      label: fieldLabel,
+      targetId,
+    })
+  }
+
+  return items
+}
+
+function createDraftStatusRuntimeAlert(preview: VacancySummary | null): RuntimeAlert | null {
+  if (preview?.blockingReason === null || preview === null) {
+    return null
+  }
+
+  const items = createDraftValidationItems(preview)
+
+  return createRuntimeAlert({
+    body: preview.blockingReason,
+    items: items.length > 0 ? items : undefined,
+    owner: {
+      scope: 'job_vacancies',
+      view: 'draft',
+    },
+    priority: items.length > 0 ? 200 : 100,
+    source: items.length > 0 ? 'draft_validation' : 'draft_blocking_reason',
+    title:
+      items.length > 0
+        ? 'Add a bit more detail before tailoring your CV.'
+        : 'This job needs attention before you tailor your CV.',
+    variant: 'warning',
+  })
+}
+
 export function App() {
   const queryClient = useQueryClient()
   const [deleteTailoredApplicationDialogAlert, setDeleteTailoredApplicationDialogAlert] =
@@ -196,8 +261,8 @@ export function App() {
   const [workspaceSelectionOverride, setWorkspaceSelectionOverride] =
     useState<WorkspaceSelectionOverride>(null)
   const [vacancyDraft, setVacancyDraft] = useState(initialVacancyDraft)
+  const [draftActionAlert, setDraftActionAlertState] = useState<RuntimeAlert | null>(null)
   const [vacancyPreviewOverride, setVacancyPreviewOverride] = useState<VacancySummary | null>(null)
-  const [vacancyReviewError, setVacancyReviewError] = useState<string | null>(null)
   const isResumingPendingGeneration = useRef(false)
   const lastResumedCommandId = useRef<string | null>(null)
 
@@ -304,6 +369,23 @@ export function App() {
     workspaceSelection.kind === 'tailored_application'
       ? (tailoredApplicationPreviewQuery.data ?? null)
       : null
+  const draftStatusAlert = createDraftStatusRuntimeAlert(reviewedVacancyPreview)
+  const draftWorkspaceAlert =
+    readinessError === null
+      ? null
+      : createScopedRuntimeAlert({
+          message: readinessError,
+          owner: {
+            scope: 'job_vacancies',
+            view: 'draft',
+          },
+          priority: 400,
+          source: 'draft_workspace',
+        })
+  const draftRuntimeAlert = pickHigherPriorityAlert(
+    pickHigherPriorityAlert(draftStatusAlert, draftActionAlert),
+    draftWorkspaceAlert,
+  )
   const activeSettingsRuntimeAlert = settingsRuntimeAlerts[settingsSection]
 
   const invalidateReadinessQuery = async (): Promise<void> => {
@@ -432,7 +514,7 @@ export function App() {
       setWorkspaceSelectionOverride(null)
       setVacancyDraft(initialVacancyDraft)
       setVacancyPreviewOverride(null)
-      setVacancyReviewError(null)
+      clearDraftActionAlert()
       queryClient.setQueryData(rendererQueryKeys.readiness, initialReadinessViewModel)
       queryClient.setQueryData(
         rendererQueryKeys.originalCvWorkspace,
@@ -513,7 +595,7 @@ export function App() {
       setReadinessError(null)
       setStartupDestinationOverride(nextStartupDestination)
       setWorkspaceSelectionOverride(null)
-      setVacancyReviewError(null)
+      clearDraftActionAlert()
       setVacancyPreviewOverride(null)
       queryClient.setQueryData(rendererQueryKeys.originalCvWorkspace, {
         activeOriginalCv: result.originalCv,
@@ -586,7 +668,7 @@ export function App() {
     },
     onSuccess: async (result): Promise<void> => {
       setReadinessError(null)
-      setVacancyReviewError(null)
+      clearDraftActionAlert()
       await applyVacancyIngestResult(result)
     },
   })
@@ -599,7 +681,7 @@ export function App() {
     },
     onSuccess: async (result): Promise<void> => {
       setReadinessError(null)
-      setVacancyReviewError(null)
+      clearDraftActionAlert()
       await applyVacancyIngestResult(result)
     },
   })
@@ -611,7 +693,7 @@ export function App() {
     },
     onSuccess: async (result): Promise<void> => {
       setReadinessError(null)
-      setVacancyReviewError(null)
+      clearDraftActionAlert()
       await applyVacancyIngestResult(result)
     },
   })
@@ -621,7 +703,7 @@ export function App() {
     },
     onSuccess: async (): Promise<void> => {
       setReadinessError(null)
-      setVacancyReviewError(null)
+      clearDraftActionAlert()
       setVacancyPreviewOverride(null)
       queryClient.setQueryData(rendererQueryKeys.vacancyWorkspace, initialVacancyWorkspaceState)
       await Promise.all([
@@ -957,6 +1039,16 @@ export function App() {
     setSettingsRuntimeAlerts(createEmptySettingsRuntimeAlerts())
   }
 
+  const clearDraftActionAlert = (): void => {
+    setDraftActionAlertState(null)
+  }
+
+  const setDraftActionAlert = (nextAlert: RuntimeAlert | null): void => {
+    setDraftActionAlertState((currentAlert) => {
+      return resolveNextRuntimeAlert(currentAlert, nextAlert)
+    })
+  }
+
   const setSettingsRuntimeAlert = (
     section: SettingsSection,
     nextAlert: RuntimeAlert | null,
@@ -1235,7 +1327,7 @@ export function App() {
     })
     setVacancyDraft(initialVacancyDraft)
     setVacancyPreviewOverride(null)
-    setVacancyReviewError(null)
+    clearDraftActionAlert()
   }
 
   const handleCreateVacancy = async (): Promise<void> => {
@@ -1254,7 +1346,17 @@ export function App() {
       await clearVacancyWorkspaceMutation.mutateAsync()
       showBlankDraftWorkspace()
     } catch (error) {
-      setVacancyReviewError(resolveErrorMessage(error, "We couldn't clear this job draft."))
+      setDraftActionAlert(
+        createScopedRuntimeAlert({
+          message: resolveErrorMessage(error, "We couldn't clear this job draft."),
+          owner: {
+            scope: 'job_vacancies',
+            view: 'draft',
+          },
+          priority: 400,
+          source: 'clear_job_draft',
+        }),
+      )
     }
   }
 
@@ -1608,11 +1710,28 @@ export function App() {
               }
 
               setReadinessError(null)
-              setVacancyReviewError(null)
+              clearDraftActionAlert()
 
               openVacancyBrowserSessionMutation.mutateAsync(originalUrl).catch((error: unknown) => {
-                setVacancyReviewError(
-                  resolveErrorMessage(error, "We couldn't open the job page right now."),
+                setDraftActionAlert(
+                  createRuntimeAlert({
+                    items: [
+                      {
+                        description: 'Open the job page again from the current job link.',
+                        id: 'job-link',
+                        label: 'Job link',
+                        targetId: 'workspace-vacancy-url',
+                      },
+                    ],
+                    owner: {
+                      scope: 'job_vacancies',
+                      view: 'draft',
+                    },
+                    priority: 400,
+                    source: 'open_job_page',
+                    title: resolveErrorMessage(error, "We couldn't open the job page right now."),
+                    variant: 'error',
+                  }),
                 )
               })
             }}
@@ -1634,11 +1753,31 @@ export function App() {
               }
 
               setReadinessError(null)
-              setVacancyReviewError(null)
+              clearDraftActionAlert()
 
               reviewPastedVacancyMutation.mutateAsync().catch((error: unknown) => {
-                setVacancyReviewError(
-                  resolveErrorMessage(error, "We couldn't check the pasted job description."),
+                setDraftActionAlert(
+                  createRuntimeAlert({
+                    items: [
+                      {
+                        description: 'Update the job description, then check the details again.',
+                        id: 'job-description',
+                        label: 'Job description',
+                        targetId: 'workspace-vacancy-text',
+                      },
+                    ],
+                    owner: {
+                      scope: 'job_vacancies',
+                      view: 'draft',
+                    },
+                    priority: 400,
+                    source: 'review_pasted_job_description',
+                    title: resolveErrorMessage(
+                      error,
+                      "We couldn't check the pasted job description.",
+                    ),
+                    variant: 'error',
+                  }),
                 )
               })
             }}
@@ -1648,11 +1787,28 @@ export function App() {
               }
 
               setReadinessError(null)
-              setVacancyReviewError(null)
+              clearDraftActionAlert()
 
               reviewVacancyUrlMutation.mutateAsync().catch((error: unknown) => {
-                setVacancyReviewError(
-                  resolveErrorMessage(error, "We couldn't check that job link."),
+                setDraftActionAlert(
+                  createRuntimeAlert({
+                    items: [
+                      {
+                        description: 'Check the job link and try again.',
+                        id: 'job-link',
+                        label: 'Job link',
+                        targetId: 'workspace-vacancy-url',
+                      },
+                    ],
+                    owner: {
+                      scope: 'job_vacancies',
+                      view: 'draft',
+                    },
+                    priority: 400,
+                    source: 'review_job_link',
+                    title: resolveErrorMessage(error, "We couldn't check that job link."),
+                    variant: 'error',
+                  }),
                 )
               })
             }}
@@ -1704,7 +1860,7 @@ export function App() {
               })
               setVacancyPreviewOverride(null)
               setReadinessError(null)
-              setVacancyReviewError(null)
+              clearDraftActionAlert()
               saveWorkspaceSelection(
                 buildWorkspaceSelection({
                   jobs: {
@@ -1729,7 +1885,7 @@ export function App() {
               })
               setVacancyPreviewOverride(null)
               setReadinessError(null)
-              setVacancyReviewError(null)
+              clearDraftActionAlert()
               saveWorkspaceSelection(
                 buildWorkspaceSelection({
                   jobs: {
@@ -1750,7 +1906,7 @@ export function App() {
             textDraft={vacancyDraft.text}
             urlDraft={vacancyDraft.url}
             vacancyPreview={vacancyPreview}
-            vacancyReviewError={vacancyReviewError}
+            draftRuntimeAlert={draftRuntimeAlert}
             workspaceOverlay={workspaceOverlay}
             workspaceError={readinessError}
           />

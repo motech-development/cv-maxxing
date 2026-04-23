@@ -11,7 +11,6 @@ interface VacancyPreviewCardProperties {
   onAdaptCv: () => void
   onOpenBrowserSession: () => void
   preview: VacancySummary | null
-  reviewError: string | null
 }
 
 export function VacancyPreviewCard({
@@ -21,7 +20,6 @@ export function VacancyPreviewCard({
   onAdaptCv,
   onOpenBrowserSession,
   preview,
-  reviewError,
 }: VacancyPreviewCardProperties) {
   if (preview === null) {
     return (
@@ -35,11 +33,6 @@ export function VacancyPreviewCard({
             Use the job link or pasted description above to pull together the key details. Tailor
             your CV is disabled until the job is ready.
           </p>
-          {reviewError ? (
-            <div className="rounded-[var(--radius-card)] border border-[var(--color-status-danger)]/20 bg-[var(--color-surface-danger)] px-4 py-3 text-sm leading-6 text-[var(--color-status-danger)]">
-              {reviewError}
-            </div>
-          ) : null}
         </div>
         <div className="mt-5 grid gap-3 text-sm leading-6 text-[var(--color-copy-muted)] md:grid-cols-3">
           <PreviewHint
@@ -109,18 +102,6 @@ export function VacancyPreviewCard({
           ) : null}
         </div>
       </div>
-
-      {preview.blockingReason ? (
-        <div className="mt-4 rounded-[var(--radius-card)] border border-[var(--color-status-warning)]/30 bg-[var(--color-surface-warning)] px-4 py-3 text-sm leading-6 text-[var(--color-copy-strong)]">
-          {preview.blockingReason}
-        </div>
-      ) : null}
-
-      {reviewError ? (
-        <div className="mt-4 rounded-[var(--radius-card)] border border-[var(--color-status-danger)]/20 bg-[var(--color-surface-danger)] px-4 py-3 text-sm leading-6 text-[var(--color-status-danger)]">
-          {reviewError}
-        </div>
-      ) : null}
 
       <div className="mt-5 grid gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
         <div className="rounded-[var(--radius-card)] border border-[var(--color-border)] bg-white p-4">

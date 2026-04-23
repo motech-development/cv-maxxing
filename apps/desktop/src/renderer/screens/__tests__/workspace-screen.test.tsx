@@ -19,6 +19,7 @@ const baseProperties = {
     },
   ],
   draftReviewState: 'editable' as const,
+  draftRuntimeAlert: null,
   isAdaptingCv: false,
   isCopyingCoverLetterText: false,
   isCurrentDraftMeaningful: true,
@@ -44,7 +45,6 @@ const baseProperties = {
   textDraft: 'Draft role text',
   urlDraft: 'https://jobs.example.com/roles/123',
   vacancyPreview: null,
-  vacancyReviewError: null,
   workspaceError: null,
 }
 

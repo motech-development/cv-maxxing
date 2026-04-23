@@ -21,8 +21,6 @@ const baseProperties = {
   textDraft: '',
   urlDraft: '',
   vacancyPreview: null,
-  vacancyReviewError: null,
-  workspaceError: null,
 }
 
 function getReviewButtons() {

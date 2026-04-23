@@ -20,8 +20,6 @@ interface WorkspaceDraftViewProperties {
   textDraft: string
   urlDraft: string
   vacancyPreview: VacancySummary | null
-  vacancyReviewError: string | null
-  workspaceError: string | null
 }
 
 const fieldClassName =
@@ -42,8 +40,6 @@ export function WorkspaceDraftView({
   textDraft,
   urlDraft,
   vacancyPreview,
-  vacancyReviewError,
-  workspaceError,
 }: WorkspaceDraftViewProperties) {
   const isDraftReviewed = draftReviewState === 'reviewed'
   const isUrlSubmissionDisabled =
@@ -69,11 +65,6 @@ export function WorkspaceDraftView({
         Add a job
       </h1>
       <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--color-copy-muted)]">{subtitle}</p>
-      {workspaceError ? (
-        <div className="mt-4 max-w-4xl rounded-[var(--radius-card)] border border-[var(--color-status-danger)]/20 bg-[var(--color-surface-danger)] px-4 py-3 text-sm leading-6 text-[var(--color-status-danger)]">
-          {workspaceError}
-        </div>
-      ) : null}
 
       <div className="mt-6 grid gap-[18px] md:grid-cols-2">
         <PanelCard className="flex min-h-[278px] flex-col gap-3 p-5">
@@ -149,7 +140,6 @@ export function WorkspaceDraftView({
         onAdaptCv={onAdaptCv}
         onOpenBrowserSession={onOpenVacancyBrowserSession}
         preview={vacancyPreview}
-        reviewError={vacancyReviewError}
       />
     </>
   )

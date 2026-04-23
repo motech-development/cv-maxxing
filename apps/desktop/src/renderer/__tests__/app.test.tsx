@@ -1406,6 +1406,151 @@ test('shows generic open-job-page fallback guidance for reviewed links that need
   expect(screen.queryByText(/internal browser session/i)).toBeNull()
 })
 
+test('shows one shared page-top warning with grouped draft validation items for incomplete pasted job details', async () => {
+  renderApp({
+    aiWorker: createAiWorkerApi({
+      getAiWorkerPreflight: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+      getStartupDestination: vi.fn().mockResolvedValue('workspace'),
+    }),
+    originalCv: createOriginalCvApi({
+      getOriginalCvWorkspaceState: vi.fn().mockResolvedValue({
+        activeOriginalCv: {
+          fileType: 'pdf',
+          headline: 'Principal Product Designer',
+          id: 'original-cv-123',
+          importedAt: '2026-04-08T14:30:00.000Z',
+          originalFilename: 'ada-lovelace.pdf',
+          pageCount: 1,
+          snapshotCount: 1,
+          summary: 'Design leader focused on complex workflow products.',
+          writingStyle: {
+            averageSentenceLength: 7,
+            clicheDetections: [],
+            firstPersonUsage: 'absent',
+            formality: 'direct',
+          },
+        },
+        snapshotCount: 1,
+      }),
+    }),
+    vacancy: createVacancyApi({
+      getVacancyWorkspaceState: vi.fn().mockResolvedValue({
+        draft: {
+          text: 'Short pasted vacancy draft.',
+          url: 'https://jobs.example.com/senior-product-designer',
+        },
+        reviewState: 'editable',
+        vacancy: {
+          blockingReason:
+            'Add the full job responsibilities or requirements before tailoring your CV.',
+          canGenerate: false,
+          employer: 'Example Labs',
+          fetchedAt: '2026-04-08T21:00:00.000Z',
+          id: 'vacancy-001',
+          inputType: 'pasted_text',
+          location: 'London, United Kingdom',
+          originalUrl: 'https://jobs.example.com/senior-product-designer',
+          requirements: [],
+          resolvedUrl: 'https://jobs.example.com/senior-product-designer',
+          responsibilities: [],
+          source: 'generic',
+          status: 'incomplete',
+          textPreview: 'Short pasted vacancy draft.',
+          title: 'Senior Product Designer',
+        },
+      }),
+    }),
+  })
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
+  })
+
+  const alert = screen.getByRole('status')
+
+  expect(within(alert).getByText('Add a bit more detail before tailoring your CV.')).toBeDefined()
+  expect(
+    within(alert).getByText(
+      'Add the full job responsibilities or requirements before tailoring your CV.',
+    ),
+  ).toBeDefined()
+  expect(within(alert).getAllByRole('button', { name: 'Job description' })).toHaveLength(2)
+  expect(
+    screen.getAllByText(
+      'Add the full job responsibilities or requirements before tailoring your CV.',
+    ),
+  ).toHaveLength(1)
+})
+
+test('shows a shared page-top error for a failed job-link review and targets the draft field', async () => {
+  renderApp({
+    aiWorker: createAiWorkerApi({
+      getAiWorkerPreflight: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+      getStartupDestination: vi.fn().mockResolvedValue('workspace'),
+    }),
+    originalCv: createOriginalCvApi({
+      getOriginalCvWorkspaceState: vi.fn().mockResolvedValue({
+        activeOriginalCv: {
+          fileType: 'pdf',
+          headline: 'Principal Product Designer',
+          id: 'original-cv-123',
+          importedAt: '2026-04-08T14:30:00.000Z',
+          originalFilename: 'ada-lovelace.pdf',
+          pageCount: 1,
+          snapshotCount: 1,
+          summary: 'Design leader focused on complex workflow products.',
+          writingStyle: {
+            averageSentenceLength: 7,
+            clicheDetections: [],
+            firstPersonUsage: 'absent',
+            formality: 'direct',
+          },
+        },
+        snapshotCount: 1,
+      }),
+    }),
+    vacancy: createVacancyApi({
+      ingestVacancyUrl: vi.fn().mockRejectedValue(new Error("We couldn't check that job link.")),
+    }),
+  })
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
+  })
+
+  fireEvent.change(screen.getByLabelText('Job link'), {
+    target: {
+      value: 'https://jobs.example.com/senior-product-designer',
+    },
+  })
+
+  const { reviewUrlButton } = getReviewButtons()
+
+  fireEvent.click(reviewUrlButton)
+
+  await waitFor(() => {
+    expect(screen.getByRole('alert')).toBeDefined()
+  })
+
+  const alert = screen.getByRole('alert')
+
+  expect(within(alert).getByText("We couldn't check that job link.")).toBeDefined()
+
+  fireEvent.click(within(alert).getByRole('button', { name: 'Job link' }))
+
+  expect(screen.getByLabelText('Job link')).toBe(globalThis.document.activeElement)
+})
+
 test('shows shell-level ambient activity while a tailored-application preview refreshes in the background', async () => {
   const deferredPreview = createDeferredPromise<TailoredApplicationPreview | null>()
   const firstPreview = createTailoredApplicationPreviewFixture()

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, expect, test } from 'vitest'
 
 import type { RuntimeAlert } from '../../runtime-alerts.js'
@@ -58,5 +58,31 @@ test('renders warning alerts with polite semantics and grouped items', () => {
   expect(alert.getAttribute('aria-live')).toBe('polite')
   expect(screen.getByText('Needs attention')).toBeDefined()
   expect(screen.getByText('Use the latest sign-in window on this Mac.')).toBeDefined()
-  expect(screen.getByText(/^Sign-in:/)).toBeDefined()
+  expect(screen.getByText('Sign-in')).toBeDefined()
+})
+
+test('focuses the targeted field when an alert item is activated', () => {
+  render(
+    <>
+      <input aria-label="Job description" id="workspace-vacancy-text" type="text" />
+      <RuntimeAlertBanner
+        alert={createAlert({
+          items: [
+            {
+              description: 'Add more detail before tailoring your CV.',
+              id: 'job-description',
+              label: 'Job description',
+              targetId: 'workspace-vacancy-text',
+            },
+          ],
+          title: 'Add a bit more detail before tailoring your CV.',
+          variant: 'warning',
+        })}
+      />
+    </>,
+  )
+
+  fireEvent.click(screen.getByRole('button', { name: 'Job description' }))
+
+  expect(screen.getByLabelText('Job description')).toBe(globalThis.document.activeElement)
 })

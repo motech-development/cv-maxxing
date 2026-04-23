@@ -5,10 +5,12 @@ import type {
   TailoredApplicationPreview,
 } from '../../shared/tailored-application.js'
 import type { VacancyReviewState, VacancySummary } from '../../shared/vacancy.js'
+import type { RuntimeAlert } from '../runtime-alerts.js'
 import { DesktopShell, type RailItemId } from '../shell/desktop-shell.js'
 import { SidebarContainer } from '../shell/sidebar-container.js'
 import { Button } from '../ui/button.js'
 import { PanelCard } from '../ui/panel-card.js'
+import { RuntimeAlertBanner } from '../ui/runtime-alert.js'
 import { SectionLabel } from '../ui/section-label.js'
 import { WorkspaceApplicationView } from './workspace-active-screen.js'
 import { WorkspaceDraftView } from './workspace-empty-screen.js'
@@ -22,6 +24,7 @@ interface WorkspaceScreenProperties {
   applicationTitle: string | null
   applications: TailoredApplicationListItem[]
   draftReviewState: VacancyReviewState
+  draftRuntimeAlert: RuntimeAlert | null
   isAdaptingCv: boolean
   isCopyingCoverLetterText: boolean
   isCurrentDraftMeaningful: boolean
@@ -49,7 +52,6 @@ interface WorkspaceScreenProperties {
   textDraft: string
   urlDraft: string
   vacancyPreview: VacancySummary | null
-  vacancyReviewError: string | null
   workspaceError: string | null
   workspaceOverlay?: ReactNode
 }
@@ -60,6 +62,7 @@ export function WorkspaceScreen({
   applicationTitle,
   applications,
   draftReviewState,
+  draftRuntimeAlert,
   isAdaptingCv,
   isCopyingCoverLetterText,
   isCurrentDraftMeaningful,
@@ -87,7 +90,6 @@ export function WorkspaceScreen({
   textDraft,
   urlDraft,
   vacancyPreview,
-  vacancyReviewError,
   workspaceError,
   workspaceOverlay,
 }: WorkspaceScreenProperties) {
@@ -98,6 +100,11 @@ export function WorkspaceScreen({
       activeRailItem={activeRailItem}
       ambientActivityLabel={ambientActivityLabel}
       onSelectRailItem={onSelectRailItem}
+      pageAlert={
+        selectedWorkspaceItem === 'draft' && draftRuntimeAlert ? (
+          <RuntimeAlertBanner alert={draftRuntimeAlert} />
+        ) : undefined
+      }
       railItems={['job_vacancies', 'original_cv', 'settings']}
       sidebar={
         <SidebarContainer>
@@ -175,8 +182,6 @@ export function WorkspaceScreen({
           textDraft={textDraft}
           urlDraft={urlDraft}
           vacancyPreview={vacancyPreview}
-          vacancyReviewError={vacancyReviewError}
-          workspaceError={workspaceError}
         />
       )}
     </DesktopShell>

@@ -3,6 +3,7 @@ import { expect, test } from 'vitest'
 import {
   createRuntimeAlert,
   pickHigherPriorityAlert,
+  resolveNextRuntimeAlert,
   resolveRuntimeAlertOwnerKey,
 } from '../runtime-alerts.js'
 
@@ -60,4 +61,45 @@ test('prefers higher-priority unresolved alerts', () => {
   })
 
   expect(pickHigherPriorityAlert(current, next)).toBe(current)
+})
+
+test('keeps the current alert when the next alert is equivalent', () => {
+  const current = createRuntimeAlert({
+    body: 'Check the current field and try again.',
+    items: [
+      {
+        description: 'Add the full job description.',
+        id: 'job-description',
+        label: 'Job description',
+      },
+    ],
+    owner: {
+      scope: 'job_vacancies',
+      view: 'draft',
+    },
+    priority: 300,
+    source: 'draft_validation',
+    title: 'Add a bit more detail before tailoring your CV.',
+    variant: 'warning',
+  })
+  const next = createRuntimeAlert({
+    body: 'Check the current field and try again.',
+    items: [
+      {
+        description: 'Add the full job description.',
+        id: 'job-description',
+        label: 'Job description',
+      },
+    ],
+    owner: {
+      scope: 'job_vacancies',
+      view: 'draft',
+    },
+    priority: 300,
+    source: 'draft_validation',
+    title: 'Add a bit more detail before tailoring your CV.',
+    variant: 'warning',
+  })
+
+  expect(resolveNextRuntimeAlert(current, next)).toBe(current)
 })
