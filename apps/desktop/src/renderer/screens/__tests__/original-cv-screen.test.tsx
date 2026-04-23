@@ -4,6 +4,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, expect, test, vi } from 'vitest'
 
 import type { OriginalCvDetail } from '../../../shared/original-cv.js'
+import { createRuntimeAlert } from '../../runtime-alerts.js'
 
 const originalCvPreviewCardProperties = vi.hoisted(() => {
   return {
@@ -83,14 +84,13 @@ test('renders the populated Your CV screen with a selectable sidebar item, PDF p
     <OriginalCvScreen
       activeOriginalCv={createOriginalCvDetailFixture().originalCv}
       activeOriginalCvDetail={createOriginalCvDetailFixture()}
-      importError={null}
       isImportingOriginalCv={false}
       onFileDrop={vi.fn()}
       onFileSelection={vi.fn()}
       onImportOriginalCv={vi.fn()}
       onSelectOriginalCv={onSelectOriginalCv}
       originalCvFile={null}
-      workspaceError={null}
+      runtimeAlert={null}
     />,
   )
 
@@ -146,14 +146,13 @@ test('uses the same populated Your CV preview pane for DOCX original CVs', () =>
           kind: 'docx',
         },
       })}
-      importError={null}
       isImportingOriginalCv={false}
       onFileDrop={vi.fn()}
       onFileSelection={vi.fn()}
       onImportOriginalCv={vi.fn()}
       onSelectOriginalCv={onSelectOriginalCv}
       originalCvFile={null}
-      workspaceError={null}
+      runtimeAlert={null}
     />,
   )
 
@@ -176,14 +175,13 @@ test('renders the populated add-a-cv replacement view from design/app.pen', () =
       activeOriginalCv={createOriginalCvDetailFixture().originalCv}
       activeOriginalCvDetail={createOriginalCvDetailFixture()}
       activeView="replace"
-      importError={null}
       isImportingOriginalCv={false}
       onFileDrop={vi.fn()}
       onFileSelection={vi.fn()}
       onImportOriginalCv={vi.fn()}
       onSelectOriginalCv={vi.fn()}
       originalCvFile={null}
-      workspaceError={null}
+      runtimeAlert={null}
     />,
   )
 
@@ -205,4 +203,32 @@ test('renders the populated add-a-cv replacement view from design/app.pen', () =
   expect(
     screen.getByText("We'll use this CV for new jobs. Your saved jobs stay the same."),
   ).toBeDefined()
+})
+
+test('renders a shared page-top runtime alert on the Your CV screen', () => {
+  render(
+    <OriginalCvScreen
+      activeOriginalCv={createOriginalCvDetailFixture().originalCv}
+      activeOriginalCvDetail={createOriginalCvDetailFixture()}
+      isImportingOriginalCv={false}
+      onFileDrop={vi.fn()}
+      onFileSelection={vi.fn()}
+      onImportOriginalCv={vi.fn()}
+      onSelectOriginalCv={vi.fn()}
+      originalCvFile={null}
+      runtimeAlert={createRuntimeAlert({
+        owner: {
+          scope: 'original_cv',
+          view: 'detail',
+        },
+        priority: 300,
+        source: 'original_cv_detail',
+        title: 'Preview unavailable.',
+        variant: 'error',
+      })}
+    />,
+  )
+
+  expect(screen.getByRole('alert')).toBeDefined()
+  expect(screen.getAllByText('Preview unavailable.')).toHaveLength(1)
 })

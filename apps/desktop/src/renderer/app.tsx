@@ -117,6 +117,7 @@ type OriginalCvImportTopLevelSection = Extract<
   WorkspaceTopLevelSection,
   'job_vacancies' | 'original_cv'
 >
+type OriginalCvRuntimeAlertView = 'detail' | 'empty' | 'replace'
 type OriginalCvSectionMode = 'detail' | 'replace'
 type RendererStartupDestinationOverride = OriginalCvImportDestination
 type PreviewDocumentKind = 'adapted_cv' | 'cover_letter'
@@ -127,12 +128,22 @@ interface ResolvedWorkspaceSelection {
 }
 type ImportOriginalCvMutationResult = OriginalCvImportResult
 type RuntimeAlertOwnerView =
+  | OriginalCvRuntimeAlertView
   | 'draft'
   | SettingsSection
   | 'delete_tailored_application_dialog'
   | 'draft_discard_dialog'
   | 'local_data_reset_dialog'
+type OriginalCvRuntimeAlerts = Record<OriginalCvRuntimeAlertView, RuntimeAlert | null>
 type SettingsRuntimeAlerts = Record<SettingsSection, RuntimeAlert | null>
+
+function createEmptyOriginalCvRuntimeAlerts(): OriginalCvRuntimeAlerts {
+  return {
+    detail: null,
+    empty: null,
+    replace: null,
+  }
+}
 
 function createEmptySettingsRuntimeAlerts(): SettingsRuntimeAlerts {
   return {
@@ -164,6 +175,46 @@ function createScopedRuntimeAlert({
     title: message,
     variant,
   })
+}
+
+function createOriginalCvRuntimeAlert({
+  message,
+  priority,
+  source,
+  view,
+}: {
+  message: string
+  priority?: number
+  source: string
+  view: OriginalCvRuntimeAlertView
+}): RuntimeAlert {
+  return createScopedRuntimeAlert({
+    message,
+    owner: {
+      scope: 'original_cv',
+      view,
+    },
+    priority,
+    source,
+  })
+}
+
+function resolveActiveOriginalCvRuntimeAlertView({
+  activeOriginalCv,
+  activeView,
+}: {
+  activeOriginalCv: OriginalCvWorkspaceState['activeOriginalCv']
+  activeView: OriginalCvSectionMode
+}): OriginalCvRuntimeAlertView {
+  if (activeOriginalCv === null) {
+    return 'empty'
+  }
+
+  if (activeView === 'replace') {
+    return 'replace'
+  }
+
+  return 'detail'
 }
 
 function resolveDraftFieldTargetId(inputType: VacancySummary['inputType']): string {
@@ -237,12 +288,14 @@ export function App() {
     useState(false)
   const [isConfirmingDraftDiscard, setIsConfirmingDraftDiscard] = useState(false)
   const [isCopyingCoverLetterText, setIsCopyingCoverLetterText] = useState(false)
-  const [importError, setImportError] = useState<string | null>(null)
   const [isResetLocalAppDataDialogOpen, setIsResetLocalAppDataDialogOpen] = useState(false)
   const [isSecondaryActionPending, setIsSecondaryActionPending] = useState(false)
   const [originalCvSectionFile, setOriginalCvSectionFile] = useState<File | null>(null)
   const [originalCvSectionMode, setOriginalCvSectionMode] =
     useState<OriginalCvSectionMode>('detail')
+  const [originalCvRuntimeAlerts, setOriginalCvRuntimeAlerts] = useState<OriginalCvRuntimeAlerts>(
+    createEmptyOriginalCvRuntimeAlerts,
+  )
   const [previewDocumentKind, setPreviewDocumentKind] = useState<PreviewDocumentKind>('adapted_cv')
   const [readinessError, setReadinessError] = useState<string | null>(null)
   const [resetConfirmationPhrase, setResetConfirmationPhrase] = useState('')
@@ -328,6 +381,11 @@ export function App() {
   })
   const activeOriginalCvDetail =
     activeWorkspaceSection === 'original_cv' ? originalCvDetailQuery.data : null
+  const activeOriginalCvRuntimeAlertView = resolveActiveOriginalCvRuntimeAlertView({
+    activeOriginalCv: originalCvWorkspaceState.activeOriginalCv,
+    activeView: originalCvSectionMode,
+  })
+  const activeOriginalCvRuntimeAlert = originalCvRuntimeAlerts[activeOriginalCvRuntimeAlertView]
   const reviewedVacancyPreview = vacancyWorkspaceState.vacancy ?? vacancyPreviewOverride
   const isCurrentDraftMeaningful = isVacancyDraftMeaningful({
     draft: vacancyDraft,
@@ -499,10 +557,10 @@ export function App() {
       setDeleteTailoredApplicationDialogAlert(null)
       setDraftDiscardDialogAlert(null)
       setIsConfirmingDraftDiscard(false)
-      setImportError(null)
       setIsResetLocalAppDataDialogOpen(false)
       setOriginalCvSectionFile(null)
       setOriginalCvSectionMode('detail')
+      setOriginalCvRuntimeAlerts(createEmptyOriginalCvRuntimeAlerts())
       setPreviewDocumentKind('adapted_cv')
       setReadinessError(null)
       setResetConfirmationPhrase('')
@@ -563,7 +621,7 @@ export function App() {
       { nextStartupDestination, topLevelSectionAfterImport },
     ): Promise<void> => {
       if (result.kind === 'ai_worker_not_ready') {
-        setImportError(null)
+        setOriginalCvRuntimeAlert(activeOriginalCvRuntimeAlertView, null)
         setReadinessError(null)
         await seedReadinessQuery({
           preflightResult: result.preflight,
@@ -573,7 +631,14 @@ export function App() {
       }
 
       if (result.kind === 'rejected') {
-        setImportError(result.error.message)
+        setOriginalCvRuntimeAlert(
+          activeOriginalCvRuntimeAlertView,
+          createOriginalCvRuntimeAlert({
+            message: result.error.message,
+            source: 'original_cv_import',
+            view: activeOriginalCvRuntimeAlertView,
+          }),
+        )
 
         return
       }
@@ -587,7 +652,7 @@ export function App() {
         topLevelSection: topLevelSectionAfterImport,
       }
 
-      setImportError(null)
+      clearOriginalCvRuntimeAlerts()
       setIsConfirmingDraftDiscard(false)
       setOriginalCvSectionFile(null)
       setOriginalCvSectionMode('detail')
@@ -979,8 +1044,22 @@ export function App() {
       return
     }
 
+    if (activeWorkspaceSection === 'original_cv') {
+      setOriginalCvRuntimeAlert(
+        activeOriginalCvRuntimeAlertView,
+        createOriginalCvRuntimeAlert({
+          message: resolvedMessage,
+          source: 'original_cv_query',
+          view: activeOriginalCvRuntimeAlertView,
+        }),
+      )
+
+      return
+    }
+
     setReadinessError(resolvedMessage)
   }, [
+    activeOriginalCvRuntimeAlertView,
     activeWorkspaceSection,
     originalCvWorkspaceQuery.error,
     originalCvDetailQuery.error,
@@ -995,6 +1074,23 @@ export function App() {
     workspaceSelectionQuery.error,
     vacancyWorkspaceQuery.error,
   ])
+
+  useEffect(() => {
+    if (activeOriginalCvDetail === null || activeOriginalCvDetail === undefined) {
+      return
+    }
+
+    setOriginalCvRuntimeAlerts((currentAlerts) => {
+      if (currentAlerts.detail?.source !== 'original_cv_query') {
+        return currentAlerts
+      }
+
+      return {
+        ...currentAlerts,
+        detail: null,
+      }
+    })
+  }, [activeOriginalCvDetail])
 
   const handlePrimaryAction = async (): Promise<void> => {
     if (viewModel.primaryActionLabel === undefined || aiWorkerStatusMutation.isPending) {
@@ -1039,6 +1135,10 @@ export function App() {
     setSettingsRuntimeAlerts(createEmptySettingsRuntimeAlerts())
   }
 
+  const clearOriginalCvRuntimeAlerts = (): void => {
+    setOriginalCvRuntimeAlerts(createEmptyOriginalCvRuntimeAlerts())
+  }
+
   const clearDraftActionAlert = (): void => {
     setDraftActionAlertState(null)
   }
@@ -1061,6 +1161,45 @@ export function App() {
     })
   }
 
+  const setOriginalCvRuntimeAlert = (
+    view: OriginalCvRuntimeAlertView,
+    nextAlert: RuntimeAlert | null,
+  ): void => {
+    setOriginalCvRuntimeAlerts((currentAlerts) => {
+      return {
+        ...currentAlerts,
+        [view]: resolveNextRuntimeAlert(currentAlerts[view], nextAlert),
+      }
+    })
+  }
+
+  const handleOriginalCvDetailPreviewErrorChange = (message: string | null): void => {
+    if (message === null) {
+      setOriginalCvRuntimeAlerts((currentAlerts) => {
+        if (currentAlerts.detail?.source !== 'original_cv_preview') {
+          return currentAlerts
+        }
+
+        return {
+          ...currentAlerts,
+          detail: null,
+        }
+      })
+
+      return
+    }
+
+    setOriginalCvRuntimeAlert(
+      'detail',
+      createOriginalCvRuntimeAlert({
+        message,
+        priority: 400,
+        source: 'original_cv_preview',
+        view: 'detail',
+      }),
+    )
+  }
+
   const handleSelectRailItem = (item: 'job_vacancies' | 'original_cv' | 'settings' | 'setup') => {
     if (!viewModel.canEnterWorkspace || item === 'setup') {
       return
@@ -1070,8 +1209,6 @@ export function App() {
     const nextWorkspaceSelection = buildWorkspaceSelection({
       topLevelSection: nextTopLevelSection,
     })
-
-    setImportError(null)
 
     if (item === 'original_cv') {
       setOriginalCvSectionFile(null)
@@ -1090,7 +1227,6 @@ export function App() {
       topLevelSection: 'original_cv',
     })
 
-    setImportError(null)
     setOriginalCvSectionFile(null)
     setOriginalCvSectionMode('detail')
 
@@ -1180,7 +1316,7 @@ export function App() {
       return
     }
 
-    setImportError(null)
+    setOriginalCvRuntimeAlert(activeOriginalCvRuntimeAlertView, null)
     setReadinessError(null)
 
     try {
@@ -1190,7 +1326,14 @@ export function App() {
         topLevelSectionAfterImport,
       })
     } catch {
-      setReadinessError(`${readinessErrorMessage} ${readinessErrorAction}`)
+      setOriginalCvRuntimeAlert(
+        activeOriginalCvRuntimeAlertView,
+        createOriginalCvRuntimeAlert({
+          message: `${readinessErrorMessage} ${readinessErrorAction}`,
+          source: 'original_cv_import',
+          view: activeOriginalCvRuntimeAlertView,
+        }),
+      )
     }
   }
 
@@ -1202,20 +1345,27 @@ export function App() {
     setFile: (file: File | null) => void
   }): void => {
     if (nextFile === null) {
-      setImportError(null)
+      setOriginalCvRuntimeAlert(activeOriginalCvRuntimeAlertView, null)
       setFile(null)
 
       return
     }
 
     if (!isSupportedOriginalCvFile(nextFile)) {
-      setImportError(originalCvFileTypeErrorMessage)
+      setOriginalCvRuntimeAlert(
+        activeOriginalCvRuntimeAlertView,
+        createOriginalCvRuntimeAlert({
+          message: originalCvFileTypeErrorMessage,
+          source: 'original_cv_file',
+          view: activeOriginalCvRuntimeAlertView,
+        }),
+      )
       setFile(null)
 
       return
     }
 
-    setImportError(null)
+    setOriginalCvRuntimeAlert(activeOriginalCvRuntimeAlertView, null)
     setFile(nextFile)
   }
 
@@ -1235,7 +1385,6 @@ export function App() {
   }
 
   const handleStartOriginalCvReplacement = (): void => {
-    setImportError(null)
     setOriginalCvSectionFile(null)
     setOriginalCvSectionMode('replace')
   }
@@ -1633,8 +1782,8 @@ export function App() {
           activeOriginalCvDetail={null}
           activeOriginalCv={null}
           ambientActivityLabel={ambientActivityLabel}
-          importError={importError}
           isImportingOriginalCv={isImportingOriginalCv}
+          onDetailPreviewErrorChange={handleOriginalCvDetailPreviewErrorChange}
           onFileDrop={handleOriginalCvSectionDrop}
           onFileSelection={handleOriginalCvSectionSelection}
           onImportOriginalCv={() => {
@@ -1647,7 +1796,7 @@ export function App() {
           onSelectOriginalCv={handleSelectOriginalCv}
           onSelectRailItem={handleSelectRailItem}
           originalCvFile={originalCvSectionFile}
-          workspaceError={readinessError}
+          runtimeAlert={activeOriginalCvRuntimeAlert}
           workspaceOverlay={workspaceOverlay}
         />
       )
@@ -1660,8 +1809,8 @@ export function App() {
             activeOriginalCv={originalCvWorkspaceState.activeOriginalCv}
             activeView={originalCvSectionMode}
             ambientActivityLabel={ambientActivityLabel}
-            importError={importError}
             isImportingOriginalCv={isImportingOriginalCv}
+            onDetailPreviewErrorChange={handleOriginalCvDetailPreviewErrorChange}
             onFileDrop={handleOriginalCvSectionDrop}
             onFileSelection={handleOriginalCvSectionSelection}
             onImportOriginalCv={() => {
@@ -1675,7 +1824,7 @@ export function App() {
             onSelectRailItem={handleSelectRailItem}
             onStartAddCv={handleStartOriginalCvReplacement}
             originalCvFile={originalCvSectionFile}
-            workspaceError={readinessError}
+            runtimeAlert={activeOriginalCvRuntimeAlert}
             workspaceOverlay={workspaceOverlay}
           />
         )

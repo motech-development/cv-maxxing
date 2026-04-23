@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
-import { render, screen, waitFor } from '@testing-library/react'
-import { beforeEach, expect, test, vi } from 'vitest'
+import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 
 const { renderAsyncMock } = vi.hoisted(() => {
   return {
@@ -20,6 +20,10 @@ import { OriginalCvPreviewCard } from '../original-cv-preview-card.js'
 beforeEach(() => {
   vi.clearAllMocks()
   renderAsyncMock.mockImplementation(() => Promise.resolve())
+})
+
+afterEach(() => {
+  cleanup()
 })
 
 test('renders DOCX previews locally inside the original CV preview pane', async () => {
@@ -58,10 +62,12 @@ test('renders DOCX previews locally inside the original CV preview pane', async 
 
 test('falls back inside the preview pane when DOCX rendering fails', async () => {
   renderAsyncMock.mockRejectedValueOnce(new Error('DOCX preview failed.'))
+  const onPreviewErrorChange = vi.fn()
 
   render(
     <OriginalCvPreviewCard
       emptyStateCopy="Your CV preview will appear here."
+      onPreviewErrorChange={onPreviewErrorChange}
       preview={{
         docxBytes: new Uint8Array([80, 75, 3, 4]),
         kind: 'docx',
@@ -72,10 +78,9 @@ test('falls back inside the preview pane when DOCX rendering fails', async () =>
   )
 
   await waitFor(() => {
-    expect(screen.getByText('DOCX preview failed.')).toBeDefined()
+    expect(onPreviewErrorChange).toHaveBeenLastCalledWith('DOCX preview failed.')
   })
 
-  expect(screen.getByText('DOCX preview failed.').closest('div')?.className).toContain(
-    'overflow-hidden',
-  )
+  expect(screen.queryByText('DOCX preview failed.')).toBeNull()
+  expect(screen.getByLabelText('Your CV DOCX preview').className).toContain('hidden')
 })

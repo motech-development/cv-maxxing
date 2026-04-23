@@ -6,6 +6,7 @@ import { PdfPreviewCard } from './pdf-preview-card.js'
 
 interface OriginalCvPreviewCardProperties {
   emptyStateCopy: string
+  onPreviewErrorChange?: (message: string | null) => void
   preview: OriginalCvPreview | null
   previewKey: string
   title: string
@@ -22,6 +23,7 @@ const DOCX_RENDER_OPTIONS = {
 
 export function OriginalCvPreviewCard({
   emptyStateCopy,
+  onPreviewErrorChange,
   preview,
   previewKey,
   title,
@@ -37,13 +39,22 @@ export function OriginalCvPreviewCard({
     )
   }
 
-  return <LoadedDocxPreviewCard key={previewKey} preview={preview} title={title} />
+  return (
+    <LoadedDocxPreviewCard
+      key={previewKey}
+      onPreviewErrorChange={onPreviewErrorChange}
+      preview={preview}
+      title={title}
+    />
+  )
 }
 
 function LoadedDocxPreviewCard({
+  onPreviewErrorChange,
   preview,
   title,
 }: {
+  onPreviewErrorChange?: (message: string | null) => void
   preview: OriginalCvDocxPreview
   title: string
 }) {
@@ -114,12 +125,13 @@ function LoadedDocxPreviewCard({
     }
   }, [preview])
 
+  useEffect(() => {
+    onPreviewErrorChange?.(renderError)
+  }, [onPreviewErrorChange, renderError])
+
   return (
     <div className="flex h-full min-h-[520px] min-w-0 max-w-full flex-col gap-4 rounded-[8px] border border-[var(--color-border)] bg-[var(--color-surface-1)] p-[18px]">
       <div className="min-h-0 min-w-0 max-w-full flex-1 overflow-hidden rounded-[6px] bg-[var(--color-shell-canvas)] p-4">
-        {renderError ? (
-          <p className="m-0 text-sm text-[var(--color-copy-muted)]">{renderError}</p>
-        ) : null}
         <div
           aria-label={`${title} DOCX preview`}
           className={`${renderError ? 'hidden' : 'block'} h-full w-full overflow-auto`}

@@ -768,6 +768,47 @@ test('shows the workspace overlay while importing the first original CV from fir
   })
 })
 
+test('shows a single shared alert when the first Your CV import is rejected', async () => {
+  const importOriginalCv = vi.fn().mockResolvedValue({
+    error: {
+      message: 'Choose a clearer PDF or DOCX copy of your CV.',
+    },
+    kind: 'rejected',
+  })
+
+  renderApp({
+    aiWorker: createAiWorkerApi({
+      getAiWorkerPreflight: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+    }),
+    originalCv: createOriginalCvApi({
+      importOriginalCv,
+    }),
+  })
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Add a CV' })).toBeDefined()
+  })
+
+  fireEvent.change(screen.getByLabelText('Your CV file'), {
+    target: {
+      files: [new File(['%PDF-1.7'], 'ada-lovelace.pdf', { type: 'application/pdf' })],
+    },
+  })
+  fireEvent.click(screen.getByRole('button', { name: 'Add a CV' }))
+
+  await waitFor(() => {
+    expect(importOriginalCv).toHaveBeenCalledTimes(1)
+  })
+
+  expect(screen.getByRole('alert')).toBeDefined()
+  expect(screen.getAllByText('Choose a clearer PDF or DOCX copy of your CV.')).toHaveLength(1)
+})
+
 test('imports the first original CV from the mutation payload while the workspace refetch is still pending', async () => {
   const importedOriginalCv = {
     fileType: 'pdf' as const,
@@ -1226,8 +1267,94 @@ test('opens the design-aligned replacement screen from populated Your CV before 
   expect(screen.queryByRole('heading', { name: 'Your CV' })).toBeNull()
 })
 
+test('keeps replacement alerts scoped to the Add a CV view when you leave and return', async () => {
+  const importOriginalCv = vi.fn().mockResolvedValue({
+    error: {
+      message: "We couldn't read that CV.",
+    },
+    kind: 'rejected',
+  })
+
+  renderApp({
+    aiWorker: createAiWorkerApi({
+      getAiWorkerPreflight: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+      getStartupDestination: vi.fn().mockResolvedValue('workspace'),
+    }),
+    originalCv: createOriginalCvApi({
+      getActiveOriginalCvDetail: vi.fn().mockResolvedValue(createOriginalCvDetailFixture()),
+      getOriginalCvWorkspaceState: vi.fn().mockResolvedValue({
+        activeOriginalCv: createOriginalCvDetailFixture().originalCv,
+        snapshotCount: 1,
+      }),
+      importOriginalCv,
+    }),
+    tailoredApplication: createTailoredApplicationApi({
+      getWorkspaceSelection: vi.fn().mockResolvedValue({
+        jobs: {
+          kind: 'draft',
+        },
+        originalCv: {
+          kind: 'active_original_cv',
+          originalCvId: 'original-cv-123',
+        },
+        topLevelSection: 'original_cv',
+      }),
+    }),
+  })
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Your CV' })).toBeDefined()
+  })
+
+  fireEvent.click(screen.getByRole('button', { name: 'Add a CV' }))
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Add a CV' })).toBeDefined()
+  })
+
+  fireEvent.change(screen.getByLabelText('Your CV file'), {
+    target: {
+      files: [new File(['%PDF-1.7'], 'ada-lovelace.pdf', { type: 'application/pdf' })],
+    },
+  })
+  fireEvent.click(screen.getByRole('button', { name: 'Add a CV' }))
+
+  await waitFor(() => {
+    expect(importOriginalCv).toHaveBeenCalledTimes(1)
+  })
+
+  expect(screen.getAllByText("We couldn't read that CV.")).toHaveLength(1)
+
+  fireEvent.click(screen.getByRole('button', { name: 'Jobs' }))
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
+  })
+
+  fireEvent.click(screen.getByRole('button', { name: 'Your CV' }))
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Your CV' })).toBeDefined()
+  })
+
+  expect(screen.queryByText("We couldn't read that CV.")).toBeNull()
+
+  fireEvent.click(screen.getByRole('button', { name: 'Add a CV' }))
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Add a CV' })).toBeDefined()
+  })
+
+  expect(screen.getAllByText("We couldn't read that CV.")).toHaveLength(1)
+})
+
 test('keeps the populated Your CV section usable when DOCX preview rendering fails', async () => {
-  renderDocxPreviewMock.mockRejectedValueOnce(new Error('DOCX preview failed.'))
+  renderDocxPreviewMock.mockRejectedValue(new Error('DOCX preview failed.'))
 
   renderApp({
     aiWorker: createAiWorkerApi({
@@ -1293,7 +1420,22 @@ test('keeps the populated Your CV section usable when DOCX preview rendering fai
   expect(screen.getByRole('heading', { name: 'Your CV' })).toBeDefined()
   expect(screen.getByText('Extracted profile')).toBeDefined()
   expect(screen.getByText('Content strategy')).toBeDefined()
+  expect(screen.getAllByText('DOCX preview failed.')).toHaveLength(1)
   expect(screen.getAllByText('ada-lovelace-revised.docx').length).toBeGreaterThan(0)
+
+  fireEvent.click(screen.getByRole('button', { name: 'Jobs' }))
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
+  })
+
+  fireEvent.click(screen.getByRole('button', { name: 'Your CV' }))
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Your CV' })).toBeDefined()
+  })
+
+  expect(screen.getAllByText('DOCX preview failed.')).toHaveLength(1)
 })
 
 test('selecting Your CV from settings with no active original CV opens the empty Your CV section', async () => {

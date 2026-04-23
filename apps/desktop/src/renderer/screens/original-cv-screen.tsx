@@ -1,11 +1,13 @@
 import type { ChangeEvent, DragEvent, KeyboardEvent, ReactNode } from 'react'
 
 import type { OriginalCvDetail, OriginalCvSummary } from '../../shared/original-cv.js'
+import type { RuntimeAlert } from '../runtime-alerts.js'
 import { DesktopShell, type RailItemId } from '../shell/desktop-shell.js'
 import { SidebarContainer } from '../shell/sidebar-container.js'
 import { Button } from '../ui/button.js'
 import { OriginalCvPreviewCard } from '../ui/original-cv-preview-card.js'
 import { PanelCard } from '../ui/panel-card.js'
+import { RuntimeAlertBanner } from '../ui/runtime-alert.js'
 import { SectionLabel } from '../ui/section-label.js'
 
 type OriginalCvScreenMode = 'detail' | 'replace'
@@ -15,8 +17,8 @@ interface OriginalCvScreenProperties {
   activeOriginalCv: OriginalCvSummary | null
   activeView?: OriginalCvScreenMode
   ambientActivityLabel?: string | null
-  importError: string | null
   isImportingOriginalCv: boolean
+  onDetailPreviewErrorChange?: (message: string | null) => void
   onFileDrop: (event: DragEvent<HTMLElement>) => void
   onFileSelection: (event: ChangeEvent<HTMLInputElement>) => void
   onImportOriginalCv: () => void
@@ -24,7 +26,7 @@ interface OriginalCvScreenProperties {
   onSelectRailItem?: (item: RailItemId) => void
   onStartAddCv?: () => void
   originalCvFile: File | null
-  workspaceError?: string | null
+  runtimeAlert: RuntimeAlert | null
   workspaceOverlay?: ReactNode
 }
 
@@ -44,8 +46,8 @@ export function OriginalCvScreen({
   activeOriginalCv,
   activeView = 'detail',
   ambientActivityLabel,
-  importError,
   isImportingOriginalCv,
+  onDetailPreviewErrorChange,
   onFileDrop,
   onFileSelection,
   onImportOriginalCv,
@@ -53,7 +55,7 @@ export function OriginalCvScreen({
   onSelectRailItem,
   onStartAddCv,
   originalCvFile,
-  workspaceError,
+  runtimeAlert,
   workspaceOverlay,
 }: OriginalCvScreenProperties) {
   const handleSidebarAction = (): void => {
@@ -79,27 +81,15 @@ export function OriginalCvScreen({
   let content: ReactNode
 
   if (activeOriginalCv === null) {
-    content = (
-      <OriginalCvEmptyState
-        importError={importError}
-        onFileDrop={onFileDrop}
-        originalCvFile={originalCvFile}
-      />
-    )
+    content = <OriginalCvEmptyState onFileDrop={onFileDrop} originalCvFile={originalCvFile} />
   } else if (activeView === 'replace') {
-    content = (
-      <OriginalCvReplaceState
-        importError={importError}
-        onFileDrop={onFileDrop}
-        originalCvFile={originalCvFile}
-      />
-    )
+    content = <OriginalCvReplaceState onFileDrop={onFileDrop} originalCvFile={originalCvFile} />
   } else {
     content = (
       <OriginalCvActiveState
+        onPreviewErrorChange={onDetailPreviewErrorChange}
         originalCv={activeOriginalCv}
         originalCvDetail={activeOriginalCvDetail}
-        workspaceError={workspaceError ?? null}
       />
     )
   }
@@ -109,6 +99,7 @@ export function OriginalCvScreen({
       activeRailItem="original_cv"
       ambientActivityLabel={ambientActivityLabel}
       onSelectRailItem={onSelectRailItem}
+      pageAlert={runtimeAlert ? <RuntimeAlertBanner alert={runtimeAlert} /> : undefined}
       railItems={['job_vacancies', 'original_cv', 'settings']}
       sidebar={
         <SidebarContainer>
@@ -137,9 +128,6 @@ export function OriginalCvScreen({
               originalCv={activeOriginalCv}
             />
           )}
-          {importError ? (
-            <p className="m-0 text-xs leading-5 text-[var(--color-status-danger)]">{importError}</p>
-          ) : null}
           <div className="flex-1" />
         </SidebarContainer>
       }
@@ -159,11 +147,9 @@ export function OriginalCvScreen({
 }
 
 function OriginalCvEmptyState({
-  importError,
   onFileDrop,
   originalCvFile,
 }: {
-  importError: string | null
   onFileDrop: (event: DragEvent<HTMLElement>) => void
   originalCvFile: File | null
 }) {
@@ -183,20 +169,14 @@ function OriginalCvEmptyState({
         originalCvFile={originalCvFile}
         title="Drop a PDF or DOCX here or choose a file"
       />
-
-      {importError ? (
-        <p className="mt-4 text-sm leading-6 text-[var(--color-status-danger)]">{importError}</p>
-      ) : null}
     </>
   )
 }
 
 function OriginalCvReplaceState({
-  importError,
   onFileDrop,
   originalCvFile,
 }: {
-  importError: string | null
   onFileDrop: (event: DragEvent<HTMLElement>) => void
   originalCvFile: File | null
 }) {
@@ -228,10 +208,6 @@ function OriginalCvReplaceState({
         originalCvFile={originalCvFile}
         title="Drop a PDF or DOCX here or choose a file"
       />
-
-      {importError ? (
-        <p className="mt-4 text-sm leading-6 text-[var(--color-status-danger)]">{importError}</p>
-      ) : null}
     </>
   )
 }
@@ -282,13 +258,13 @@ function OriginalCvImportDropzone({
 }
 
 function OriginalCvActiveState({
+  onPreviewErrorChange,
   originalCv,
   originalCvDetail,
-  workspaceError,
 }: {
+  onPreviewErrorChange?: (message: string | null) => void
   originalCv: OriginalCvSummary
   originalCvDetail: OriginalCvDetail | null | undefined
-  workspaceError: string | null
 }) {
   const resolvedName =
     originalCvDetail?.profile.fullName.trim() === ''
@@ -304,16 +280,6 @@ function OriginalCvActiveState({
       <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--color-copy-muted)]">
         Add a CV to use a different one for future jobs. Your saved jobs won't change.
       </p>
-      {workspaceError ? (
-        <div
-          aria-atomic="true"
-          aria-live="assertive"
-          className="mt-4 max-w-4xl rounded-[var(--radius-card)] border border-[var(--color-status-danger)]/20 bg-[var(--color-surface-danger)] px-4 py-3 text-sm leading-6 text-[var(--color-status-danger)]"
-          role="alert"
-        >
-          {workspaceError}
-        </div>
-      ) : null}
       {originalCvDetail === null || originalCvDetail === undefined ? (
         <PanelCard className="mt-6 max-w-3xl p-6">
           <div className="flex flex-col gap-5">
@@ -334,6 +300,7 @@ function OriginalCvActiveState({
             </p>
             <OriginalCvPreviewCard
               emptyStateCopy={previewEmptyStateCopy}
+              onPreviewErrorChange={onPreviewErrorChange}
               preview={originalCvDetail.preview}
               previewKey={originalCvDetail.originalCv.id}
               title="Your CV"
