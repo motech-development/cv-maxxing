@@ -1,5 +1,8 @@
 import { useEffect, useId, useRef, type ReactNode, type SyntheticEvent } from 'react'
 
+import type { RuntimeAlert } from '../runtime-alerts.js'
+import { RuntimeAlertBanner } from './runtime-alert.js'
+
 interface DialogProperties {
   actions: ReactNode
   children: ReactNode
@@ -7,6 +10,7 @@ interface DialogProperties {
   isDismissable?: boolean
   isOpen: boolean
   onOpenChange: (isOpen: boolean) => void
+  runtimeAlert?: RuntimeAlert | null
   title: string
 }
 
@@ -17,6 +21,7 @@ export function Dialog({
   isDismissable = true,
   isOpen,
   onOpenChange,
+  runtimeAlert,
   title,
 }: DialogProperties) {
   const dialogReference = useRef<HTMLDialogElement | null>(null)
@@ -117,6 +122,7 @@ export function Dialog({
             {title}
           </h2>
         </div>
+        {runtimeAlert ? <RuntimeAlertBanner alert={runtimeAlert} /> : null}
         <div className="flex flex-col gap-3 text-[13px] leading-[1.45] text-[var(--color-copy-muted)]">
           {children}
         </div>

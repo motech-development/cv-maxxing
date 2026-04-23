@@ -51,6 +51,7 @@ import {
 import { resolveRendererLoadingState } from './loading/resolve-renderer-loading-state.js'
 import { WorkspaceBlockingOverlay } from './loading/workspace-blocking-overlay.js'
 import {
+  createRuntimeAlert,
   createSetupActionRuntimeAlert,
   createSetupStatusRuntimeAlert,
   pickHigherPriorityAlert,
@@ -123,9 +124,50 @@ interface ResolvedWorkspaceSelection {
   kind: WorkspaceSelectionKind
 }
 type ImportOriginalCvMutationResult = OriginalCvImportResult
+type RuntimeAlertOwnerView =
+  | SettingsSection
+  | 'delete_tailored_application_dialog'
+  | 'draft_discard_dialog'
+  | 'local_data_reset_dialog'
+type SettingsRuntimeAlerts = Record<SettingsSection, RuntimeAlert | null>
+
+function createEmptySettingsRuntimeAlerts(): SettingsRuntimeAlerts {
+  return {
+    ai_worker: null,
+    local_data: null,
+  }
+}
+
+function createScopedRuntimeAlert({
+  message,
+  owner,
+  priority = 300,
+  source,
+  variant = 'error',
+}: {
+  message: string
+  owner: {
+    scope: RuntimeAlert['owner']['scope']
+    view: RuntimeAlertOwnerView
+  }
+  priority?: number
+  source: string
+  variant?: RuntimeAlert['variant']
+}): RuntimeAlert {
+  return createRuntimeAlert({
+    owner,
+    priority,
+    source,
+    title: message,
+    variant,
+  })
+}
 
 export function App() {
   const queryClient = useQueryClient()
+  const [deleteTailoredApplicationDialogAlert, setDeleteTailoredApplicationDialogAlert] =
+    useState<RuntimeAlert | null>(null)
+  const [draftDiscardDialogAlert, setDraftDiscardDialogAlert] = useState<RuntimeAlert | null>(null)
   const [isDeleteTailoredApplicationDialogOpen, setIsDeleteTailoredApplicationDialogOpen] =
     useState(false)
   const [isConfirmingDraftDiscard, setIsConfirmingDraftDiscard] = useState(false)
@@ -139,10 +181,14 @@ export function App() {
   const [previewDocumentKind, setPreviewDocumentKind] = useState<PreviewDocumentKind>('adapted_cv')
   const [readinessError, setReadinessError] = useState<string | null>(null)
   const [resetConfirmationPhrase, setResetConfirmationPhrase] = useState('')
+  const [resetLocalAppDataDialogAlert, setResetLocalAppDataDialogAlert] =
+    useState<RuntimeAlert | null>(null)
   const [selectedTailoredApplicationId, setSelectedTailoredApplicationId] = useState<string | null>(
     null,
   )
-  const [settingsMessage, setSettingsMessage] = useState<string | null>(null)
+  const [settingsRuntimeAlerts, setSettingsRuntimeAlerts] = useState<SettingsRuntimeAlerts>(
+    createEmptySettingsRuntimeAlerts,
+  )
   const [settingsSection, setSettingsSection] = useState<SettingsSection>('ai_worker')
   const [setupActionAlert, setSetupActionAlert] = useState<RuntimeAlert | null>(null)
   const [startupDestinationOverride, setStartupDestinationOverride] =
@@ -258,6 +304,7 @@ export function App() {
     workspaceSelection.kind === 'tailored_application'
       ? (tailoredApplicationPreviewQuery.data ?? null)
       : null
+  const activeSettingsRuntimeAlert = settingsRuntimeAlerts[settingsSection]
 
   const invalidateReadinessQuery = async (): Promise<void> => {
     await queryClient.invalidateQueries({
@@ -335,6 +382,7 @@ export function App() {
     },
     onSuccess: async (preflightResult): Promise<void> => {
       setReadinessError(null)
+      setSettingsRuntimeAlert('ai_worker', null)
       setSetupActionAlert(null)
       setStartupDestinationOverride(null)
       await seedReadinessQuery({
@@ -366,6 +414,8 @@ export function App() {
     },
     onSuccess: async (): Promise<void> => {
       setIsDeleteTailoredApplicationDialogOpen(false)
+      setDeleteTailoredApplicationDialogAlert(null)
+      setDraftDiscardDialogAlert(null)
       setIsConfirmingDraftDiscard(false)
       setImportError(null)
       setIsResetLocalAppDataDialogOpen(false)
@@ -374,8 +424,9 @@ export function App() {
       setPreviewDocumentKind('adapted_cv')
       setReadinessError(null)
       setResetConfirmationPhrase('')
+      setResetLocalAppDataDialogAlert(null)
       setSelectedTailoredApplicationId(null)
-      setSettingsMessage(null)
+      clearSettingsRuntimeAlerts()
       setSetupActionAlert(null)
       setStartupDestinationOverride(null)
       setWorkspaceSelectionOverride(null)
@@ -691,6 +742,7 @@ export function App() {
         setSelectedTailoredApplicationId(null)
       }
 
+      setDeleteTailoredApplicationDialogAlert(null)
       setIsDeleteTailoredApplicationDialogOpen(false)
       setPreviewDocumentKind('adapted_cv')
       setReadinessError(null)
@@ -901,6 +953,22 @@ export function App() {
     }
   }
 
+  const clearSettingsRuntimeAlerts = (): void => {
+    setSettingsRuntimeAlerts(createEmptySettingsRuntimeAlerts())
+  }
+
+  const setSettingsRuntimeAlert = (
+    section: SettingsSection,
+    nextAlert: RuntimeAlert | null,
+  ): void => {
+    setSettingsRuntimeAlerts((currentAlerts) => {
+      return {
+        ...currentAlerts,
+        [section]: nextAlert,
+      }
+    })
+  }
+
   const handleSelectRailItem = (item: 'job_vacancies' | 'original_cv' | 'settings' | 'setup') => {
     if (!viewModel.canEnterWorkspace || item === 'setup') {
       return
@@ -918,7 +986,7 @@ export function App() {
       setOriginalCvSectionMode('detail')
     }
 
-    setSettingsMessage(null)
+    clearSettingsRuntimeAlerts()
 
     saveWorkspaceSelection(nextWorkspaceSelection).catch(() => {
       setReadinessError("We couldn't save where you left off.")
@@ -946,10 +1014,31 @@ export function App() {
 
     try {
       await clearJobSiteBrowserDataMutation.mutateAsync()
-      setSettingsMessage('Job-site browser data cleared.')
+
+      setSettingsRuntimeAlert(
+        'local_data',
+        createScopedRuntimeAlert({
+          message: 'Job-site browser data cleared.',
+          owner: {
+            scope: 'settings',
+            view: 'local_data',
+          },
+          priority: 100,
+          source: 'clear_job_site_browser_data',
+          variant: 'success',
+        }),
+      )
     } catch (error) {
-      setSettingsMessage(
-        resolveErrorMessage(error, "We couldn't clear your job-site browser data."),
+      setSettingsRuntimeAlert(
+        'local_data',
+        createScopedRuntimeAlert({
+          message: resolveErrorMessage(error, "We couldn't clear your job-site browser data."),
+          owner: {
+            scope: 'settings',
+            view: 'local_data',
+          },
+          source: 'clear_job_site_browser_data',
+        }),
       )
     }
   }
@@ -959,6 +1048,7 @@ export function App() {
       return
     }
 
+    setResetLocalAppDataDialogAlert(null)
     setIsResetLocalAppDataDialogOpen(true)
   }
 
@@ -967,13 +1057,20 @@ export function App() {
       return
     }
 
-    setIsResetLocalAppDataDialogOpen(false)
+    setResetLocalAppDataDialogAlert(null)
 
     try {
       await resetLocalAppDataMutation.mutateAsync()
     } catch (error) {
-      setSettingsMessage(
-        resolveErrorMessage(error, "We couldn't reset your local data on this Mac."),
+      setResetLocalAppDataDialogAlert(
+        createScopedRuntimeAlert({
+          message: resolveErrorMessage(error, "We couldn't reset your local data on this Mac."),
+          owner: {
+            scope: 'settings',
+            view: 'local_data_reset_dialog',
+          },
+          source: 'reset_local_app_data',
+        }),
       )
     }
   }
@@ -1086,6 +1183,7 @@ export function App() {
       return
     }
 
+    setDeleteTailoredApplicationDialogAlert(null)
     setIsDeleteTailoredApplicationDialogOpen(false)
     setPreviewDocumentKind('adapted_cv')
     setReadinessError(null)
@@ -1098,6 +1196,7 @@ export function App() {
       return
     }
 
+    setDeleteTailoredApplicationDialogAlert(null)
     setIsDeleteTailoredApplicationDialogOpen(true)
   }
 
@@ -1109,11 +1208,22 @@ export function App() {
     try {
       await deleteTailoredApplicationMutation.mutateAsync(tailoredApplicationPreview.id)
     } catch {
-      setReadinessError(`${readinessErrorMessage} ${readinessErrorAction}`)
+      setDeleteTailoredApplicationDialogAlert(
+        createScopedRuntimeAlert({
+          message: `${readinessErrorMessage} ${readinessErrorAction}`,
+          owner: {
+            scope: 'job_vacancies',
+            view: 'delete_tailored_application_dialog',
+          },
+          source: 'delete_tailored_application',
+        }),
+      )
     }
   }
 
   const showBlankDraftWorkspace = (): void => {
+    setDeleteTailoredApplicationDialogAlert(null)
+    setDraftDiscardDialogAlert(null)
     setIsDeleteTailoredApplicationDialogOpen(false)
     setIsConfirmingDraftDiscard(false)
     setPreviewDocumentKind('adapted_cv')
@@ -1134,6 +1244,7 @@ export function App() {
     }
 
     if (isCurrentDraftMeaningful) {
+      setDraftDiscardDialogAlert(null)
       setIsConfirmingDraftDiscard(true)
 
       return
@@ -1152,11 +1263,22 @@ export function App() {
       return
     }
 
+    setDraftDiscardDialogAlert(null)
+
     try {
       await clearVacancyWorkspaceMutation.mutateAsync()
       showBlankDraftWorkspace()
     } catch (error) {
-      setVacancyReviewError(resolveErrorMessage(error, "We couldn't clear this job draft."))
+      setDraftDiscardDialogAlert(
+        createScopedRuntimeAlert({
+          message: resolveErrorMessage(error, "We couldn't clear this job draft."),
+          owner: {
+            scope: 'job_vacancies',
+            view: 'draft_discard_dialog',
+          },
+          source: 'clear_job_draft',
+        }),
+      )
     }
   }
 
@@ -1638,6 +1760,7 @@ export function App() {
                 <Button
                   disabled={clearVacancyWorkspaceMutation.isPending}
                   onClick={() => {
+                    setDraftDiscardDialogAlert(null)
                     setIsConfirmingDraftDiscard(false)
                   }}
                   tone="secondary"
@@ -1660,9 +1783,11 @@ export function App() {
             isOpen={isConfirmingDraftDiscard}
             onOpenChange={(nextIsOpen) => {
               if (!nextIsOpen) {
+                setDraftDiscardDialogAlert(null)
                 setIsConfirmingDraftDiscard(false)
               }
             }}
+            runtimeAlert={draftDiscardDialogAlert}
             title="Discard this job draft?"
           >
             <p className="m-0">
@@ -1677,6 +1802,7 @@ export function App() {
                 <Button
                   disabled={deleteTailoredApplicationMutation.isPending}
                   onClick={() => {
+                    setDeleteTailoredApplicationDialogAlert(null)
                     setIsDeleteTailoredApplicationDialogOpen(false)
                   }}
                   tone="secondary"
@@ -1699,9 +1825,11 @@ export function App() {
             isOpen={isDeleteTailoredApplicationDialogOpen}
             onOpenChange={(nextIsOpen) => {
               if (!nextIsOpen) {
+                setDeleteTailoredApplicationDialogAlert(null)
                 setIsDeleteTailoredApplicationDialogOpen(false)
               }
             }}
+            runtimeAlert={deleteTailoredApplicationDialogAlert}
             title="Delete this job?"
           >
             <p className="m-0">
@@ -1733,28 +1861,52 @@ export function App() {
             handleClearJobSiteBrowserData().catch(() => null)
           }}
           onOpenSetupGuide={() => {
+            setSettingsRuntimeAlert('ai_worker', null)
+
             openSetupGuide().catch((error: unknown) => {
-              setSettingsMessage(
-                resolveErrorMessage(error, `${readinessErrorMessage} ${readinessErrorAction}`),
+              setSettingsRuntimeAlert(
+                'ai_worker',
+                createScopedRuntimeAlert({
+                  message: resolveErrorMessage(
+                    error,
+                    `${readinessErrorMessage} ${readinessErrorAction}`,
+                  ),
+                  owner: {
+                    scope: 'settings',
+                    view: 'ai_worker',
+                  },
+                  source: 'open_ai_setup_guide',
+                }),
               )
             })
           }}
           onResetLocalAppData={handleOpenResetLocalAppDataDialog}
           onRetryAiWorker={() => {
-            setSettingsMessage(null)
+            setSettingsRuntimeAlert('ai_worker', null)
 
             aiWorkerStatusMutation.mutateAsync('retry').catch((error: unknown) => {
-              setSettingsMessage(
-                resolveErrorMessage(error, `${readinessErrorMessage} ${readinessErrorAction}`),
+              setSettingsRuntimeAlert(
+                'ai_worker',
+                createScopedRuntimeAlert({
+                  message: resolveErrorMessage(
+                    error,
+                    `${readinessErrorMessage} ${readinessErrorAction}`,
+                  ),
+                  owner: {
+                    scope: 'settings',
+                    view: 'ai_worker',
+                  },
+                  source: 'retry_ai_worker',
+                }),
               )
             })
           }}
           onSelectRailItem={handleSelectRailItem}
           onSelectSection={(section) => {
-            setSettingsMessage(null)
+            clearSettingsRuntimeAlerts()
             setSettingsSection(section)
           }}
-          settingsMessage={settingsMessage}
+          runtimeAlert={activeSettingsRuntimeAlert}
           snapshot={settingsSnapshot}
           workerStatusLabel={workerStatusLabel}
           workerStatusTone={workerStatusTone}
@@ -1767,6 +1919,7 @@ export function App() {
                 onClick={() => {
                   setIsResetLocalAppDataDialogOpen(false)
                   setResetConfirmationPhrase('')
+                  setResetLocalAppDataDialogAlert(null)
                 }}
                 tone="secondary"
               >
@@ -1793,8 +1946,10 @@ export function App() {
             if (!nextIsOpen) {
               setIsResetLocalAppDataDialogOpen(false)
               setResetConfirmationPhrase('')
+              setResetLocalAppDataDialogAlert(null)
             }
           }}
+          runtimeAlert={resetLocalAppDataDialogAlert}
           title="Reset local app data?"
         >
           <p className="m-0">

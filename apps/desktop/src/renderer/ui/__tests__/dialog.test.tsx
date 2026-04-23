@@ -1,13 +1,26 @@
 // @vitest-environment jsdom
 
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, expect, test, vi } from 'vitest'
 
+import type { RuntimeAlert } from '../../runtime-alerts.js'
 import { Dialog } from '../dialog.js'
 
 afterEach(() => {
   cleanup()
 })
+
+const dialogRuntimeAlert: RuntimeAlert = {
+  body: 'Finish the action already in progress, then try again.',
+  owner: {
+    scope: 'settings',
+    view: 'local_data_reset_dialog',
+  },
+  priority: 300,
+  source: 'dialog_action',
+  title: 'This action cannot continue right now.',
+  variant: 'error',
+}
 
 test('renders titled dialog content with arbitrary body and action content when open', () => {
   render(
@@ -27,6 +40,32 @@ test('renders titled dialog content with arbitrary body and action content when 
     screen.getByText('Starting a new vacancy will remove the current draft from the workspace.'),
   ).toBeDefined()
   expect(screen.getByRole('button', { name: 'Confirm action' })).toBeDefined()
+})
+
+test('renders a shared alert below the title block when provided', () => {
+  render(
+    <Dialog
+      actions={<button type="button">Confirm action</button>}
+      isDismissable={false}
+      isOpen
+      onOpenChange={vi.fn()}
+      runtimeAlert={dialogRuntimeAlert}
+      title="Reset local app data?"
+    >
+      <p>Dialog body</p>
+    </Dialog>,
+  )
+
+  const dialog = screen.getByRole('dialog', { name: 'Reset local app data?' })
+  const dialogText = dialog.textContent
+
+  expect(within(dialog).getByRole('alert')).toBeDefined()
+  expect(dialogText.indexOf('Reset local app data?')).toBeLessThan(
+    dialogText.indexOf('This action cannot continue right now.'),
+  )
+  expect(dialogText.indexOf('This action cannot continue right now.')).toBeLessThan(
+    dialogText.indexOf('Dialog body'),
+  )
 })
 
 test('anchors the dialog to the viewport center when open', () => {

@@ -4999,7 +4999,9 @@ test('shows an app-blocking overlay while resetting local app data', async () =>
   })
 
   expect(screen.getByRole('status', { name: 'Preparing app' })).toBeDefined()
-  expect(screen.queryByRole('button', { name: 'Cancel' })).toBeNull()
+  expect(
+    within(resetDialog).getByRole('button', { name: 'Cancel' }).getAttribute('disabled'),
+  ).not.toBeNull()
   expect(screen.getByRole('button', { name: 'Settings' })).toBeDefined()
   expect(screen.getByRole('heading', { name: 'Local data' })).toBeDefined()
 
@@ -5008,4 +5010,134 @@ test('shows an app-blocking overlay while resetting local app data', async () =>
   await waitFor(() => {
     expect(screen.queryByRole('status', { name: 'Preparing app' })).toBeNull()
   })
+})
+
+test('shows a shared page-top alert when clearing job-site browser data fails', async () => {
+  renderApp({
+    aiWorker: createAiWorkerApi({
+      getAiWorkerPreflight: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+      getStartupDestination: vi.fn().mockResolvedValue('workspace'),
+    }),
+    originalCv: createOriginalCvApi({
+      getOriginalCvWorkspaceState: vi.fn().mockResolvedValue({
+        activeOriginalCv: {
+          fileType: 'pdf',
+          headline: 'Principal Product Designer',
+          id: 'original-cv-123',
+          importedAt: '2026-04-08T14:30:00.000Z',
+          originalFilename: 'ada-lovelace.pdf',
+          pageCount: 1,
+          snapshotCount: 1,
+          summary: 'Design leader focused on complex workflow products.',
+          writingStyle: {
+            averageSentenceLength: 7,
+            clicheDetections: [],
+            firstPersonUsage: 'absent',
+            formality: 'direct',
+          },
+        },
+        snapshotCount: 1,
+      }),
+    }),
+    settings: createSettingsApi({
+      clearJobSiteBrowserData: vi
+        .fn()
+        .mockRejectedValue(new Error("We couldn't clear your job-site browser data.")),
+    }),
+  })
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
+  })
+
+  fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Show Local data settings' }))
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Local data' })).toBeDefined()
+  })
+
+  fireEvent.click(screen.getByRole('button', { name: 'Clear browser data' }))
+
+  await waitFor(() => {
+    expect(screen.getByRole('alert')).toBeDefined()
+  })
+
+  expect(screen.getByText("We couldn't clear your job-site browser data.")).toBeDefined()
+  expect(screen.queryByText(/^We couldn't clear your job-site browser data\.$/)).toBeDefined()
+})
+
+test('shows a dialog-local shared alert when resetting local app data fails', async () => {
+  renderApp({
+    aiWorker: createAiWorkerApi({
+      getAiWorkerPreflight: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+      getStartupDestination: vi.fn().mockResolvedValue('workspace'),
+    }),
+    originalCv: createOriginalCvApi({
+      getOriginalCvWorkspaceState: vi.fn().mockResolvedValue({
+        activeOriginalCv: {
+          fileType: 'pdf',
+          headline: 'Principal Product Designer',
+          id: 'original-cv-123',
+          importedAt: '2026-04-08T14:30:00.000Z',
+          originalFilename: 'ada-lovelace.pdf',
+          pageCount: 1,
+          snapshotCount: 1,
+          summary: 'Design leader focused on complex workflow products.',
+          writingStyle: {
+            averageSentenceLength: 7,
+            clicheDetections: [],
+            firstPersonUsage: 'absent',
+            formality: 'direct',
+          },
+        },
+        snapshotCount: 1,
+      }),
+    }),
+    settings: createSettingsApi({
+      resetLocalAppData: vi
+        .fn()
+        .mockRejectedValue(new Error("We couldn't reset your local data on this Mac.")),
+    }),
+  })
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
+  })
+
+  fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Show Local data settings' }))
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Local data' })).toBeDefined()
+  })
+
+  fireEvent.click(screen.getByRole('button', { name: 'Reset local app data' }))
+
+  const resetDialog = screen.getByRole('dialog', { name: 'Reset local app data?' })
+
+  fireEvent.change(within(resetDialog).getByLabelText('Type RESET to confirm destructive reset'), {
+    target: {
+      value: SETTINGS_RESET_CONFIRMATION_PHRASE,
+    },
+  })
+  fireEvent.click(within(resetDialog).getByRole('button', { name: 'Reset local app data' }))
+
+  await waitFor(() => {
+    expect(within(resetDialog).getByRole('alert')).toBeDefined()
+  })
+
+  expect(
+    within(resetDialog).getByText("We couldn't reset your local data on this Mac."),
+  ).toBeDefined()
 })
