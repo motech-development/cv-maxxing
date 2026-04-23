@@ -23,6 +23,7 @@ interface WorkspaceScreenProperties {
   ambientActivityLabel?: string | null
   applicationTitle: string | null
   applications: TailoredApplicationListItem[]
+  applicationRuntimeAlert: RuntimeAlert | null
   draftReviewState: VacancyReviewState
   draftRuntimeAlert: RuntimeAlert | null
   isAdaptingCv: boolean
@@ -52,7 +53,6 @@ interface WorkspaceScreenProperties {
   textDraft: string
   urlDraft: string
   vacancyPreview: VacancySummary | null
-  workspaceError: string | null
   workspaceOverlay?: ReactNode
 }
 
@@ -61,6 +61,7 @@ export function WorkspaceScreen({
   ambientActivityLabel,
   applicationTitle,
   applications,
+  applicationRuntimeAlert,
   draftReviewState,
   draftRuntimeAlert,
   isAdaptingCv,
@@ -90,21 +91,17 @@ export function WorkspaceScreen({
   textDraft,
   urlDraft,
   vacancyPreview,
-  workspaceError,
   workspaceOverlay,
 }: WorkspaceScreenProperties) {
   const hasVacancyItems = isCurrentDraftMeaningful || applications.length > 0
+  const pageAlert = selectedWorkspaceItem === 'draft' ? draftRuntimeAlert : applicationRuntimeAlert
 
   return (
     <DesktopShell
       activeRailItem={activeRailItem}
       ambientActivityLabel={ambientActivityLabel}
       onSelectRailItem={onSelectRailItem}
-      pageAlert={
-        selectedWorkspaceItem === 'draft' && draftRuntimeAlert ? (
-          <RuntimeAlertBanner alert={draftRuntimeAlert} />
-        ) : undefined
-      }
+      pageAlert={pageAlert ? <RuntimeAlertBanner alert={pageAlert} /> : undefined}
       railItems={['job_vacancies', 'original_cv', 'settings']}
       sidebar={
         <SidebarContainer>
@@ -164,7 +161,6 @@ export function WorkspaceScreen({
           onSelectPreviewDocument={onSelectPreviewDocument}
           preview={preview}
           previewDocumentKind={previewDocumentKind}
-          workspaceError={workspaceError}
         />
       ) : (
         <WorkspaceDraftView

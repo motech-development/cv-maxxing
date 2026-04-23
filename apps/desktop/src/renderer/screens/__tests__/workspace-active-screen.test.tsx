@@ -22,7 +22,6 @@ test('keeps the document preview column shrinkable beside the vacancy panel', ()
       onSelectPreviewDocument={onSelectPreviewDocument}
       preview={null}
       previewDocumentKind="adapted_cv"
-      workspaceError={null}
     />,
   )
 

@@ -1950,6 +1950,99 @@ test('reviews a ready vacancy URL and only starts tailoring after Tailor your CV
   })
 })
 
+test('shows a shared draft alert when tailoring fails to start', async () => {
+  const getStartupDestination = vi.fn().mockResolvedValue('workspace')
+  const startPendingGeneration = vi
+    .fn()
+    .mockRejectedValue(new Error("We couldn't start tailoring your CV. Try again."))
+
+  renderApp({
+    aiWorker: createAiWorkerApi({
+      getAiWorkerPreflight: vi.fn().mockResolvedValue({
+        canResumeGeneration: false,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+      getStartupDestination,
+    }),
+    originalCv: createOriginalCvApi({
+      getOriginalCvWorkspaceState: vi.fn().mockResolvedValue({
+        activeOriginalCv: {
+          fileType: 'pdf',
+          headline: 'Principal Product Designer',
+          id: 'original-cv-123',
+          importedAt: '2026-04-08T14:30:00.000Z',
+          originalFilename: 'ada-lovelace.pdf',
+          pageCount: 1,
+          snapshotCount: 1,
+          summary: 'Design leader focused on complex workflow products.',
+          writingStyle: {
+            averageSentenceLength: 7,
+            clicheDetections: [],
+            firstPersonUsage: 'absent',
+            formality: 'direct',
+          },
+        },
+        snapshotCount: 1,
+      }),
+    }),
+    vacancy: createVacancyApi({
+      getVacancyWorkspaceState: vi.fn().mockResolvedValue({
+        draft: {
+          text: '',
+          url: 'https://boards.greenhouse.io/example/jobs/123',
+        },
+        reviewState: 'ready',
+        vacancy: {
+          blockingReason: null,
+          canGenerate: true,
+          employer: 'Example Labs',
+          fetchedAt: '2026-04-08T21:10:00.000Z',
+          id: 'vacancy-002',
+          inputType: 'url',
+          location: 'London, United Kingdom',
+          originalUrl: 'https://boards.greenhouse.io/example/jobs/123',
+          requirements: ['Experience shipping workflow software.'],
+          resolvedUrl: 'https://boards.greenhouse.io/example/jobs/123',
+          responsibilities: ['Lead product design for desktop workflows.'],
+          source: 'greenhouse',
+          status: 'ready',
+          textPreview: 'Lead product design for desktop workflows.',
+          title: 'Senior Product Designer',
+        },
+      }),
+    }),
+    tailoredApplication: createTailoredApplicationApi({
+      getPendingGenerationCommand: vi.fn().mockResolvedValue(null),
+      resumePendingGeneration: vi.fn().mockResolvedValue(null),
+      startPendingGeneration,
+    }),
+  })
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
+  })
+
+  fireEvent.click(screen.getByRole('button', { name: 'Tailor your CV' }))
+
+  await waitFor(() => {
+    expect(startPendingGeneration).toHaveBeenCalledWith({
+      originalCvId: 'original-cv-123',
+      originalCvLabel: 'ada-lovelace.pdf',
+      vacancyDraft: {
+        text: '',
+        url: 'https://boards.greenhouse.io/example/jobs/123',
+      },
+    })
+  })
+
+  await waitFor(() => {
+    expect(screen.getByRole('alert')).toBeDefined()
+    expect(screen.getAllByText("We couldn't start tailoring your CV. Try again.")).toHaveLength(1)
+  })
+})
+
 test('shows the workspace overlay while reviewing a vacancy URL without surfacing generation-only actions', async () => {
   const ingestVacancyUrlDeferredPromise = createDeferredPromise<VacancyIngestResult>()
   const ingestVacancyUrl = vi.fn(() => {
@@ -3379,6 +3472,7 @@ test('returns to the workspace with a visible error when generation fails contra
     ).toBeDefined()
   })
 
+  expect(screen.getByRole('alert')).toBeDefined()
   expect(screen.getAllByRole('button', { name: 'Check job details' })).toHaveLength(2)
 })
 
@@ -3816,11 +3910,125 @@ test('shows a PDF save error when exporting the tailored CV fails', async () => 
     expect(exportAdaptedCvPdf).toHaveBeenCalledWith('tailored-application-123')
   })
 
+  expect(screen.getByRole('alert')).toBeDefined()
   expect(
-    screen.getByText(
+    screen.getAllByText(
       "We couldn't save the PDF. Check that the destination folder is available on this Mac, then try again.",
     ),
-  ).toBeDefined()
+  ).toHaveLength(1)
+
+  fireEvent.click(screen.getByRole('button', { name: 'Add a job' }))
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
+  })
+
+  expect(
+    screen.queryByText(
+      "We couldn't save the PDF. Check that the destination folder is available on this Mac, then try again.",
+    ),
+  ).toBeNull()
+
+  fireEvent.click(screen.getByRole('button', { name: 'Open senior platform engineer' }))
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Senior platform engineer' })).toBeDefined()
+  })
+
+  expect(
+    screen.getAllByText(
+      "We couldn't save the PDF. Check that the destination folder is available on this Mac, then try again.",
+    ),
+  ).toHaveLength(1)
+})
+
+test('shows a shared saved-job alert when copying the cover letter text fails', async () => {
+  const getStartupDestination = vi.fn().mockResolvedValue('workspace')
+  const completedWorkspaceState = createTailoredApplicationWorkspaceStateFixture({
+    activeApplicationId: 'tailored-application-123',
+    applications: [
+      {
+        createdAt: '2026-04-09T09:30:00.000Z',
+        employer: 'Example Labs',
+        id: 'tailored-application-123',
+        pageCount: 4,
+        pageWarning: 'This adapted CV runs to 4 pages. Export is still available.',
+        title: 'Senior platform engineer',
+        vacancyTitle: 'Senior platform engineer',
+      },
+    ],
+  })
+  const clipboardWriteText = vi.fn().mockRejectedValue(new Error('Clipboard unavailable.'))
+
+  Object.defineProperty(globalThis.navigator, 'clipboard', {
+    configurable: true,
+    value: {
+      writeText: clipboardWriteText,
+    },
+  })
+
+  renderApp({
+    aiWorker: createAiWorkerApi({
+      getAiWorkerPreflight: vi.fn().mockResolvedValue({
+        canResumeGeneration: false,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+      getStartupDestination,
+    }),
+    originalCv: createOriginalCvApi({
+      getOriginalCvWorkspaceState: vi.fn().mockResolvedValue({
+        activeOriginalCv: {
+          fileType: 'pdf',
+          headline: 'Principal Product Designer',
+          id: 'original-cv-123',
+          importedAt: '2026-04-08T14:30:00.000Z',
+          originalFilename: 'ada-lovelace.pdf',
+          pageCount: 1,
+          snapshotCount: 1,
+          summary: 'Design leader focused on complex workflow products.',
+          writingStyle: {
+            averageSentenceLength: 7,
+            clicheDetections: [],
+            firstPersonUsage: 'absent',
+            formality: 'direct',
+          },
+        },
+        snapshotCount: 1,
+      }),
+    }),
+    tailoredApplication: createTailoredApplicationApi({
+      getTailoredApplicationPreview: vi.fn().mockResolvedValue(
+        createTailoredApplicationPreviewFixture({
+          id: 'tailored-application-123',
+          title: 'Senior platform engineer',
+          vacancyTitle: 'Senior platform engineer',
+        }),
+      ),
+      getWorkspaceState: vi.fn().mockResolvedValue(completedWorkspaceState),
+      resumePendingGeneration: vi.fn().mockResolvedValue(null),
+    }),
+  })
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Senior platform engineer' })).toBeDefined()
+  })
+
+  fireEvent.click(screen.getByRole('button', { name: 'Cover letter' }))
+
+  await waitFor(() => {
+    expect(screen.getByText('Page 1 of 2')).toBeDefined()
+  })
+
+  fireEvent.click(screen.getByRole('button', { name: 'Copy cover letter text' }))
+
+  await waitFor(() => {
+    expect(clipboardWriteText).toHaveBeenCalledWith('Dear Hiring Manager,\n\nAda Lovelace')
+  })
+
+  expect(screen.getByRole('alert')).toBeDefined()
+  expect(screen.getAllByText("We couldn't copy the cover letter text.")).toHaveLength(1)
 })
 
 test('replaces the current draft row with the new saved tailored application row without sidebar churn', async () => {

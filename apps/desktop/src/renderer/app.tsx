@@ -130,6 +130,7 @@ type ImportOriginalCvMutationResult = OriginalCvImportResult
 type RuntimeAlertOwnerView =
   | OriginalCvRuntimeAlertView
   | 'draft'
+  | 'saved_application'
   | SettingsSection
   | 'delete_tailored_application_dialog'
   | 'draft_discard_dialog'
@@ -193,6 +194,26 @@ function createOriginalCvRuntimeAlert({
     owner: {
       scope: 'original_cv',
       view,
+    },
+    priority,
+    source,
+  })
+}
+
+function createSavedApplicationRuntimeAlert({
+  message,
+  priority = 300,
+  source,
+}: {
+  message: string
+  priority?: number
+  source: string
+}): RuntimeAlert {
+  return createScopedRuntimeAlert({
+    message,
+    owner: {
+      scope: 'job_vacancies',
+      view: 'saved_application',
     },
     priority,
     source,
@@ -300,6 +321,8 @@ export function App() {
   const [readinessError, setReadinessError] = useState<string | null>(null)
   const [resetConfirmationPhrase, setResetConfirmationPhrase] = useState('')
   const [resetLocalAppDataDialogAlert, setResetLocalAppDataDialogAlert] =
+    useState<RuntimeAlert | null>(null)
+  const [savedApplicationRuntimeAlert, setSavedApplicationRuntimeAlertState] =
     useState<RuntimeAlert | null>(null)
   const [selectedTailoredApplicationId, setSelectedTailoredApplicationId] = useState<string | null>(
     null,
@@ -565,6 +588,7 @@ export function App() {
       setReadinessError(null)
       setResetConfirmationPhrase('')
       setResetLocalAppDataDialogAlert(null)
+      setSavedApplicationRuntimeAlertState(null)
       setSelectedTailoredApplicationId(null)
       clearSettingsRuntimeAlerts()
       setSetupActionAlert(null)
@@ -893,6 +917,7 @@ export function App() {
       setIsDeleteTailoredApplicationDialogOpen(false)
       setPreviewDocumentKind('adapted_cv')
       setReadinessError(null)
+      clearSavedApplicationRuntimeAlert()
       await Promise.all([
         invalidateReadinessQuery(),
         queryClient.invalidateQueries({
@@ -1023,6 +1048,10 @@ export function App() {
         setSetupActionAlert(null)
       }
 
+      if (savedApplicationRuntimeAlert?.source === 'saved_application_query') {
+        setSavedApplicationRuntimeAlert(null)
+      }
+
       return
     }
 
@@ -1057,6 +1086,21 @@ export function App() {
       return
     }
 
+    if (
+      activeWorkspaceSection === 'job_vacancies' &&
+      workspaceSelection.kind === 'tailored_application'
+    ) {
+      setSavedApplicationRuntimeAlert(
+        createSavedApplicationRuntimeAlert({
+          message: resolvedMessage,
+          priority: 400,
+          source: 'saved_application_query',
+        }),
+      )
+
+      return
+    }
+
     setReadinessError(resolvedMessage)
   }, [
     activeOriginalCvRuntimeAlertView,
@@ -1065,12 +1109,14 @@ export function App() {
     originalCvDetailQuery.error,
     pendingGenerationQuery.error,
     readinessQuery.error,
+    savedApplicationRuntimeAlert,
     settingsQuery.error,
     setupActionAlert,
     tailoredApplicationPreviewQuery.error,
     tailoredApplicationWorkspaceQuery.error,
     viewModel.canEnterWorkspace,
     viewModel.status,
+    workspaceSelection.kind,
     workspaceSelectionQuery.error,
     vacancyWorkspaceQuery.error,
   ])
@@ -1139,6 +1185,10 @@ export function App() {
     setOriginalCvRuntimeAlerts(createEmptyOriginalCvRuntimeAlerts())
   }
 
+  const clearSavedApplicationRuntimeAlert = (): void => {
+    setSavedApplicationRuntimeAlertState(null)
+  }
+
   const clearDraftActionAlert = (): void => {
     setDraftActionAlertState(null)
   }
@@ -1170,6 +1220,12 @@ export function App() {
         ...currentAlerts,
         [view]: resolveNextRuntimeAlert(currentAlerts[view], nextAlert),
       }
+    })
+  }
+
+  const setSavedApplicationRuntimeAlert = (nextAlert: RuntimeAlert | null): void => {
+    setSavedApplicationRuntimeAlertState((currentAlert) => {
+      return resolveNextRuntimeAlert(currentAlert, nextAlert)
     })
   }
 
@@ -1399,11 +1455,22 @@ export function App() {
     }
 
     setReadinessError(null)
+    clearDraftActionAlert()
 
     try {
       await startPendingGenerationMutation.mutateAsync(vacancyDraft)
-    } catch {
-      setReadinessError(`${readinessErrorMessage} ${readinessErrorAction}`)
+    } catch (error) {
+      setDraftActionAlert(
+        createScopedRuntimeAlert({
+          message: resolveErrorMessage(error, `${readinessErrorMessage} ${readinessErrorAction}`),
+          owner: {
+            scope: 'job_vacancies',
+            view: 'draft',
+          },
+          priority: 400,
+          source: 'start_pending_generation',
+        }),
+      )
     }
   }
 
@@ -1414,14 +1481,29 @@ export function App() {
 
     try {
       await exportPdfMutation.mutateAsync(previewDocumentKind)
+
+      clearSavedApplicationRuntimeAlert()
     } catch {
-      setReadinessError(exportPdfErrorMessage)
+      setSavedApplicationRuntimeAlert(
+        createSavedApplicationRuntimeAlert({
+          message: exportPdfErrorMessage,
+          priority: 400,
+          source: 'saved_application_export',
+        }),
+      )
     }
   }
 
   const handleSelectTailoredApplication = (tailoredApplicationId: string): void => {
     if (tailoredApplicationPreview?.id === tailoredApplicationId || exportPdfMutation.isPending) {
       return
+    }
+
+    if (
+      selectedTailoredApplicationId !== null &&
+      selectedTailoredApplicationId !== tailoredApplicationId
+    ) {
+      clearSavedApplicationRuntimeAlert()
     }
 
     setDeleteTailoredApplicationDialogAlert(null)
@@ -1544,9 +1626,16 @@ export function App() {
       await globalThis.navigator.clipboard.writeText(
         tailoredApplicationPreview.coverLetter.plainText,
       )
-      setReadinessError(null)
+
+      clearSavedApplicationRuntimeAlert()
     } catch {
-      setReadinessError("We couldn't copy the cover letter text.")
+      setSavedApplicationRuntimeAlert(
+        createSavedApplicationRuntimeAlert({
+          message: "We couldn't copy the cover letter text.",
+          priority: 400,
+          source: 'saved_application_copy',
+        }),
+      )
     } finally {
       setIsCopyingCoverLetterText(false)
     }
@@ -1630,8 +1719,17 @@ export function App() {
     } catch (error) {
       flushSync(() => {
         setStartupDestinationOverride('workspace')
-        setReadinessError(
-          resolveErrorMessage(error, `${readinessErrorMessage} ${readinessErrorAction}`),
+        setReadinessError(null)
+        setDraftActionAlert(
+          createScopedRuntimeAlert({
+            message: resolveErrorMessage(error, `${readinessErrorMessage} ${readinessErrorAction}`),
+            owner: {
+              scope: 'job_vacancies',
+              view: 'draft',
+            },
+            priority: 400,
+            source: 'resume_pending_generation',
+          }),
         )
         setSelectedTailoredApplicationId(null)
         setWorkspaceSelectionOverride({
@@ -1972,7 +2070,13 @@ export function App() {
                   topLevelSection: 'job_vacancies',
                 }),
               ).catch(() => {
-                setReadinessError("We couldn't save where you left off.")
+                setSavedApplicationRuntimeAlert(
+                  createSavedApplicationRuntimeAlert({
+                    message: "We couldn't save where you left off.",
+                    priority: 400,
+                    source: 'saved_application_selection',
+                  }),
+                )
               })
             }}
             onSelectDraft={() => {
@@ -2055,9 +2159,9 @@ export function App() {
             textDraft={vacancyDraft.text}
             urlDraft={vacancyDraft.url}
             vacancyPreview={vacancyPreview}
+            applicationRuntimeAlert={savedApplicationRuntimeAlert}
             draftRuntimeAlert={draftRuntimeAlert}
             workspaceOverlay={workspaceOverlay}
-            workspaceError={readinessError}
           />
           <Dialog
             actions={

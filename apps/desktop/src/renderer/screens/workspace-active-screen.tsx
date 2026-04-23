@@ -17,7 +17,6 @@ interface WorkspaceApplicationViewProperties {
   onSelectPreviewDocument: (kind: PreviewDocumentKind) => void
   preview: TailoredApplicationPreview | null
   previewDocumentKind: PreviewDocumentKind
-  workspaceError: string | null
 }
 
 export function WorkspaceApplicationView({
@@ -30,7 +29,6 @@ export function WorkspaceApplicationView({
   onSelectPreviewDocument,
   preview,
   previewDocumentKind,
-  workspaceError,
 }: WorkspaceApplicationViewProperties) {
   const resolvedApplicationTitle =
     preview?.vacancyTitle ?? preview?.title ?? applicationTitle ?? 'Saved job'
@@ -66,11 +64,6 @@ export function WorkspaceApplicationView({
             <p className="mt-2 text-sm leading-6 text-[var(--color-copy-muted)]">
               {resolvedVacancySubtitle}
             </p>
-          ) : null}
-          {workspaceError ? (
-            <div className="mt-4 max-w-4xl rounded-[var(--radius-card)] border border-[var(--color-status-danger)]/20 bg-[var(--color-surface-danger)] px-4 py-3 text-sm leading-6 text-[var(--color-status-danger)]">
-              {workspaceError}
-            </div>
           ) : null}
         </div>
         <Button disabled={preview === null || isExportingPdf} onClick={onExportPdf} tone="primary">
