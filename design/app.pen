@@ -4441,42 +4441,6 @@
                 },
                 {
                   "type": "frame",
-                  "id": "nnij1",
-                  "name": "errorItem",
-                  "width": "fill_container",
-                  "fill": "#FFF0F0",
-                  "cornerRadius": 8,
-                  "layout": "vertical",
-                  "gap": 6,
-                  "padding": 12,
-                  "children": [
-                    {
-                      "type": "text",
-                      "id": "0oOId",
-                      "name": "errorTitle",
-                      "fill": "#7A1F1F",
-                      "content": "AI needs attention",
-                      "fontFamily": "Manrope",
-                      "fontSize": 13,
-                      "fontWeight": "800"
-                    },
-                    {
-                      "type": "text",
-                      "id": "LBCHR",
-                      "name": "errorCopy",
-                      "fill": "#7A1F1F",
-                      "textGrowth": "fixed-width",
-                      "width": "fill_container",
-                      "content": "Codex CLI isn't installed on this Mac.",
-                      "lineHeight": 1.35,
-                      "fontFamily": "Manrope",
-                      "fontSize": 12,
-                      "fontWeight": "normal"
-                    }
-                  ]
-                },
-                {
-                  "type": "frame",
                   "id": "8MbCo",
                   "name": "spacerUnavailable",
                   "width": "fill_container",
@@ -4516,6 +4480,62 @@
                   "fontFamily": "Manrope",
                   "fontSize": 13,
                   "fontWeight": "normal"
+                },
+                {
+                  "type": "frame",
+                  "id": "lOS5s",
+                  "name": "Setup runtime alert",
+                  "width": "fill_container",
+                  "fill": "#FFF0F0",
+                  "cornerRadius": 10,
+                  "stroke": {
+                    "align": "inside",
+                    "thickness": 1,
+                    "fill": "#E4B7B7"
+                  },
+                  "layout": "vertical",
+                  "gap": 8,
+                  "padding": [
+                    16,
+                    18
+                  ],
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "eJ6oR",
+                      "name": "setupAlertLabel",
+                      "fill": "#7A1F1F",
+                      "content": "Needs attention",
+                      "fontFamily": "Manrope",
+                      "fontSize": 11,
+                      "fontWeight": "800"
+                    },
+                    {
+                      "type": "text",
+                      "id": "pW9mn",
+                      "name": "setupAlertTitle",
+                      "fill": "#7A1F1F",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "AI isn't ready on this Mac yet.",
+                      "fontFamily": "Manrope",
+                      "fontSize": 16,
+                      "fontWeight": "800"
+                    },
+                    {
+                      "type": "text",
+                      "id": "1lou1",
+                      "name": "setupAlertBody",
+                      "fill": "#7A1F1F",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Check the setup steps below, then try again. The app will continue as soon as AI is ready.",
+                      "lineHeight": 1.4,
+                      "fontFamily": "Manrope",
+                      "fontSize": 13,
+                      "fontWeight": "normal"
+                    }
+                  ]
                 },
                 {
                   "type": "frame",
@@ -5308,6 +5328,62 @@
                 },
                 {
                   "type": "frame",
+                  "id": "S3gyn",
+                  "name": "Settings runtime alert",
+                  "width": "fill_container",
+                  "fill": "#FFF0F0",
+                  "cornerRadius": 10,
+                  "stroke": {
+                    "align": "inside",
+                    "thickness": 1,
+                    "fill": "#E4B7B7"
+                  },
+                  "layout": "vertical",
+                  "gap": 8,
+                  "padding": [
+                    16,
+                    18
+                  ],
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "dfidT",
+                      "name": "settingsAlertLabel",
+                      "fill": "#7A1F1F",
+                      "content": "Needs attention",
+                      "fontFamily": "Manrope",
+                      "fontSize": 11,
+                      "fontWeight": "800"
+                    },
+                    {
+                      "type": "text",
+                      "id": "5zNtF",
+                      "name": "settingsAlertTitle",
+                      "fill": "#7A1F1F",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Local data can't be cleared right now.",
+                      "fontFamily": "Manrope",
+                      "fontSize": 16,
+                      "fontWeight": "800"
+                    },
+                    {
+                      "type": "text",
+                      "id": "ac9IX",
+                      "name": "settingsAlertBody",
+                      "fill": "#7A1F1F",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Finish the action already in progress, then come back here to clear local data on this Mac.",
+                      "lineHeight": 1.4,
+                      "fontFamily": "Manrope",
+                      "fontSize": 13,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
                   "id": "rAYFx",
                   "name": "Worker settings card",
                   "width": "fill_container",
@@ -5327,7 +5403,7 @@
                       "id": "Jn9ra",
                       "name": "settingsCardTitle",
                       "fill": "$app.ink",
-                      "content": "AI connection",
+                      "content": "Before you clear local data",
                       "fontFamily": "Manrope",
                       "fontSize": 18,
                       "fontWeight": "800"
@@ -5339,7 +5415,7 @@
                       "fill": "$app.muted",
                       "textGrowth": "fixed-width",
                       "width": "fill_container",
-                      "content": "Your normal app experience stays focused on jobs and documents. Come back here only if AI needs attention.",
+                      "content": "Use this area for deliberate cleanup and reset steps. Clearing local data does not change jobs you have already created on this Mac.",
                       "lineHeight": 1.4,
                       "fontFamily": "Manrope",
                       "fontSize": 13,
@@ -5361,7 +5437,7 @@
                           "id": "TrMBE",
                           "name": "pathLabelSettings",
                           "fill": "$app.ink",
-                          "content": "Using",
+                          "content": "Includes",
                           "fontFamily": "Manrope",
                           "fontSize": 13,
                           "fontWeight": "800"
@@ -5371,7 +5447,7 @@
                           "id": "0IGzw",
                           "name": "pathValueSettings",
                           "fill": "$app.muted",
-                          "content": "codex",
+                          "content": "Saved browser sessions on this Mac",
                           "fontFamily": "Manrope",
                           "fontSize": 13,
                           "fontWeight": "normal"
@@ -8770,6 +8846,62 @@
                       "fontFamily": "Manrope",
                       "fontSize": 26,
                       "fontWeight": "800"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "TeyG1",
+                      "name": "Dialog runtime alert",
+                      "width": "fill_container",
+                      "fill": "#FFF0F0",
+                      "cornerRadius": 10,
+                      "stroke": {
+                        "align": "inside",
+                        "thickness": 1,
+                        "fill": "#E4B7B7"
+                      },
+                      "layout": "vertical",
+                      "gap": 8,
+                      "padding": [
+                        16,
+                        18
+                      ],
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "CWIY6",
+                          "name": "dialogAlertLabel",
+                          "fill": "#7A1F1F",
+                          "content": "Needs attention",
+                          "fontFamily": "Manrope",
+                          "fontSize": 11,
+                          "fontWeight": "800"
+                        },
+                        {
+                          "type": "text",
+                          "id": "uOIXZ",
+                          "name": "dialogAlertTitle",
+                          "fill": "#7A1F1F",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "This draft can't be removed yet.",
+                          "fontFamily": "Manrope",
+                          "fontSize": 16,
+                          "fontWeight": "800"
+                        },
+                        {
+                          "type": "text",
+                          "id": "CxBti",
+                          "name": "dialogAlertBody",
+                          "fill": "#7A1F1F",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "Finish the action already in progress, then try again from this dialog.",
+                          "lineHeight": 1.4,
+                          "fontFamily": "Manrope",
+                          "fontSize": 13,
+                          "fontWeight": "normal"
+                        }
+                      ]
                     },
                     {
                       "type": "text",
