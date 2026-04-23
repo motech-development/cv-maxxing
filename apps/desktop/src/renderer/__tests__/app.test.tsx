@@ -502,6 +502,8 @@ test('renders the dedicated sign-in-required setup screen', async () => {
   expect(screen.getByText('Sign in needed')).toBeDefined()
   expect(screen.getByRole('button', { name: 'Continue' })).toBeDefined()
   expect(screen.getByRole('button', { name: 'Get help' })).toBeDefined()
+  expect(screen.getByRole('status')).toBeDefined()
+  expect(screen.queryByText('Sign in to continue')).toBeNull()
 })
 
 test('opens the setup guide from the repair flow', async () => {
@@ -548,8 +550,10 @@ test('renders the dedicated unavailable setup screen', async () => {
     expect(screen.getByRole('button', { name: 'Try again' })).toBeDefined()
   })
 
-  expect(screen.getByText('Needs attention')).toBeDefined()
+  expect(screen.getAllByText('Needs attention')).toHaveLength(2)
   expect(screen.getByRole('button', { name: 'Try again' })).toBeDefined()
+  expect(screen.getByRole('alert')).toBeDefined()
+  expect(screen.queryByText('AI needs attention')).toBeNull()
 })
 
 test('renders the empty Your CV section after readiness succeeds with no original CV', async () => {

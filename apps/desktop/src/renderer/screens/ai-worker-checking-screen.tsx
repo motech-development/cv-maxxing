@@ -1,15 +1,17 @@
 import type { ReactNode } from 'react'
 
 import type { ReadinessRouteViewModel } from '../../readiness/readiness-route.js'
+import type { RuntimeAlert } from '../runtime-alerts.js'
 import { DesktopShell } from '../shell/desktop-shell.js'
 import { SidebarContainer } from '../shell/sidebar-container.js'
 import { Button } from '../ui/button.js'
 import { PanelCard } from '../ui/panel-card.js'
+import { RuntimeAlertBanner } from '../ui/runtime-alert.js'
 import { SectionLabel } from '../ui/section-label.js'
 
 interface AiWorkerCheckingScreenProperties {
   onOpenSetupGuide: () => void
-  readinessError: string | null
+  runtimeAlert: RuntimeAlert | null
   viewModel: ReadinessRouteViewModel
 }
 
@@ -41,12 +43,20 @@ function SetupSidebar({ body, children, title }: SetupSidebarProperties) {
 
 export function AiWorkerCheckingScreen({
   onOpenSetupGuide,
-  readinessError,
+  runtimeAlert,
   viewModel,
 }: AiWorkerCheckingScreenProperties) {
   return (
     <DesktopShell
       activeRailItem="setup"
+      pageAlert={runtimeAlert ? <RuntimeAlertBanner alert={runtimeAlert} /> : undefined}
+      pageHeaderActions={
+        <Button onClick={onOpenSetupGuide} tone="primary">
+          Get help
+        </Button>
+      }
+      pageIntro="We'll open the app as soon as AI is ready on this Mac."
+      pageTitle="Getting AI ready"
       railItems={['setup']}
       sidebar={
         <SidebarContainer>
@@ -70,21 +80,7 @@ export function AiWorkerCheckingScreen({
         tone: 'muted',
       }}
     >
-      <div className="flex items-start justify-between gap-6">
-        <div>
-          <h1 className="m-0 text-[30px] font-extrabold tracking-[-0.03em] text-[var(--color-copy-strong)]">
-            Getting AI ready
-          </h1>
-          <p className="mt-2 max-w-3xl text-[13px] leading-[1.4] text-[var(--color-copy-muted)]">
-            We&apos;ll open the app as soon as AI is ready on this Mac.
-          </p>
-        </div>
-        <Button onClick={onOpenSetupGuide} tone="primary">
-          Get help
-        </Button>
-      </div>
-
-      <PanelCard className="mt-6 p-6">
+      <PanelCard className="p-6">
         <div className="flex items-center gap-4">
           <div className="rounded-[8px] bg-[var(--color-surface-success)] p-2 text-[var(--color-copy-strong)]">
             ✓
@@ -111,9 +107,6 @@ export function AiWorkerCheckingScreen({
           <p className="m-0">09:41 Looking for AI on this Mac</p>
           <p className="m-0">09:41 Checking sign-in</p>
           <p className="m-0">09:41 Getting AI ready</p>
-          {readinessError ? (
-            <p className="m-0 text-[var(--color-status-danger)]">{readinessError}</p>
-          ) : null}
         </div>
       </PanelCard>
     </DesktopShell>

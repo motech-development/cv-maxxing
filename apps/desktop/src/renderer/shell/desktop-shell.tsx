@@ -11,6 +11,10 @@ interface DesktopShellProperties {
   ambientActivityLabel?: string | null
   children: ReactNode
   onSelectRailItem?: (item: RailItemId) => void
+  pageAlert?: ReactNode
+  pageHeaderActions?: ReactNode
+  pageIntro?: string
+  pageTitle?: string
   railItems?: RailItemId[]
   sidebar: ReactNode
   statusPill?: {
@@ -108,12 +112,25 @@ export function DesktopShell({
   ambientActivityLabel,
   children,
   onSelectRailItem,
+  pageAlert,
+  pageHeaderActions,
+  pageIntro,
+  pageTitle,
   railItems = ['setup', 'job_vacancies', 'original_cv', 'settings'],
   sidebar,
   statusPill,
   subtitle,
   workspaceOverlay,
 }: DesktopShellProperties) {
+  const hasPageHeaderContent =
+    pageHeaderActions !== undefined || pageIntro !== undefined || pageTitle !== undefined
+  const hasPageHeader = pageAlert !== undefined || hasPageHeaderContent
+  let pageAlertSlot: ReactNode = null
+
+  if (pageAlert) {
+    pageAlertSlot = hasPageHeaderContent ? <div className="mt-4">{pageAlert}</div> : pageAlert
+  }
+
   const leadingRailItems = railItems.filter((item) => {
     return item !== 'settings'
   })
@@ -180,7 +197,31 @@ export function DesktopShell({
             <aside className="flex min-h-0 shrink-0">{sidebar}</aside>
 
             <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto bg-[var(--color-surface-0)] p-7">
-              {children}
+              {hasPageHeader ? (
+                <>
+                  {hasPageHeaderContent ? (
+                    <div className="flex items-start justify-between gap-6">
+                      <div className="min-w-0 flex-1">
+                        {pageTitle ? (
+                          <h1 className="m-0 text-[30px] font-extrabold tracking-[-0.03em] text-[var(--color-copy-strong)]">
+                            {pageTitle}
+                          </h1>
+                        ) : null}
+                        {pageIntro ? (
+                          <p className="mt-2 max-w-3xl text-[13px] leading-[1.4] text-[var(--color-copy-muted)]">
+                            {pageIntro}
+                          </p>
+                        ) : null}
+                      </div>
+                      {pageHeaderActions ? (
+                        <div className="shrink-0">{pageHeaderActions}</div>
+                      ) : null}
+                    </div>
+                  ) : null}
+                  {pageAlertSlot}
+                </>
+              ) : null}
+              <div className={hasPageHeader ? 'mt-6' : undefined}>{children}</div>
             </div>
 
             {workspaceOverlay ? (

@@ -1,8 +1,10 @@
 import type { ReadinessRouteViewModel } from '../../readiness/readiness-route.js'
+import type { RuntimeAlert } from '../runtime-alerts.js'
 import { DesktopShell } from '../shell/desktop-shell.js'
 import { SidebarContainer } from '../shell/sidebar-container.js'
 import { Button } from '../ui/button.js'
 import { PanelCard } from '../ui/panel-card.js'
+import { RuntimeAlertBanner } from '../ui/runtime-alert.js'
 import { SectionLabel } from '../ui/section-label.js'
 
 interface AiWorkerSignInRequiredScreenProperties {
@@ -10,7 +12,7 @@ interface AiWorkerSignInRequiredScreenProperties {
   isSecondaryActionPending: boolean
   onPrimaryAction: () => void
   onSecondaryAction: () => void
-  readinessError: string | null
+  runtimeAlert: RuntimeAlert | null
   viewModel: ReadinessRouteViewModel
 }
 
@@ -19,12 +21,15 @@ export function AiWorkerSignInRequiredScreen({
   isSecondaryActionPending,
   onPrimaryAction,
   onSecondaryAction,
-  readinessError,
+  runtimeAlert,
   viewModel,
 }: AiWorkerSignInRequiredScreenProperties) {
   return (
     <DesktopShell
       activeRailItem="setup"
+      pageAlert={runtimeAlert ? <RuntimeAlertBanner alert={runtimeAlert} /> : undefined}
+      pageIntro="Sign in on this Mac so CV Maxxing can continue."
+      pageTitle={viewModel.heading}
       railItems={['setup']}
       sidebar={
         <SidebarContainer>
@@ -36,11 +41,6 @@ export function AiWorkerSignInRequiredScreen({
             <p className="m-0 text-[13px] leading-[1.4] text-[var(--color-copy-muted)]">
               Sign in on this Mac so AI can continue.
             </p>
-            <PanelCard className="bg-[var(--color-surface-warning)] p-2.5">
-              <p className="m-0 text-[13px] font-extrabold text-[var(--color-copy-strong)]">
-                Sign in to continue
-              </p>
-            </PanelCard>
             <div className="flex-1" />
           </>
         </SidebarContainer>
@@ -51,14 +51,7 @@ export function AiWorkerSignInRequiredScreen({
         tone: 'warning',
       }}
     >
-      <h1 className="m-0 text-[30px] font-extrabold tracking-[-0.03em] text-[var(--color-copy-strong)]">
-        {viewModel.heading}
-      </h1>
-      <p className="mt-2 max-w-3xl text-[13px] leading-[1.4] text-[var(--color-copy-muted)]">
-        Sign in on this Mac so CV Maxxing can continue.
-      </p>
-
-      <PanelCard className="mt-6 p-6">
+      <PanelCard className="p-6">
         <p className="m-0 text-[18px] font-extrabold text-[var(--color-copy-strong)]">
           Continue on this Mac
         </p>
@@ -68,11 +61,6 @@ export function AiWorkerSignInRequiredScreen({
         {viewModel.diagnostic ? (
           <p className="mt-2 text-[13px] leading-[1.4] text-[var(--color-copy-muted)]">
             {viewModel.diagnostic}
-          </p>
-        ) : null}
-        {readinessError ? (
-          <p className="mt-2 text-[13px] leading-[1.4] text-[var(--color-status-danger)]">
-            {readinessError}
           </p>
         ) : null}
         <div className="mt-5 flex gap-3">

@@ -4,6 +4,7 @@ import { render, screen } from '@testing-library/react'
 import { expect, test, vi } from 'vitest'
 
 import type { ReadinessRouteViewModel } from '../../../readiness/readiness-route.js'
+import type { RuntimeAlert } from '../../runtime-alerts.js'
 import { AiWorkerCheckingScreen } from '../ai-worker-checking-screen.js'
 import { AiWorkerSignInRequiredScreen } from '../ai-worker-sign-in-required-screen.js'
 import { AiWorkerUnavailableScreen } from '../ai-worker-unavailable-screen.js'
@@ -16,6 +17,18 @@ const baseViewModel: ReadinessRouteViewModel = {
   status: 'unavailable',
 }
 
+const baseRuntimeAlert: RuntimeAlert = {
+  body: 'AI needs attention before the app can continue.',
+  owner: {
+    scope: 'setup',
+    view: 'ai_worker_unavailable',
+  },
+  priority: 300,
+  source: 'ai_worker_preflight',
+  title: "AI isn't available on this Mac yet.",
+  variant: 'error',
+}
+
 test('renders the unavailable AI worker sidebar inside the shared shell container', () => {
   const { container } = render(
     <AiWorkerUnavailableScreen
@@ -23,7 +36,7 @@ test('renders the unavailable AI worker sidebar inside the shared shell containe
       isSecondaryActionPending={false}
       onPrimaryAction={vi.fn()}
       onSecondaryAction={vi.fn()}
-      readinessError={null}
+      runtimeAlert={baseRuntimeAlert}
       viewModel={baseViewModel}
     />,
   )
@@ -43,7 +56,15 @@ test('renders the sign-in-required AI worker sidebar inside the shared shell con
       isSecondaryActionPending={false}
       onPrimaryAction={vi.fn()}
       onSecondaryAction={vi.fn()}
-      readinessError={null}
+      runtimeAlert={{
+        ...baseRuntimeAlert,
+        owner: {
+          scope: 'setup',
+          view: 'ai_worker_sign_in_required',
+        },
+        title: 'AI needs sign-in on this Mac.',
+        variant: 'warning',
+      }}
       viewModel={{
         ...baseViewModel,
         body: 'AI needs you to sign in before CV Maxxing can continue.',
@@ -64,7 +85,7 @@ test('renders the checking AI worker sidebar inside the shared shell container',
   const { container } = render(
     <AiWorkerCheckingScreen
       onOpenSetupGuide={vi.fn()}
-      readinessError={null}
+      runtimeAlert={null}
       viewModel={{
         ...baseViewModel,
         body: 'Getting AI ready before you enter the app.',

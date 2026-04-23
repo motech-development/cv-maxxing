@@ -93,3 +93,33 @@ test('hides persistent AI status and subtitles in the normal connected shell', (
   expect(screen.queryByText('Local')).toBeNull()
   expect(screen.queryByText('Background activity')).toBeNull()
 })
+
+test('renders the standard page-top alert slot below the page title and intro copy', () => {
+  const { container } = render(
+    <DesktopShell
+      activeRailItem="setup"
+      pageAlert={<div data-testid="page-alert">Shared alert</div>}
+      pageIntro="Intro copy"
+      pageTitle="Page title"
+      railItems={['setup']}
+      sidebar={
+        <SidebarContainer>
+          <div>Sidebar</div>
+        </SidebarContainer>
+      }
+    >
+      <div data-testid="page-body">Body</div>
+    </DesktopShell>,
+  )
+
+  const contentPane = container.querySelector('aside + div')
+  const contentText = contentPane?.textContent ?? ''
+
+  expect(contentText).toContain('Page title')
+  expect(contentText).toContain('Intro copy')
+  expect(contentText).toContain('Shared alert')
+  expect(contentText).toContain('Body')
+  expect(contentText.indexOf('Page title')).toBeLessThan(contentText.indexOf('Intro copy'))
+  expect(contentText.indexOf('Intro copy')).toBeLessThan(contentText.indexOf('Shared alert'))
+  expect(contentText.indexOf('Shared alert')).toBeLessThan(contentText.indexOf('Body'))
+})

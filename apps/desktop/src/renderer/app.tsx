@@ -50,6 +50,12 @@ import {
 } from './app-queries.js'
 import { resolveRendererLoadingState } from './loading/resolve-renderer-loading-state.js'
 import { WorkspaceBlockingOverlay } from './loading/workspace-blocking-overlay.js'
+import {
+  createSetupActionRuntimeAlert,
+  createSetupStatusRuntimeAlert,
+  pickHigherPriorityAlert,
+  type RuntimeAlert,
+} from './runtime-alerts.js'
 import { resolveRendererScreen, type RendererScreenKind } from './routing/renderer-screen.js'
 import { Button } from './ui/button.js'
 import { Dialog } from './ui/dialog.js'
@@ -138,6 +144,7 @@ export function App() {
   )
   const [settingsMessage, setSettingsMessage] = useState<string | null>(null)
   const [settingsSection, setSettingsSection] = useState<SettingsSection>('ai_worker')
+  const [setupActionAlert, setSetupActionAlert] = useState<RuntimeAlert | null>(null)
   const [startupDestinationOverride, setStartupDestinationOverride] =
     useState<RendererStartupDestinationOverride | null>(null)
   const [workspaceSelectionOverride, setWorkspaceSelectionOverride] =
@@ -157,6 +164,12 @@ export function App() {
     readinessViewModel: baseReadinessViewModel,
     startupDestinationOverride,
   })
+  const setupStatusAlert = createSetupStatusRuntimeAlert({
+    body: viewModel.body,
+    diagnostic: viewModel.diagnostic,
+    status: viewModel.status,
+  })
+  const setupRuntimeAlert = pickHigherPriorityAlert(setupStatusAlert, setupActionAlert)
   const settingsQuery = useQuery({
     ...getSettingsSnapshotQueryOptions(),
     enabled: viewModel.canEnterWorkspace,
@@ -322,6 +335,7 @@ export function App() {
     },
     onSuccess: async (preflightResult): Promise<void> => {
       setReadinessError(null)
+      setSetupActionAlert(null)
       setStartupDestinationOverride(null)
       await seedReadinessQuery({
         preflightResult,
@@ -362,6 +376,7 @@ export function App() {
       setResetConfirmationPhrase('')
       setSelectedTailoredApplicationId(null)
       setSettingsMessage(null)
+      setSetupActionAlert(null)
       setStartupDestinationOverride(null)
       setWorkspaceSelectionOverride(null)
       setVacancyDraft(initialVacancyDraft)
@@ -784,6 +799,14 @@ export function App() {
   }, [isCurrentDraftMeaningful])
 
   useEffect(() => {
+    if (!viewModel.canEnterWorkspace) {
+      return
+    }
+
+    setSetupActionAlert(null)
+  }, [viewModel.canEnterWorkspace])
+
+  useEffect(() => {
     const nextError =
       readinessQuery.error ??
       settingsQuery.error ??
@@ -797,12 +820,32 @@ export function App() {
       null
 
     if (nextError === null) {
+      if (setupActionAlert?.source === 'renderer_query') {
+        setSetupActionAlert(null)
+      }
+
       return
     }
 
-    setReadinessError(
-      resolveErrorMessage(nextError, `${readinessErrorMessage} ${readinessErrorAction}`),
-    )
+    const fallbackMessage = `${readinessErrorMessage} ${readinessErrorAction}`
+    const resolvedMessage = resolveErrorMessage(nextError, fallbackMessage)
+
+    if (!viewModel.canEnterWorkspace) {
+      setSetupActionAlert(
+        createSetupActionRuntimeAlert({
+          body: resolvedMessage,
+          priority: 400,
+          source: 'renderer_query',
+          status: viewModel.status,
+          title: readinessErrorMessage,
+          variant: 'error',
+        }),
+      )
+
+      return
+    }
+
+    setReadinessError(resolvedMessage)
   }, [
     activeWorkspaceSection,
     originalCvWorkspaceQuery.error,
@@ -810,8 +853,11 @@ export function App() {
     pendingGenerationQuery.error,
     readinessQuery.error,
     settingsQuery.error,
+    setupActionAlert,
     tailoredApplicationPreviewQuery.error,
     tailoredApplicationWorkspaceQuery.error,
+    viewModel.canEnterWorkspace,
+    viewModel.status,
     workspaceSelectionQuery.error,
     vacancyWorkspaceQuery.error,
   ])
@@ -825,13 +871,23 @@ export function App() {
       viewModel.status === 'sign_in_required' ? 'sign_in' : 'retry'
 
     try {
+      setSetupActionAlert(null)
       await aiWorkerStatusMutation.mutateAsync(action)
     } catch {
-      setReadinessError(`${readinessErrorMessage} ${readinessErrorAction}`)
+      setSetupActionAlert(
+        createSetupActionRuntimeAlert({
+          body: `${readinessErrorMessage} ${readinessErrorAction}`,
+          priority: 400,
+          source: 'setup_primary_action',
+          status: viewModel.status,
+          title: readinessErrorMessage,
+          variant: 'error',
+        }),
+      )
     }
   }
 
-  const handleSecondaryAction = async (): Promise<void> => {
+  const openSetupGuide = async (): Promise<void> => {
     if (isSecondaryActionPending) {
       return
     }
@@ -840,8 +896,6 @@ export function App() {
 
     try {
       await globalThis.window.cvMaxxing.aiWorker.openAiWorkerSetupGuide()
-    } catch {
-      setReadinessError(`${readinessErrorMessage} ${readinessErrorAction}`)
     } finally {
       setIsSecondaryActionPending(false)
     }
@@ -1277,9 +1331,20 @@ export function App() {
       return (
         <AiWorkerCheckingScreen
           onOpenSetupGuide={() => {
-            handleSecondaryAction().catch(() => null)
+            openSetupGuide().catch(() => {
+              setSetupActionAlert(
+                createSetupActionRuntimeAlert({
+                  body: `${readinessErrorMessage} ${readinessErrorAction}`,
+                  priority: 400,
+                  source: 'setup_guide',
+                  status: viewModel.status,
+                  title: readinessErrorMessage,
+                  variant: 'error',
+                }),
+              )
+            })
           }}
-          readinessError={readinessError}
+          runtimeAlert={setupRuntimeAlert}
           viewModel={viewModel}
         />
       )
@@ -1293,9 +1358,20 @@ export function App() {
             handlePrimaryAction().catch(() => null)
           }}
           onSecondaryAction={() => {
-            handleSecondaryAction().catch(() => null)
+            openSetupGuide().catch(() => {
+              setSetupActionAlert(
+                createSetupActionRuntimeAlert({
+                  body: `${readinessErrorMessage} ${readinessErrorAction}`,
+                  priority: 400,
+                  source: 'setup_guide',
+                  status: viewModel.status,
+                  title: readinessErrorMessage,
+                  variant: 'error',
+                }),
+              )
+            })
           }}
-          readinessError={readinessError}
+          runtimeAlert={setupRuntimeAlert}
           viewModel={viewModel}
         />
       )
@@ -1309,9 +1385,20 @@ export function App() {
             handlePrimaryAction().catch(() => null)
           }}
           onSecondaryAction={() => {
-            handleSecondaryAction().catch(() => null)
+            openSetupGuide().catch(() => {
+              setSetupActionAlert(
+                createSetupActionRuntimeAlert({
+                  body: `${readinessErrorMessage} ${readinessErrorAction}`,
+                  priority: 400,
+                  source: 'setup_guide',
+                  status: viewModel.status,
+                  title: readinessErrorMessage,
+                  variant: 'error',
+                }),
+              )
+            })
           }}
-          readinessError={readinessError}
+          runtimeAlert={setupRuntimeAlert}
           viewModel={viewModel}
         />
       )
@@ -1646,7 +1733,11 @@ export function App() {
             handleClearJobSiteBrowserData().catch(() => null)
           }}
           onOpenSetupGuide={() => {
-            handleSecondaryAction().catch(() => null)
+            openSetupGuide().catch((error: unknown) => {
+              setSettingsMessage(
+                resolveErrorMessage(error, `${readinessErrorMessage} ${readinessErrorAction}`),
+              )
+            })
           }}
           onResetLocalAppData={handleOpenResetLocalAppDataDialog}
           onRetryAiWorker={() => {
