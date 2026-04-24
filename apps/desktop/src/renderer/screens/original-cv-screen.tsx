@@ -79,12 +79,21 @@ export function OriginalCvScreen({
   }
 
   let content: ReactNode
+  let pageIntro: string | undefined
+  let pageTitle: string
 
   if (activeOriginalCv === null) {
+    pageTitle = 'Add a CV'
+    pageIntro = "Choose the PDF or DOCX copy of your CV you'd like to tailor for jobs."
     content = <OriginalCvEmptyState onFileDrop={onFileDrop} originalCvFile={originalCvFile} />
   } else if (activeView === 'replace') {
+    pageTitle = 'Add a CV'
+    pageIntro =
+      "Choose the PDF or DOCX copy of your CV you'd like to use from now on. Your saved jobs won't change."
     content = <OriginalCvReplaceState onFileDrop={onFileDrop} originalCvFile={originalCvFile} />
   } else {
+    pageTitle = 'Your CV'
+    pageIntro = "Add a CV to use a different one for future jobs. Your saved jobs won't change."
     content = (
       <OriginalCvActiveState
         onPreviewErrorChange={onDetailPreviewErrorChange}
@@ -100,6 +109,8 @@ export function OriginalCvScreen({
       ambientActivityLabel={ambientActivityLabel}
       onSelectRailItem={onSelectRailItem}
       pageAlert={runtimeAlert ? <RuntimeAlertBanner alert={runtimeAlert} /> : undefined}
+      pageIntro={pageIntro}
+      pageTitle={pageTitle}
       railItems={['job_vacancies', 'original_cv', 'settings']}
       sidebar={
         <SidebarContainer>
@@ -155,15 +166,8 @@ function OriginalCvEmptyState({
 }) {
   return (
     <>
-      <h1 className="m-0 text-[32px] font-extrabold tracking-[-0.03em] text-[var(--color-copy-strong)]">
-        Add a CV
-      </h1>
-      <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--color-copy-muted)]">
-        Choose the PDF or DOCX copy of your CV you'd like to tailor for jobs.
-      </p>
-
       <OriginalCvImportDropzone
-        className="mt-6 min-h-[360px]"
+        className="min-h-[360px]"
         copy="We'll use this CV when you tailor it for a job."
         onFileDrop={onFileDrop}
         originalCvFile={originalCvFile}
@@ -182,20 +186,12 @@ function OriginalCvReplaceState({
 }) {
   return (
     <>
-      <h1 className="m-0 text-[32px] font-extrabold tracking-[-0.03em] text-[var(--color-copy-strong)]">
-        Add a CV
-      </h1>
-      <p className="mt-2 max-w-4xl text-sm leading-6 text-[var(--color-copy-muted)]">
-        Choose the PDF or DOCX copy of your CV you'd like to use from now on. Your saved jobs won't
-        change.
-      </p>
-
-      <PanelCard className="mt-5 max-w-4xl border border-[var(--color-border)] bg-[var(--color-surface-1)] p-[18px]">
+      <PanelCard className="w-full border border-[var(--color-border)] bg-[var(--color-surface-1)] p-[18px]">
         <div className="flex flex-col gap-[10px]">
           <p className="m-0 text-sm font-extrabold text-[var(--color-copy-strong)]">
             Replacing your CV changes the one you'll use for new jobs.
           </p>
-          <p className="m-0 max-w-4xl text-sm leading-6 text-[var(--color-copy-muted)]">
+          <p className="m-0 text-sm leading-6 text-[var(--color-copy-muted)]">
             Your saved jobs keep the CV and cover letter you've already made.
           </p>
         </div>
@@ -274,14 +270,8 @@ function OriginalCvActiveState({
 
   return (
     <>
-      <h1 className="m-0 text-[32px] font-extrabold tracking-[-0.03em] text-[var(--color-copy-strong)]">
-        Your CV
-      </h1>
-      <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--color-copy-muted)]">
-        Add a CV to use a different one for future jobs. Your saved jobs won't change.
-      </p>
       {originalCvDetail === null || originalCvDetail === undefined ? (
-        <PanelCard className="mt-6 max-w-3xl p-6">
+        <PanelCard className="w-full p-6">
           <div className="flex flex-col gap-5">
             <OriginalCvMetadataRow label="Original filename" value={originalCv.originalFilename} />
             <OriginalCvMetadataRow label="Headline" value={originalCv.headline} />
@@ -293,7 +283,7 @@ function OriginalCvActiveState({
           </div>
         </PanelCard>
       ) : (
-        <div className="mt-4 flex min-h-0 min-w-0 flex-1 gap-4">
+        <div className="flex min-h-0 min-w-0 flex-1 gap-4">
           <div className="flex min-h-0 min-w-0 flex-[1.7] flex-col gap-3">
             <p className="m-0 text-2xl font-extrabold uppercase tracking-[-0.02em] text-[var(--color-copy-strong)]">
               {resolvedName}

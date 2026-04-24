@@ -128,7 +128,11 @@ export function DesktopShell({
   let pageAlertSlot: ReactNode = null
 
   if (pageAlert) {
-    pageAlertSlot = hasPageHeaderContent ? <div className="mt-4">{pageAlert}</div> : pageAlert
+    pageAlertSlot = hasPageHeaderContent ? (
+      <div className="mt-4 w-full self-stretch">{pageAlert}</div>
+    ) : (
+      pageAlert
+    )
   }
 
   const leadingRailItems = railItems.filter((item) => {
@@ -200,7 +204,7 @@ export function DesktopShell({
               {hasPageHeader ? (
                 <>
                   {hasPageHeaderContent ? (
-                    <div className="flex items-start justify-between gap-6">
+                    <div className="flex w-full items-start justify-between gap-6">
                       <div className="min-w-0 flex-1">
                         {pageTitle ? (
                           <h1 className="m-0 text-[30px] font-extrabold tracking-[-0.03em] text-[var(--color-copy-strong)]">
@@ -221,7 +225,7 @@ export function DesktopShell({
                   {pageAlertSlot}
                 </>
               ) : null}
-              <div className={hasPageHeader ? 'mt-6' : undefined}>{children}</div>
+              <div className={hasPageHeader ? 'mt-6 w-full' : 'w-full'}>{children}</div>
             </div>
 
             {workspaceOverlay ? (

@@ -97,6 +97,7 @@ const initialVacancyWorkspaceState = {
 
 const readinessErrorMessage = "We couldn't check AI."
 const readinessErrorAction = 'Restart the app or get help with AI setup on this Mac.'
+const workspaceSelectionSaveErrorMessage = "We couldn't save where you left off."
 const exportPdfErrorMessage =
   "We couldn't save the PDF. Check that the destination folder is available on this Mac, then try again."
 const originalCvFileTypeErrorMessage = 'Choose a PDF or DOCX file.'
@@ -146,11 +147,48 @@ function createEmptyOriginalCvRuntimeAlerts(): OriginalCvRuntimeAlerts {
   }
 }
 
+export function clearOriginalCvRuntimeAlertsBySource(
+  alerts: OriginalCvRuntimeAlerts,
+  source: string,
+): OriginalCvRuntimeAlerts {
+  const nextAlerts = {
+    detail: alerts.detail?.source === source ? null : alerts.detail,
+    empty: alerts.empty?.source === source ? null : alerts.empty,
+    replace: alerts.replace?.source === source ? null : alerts.replace,
+  }
+
+  if (
+    nextAlerts.detail === alerts.detail &&
+    nextAlerts.empty === alerts.empty &&
+    nextAlerts.replace === alerts.replace
+  ) {
+    return alerts
+  }
+
+  return nextAlerts
+}
+
 function createEmptySettingsRuntimeAlerts(): SettingsRuntimeAlerts {
   return {
     ai_worker: null,
     local_data: null,
   }
+}
+
+function clearSettingsRuntimeAlertsBySource(
+  alerts: SettingsRuntimeAlerts,
+  source: string,
+): SettingsRuntimeAlerts {
+  const nextAlerts = {
+    ai_worker: alerts.ai_worker?.source === source ? null : alerts.ai_worker,
+    local_data: alerts.local_data?.source === source ? null : alerts.local_data,
+  }
+
+  if (nextAlerts.ai_worker === alerts.ai_worker && nextAlerts.local_data === alerts.local_data) {
+    return alerts
+  }
+
+  return nextAlerts
 }
 
 function createScopedRuntimeAlert({
@@ -214,6 +252,26 @@ function createSavedApplicationRuntimeAlert({
     owner: {
       scope: 'job_vacancies',
       view: 'saved_application',
+    },
+    priority,
+    source,
+  })
+}
+
+function createDraftRuntimeAlert({
+  message,
+  priority = 400,
+  source,
+}: {
+  message: string
+  priority?: number
+  source: string
+}): RuntimeAlert {
+  return createScopedRuntimeAlert({
+    message,
+    owner: {
+      scope: 'job_vacancies',
+      view: 'draft',
     },
     priority,
     source,
@@ -318,7 +376,7 @@ export function App() {
     createEmptyOriginalCvRuntimeAlerts,
   )
   const [previewDocumentKind, setPreviewDocumentKind] = useState<PreviewDocumentKind>('adapted_cv')
-  const [readinessError, setReadinessError] = useState<string | null>(null)
+  const [draftWorkspaceAlert, setDraftWorkspaceAlertState] = useState<RuntimeAlert | null>(null)
   const [resetConfirmationPhrase, setResetConfirmationPhrase] = useState('')
   const [resetLocalAppDataDialogAlert, setResetLocalAppDataDialogAlert] =
     useState<RuntimeAlert | null>(null)
@@ -451,18 +509,6 @@ export function App() {
       ? (tailoredApplicationPreviewQuery.data ?? null)
       : null
   const draftStatusAlert = createDraftStatusRuntimeAlert(reviewedVacancyPreview)
-  const draftWorkspaceAlert =
-    readinessError === null
-      ? null
-      : createScopedRuntimeAlert({
-          message: readinessError,
-          owner: {
-            scope: 'job_vacancies',
-            view: 'draft',
-          },
-          priority: 400,
-          source: 'draft_workspace',
-        })
   const draftRuntimeAlert = pickHigherPriorityAlert(
     pickHigherPriorityAlert(draftStatusAlert, draftActionAlert),
     draftWorkspaceAlert,
@@ -544,7 +590,7 @@ export function App() {
       return await globalThis.window.cvMaxxing.aiWorker.retryAiWorkerPreflight()
     },
     onSuccess: async (preflightResult): Promise<void> => {
-      setReadinessError(null)
+      clearDraftWorkspaceAlert()
       setSettingsRuntimeAlert('ai_worker', null)
       setSetupActionAlert(null)
       setStartupDestinationOverride(null)
@@ -585,7 +631,7 @@ export function App() {
       setOriginalCvSectionMode('detail')
       setOriginalCvRuntimeAlerts(createEmptyOriginalCvRuntimeAlerts())
       setPreviewDocumentKind('adapted_cv')
-      setReadinessError(null)
+      clearDraftWorkspaceAlert()
       setResetConfirmationPhrase('')
       setResetLocalAppDataDialogAlert(null)
       setSavedApplicationRuntimeAlertState(null)
@@ -646,7 +692,7 @@ export function App() {
     ): Promise<void> => {
       if (result.kind === 'ai_worker_not_ready') {
         setOriginalCvRuntimeAlert(activeOriginalCvRuntimeAlertView, null)
-        setReadinessError(null)
+        clearDraftWorkspaceAlert()
         await seedReadinessQuery({
           preflightResult: result.preflight,
         })
@@ -681,7 +727,7 @@ export function App() {
       setOriginalCvSectionFile(null)
       setOriginalCvSectionMode('detail')
       setPreviewDocumentKind('adapted_cv')
-      setReadinessError(null)
+      clearDraftWorkspaceAlert()
       setStartupDestinationOverride(nextStartupDestination)
       setWorkspaceSelectionOverride(null)
       clearDraftActionAlert()
@@ -756,7 +802,7 @@ export function App() {
       })
     },
     onSuccess: async (result): Promise<void> => {
-      setReadinessError(null)
+      clearDraftWorkspaceAlert()
       clearDraftActionAlert()
       await applyVacancyIngestResult(result)
     },
@@ -769,7 +815,7 @@ export function App() {
       })
     },
     onSuccess: async (result): Promise<void> => {
-      setReadinessError(null)
+      clearDraftWorkspaceAlert()
       clearDraftActionAlert()
       await applyVacancyIngestResult(result)
     },
@@ -781,7 +827,7 @@ export function App() {
       })
     },
     onSuccess: async (result): Promise<void> => {
-      setReadinessError(null)
+      clearDraftWorkspaceAlert()
       clearDraftActionAlert()
       await applyVacancyIngestResult(result)
     },
@@ -791,7 +837,7 @@ export function App() {
       await globalThis.window.cvMaxxing.vacancy.clearVacancyWorkspaceState()
     },
     onSuccess: async (): Promise<void> => {
-      setReadinessError(null)
+      clearDraftWorkspaceAlert()
       clearDraftActionAlert()
       setVacancyPreviewOverride(null)
       queryClient.setQueryData(rendererQueryKeys.vacancyWorkspace, initialVacancyWorkspaceState)
@@ -823,7 +869,7 @@ export function App() {
     },
     onSuccess: async (preflightResult): Promise<void> => {
       flushSync(() => {
-        setReadinessError(null)
+        clearDraftWorkspaceAlert()
         setSelectedTailoredApplicationId(null)
         setStartupDestinationOverride('workspace')
         setWorkspaceSelectionOverride({
@@ -864,7 +910,8 @@ export function App() {
       flushSync(() => {
         setIsDeleteTailoredApplicationDialogOpen(false)
         setPreviewDocumentKind('adapted_cv')
-        setReadinessError(null)
+        clearDraftWorkspaceAlert()
+        clearSavedApplicationRuntimeAlert()
         setSelectedTailoredApplicationId(nextSelectedTailoredApplicationId)
         setStartupDestinationOverride('workspace')
         setWorkspaceSelectionOverride(null)
@@ -896,8 +943,12 @@ export function App() {
           queryKey: rendererQueryKeys.tailoredApplicationWorkspace,
         }),
       ]).catch((error: unknown) => {
-        setReadinessError(
-          resolveErrorMessage(error, `${readinessErrorMessage} ${readinessErrorAction}`),
+        setSavedApplicationRuntimeAlert(
+          createSavedApplicationRuntimeAlert({
+            message: resolveErrorMessage(error, `${readinessErrorMessage} ${readinessErrorAction}`),
+            priority: 400,
+            source: 'saved_application_complete',
+          }),
         )
       })
     },
@@ -916,7 +967,7 @@ export function App() {
       setDeleteTailoredApplicationDialogAlert(null)
       setIsDeleteTailoredApplicationDialogOpen(false)
       setPreviewDocumentKind('adapted_cv')
-      setReadinessError(null)
+      clearDraftWorkspaceAlert()
       clearSavedApplicationRuntimeAlert()
       await Promise.all([
         invalidateReadinessQuery(),
@@ -953,7 +1004,7 @@ export function App() {
       await globalThis.window.cvMaxxing.tailoredApplication.abandonPendingGeneration()
     },
     onSuccess: async (): Promise<void> => {
-      setReadinessError(null)
+      clearDraftWorkspaceAlert()
       setStartupDestinationOverride(null)
       setWorkspaceSelectionOverride({
         kind: 'draft',
@@ -1031,26 +1082,56 @@ export function App() {
   }, [viewModel.canEnterWorkspace])
 
   useEffect(() => {
-    const nextError =
-      readinessQuery.error ??
-      settingsQuery.error ??
-      (activeWorkspaceSection === 'original_cv' ? originalCvDetailQuery.error : null) ??
-      originalCvWorkspaceQuery.error ??
-      workspaceSelectionQuery.error ??
-      vacancyWorkspaceQuery.error ??
-      tailoredApplicationWorkspaceQuery.error ??
-      pendingGenerationQuery.error ??
-      tailoredApplicationPreviewQuery.error ??
-      null
+    let nextError: Error | null
+
+    if (!viewModel.canEnterWorkspace) {
+      nextError = readinessQuery.error ?? null
+    } else if (activeWorkspaceSection === 'settings') {
+      nextError =
+        settingsQuery.error ??
+        originalCvWorkspaceQuery.error ??
+        workspaceSelectionQuery.error ??
+        null
+    } else if (activeWorkspaceSection === 'original_cv') {
+      nextError =
+        originalCvDetailQuery.error ??
+        originalCvWorkspaceQuery.error ??
+        workspaceSelectionQuery.error ??
+        null
+    } else if (workspaceSelection.kind === 'tailored_application') {
+      nextError =
+        tailoredApplicationPreviewQuery.error ??
+        tailoredApplicationWorkspaceQuery.error ??
+        pendingGenerationQuery.error ??
+        originalCvWorkspaceQuery.error ??
+        workspaceSelectionQuery.error ??
+        null
+    } else {
+      nextError =
+        vacancyWorkspaceQuery.error ??
+        tailoredApplicationWorkspaceQuery.error ??
+        pendingGenerationQuery.error ??
+        originalCvWorkspaceQuery.error ??
+        workspaceSelectionQuery.error ??
+        null
+    }
 
     if (nextError === null) {
       if (setupActionAlert?.source === 'renderer_query') {
         setSetupActionAlert(null)
       }
 
+      clearSettingsRuntimeAlertBySource('settings_query')
+
+      setOriginalCvRuntimeAlerts((currentAlerts) => {
+        return clearOriginalCvRuntimeAlertsBySource(currentAlerts, 'original_cv_query')
+      })
+
       if (savedApplicationRuntimeAlert?.source === 'saved_application_query') {
         setSavedApplicationRuntimeAlert(null)
       }
+
+      clearDraftWorkspaceAlert('draft_query')
 
       return
     }
@@ -1086,10 +1167,24 @@ export function App() {
       return
     }
 
-    if (
-      activeWorkspaceSection === 'job_vacancies' &&
-      workspaceSelection.kind === 'tailored_application'
-    ) {
+    if (activeWorkspaceSection === 'settings') {
+      setSettingsRuntimeAlert(
+        settingsSection,
+        createScopedRuntimeAlert({
+          message: resolvedMessage,
+          owner: {
+            scope: 'settings',
+            view: settingsSection,
+          },
+          priority: 400,
+          source: 'settings_query',
+        }),
+      )
+
+      return
+    }
+
+    if (workspaceSelection.kind === 'tailored_application') {
       setSavedApplicationRuntimeAlert(
         createSavedApplicationRuntimeAlert({
           message: resolvedMessage,
@@ -1101,10 +1196,18 @@ export function App() {
       return
     }
 
-    setReadinessError(resolvedMessage)
+    setDraftWorkspaceAlert(
+      createDraftRuntimeAlert({
+        message: resolvedMessage,
+        source: 'draft_query',
+      }),
+    )
   }, [
+    activeOriginalCvRuntimeAlert,
     activeOriginalCvRuntimeAlertView,
+    activeSettingsRuntimeAlert,
     activeWorkspaceSection,
+    draftWorkspaceAlert,
     originalCvWorkspaceQuery.error,
     originalCvDetailQuery.error,
     pendingGenerationQuery.error,
@@ -1116,6 +1219,7 @@ export function App() {
     tailoredApplicationWorkspaceQuery.error,
     viewModel.canEnterWorkspace,
     viewModel.status,
+    settingsSection,
     workspaceSelection.kind,
     workspaceSelectionQuery.error,
     vacancyWorkspaceQuery.error,
@@ -1181,6 +1285,12 @@ export function App() {
     setSettingsRuntimeAlerts(createEmptySettingsRuntimeAlerts())
   }
 
+  const clearSettingsRuntimeAlertBySource = (source: string): void => {
+    setSettingsRuntimeAlerts((currentAlerts) => {
+      return clearSettingsRuntimeAlertsBySource(currentAlerts, source)
+    })
+  }
+
   const clearOriginalCvRuntimeAlerts = (): void => {
     setOriginalCvRuntimeAlerts(createEmptyOriginalCvRuntimeAlerts())
   }
@@ -1189,8 +1299,30 @@ export function App() {
     setSavedApplicationRuntimeAlertState(null)
   }
 
-  const clearDraftActionAlert = (): void => {
-    setDraftActionAlertState(null)
+  const clearDraftWorkspaceAlert = (source?: string): void => {
+    setDraftWorkspaceAlertState((currentAlert) => {
+      if (source !== undefined && currentAlert?.source !== source) {
+        return currentAlert
+      }
+
+      return null
+    })
+  }
+
+  const clearDraftActionAlert = (source?: string): void => {
+    setDraftActionAlertState((currentAlert) => {
+      if (source !== undefined && currentAlert?.source !== source) {
+        return currentAlert
+      }
+
+      return null
+    })
+  }
+
+  const setDraftWorkspaceAlert = (nextAlert: RuntimeAlert | null): void => {
+    setDraftWorkspaceAlertState((currentAlert) => {
+      return resolveNextRuntimeAlert(currentAlert, nextAlert)
+    })
   }
 
   const setDraftActionAlert = (nextAlert: RuntimeAlert | null): void => {
@@ -1204,9 +1336,15 @@ export function App() {
     nextAlert: RuntimeAlert | null,
   ): void => {
     setSettingsRuntimeAlerts((currentAlerts) => {
+      const resolvedAlert = resolveNextRuntimeAlert(currentAlerts[section], nextAlert)
+
+      if (resolvedAlert === currentAlerts[section]) {
+        return currentAlerts
+      }
+
       return {
         ...currentAlerts,
-        [section]: nextAlert,
+        [section]: resolvedAlert,
       }
     })
   }
@@ -1227,6 +1365,98 @@ export function App() {
     setSavedApplicationRuntimeAlertState((currentAlert) => {
       return resolveNextRuntimeAlert(currentAlert, nextAlert)
     })
+  }
+
+  const showWorkspaceSelectionSaveFailure = (
+    selection: WorkspaceSelection,
+    options?: {
+      originalCvTargetView?: OriginalCvRuntimeAlertView
+    },
+  ): void => {
+    if (selection.topLevelSection === 'settings') {
+      setSettingsRuntimeAlert(
+        settingsSection,
+        createScopedRuntimeAlert({
+          message: workspaceSelectionSaveErrorMessage,
+          owner: {
+            scope: 'settings',
+            view: settingsSection,
+          },
+          priority: 400,
+          source: 'settings_selection',
+        }),
+      )
+
+      return
+    }
+
+    if (selection.topLevelSection === 'original_cv') {
+      const targetView = options?.originalCvTargetView ?? activeOriginalCvRuntimeAlertView
+
+      setOriginalCvRuntimeAlert(
+        targetView,
+        createOriginalCvRuntimeAlert({
+          message: workspaceSelectionSaveErrorMessage,
+          priority: 400,
+          source: 'original_cv_selection',
+          view: targetView,
+        }),
+      )
+
+      return
+    }
+
+    if (selection.jobs.kind === 'tailored_application') {
+      setSavedApplicationRuntimeAlert(
+        createSavedApplicationRuntimeAlert({
+          message: workspaceSelectionSaveErrorMessage,
+          priority: 400,
+          source: 'saved_application_selection',
+        }),
+      )
+
+      return
+    }
+
+    setDraftWorkspaceAlert(
+      createDraftRuntimeAlert({
+        message: workspaceSelectionSaveErrorMessage,
+        source: 'draft_selection',
+      }),
+    )
+  }
+
+  const clearWorkspaceSelectionSaveFailure = (
+    selection: WorkspaceSelection,
+    options?: {
+      originalCvTargetView?: OriginalCvRuntimeAlertView
+    },
+  ): void => {
+    if (selection.topLevelSection === 'settings') {
+      clearSettingsRuntimeAlertBySource('settings_selection')
+
+      return
+    }
+
+    if (selection.topLevelSection === 'original_cv') {
+      const targetView = options?.originalCvTargetView ?? activeOriginalCvRuntimeAlertView
+
+      if (originalCvRuntimeAlerts[targetView]?.source === 'original_cv_selection') {
+        setOriginalCvRuntimeAlert(targetView, null)
+      }
+
+      return
+    }
+
+    if (selection.jobs.kind === 'tailored_application') {
+      if (savedApplicationRuntimeAlert?.source === 'saved_application_selection') {
+        setSavedApplicationRuntimeAlert(null)
+      }
+
+      return
+    }
+
+    clearDraftWorkspaceAlert('draft_selection')
   }
 
   const handleOriginalCvDetailPreviewErrorChange = (message: string | null): void => {
@@ -1295,9 +1525,22 @@ export function App() {
 
     clearSettingsRuntimeAlerts()
 
-    saveWorkspaceSelection(nextWorkspaceSelection).catch(() => {
-      setReadinessError("We couldn't save where you left off.")
-    })
+    const originalCvTargetView =
+      item !== 'original_cv' || originalCvWorkspaceState.activeOriginalCv === null
+        ? undefined
+        : 'detail'
+
+    saveWorkspaceSelection(nextWorkspaceSelection)
+      .then(() => {
+        clearWorkspaceSelectionSaveFailure(nextWorkspaceSelection, {
+          originalCvTargetView,
+        })
+      })
+      .catch(() => {
+        showWorkspaceSelectionSaveFailure(nextWorkspaceSelection, {
+          originalCvTargetView,
+        })
+      })
   }
 
   const handleSelectOriginalCv = () => {
@@ -1308,9 +1551,20 @@ export function App() {
     setOriginalCvSectionFile(null)
     setOriginalCvSectionMode('detail')
 
-    saveWorkspaceSelection(nextWorkspaceSelection).catch(() => {
-      setReadinessError("We couldn't save where you left off.")
-    })
+    const originalCvTargetView =
+      originalCvWorkspaceState.activeOriginalCv === null ? undefined : 'detail'
+
+    saveWorkspaceSelection(nextWorkspaceSelection)
+      .then(() => {
+        clearWorkspaceSelectionSaveFailure(nextWorkspaceSelection, {
+          originalCvTargetView,
+        })
+      })
+      .catch(() => {
+        showWorkspaceSelectionSaveFailure(nextWorkspaceSelection, {
+          originalCvTargetView,
+        })
+      })
   }
 
   const handleClearJobSiteBrowserData = async (): Promise<void> => {
@@ -1370,7 +1624,10 @@ export function App() {
     } catch (error) {
       setResetLocalAppDataDialogAlert(
         createScopedRuntimeAlert({
-          message: resolveErrorMessage(error, "We couldn't reset your local data on this Mac."),
+          message: resolveErrorMessage(
+            error,
+            "We couldn't reset your app data right now. Try again.",
+          ),
           owner: {
             scope: 'settings',
             view: 'local_data_reset_dialog',
@@ -1395,7 +1652,7 @@ export function App() {
     }
 
     setOriginalCvRuntimeAlert(activeOriginalCvRuntimeAlertView, null)
-    setReadinessError(null)
+    clearDraftWorkspaceAlert()
 
     try {
       await importOriginalCvMutation.mutateAsync({
@@ -1476,7 +1733,7 @@ export function App() {
       return
     }
 
-    setReadinessError(null)
+    clearDraftWorkspaceAlert()
     clearDraftActionAlert()
 
     try {
@@ -1531,7 +1788,7 @@ export function App() {
     setDeleteTailoredApplicationDialogAlert(null)
     setIsDeleteTailoredApplicationDialogOpen(false)
     setPreviewDocumentKind('adapted_cv')
-    setReadinessError(null)
+    clearDraftWorkspaceAlert()
     setSelectedTailoredApplicationId(tailoredApplicationId)
     setWorkspaceSelectionOverride(null)
   }
@@ -1572,7 +1829,7 @@ export function App() {
     setIsDeleteTailoredApplicationDialogOpen(false)
     setIsConfirmingDraftDiscard(false)
     setPreviewDocumentKind('adapted_cv')
-    setReadinessError(null)
+    clearDraftWorkspaceAlert()
     setSelectedTailoredApplicationId(null)
     setStartupDestinationOverride('workspace')
     setWorkspaceSelectionOverride({
@@ -1671,7 +1928,12 @@ export function App() {
     try {
       await abandonPendingGenerationMutation.mutateAsync()
     } catch {
-      setReadinessError(`${readinessErrorMessage} ${readinessErrorAction}`)
+      setDraftActionAlert(
+        createDraftRuntimeAlert({
+          message: `${readinessErrorMessage} ${readinessErrorAction}`,
+          source: 'abandon_pending_generation',
+        }),
+      )
     }
   }
 
@@ -1741,7 +2003,7 @@ export function App() {
     } catch (error) {
       flushSync(() => {
         setStartupDestinationOverride('workspace')
-        setReadinessError(null)
+        clearDraftWorkspaceAlert()
         setDraftActionAlert(
           createScopedRuntimeAlert({
             message: resolveErrorMessage(error, `${readinessErrorMessage} ${readinessErrorAction}`),
@@ -1978,7 +2240,7 @@ export function App() {
                 return
               }
 
-              setReadinessError(null)
+              clearDraftWorkspaceAlert()
               clearDraftActionAlert()
 
               openVacancyBrowserSessionMutation.mutateAsync(originalUrl).catch((error: unknown) => {
@@ -2022,7 +2284,7 @@ export function App() {
                 return
               }
 
-              setReadinessError(null)
+              clearDraftWorkspaceAlert()
               clearDraftActionAlert()
 
               reviewPastedVacancyMutation.mutateAsync().catch((error: unknown) => {
@@ -2056,7 +2318,7 @@ export function App() {
                 return
               }
 
-              setReadinessError(null)
+              clearDraftWorkspaceAlert()
               clearDraftActionAlert()
 
               reviewVacancyUrlMutation.mutateAsync().catch((error: unknown) => {
@@ -2084,42 +2346,44 @@ export function App() {
             }}
             onSelectApplication={(tailoredApplicationId) => {
               handleSelectTailoredApplication(tailoredApplicationId)
-              saveWorkspaceSelection(
-                buildWorkspaceSelection({
-                  jobs: {
-                    kind: 'tailored_application',
-                    tailoredApplicationId,
-                  },
-                  topLevelSection: 'job_vacancies',
-                }),
-              ).catch(() => {
-                setSavedApplicationRuntimeAlert(
-                  createSavedApplicationRuntimeAlert({
-                    message: "We couldn't save where you left off.",
-                    priority: 400,
-                    source: 'saved_application_selection',
-                  }),
-                )
+              const nextWorkspaceSelection = buildWorkspaceSelection({
+                jobs: {
+                  kind: 'tailored_application',
+                  tailoredApplicationId,
+                },
+                topLevelSection: 'job_vacancies',
               })
+
+              saveWorkspaceSelection(nextWorkspaceSelection)
+                .then(() => {
+                  clearWorkspaceSelectionSaveFailure(nextWorkspaceSelection)
+                })
+                .catch(() => {
+                  showWorkspaceSelectionSaveFailure(nextWorkspaceSelection)
+                })
             }}
             onSelectDraft={() => {
               setIsDeleteTailoredApplicationDialogOpen(false)
               setPreviewDocumentKind('adapted_cv')
-              setReadinessError(null)
+              clearDraftWorkspaceAlert()
               setSelectedTailoredApplicationId(null)
               setWorkspaceSelectionOverride({
                 kind: 'draft',
               })
-              saveWorkspaceSelection(
-                buildWorkspaceSelection({
-                  jobs: {
-                    kind: 'draft',
-                  },
-                  topLevelSection: 'job_vacancies',
-                }),
-              ).catch(() => {
-                setReadinessError("We couldn't save where you left off.")
+              const nextWorkspaceSelection = buildWorkspaceSelection({
+                jobs: {
+                  kind: 'draft',
+                },
+                topLevelSection: 'job_vacancies',
               })
+
+              saveWorkspaceSelection(nextWorkspaceSelection)
+                .then(() => {
+                  clearWorkspaceSelectionSaveFailure(nextWorkspaceSelection)
+                })
+                .catch(() => {
+                  showWorkspaceSelectionSaveFailure(nextWorkspaceSelection)
+                })
             }}
             onSelectPreviewDocument={setPreviewDocumentKind}
             onSelectRailItem={handleSelectRailItem}
@@ -2135,18 +2399,28 @@ export function App() {
                 kind: 'draft',
               })
               setVacancyPreviewOverride(null)
-              setReadinessError(null)
+              clearDraftWorkspaceAlert()
               clearDraftActionAlert()
-              saveWorkspaceSelection(
-                buildWorkspaceSelection({
+
+              if (
+                persistedWorkspaceSelection.topLevelSection !== 'job_vacancies' ||
+                persistedWorkspaceSelection.jobs.kind !== 'draft'
+              ) {
+                const nextWorkspaceSelection = buildWorkspaceSelection({
                   jobs: {
                     kind: 'draft',
                   },
                   topLevelSection: 'job_vacancies',
-                }),
-              ).catch(() => {
-                setReadinessError("We couldn't save where you left off.")
-              })
+                })
+
+                saveWorkspaceSelection(nextWorkspaceSelection)
+                  .then(() => {
+                    clearWorkspaceSelectionSaveFailure(nextWorkspaceSelection)
+                  })
+                  .catch(() => {
+                    showWorkspaceSelectionSaveFailure(nextWorkspaceSelection)
+                  })
+              }
             }}
             onUrlDraftChange={(event) => {
               const nextDraft = {
@@ -2160,18 +2434,28 @@ export function App() {
                 kind: 'draft',
               })
               setVacancyPreviewOverride(null)
-              setReadinessError(null)
+              clearDraftWorkspaceAlert()
               clearDraftActionAlert()
-              saveWorkspaceSelection(
-                buildWorkspaceSelection({
+
+              if (
+                persistedWorkspaceSelection.topLevelSection !== 'job_vacancies' ||
+                persistedWorkspaceSelection.jobs.kind !== 'draft'
+              ) {
+                const nextWorkspaceSelection = buildWorkspaceSelection({
                   jobs: {
                     kind: 'draft',
                   },
                   topLevelSection: 'job_vacancies',
-                }),
-              ).catch(() => {
-                setReadinessError("We couldn't save where you left off.")
-              })
+                })
+
+                saveWorkspaceSelection(nextWorkspaceSelection)
+                  .then(() => {
+                    clearWorkspaceSelectionSaveFailure(nextWorkspaceSelection)
+                  })
+                  .catch(() => {
+                    showWorkspaceSelectionSaveFailure(nextWorkspaceSelection)
+                  })
+              }
             }}
             preview={tailoredApplicationPreview}
             previewDocumentKind={previewDocumentKind}
@@ -2301,7 +2585,7 @@ export function App() {
                 createScopedRuntimeAlert({
                   message: resolveErrorMessage(
                     error,
-                    `${readinessErrorMessage} ${readinessErrorAction}`,
+                    "We couldn't open help right now. Try again.",
                   ),
                   owner: {
                     scope: 'settings',
@@ -2456,7 +2740,7 @@ function isVacancyDraftMeaningful({
 
 function resolveErrorMessage(error: unknown, fallbackMessage: string): string {
   if (typeof error === 'string' && error !== '') {
-    return error
+    return resolveRendererErrorMessage(error, fallbackMessage)
   }
 
   if (
@@ -2466,10 +2750,52 @@ function resolveErrorMessage(error: unknown, fallbackMessage: string): string {
     typeof error.message === 'string' &&
     error.message !== ''
   ) {
-    return error.message
+    return resolveRendererErrorMessage(error.message, fallbackMessage)
   }
 
   return fallbackMessage
+}
+
+function resolveRendererErrorMessage(errorMessage: string, fallbackMessage: string): string {
+  const electronInvokeMessage = extractElectronInvokeMessage(errorMessage)
+
+  if (electronInvokeMessage === null) {
+    return errorMessage
+  }
+
+  if (electronInvokeMessage === '') {
+    return fallbackMessage
+  }
+
+  return electronInvokeMessage
+}
+
+function extractElectronInvokeMessage(errorMessage: string): string | null {
+  const wrappedMessageMatch =
+    /^Error invoking remote method ['"`][\s\S]+?['"`](?::\s*([\s\S]+))?$/u.exec(errorMessage)
+
+  if (wrappedMessageMatch === null) {
+    return null
+  }
+
+  const wrappedMessage = wrappedMessageMatch[1]?.trim() ?? ''
+  const wrappedMessageSummary = wrappedMessage.split(/\r?\n/u, 1)[0]?.trim() ?? ''
+
+  if (wrappedMessageSummary === '' || wrappedMessageSummary === 'Error') {
+    return ''
+  }
+
+  if (wrappedMessage.startsWith('Error: ')) {
+    const normalizedWrappedMessage = wrappedMessage.slice('Error: '.length).trim()
+    const normalizedWrappedMessageSummary =
+      normalizedWrappedMessage.split(/\r?\n/u, 1)[0]?.trim() ?? ''
+
+    return normalizedWrappedMessageSummary === '' || normalizedWrappedMessageSummary === 'Error'
+      ? ''
+      : normalizedWrappedMessageSummary
+  }
+
+  return wrappedMessageSummary
 }
 
 function resolveAutoBrowserSessionUrl(result: VacancyIngestResult): string | null {

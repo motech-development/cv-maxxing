@@ -7,6 +7,7 @@ export const visualScreenshotBudgets = {
   'original-cv-import-error-screen.png': 5500,
   'original-cv-replace-screen.png': 5000,
   'settings-ai-screen.png': 6000,
+  'settings-ai-error-screen.png': 9000,
   'settings-ambient-activity-screen.png': 18_000,
   'settings-local-data-screen.png': 10_000,
   'workspace-active-adapted-cv-screen.png': 24_000,
@@ -21,4 +22,5 @@ export const visualScreenshotBudgets = {
   'workspace-review-error-screen.png': 10_000,
   'workspace-saved-job-delete-dialog.png': 1500,
   'workspace-settings-reset-dialog.png': 1500,
+  'workspace-settings-reset-dialog-error.png': 2500,
 } as const

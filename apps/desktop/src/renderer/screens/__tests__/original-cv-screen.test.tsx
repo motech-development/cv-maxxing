@@ -28,6 +28,20 @@ afterEach(() => {
   cleanup()
 })
 
+function findPanelCard(element: HTMLElement | null): HTMLElement | null {
+  let currentElement = element
+
+  while (currentElement !== null) {
+    if (currentElement.className.includes('rounded-[var(--radius-card)]')) {
+      return currentElement
+    }
+
+    currentElement = currentElement.parentElement
+  }
+
+  return null
+}
+
 function createOriginalCvDetailFixture(
   overrides: Partial<OriginalCvDetail> = {},
 ): OriginalCvDetail {
@@ -203,6 +217,36 @@ test('renders the populated add-a-cv replacement view from design/app.pen', () =
   expect(
     screen.getByText("We'll use this CV for new jobs. Your saved jobs stay the same."),
   ).toBeDefined()
+
+  const replacementCallout = findPanelCard(
+    screen.getByText("Replacing your CV changes the one you'll use for new jobs."),
+  )
+
+  expect(replacementCallout).not.toBeNull()
+  expect(replacementCallout?.className).toContain('w-full')
+  expect(replacementCallout?.className).not.toContain('max-w-4xl')
+})
+
+test('renders the Your CV metadata fallback card at full content width', () => {
+  render(
+    <OriginalCvScreen
+      activeOriginalCv={createOriginalCvDetailFixture().originalCv}
+      activeOriginalCvDetail={null}
+      isImportingOriginalCv={false}
+      onFileDrop={vi.fn()}
+      onFileSelection={vi.fn()}
+      onImportOriginalCv={vi.fn()}
+      onSelectOriginalCv={vi.fn()}
+      originalCvFile={null}
+      runtimeAlert={null}
+    />,
+  )
+
+  const metadataCard = findPanelCard(screen.getByText('Original filename'))
+
+  expect(metadataCard).not.toBeNull()
+  expect(metadataCard?.className).toContain('w-full')
+  expect(metadataCard?.className).not.toContain('max-w-3xl')
 })
 
 test('renders a shared page-top runtime alert on the Your CV screen', () => {
@@ -231,4 +275,40 @@ test('renders a shared page-top runtime alert on the Your CV screen', () => {
 
   expect(screen.getByRole('alert')).toBeDefined()
   expect(screen.getAllByText('Preview unavailable.')).toHaveLength(1)
+})
+
+test('renders the Add a CV alert below the page title and intro copy', () => {
+  const { container } = render(
+    <OriginalCvScreen
+      activeOriginalCv={null}
+      isImportingOriginalCv={false}
+      onFileDrop={vi.fn()}
+      onFileSelection={vi.fn()}
+      onImportOriginalCv={vi.fn()}
+      onSelectOriginalCv={vi.fn()}
+      originalCvFile={null}
+      runtimeAlert={createRuntimeAlert({
+        owner: {
+          scope: 'original_cv',
+          view: 'empty',
+        },
+        priority: 300,
+        source: 'original_cv_import',
+        title: 'Choose a PDF or DOCX file.',
+        variant: 'error',
+      })}
+    />,
+  )
+
+  const contentPane = container.querySelector('aside + div')
+  expect(contentPane).not.toBeNull()
+
+  const contentText = contentPane?.textContent ?? ''
+
+  expect(contentText.indexOf('Add a CV')).toBeLessThan(
+    contentText.indexOf('Choose the PDF or DOCX copy'),
+  )
+  expect(contentText.indexOf('Choose the PDF or DOCX copy')).toBeLessThan(
+    contentText.indexOf('Choose a PDF or DOCX file.'),
+  )
 })

@@ -51,7 +51,7 @@ export function AiWorkerUnavailableScreen({
         tone: 'danger',
       }}
     >
-      <PanelCard className="p-6">
+      <PanelCard className="w-full p-6">
         <p className="m-0 text-[18px] font-extrabold text-[var(--color-copy-strong)]">
           What needs fixing
         </p>

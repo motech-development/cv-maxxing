@@ -32,19 +32,23 @@ export class InvalidLocalDataResetConfirmationError extends Error {
 }
 
 interface SettingsServiceOptions {
+  allowResetLocalAppDataErrorMessage?: boolean
   browserSessionRootPath: string
   closeActiveJobs?: () => Promise<void>
   getAppVersion: () => string
   localAppData: Pick<LocalAppDataStore, 'reset'>
+  resetLocalAppDataErrorMessage?: string
   restartApp?: () => Promise<void>
   workerCommand?: string
 }
 
 export function createSettingsService({
+  allowResetLocalAppDataErrorMessage = false,
   browserSessionRootPath,
   closeActiveJobs = resolveVoid,
   getAppVersion,
   localAppData,
+  resetLocalAppDataErrorMessage,
   restartApp = resolveVoid,
   workerCommand = 'codex',
 }: SettingsServiceOptions): SettingsService {
@@ -67,6 +71,14 @@ export function createSettingsService({
         throw new InvalidLocalDataResetConfirmationError(
           `Type ${SETTINGS_RESET_CONFIRMATION_PHRASE} to confirm the destructive reset.`,
         )
+      }
+
+      if (
+        allowResetLocalAppDataErrorMessage &&
+        resetLocalAppDataErrorMessage !== undefined &&
+        resetLocalAppDataErrorMessage.trim() !== ''
+      ) {
+        throw new Error(resetLocalAppDataErrorMessage)
       }
 
       await closeActiveJobs()

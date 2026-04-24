@@ -18,6 +18,7 @@ import {
 import {
   cleanupVisualTestArtifacts,
   createVisualTestPaths,
+  hideScrollbars,
   launchDesktopApp,
 } from './visual/launch-desktop-app.js'
 
@@ -122,6 +123,48 @@ test('captures the settings reset local data dialog', async () => {
     animations: 'disabled',
     caret: 'hide',
     maxDiffPixels: visualScreenshotBudgets['workspace-settings-reset-dialog.png'],
+  })
+
+  await electronApp.close()
+})
+
+test('captures the settings reset local data dialog with a shared runtime alert', async () => {
+  const testPaths = await createVisualTestPaths()
+
+  await writeFile(testPaths.pdfPath, createPdfDocumentBuffer(createBaseOriginalCvLines()))
+
+  const electronApp = await launchDesktopApp({
+    CV_MAXXING_AI_WORKER_PREFLIGHT_STATUS: 'ready',
+    CV_MAXXING_LOCAL_APP_DATA_ROOT: testPaths.appDataRoot,
+    CV_MAXXING_STARTUP_DESTINATION: 'first_launch',
+    CV_MAXXING_TEST_RESET_LOCAL_APP_DATA_ERROR:
+      "We couldn't reset your app data right now. Try again.",
+  })
+
+  const page = await electronApp.firstWindow()
+
+  await importOriginalCvFromFirstLaunch({
+    filename: 'ada-lovelace.pdf',
+    filePath: testPaths.pdfPath,
+    page,
+  })
+  await openLocalDataSettings(page)
+  await page.getByRole('button', { name: 'Reset local app data' }).click()
+
+  const dialog = page.getByRole('dialog', { name: 'Reset local app data?' })
+
+  await expect(dialog).toBeVisible()
+  await page.getByLabel('Type RESET to confirm destructive reset').fill('RESET')
+  await dialog.getByRole('button', { name: 'Reset local app data' }).click()
+  await expect(dialog.getByRole('alert')).toBeVisible()
+  await expect(
+    dialog.getByText("We couldn't reset your app data right now. Try again."),
+  ).toBeVisible()
+  await hideScrollbars(page)
+  await expect(dialog).toHaveScreenshot('workspace-settings-reset-dialog-error.png', {
+    animations: 'disabled',
+    caret: 'hide',
+    maxDiffPixels: visualScreenshotBudgets['workspace-settings-reset-dialog-error.png'],
   })
 
   await electronApp.close()

@@ -8,7 +8,6 @@ import { WorkspaceApplicationView } from '../workspace-active-screen.js'
 test('keeps the document preview column shrinkable beside the vacancy panel', () => {
   const onCopyCoverLetterText = vi.fn()
   const onDeleteTailoredApplication = vi.fn()
-  const onExportPdf = vi.fn()
   const onSelectPreviewDocument = vi.fn()
 
   render(
@@ -18,7 +17,6 @@ test('keeps the document preview column shrinkable beside the vacancy panel', ()
       isExportingPdf={false}
       onCopyCoverLetterText={onCopyCoverLetterText}
       onDeleteTailoredApplication={onDeleteTailoredApplication}
-      onExportPdf={onExportPdf}
       onPreviewErrorChange={vi.fn()}
       onSelectPreviewDocument={onSelectPreviewDocument}
       preview={null}
@@ -27,8 +25,7 @@ test('keeps the document preview column shrinkable beside the vacancy panel', ()
   )
 
   expect(screen.getByText('About this job')).toBeDefined()
-  expect(screen.getByRole('heading', { name: 'Senior platform engineer' })).toBeDefined()
-  expect(screen.getByRole('button', { name: 'Save CV and cover letter' })).toBeDefined()
+  expect(screen.getByText('Senior platform engineer')).toBeDefined()
 
   const panelCards = [...document.querySelectorAll('div')].filter((element) => {
     return (

@@ -28,7 +28,6 @@ const fieldClassName =
 export function WorkspaceDraftView({
   draftReviewState,
   isAdaptingCv,
-  isCurrentDraftMeaningful,
   isOpeningVacancyBrowser,
   isReviewingVacancy,
   onAdaptCv,
@@ -49,24 +48,10 @@ export function WorkspaceDraftView({
   const sourceFieldClassName = isDraftReviewed
     ? `${fieldClassName} bg-[var(--color-surface-2)] text-[var(--color-copy-muted)]`
     : fieldClassName
-  let subtitle = 'Start with a job link, or paste the job description if you need to.'
-
-  if (isCurrentDraftMeaningful) {
-    subtitle = 'Check the job details before tailoring your CV and cover letter.'
-  }
-
-  if (isDraftReviewed) {
-    subtitle = 'These job details are locked until you add another job.'
-  }
 
   return (
     <>
-      <h1 className="m-0 text-[32px] font-extrabold tracking-[-0.03em] text-[var(--color-copy-strong)]">
-        Add a job
-      </h1>
-      <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--color-copy-muted)]">{subtitle}</p>
-
-      <div className="mt-6 grid gap-[18px] md:grid-cols-2">
+      <div className="grid gap-[18px] md:grid-cols-2">
         <PanelCard className="flex min-h-[278px] flex-col gap-3 p-5">
           <p className="m-0 text-lg font-extrabold text-[var(--color-copy-strong)]">Job link</p>
           <p className="text-sm leading-6 text-[var(--color-copy-muted)]">

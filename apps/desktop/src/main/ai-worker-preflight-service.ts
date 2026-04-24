@@ -10,6 +10,7 @@ export interface AiWorkerPreflightEnvironment {
   CV_MAXXING_AI_WORKER_PREFLIGHT_STATUS?: string
   CV_MAXXING_AI_WORKER_RETRY_STATUS?: string
   CV_MAXXING_AI_WORKER_SIGN_IN_STATUS?: string
+  CV_MAXXING_TEST_OPEN_AI_SETUP_GUIDE_ERROR?: string
 }
 
 export type AiWorkerProbeOutcome =
@@ -122,6 +123,12 @@ export function createAiWorkerPreflightService({
       return persistedStartupDestination ?? 'first_launch'
     },
     openAiWorkerSetupGuide: () => {
+      const setupGuideErrorMessage = environment.CV_MAXXING_TEST_OPEN_AI_SETUP_GUIDE_ERROR
+
+      if (setupGuideErrorMessage !== undefined && setupGuideErrorMessage.trim() !== '') {
+        return Promise.reject(new Error(setupGuideErrorMessage))
+      }
+
       return openAiWorkerSetupGuide()
     },
     retryAiWorkerPreflight: () => {

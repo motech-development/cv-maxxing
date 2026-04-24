@@ -32,6 +32,8 @@ test('renders error alerts with assertive semantics', () => {
 
   expect(alert.getAttribute('aria-live')).toBe('assertive')
   expect(alert.getAttribute('aria-atomic')).toBe('true')
+  expect(alert.className).toContain('w-full')
+  expect(alert.className).not.toContain('max-w-4xl')
   expect(screen.getByText('Needs attention')).toBeDefined()
   expect(screen.getByText('AI is not ready on this Mac.')).toBeDefined()
 })

@@ -52,7 +52,7 @@ export function RuntimeAlertBanner({ alert }: RuntimeAlertBannerProperties) {
 
   return (
     <div
-      className={`max-w-4xl rounded-[10px] border px-[18px] py-4 ${toneClassNames[alert.variant]}`}
+      className={`w-full rounded-[10px] border px-[18px] py-4 ${toneClassNames[alert.variant]}`}
       {...liveRegionProperties}
     >
       <div className="flex flex-col gap-2">

@@ -50,6 +50,39 @@ test('captures the settings AI screen', async () => {
   await electronApp.close()
 })
 
+test('captures the settings AI screen with a shared runtime alert', async () => {
+  const testPaths = await createVisualTestPaths()
+
+  await writeFile(testPaths.pdfPath, createPdfDocumentBuffer(createBaseOriginalCvLines()))
+
+  const electronApp = await launchDesktopApp({
+    CV_MAXXING_AI_WORKER_PREFLIGHT_STATUS: 'ready',
+    CV_MAXXING_LOCAL_APP_DATA_ROOT: testPaths.appDataRoot,
+    CV_MAXXING_STARTUP_DESTINATION: 'first_launch',
+    CV_MAXXING_TEST_OPEN_AI_SETUP_GUIDE_ERROR: "We couldn't open help right now. Try again.",
+  })
+
+  const page = await electronApp.firstWindow()
+
+  await importOriginalCvFromFirstLaunch({
+    filename: 'ada-lovelace.pdf',
+    filePath: testPaths.pdfPath,
+    page,
+  })
+  await openSettings(page)
+  await page.getByRole('button', { name: 'Get help' }).click()
+  await expect(page.getByRole('alert')).toBeVisible()
+  await expect(page.getByText("We couldn't open help right now. Try again.")).toBeVisible()
+  await hideScrollbars(page)
+  await expect(page).toHaveScreenshot('settings-ai-error-screen.png', {
+    animations: 'disabled',
+    caret: 'hide',
+    maxDiffPixels: visualScreenshotBudgets['settings-ai-error-screen.png'],
+  })
+
+  await electronApp.close()
+})
+
 test('captures the settings local data screen', async () => {
   const testPaths = await createVisualTestPaths()
   const browserCookiesPath = path.join(

@@ -97,6 +97,27 @@ export function WorkspaceScreen({
 }: WorkspaceScreenProperties) {
   const hasVacancyItems = isCurrentDraftMeaningful || applications.length > 0
   const pageAlert = selectedWorkspaceItem === 'draft' ? draftRuntimeAlert : applicationRuntimeAlert
+  let draftPageIntro = 'Start with a job link, or paste the job description if you need to.'
+
+  if (draftReviewState === 'reviewed') {
+    draftPageIntro = 'These job details are locked until you add another job.'
+  } else if (isCurrentDraftMeaningful) {
+    draftPageIntro = 'Check the job details before tailoring your CV and cover letter.'
+  }
+  const pageHeaderActions =
+    selectedWorkspaceItem === 'tailored_application' ? (
+      <Button disabled={preview === null || isExportingPdf} onClick={onExportPdf} tone="primary">
+        Save CV and cover letter
+      </Button>
+    ) : undefined
+  const pageIntro =
+    selectedWorkspaceItem === 'tailored_application'
+      ? (preview?.employer ?? preview?.vacancyTitle ?? applicationTitle ?? undefined)
+      : draftPageIntro
+  const pageTitle =
+    selectedWorkspaceItem === 'tailored_application'
+      ? (preview?.vacancyTitle ?? preview?.title ?? applicationTitle ?? 'Saved job')
+      : 'Add a job'
 
   return (
     <DesktopShell
@@ -104,6 +125,9 @@ export function WorkspaceScreen({
       ambientActivityLabel={ambientActivityLabel}
       onSelectRailItem={onSelectRailItem}
       pageAlert={pageAlert ? <RuntimeAlertBanner alert={pageAlert} /> : undefined}
+      pageHeaderActions={pageHeaderActions}
+      pageIntro={pageIntro}
+      pageTitle={pageTitle}
       railItems={['job_vacancies', 'original_cv', 'settings']}
       sidebar={
         <SidebarContainer>
@@ -157,9 +181,8 @@ export function WorkspaceScreen({
           applicationTitle={applicationTitle}
           isCopyingCoverLetterText={isCopyingCoverLetterText}
           isExportingPdf={isExportingPdf}
-          onCopyCoverLetterText={onCopyCoverLetterText}
           onDeleteTailoredApplication={onDeleteTailoredApplication}
-          onExportPdf={onExportPdf}
+          onCopyCoverLetterText={onCopyCoverLetterText}
           onPreviewErrorChange={onPreviewErrorChange}
           onSelectPreviewDocument={onSelectPreviewDocument}
           preview={preview}

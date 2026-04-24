@@ -15,7 +15,7 @@ import type {
   TailoredApplicationWorkspaceState,
 } from '../../shared/tailored-application.js'
 import type { VacancyIngestResult } from '../../shared/vacancy.js'
-import { App } from '../app.js'
+import { App, clearOriginalCvRuntimeAlertsBySource } from '../app.js'
 
 const { renderDocxPreviewMock } = vi.hoisted(() => {
   return {
@@ -533,6 +533,52 @@ test('opens the setup guide from the repair flow', async () => {
   })
 })
 
+test('falls back to user-friendly help copy when the settings AI guide returns an IPC wrapper error', async () => {
+  renderApp({
+    aiWorker: createAiWorkerApi({
+      getAiWorkerPreflight: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+      getStartupDestination: vi.fn().mockResolvedValue('workspace'),
+      openAiWorkerSetupGuide: vi
+        .fn()
+        .mockRejectedValue(
+          new Error(
+            "Error invoking remote method 'ai-worker:open-setup-guide': Error\n    at openAiWorkerSetupGuide (ipc.js:10:5)",
+          ),
+        ),
+    }),
+    originalCv: createOriginalCvApi({
+      getOriginalCvWorkspaceState: vi.fn().mockResolvedValue({
+        activeOriginalCv: createOriginalCvDetailFixture().originalCv,
+        snapshotCount: 1,
+      }),
+    }),
+  })
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
+  })
+
+  fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'AI' })).toBeDefined()
+  })
+
+  fireEvent.click(screen.getByRole('button', { name: 'Get help' }))
+
+  await waitFor(() => {
+    expect(screen.getByRole('alert')).toBeDefined()
+  })
+
+  expect(screen.getByText("We couldn't open help right now. Try again.")).toBeDefined()
+  expect(screen.queryByText(/Error invoking remote method/u)).toBeNull()
+})
+
 test('renders the dedicated unavailable setup screen', async () => {
   renderApp({
     aiWorker: createAiWorkerApi({
@@ -576,6 +622,78 @@ test('renders the empty Your CV section after readiness succeeds with no origina
   expect(screen.getByText('No CV yet')).toBeDefined()
   expect(screen.getByText('Drop a PDF or DOCX here or choose a file')).toBeDefined()
   expect(screen.getByRole('button', { name: 'Your CV' }).getAttribute('aria-current')).toBe('page')
+})
+
+test('clears Original CV query alerts across every view', () => {
+  expect(
+    clearOriginalCvRuntimeAlertsBySource(
+      {
+        detail: {
+          owner: {
+            scope: 'original_cv',
+            view: 'detail',
+          },
+          priority: 300,
+          source: 'original_cv_query',
+          title: 'Detail alert',
+          variant: 'error',
+        },
+        empty: {
+          owner: {
+            scope: 'original_cv',
+            view: 'empty',
+          },
+          priority: 300,
+          source: 'other_source',
+          title: 'Empty alert',
+          variant: 'error',
+        },
+        replace: {
+          owner: {
+            scope: 'original_cv',
+            view: 'replace',
+          },
+          priority: 300,
+          source: 'original_cv_query',
+          title: 'Replace alert',
+          variant: 'error',
+        },
+      },
+      'original_cv_query',
+    ),
+  ).toEqual({
+    detail: null,
+    empty: {
+      owner: {
+        scope: 'original_cv',
+        view: 'empty',
+      },
+      priority: 300,
+      source: 'other_source',
+      title: 'Empty alert',
+      variant: 'error',
+    },
+    replace: null,
+  })
+})
+
+test('returns the same Original CV alert object when no matching source exists', () => {
+  const alerts = {
+    detail: null,
+    empty: {
+      owner: {
+        scope: 'original_cv',
+        view: 'empty',
+      },
+      priority: 300,
+      source: 'other_source',
+      title: 'Empty alert',
+      variant: 'error',
+    },
+    replace: null,
+  } satisfies ReturnType<typeof clearOriginalCvRuntimeAlertsBySource>
+
+  expect(clearOriginalCvRuntimeAlertsBySource(alerts, 'original_cv_query')).toBe(alerts)
 })
 
 test('accepts an original CV dropped onto the first-launch import surface', async () => {
@@ -1475,6 +1593,123 @@ test('selecting Your CV from settings with no active original CV opens the empty
   expect(screen.getByText('No CV yet')).toBeDefined()
 })
 
+test('shows a shared Your CV alert when saving the selected rail item fails', async () => {
+  renderApp({
+    aiWorker: createAiWorkerApi({
+      getAiWorkerPreflight: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+      getStartupDestination: vi.fn().mockResolvedValue('workspace'),
+    }),
+    originalCv: createOriginalCvApi({
+      getOriginalCvWorkspaceState: vi.fn().mockResolvedValue({
+        activeOriginalCv: {
+          fileType: 'pdf',
+          headline: 'Principal Product Designer',
+          id: 'original-cv-123',
+          importedAt: '2026-04-08T14:30:00.000Z',
+          originalFilename: 'ada-lovelace.pdf',
+          pageCount: 1,
+          snapshotCount: 1,
+          summary: 'Design leader focused on complex workflow products.',
+          writingStyle: {
+            averageSentenceLength: 7,
+            clicheDetections: [],
+            firstPersonUsage: 'absent',
+            formality: 'direct',
+          },
+        },
+        snapshotCount: 1,
+      }),
+      getActiveOriginalCvDetail: vi.fn().mockResolvedValue(createOriginalCvDetailFixture()),
+    }),
+    tailoredApplication: createTailoredApplicationApi({
+      setWorkspaceSelection: vi.fn().mockRejectedValue(new Error('Persist failed.')),
+    }),
+  })
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
+  })
+
+  fireEvent.click(screen.getByRole('button', { name: 'Your CV' }))
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Your CV' })).toBeDefined()
+  })
+
+  expect(screen.getByRole('alert')).toBeDefined()
+  expect(screen.getAllByText("We couldn't save where you left off.")).toHaveLength(1)
+})
+
+test('shows the shared Your CV alert in detail view when returning from Add a CV fails to persist', async () => {
+  const setWorkspaceSelection = vi
+    .fn()
+    .mockImplementationOnce(() => Promise.resolve())
+    .mockRejectedValueOnce(new Error('Persist failed.'))
+
+  renderApp({
+    aiWorker: createAiWorkerApi({
+      getAiWorkerPreflight: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+      getStartupDestination: vi.fn().mockResolvedValue('workspace'),
+    }),
+    originalCv: createOriginalCvApi({
+      getActiveOriginalCvDetail: vi.fn().mockResolvedValue(createOriginalCvDetailFixture()),
+      getOriginalCvWorkspaceState: vi.fn().mockResolvedValue({
+        activeOriginalCv: createOriginalCvDetailFixture().originalCv,
+        snapshotCount: 1,
+      }),
+    }),
+    tailoredApplication: createTailoredApplicationApi({
+      getWorkspaceSelection: vi.fn().mockResolvedValue({
+        jobs: {
+          kind: 'draft',
+        },
+        originalCv: {
+          kind: 'active_original_cv',
+          originalCvId: 'original-cv-123',
+        },
+        topLevelSection: 'original_cv',
+      }),
+      setWorkspaceSelection,
+    }),
+  })
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Your CV' })).toBeDefined()
+  })
+
+  fireEvent.click(screen.getByRole('button', { name: 'Add a CV' }))
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Add a CV' })).toBeDefined()
+  })
+
+  fireEvent.click(screen.getByRole('button', { name: 'Jobs' }))
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
+  })
+
+  fireEvent.click(screen.getByRole('button', { name: 'Your CV' }))
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Your CV' })).toBeDefined()
+  })
+
+  expect(screen.getByRole('alert')).toBeDefined()
+  expect(screen.getAllByText("We couldn't save where you left off.")).toHaveLength(1)
+  expect(screen.queryByRole('heading', { name: 'Add a CV' })).toBeNull()
+})
+
 test('shows generic open-job-page fallback guidance for reviewed links that need more access', async () => {
   renderApp({
     aiWorker: createAiWorkerApi({
@@ -2041,6 +2276,113 @@ test('shows a shared draft alert when tailoring fails to start', async () => {
     expect(screen.getByRole('alert')).toBeDefined()
     expect(screen.getAllByText("We couldn't start tailoring your CV. Try again.")).toHaveLength(1)
   })
+})
+
+test('shows a shared draft alert when saving draft changes fails', async () => {
+  renderApp({
+    aiWorker: createAiWorkerApi({
+      getAiWorkerPreflight: vi.fn().mockResolvedValue({
+        canResumeGeneration: false,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+      getStartupDestination: vi.fn().mockResolvedValue('workspace'),
+    }),
+    originalCv: createOriginalCvApi({
+      getOriginalCvWorkspaceState: vi.fn().mockResolvedValue({
+        activeOriginalCv: {
+          fileType: 'pdf',
+          headline: 'Principal Product Designer',
+          id: 'original-cv-123',
+          importedAt: '2026-04-08T14:30:00.000Z',
+          originalFilename: 'ada-lovelace.pdf',
+          pageCount: 1,
+          snapshotCount: 1,
+          summary: 'Design leader focused on complex workflow products.',
+          writingStyle: {
+            averageSentenceLength: 7,
+            clicheDetections: [],
+            firstPersonUsage: 'absent',
+            formality: 'direct',
+          },
+        },
+        snapshotCount: 1,
+      }),
+    }),
+    tailoredApplication: createTailoredApplicationApi({
+      setWorkspaceSelection: vi.fn().mockRejectedValue(new Error('Persist failed.')),
+    }),
+  })
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
+  })
+
+  fireEvent.change(screen.getByLabelText('Job description'), {
+    target: {
+      value: 'Lead product design for desktop workflows.',
+    },
+  })
+
+  await waitFor(() => {
+    expect(screen.getByRole('alert')).toBeDefined()
+    expect(screen.getAllByText("We couldn't save where you left off.")).toHaveLength(1)
+  })
+})
+
+test('does not persist workspace selection again when editing an already-selected draft', async () => {
+  const setWorkspaceSelection = vi.fn().mockImplementation(() => Promise.resolve())
+
+  renderApp({
+    aiWorker: createAiWorkerApi({
+      getAiWorkerPreflight: vi.fn().mockResolvedValue({
+        canResumeGeneration: false,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+      getStartupDestination: vi.fn().mockResolvedValue('workspace'),
+    }),
+    originalCv: createOriginalCvApi({
+      getOriginalCvWorkspaceState: vi.fn().mockResolvedValue({
+        activeOriginalCv: createOriginalCvDetailFixture().originalCv,
+        snapshotCount: 1,
+      }),
+    }),
+    tailoredApplication: createTailoredApplicationApi({
+      getWorkspaceSelection: vi.fn().mockResolvedValue({
+        jobs: {
+          kind: 'draft',
+        },
+        originalCv: {
+          kind: 'active_original_cv',
+          originalCvId: 'original-cv-123',
+        },
+        topLevelSection: 'job_vacancies',
+      }),
+      setWorkspaceSelection,
+    }),
+  })
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
+  })
+
+  fireEvent.change(screen.getByLabelText('Job description'), {
+    target: {
+      value: 'Lead product design for desktop workflows.',
+    },
+  })
+
+  await waitFor(() => {
+    expect(screen.getByLabelText('Job description')).toHaveProperty(
+      'value',
+      'Lead product design for desktop workflows.',
+    )
+  })
+
+  expect(setWorkspaceSelection).not.toHaveBeenCalled()
 })
 
 test('shows the workspace overlay while reviewing a vacancy URL without surfacing generation-only actions', async () => {
@@ -5199,6 +5541,87 @@ test('abandons the pending draft from the workspace overlay and returns to works
   })
 })
 
+test('shows a shared draft alert when abandoning the pending draft fails', async () => {
+  const getStartupDestination = vi
+    .fn()
+    .mockResolvedValueOnce('workspace')
+    .mockResolvedValueOnce('workspace')
+  const abandonPendingGeneration = vi
+    .fn()
+    .mockRejectedValue(new Error('Abandon pending generation failed.'))
+  const resumePendingGeneration = vi.fn().mockImplementation(() => {
+    return new Promise<never>((resolve) => {
+      void resolve
+    })
+  })
+
+  renderApp({
+    aiWorker: createAiWorkerApi({
+      getAiWorkerPreflight: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+      getStartupDestination,
+    }),
+    originalCv: createOriginalCvApi({
+      getOriginalCvWorkspaceState: vi.fn().mockResolvedValue({
+        activeOriginalCv: {
+          fileType: 'pdf',
+          headline: 'Principal Product Designer',
+          id: 'original-cv-123',
+          importedAt: '2026-04-08T14:30:00.000Z',
+          originalFilename: 'ada-lovelace.pdf',
+          pageCount: 1,
+          snapshotCount: 1,
+          summary: 'Design leader focused on complex workflow products.',
+          writingStyle: {
+            averageSentenceLength: 7,
+            clicheDetections: [],
+            firstPersonUsage: 'absent',
+            formality: 'direct',
+          },
+        },
+        snapshotCount: 1,
+      }),
+    }),
+    tailoredApplication: createTailoredApplicationApi({
+      abandonPendingGeneration,
+      getPendingGenerationCommand: vi.fn().mockResolvedValue({
+        commandId: 'command-123',
+        originalCvId: 'original-cv-123',
+        originalCvLabel: 'ada-lovelace.pdf',
+        vacancyId: 'vacancy-123',
+        vacancyDraft: {
+          text: 'Senior platform engineer',
+          url: 'https://jobs.example.com/roles/123',
+        },
+      }),
+      resumePendingGeneration,
+    }),
+  })
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
+  })
+
+  fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+
+  await waitFor(() => {
+    expect(abandonPendingGeneration).toHaveBeenCalledTimes(1)
+  })
+
+  await waitFor(() => {
+    expect(screen.getByRole('alert')).toBeDefined()
+    expect(
+      screen.getAllByText(
+        "We couldn't check AI. Restart the app or get help with AI setup on this Mac.",
+      ),
+    ).toHaveLength(1)
+  })
+})
+
 test('opens settings from the rail, shows version and privacy guardrails, and retries the AI worker from settings', async () => {
   const retryAiWorkerPreflight = vi.fn().mockResolvedValue({
     canResumeGeneration: true,
@@ -5260,6 +5683,124 @@ test('opens settings from the rail, shows version and privacy guardrails, and re
 
   await waitFor(() => {
     expect(retryAiWorkerPreflight).toHaveBeenCalledTimes(1)
+  })
+})
+
+test('shows a shared settings alert when saving the selected rail item fails', async () => {
+  renderApp({
+    aiWorker: createAiWorkerApi({
+      getAiWorkerPreflight: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+      getStartupDestination: vi.fn().mockResolvedValue('workspace'),
+    }),
+    originalCv: createOriginalCvApi({
+      getOriginalCvWorkspaceState: vi.fn().mockResolvedValue({
+        activeOriginalCv: {
+          fileType: 'pdf',
+          headline: 'Principal Product Designer',
+          id: 'original-cv-123',
+          importedAt: '2026-04-08T14:30:00.000Z',
+          originalFilename: 'ada-lovelace.pdf',
+          pageCount: 1,
+          snapshotCount: 1,
+          summary: 'Design leader focused on complex workflow products.',
+          writingStyle: {
+            averageSentenceLength: 7,
+            clicheDetections: [],
+            firstPersonUsage: 'absent',
+            formality: 'direct',
+          },
+        },
+        snapshotCount: 1,
+      }),
+    }),
+    tailoredApplication: createTailoredApplicationApi({
+      setWorkspaceSelection: vi.fn().mockRejectedValue(new Error('Persist failed.')),
+    }),
+  })
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
+  })
+
+  fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'AI' })).toBeDefined()
+  })
+
+  expect(screen.getByRole('alert')).toBeDefined()
+  expect(screen.getAllByText("We couldn't save where you left off.")).toHaveLength(1)
+})
+
+test('clears a shared settings selection alert after a later successful save', async () => {
+  const setWorkspaceSelection = vi
+    .fn()
+    .mockRejectedValueOnce(new Error('Persist failed.'))
+    .mockImplementationOnce(() => Promise.resolve())
+    .mockImplementationOnce(() => Promise.resolve())
+
+  renderApp({
+    aiWorker: createAiWorkerApi({
+      getAiWorkerPreflight: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+      getStartupDestination: vi.fn().mockResolvedValue('workspace'),
+    }),
+    originalCv: createOriginalCvApi({
+      getOriginalCvWorkspaceState: vi.fn().mockResolvedValue({
+        activeOriginalCv: {
+          fileType: 'pdf',
+          headline: 'Principal Product Designer',
+          id: 'original-cv-123',
+          importedAt: '2026-04-08T14:30:00.000Z',
+          originalFilename: 'ada-lovelace.pdf',
+          pageCount: 1,
+          snapshotCount: 1,
+          summary: 'Design leader focused on complex workflow products.',
+          writingStyle: {
+            averageSentenceLength: 7,
+            clicheDetections: [],
+            firstPersonUsage: 'absent',
+            formality: 'direct',
+          },
+        },
+        snapshotCount: 1,
+      }),
+    }),
+    tailoredApplication: createTailoredApplicationApi({
+      setWorkspaceSelection,
+    }),
+  })
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
+  })
+
+  fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
+
+  await waitFor(() => {
+    expect(screen.getAllByText("We couldn't save where you left off.")).toHaveLength(1)
+  })
+
+  fireEvent.click(screen.getByRole('button', { name: 'Jobs' }))
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
+  })
+
+  fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'AI' })).toBeDefined()
+    expect(screen.queryByRole('alert')).toBeNull()
   })
 })
 
@@ -5567,6 +6108,53 @@ test('shows a shared page-top alert when clearing job-site browser data fails', 
   expect(screen.queryByText(/^We couldn't clear your job-site browser data\.$/)).toBeDefined()
 })
 
+test('falls back to user-friendly browser-data copy when the clear action returns an IPC wrapper error', async () => {
+  renderApp({
+    aiWorker: createAiWorkerApi({
+      getAiWorkerPreflight: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+      getStartupDestination: vi.fn().mockResolvedValue('workspace'),
+    }),
+    originalCv: createOriginalCvApi({
+      getOriginalCvWorkspaceState: vi.fn().mockResolvedValue({
+        activeOriginalCv: createOriginalCvDetailFixture().originalCv,
+        snapshotCount: 1,
+      }),
+    }),
+    settings: createSettingsApi({
+      clearJobSiteBrowserData: vi
+        .fn()
+        .mockRejectedValue(
+          new Error("Error invoking remote method 'settings:clear-job-site-browser-data'"),
+        ),
+    }),
+  })
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
+  })
+
+  fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Show Local data settings' }))
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Local data' })).toBeDefined()
+  })
+
+  fireEvent.click(screen.getByRole('button', { name: 'Clear browser data' }))
+
+  await waitFor(() => {
+    expect(screen.getByRole('alert')).toBeDefined()
+  })
+
+  expect(screen.getByText("We couldn't clear your job-site browser data.")).toBeDefined()
+  expect(screen.queryByText(/Error invoking remote method/u)).toBeNull()
+})
+
 test('shows a dialog-local shared alert when resetting local app data fails', async () => {
   renderApp({
     aiWorker: createAiWorkerApi({
@@ -5602,7 +6190,7 @@ test('shows a dialog-local shared alert when resetting local app data fails', as
     settings: createSettingsApi({
       resetLocalAppData: vi
         .fn()
-        .mockRejectedValue(new Error("We couldn't reset your local data on this Mac.")),
+        .mockRejectedValue(new Error("We couldn't reset your app data right now. Try again.")),
     }),
   })
 
@@ -5633,6 +6221,64 @@ test('shows a dialog-local shared alert when resetting local app data fails', as
   })
 
   expect(
-    within(resetDialog).getByText("We couldn't reset your local data on this Mac."),
+    within(resetDialog).getByText("We couldn't reset your app data right now. Try again."),
   ).toBeDefined()
+})
+
+test('falls back to user-friendly reset copy when the dialog reset action returns an IPC wrapper error', async () => {
+  renderApp({
+    aiWorker: createAiWorkerApi({
+      getAiWorkerPreflight: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+      getStartupDestination: vi.fn().mockResolvedValue('workspace'),
+    }),
+    originalCv: createOriginalCvApi({
+      getOriginalCvWorkspaceState: vi.fn().mockResolvedValue({
+        activeOriginalCv: createOriginalCvDetailFixture().originalCv,
+        snapshotCount: 1,
+      }),
+    }),
+    settings: createSettingsApi({
+      resetLocalAppData: vi
+        .fn()
+        .mockRejectedValue(
+          new Error("Error invoking remote method 'settings:reset-local-app-data'"),
+        ),
+    }),
+  })
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
+  })
+
+  fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Show Local data settings' }))
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Local data' })).toBeDefined()
+  })
+
+  fireEvent.click(screen.getByRole('button', { name: 'Reset local app data' }))
+
+  const resetDialog = screen.getByRole('dialog', { name: 'Reset local app data?' })
+
+  fireEvent.change(within(resetDialog).getByLabelText('Type RESET to confirm destructive reset'), {
+    target: {
+      value: SETTINGS_RESET_CONFIRMATION_PHRASE,
+    },
+  })
+  fireEvent.click(within(resetDialog).getByRole('button', { name: 'Reset local app data' }))
+
+  await waitFor(() => {
+    expect(within(resetDialog).getByRole('alert')).toBeDefined()
+  })
+
+  expect(
+    within(resetDialog).getByText("We couldn't reset your app data right now. Try again."),
+  ).toBeDefined()
+  expect(within(resetDialog).queryByText(/Error invoking remote method/u)).toBeNull()
 })

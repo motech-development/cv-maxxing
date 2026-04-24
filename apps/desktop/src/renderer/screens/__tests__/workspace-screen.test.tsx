@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import { expect, test, vi } from 'vitest'
 
 import { createRuntimeAlert } from '../../runtime-alerts.js'
@@ -127,11 +127,11 @@ test('keeps the vacancy sidebar structure stable while switching between draft a
 
   expect(screen.getByRole('button', { name: 'Open add a job' })).toBeDefined()
   expect(screen.getByRole('button', { name: 'Open platform product manager' })).toBeDefined()
-  expect(screen.getByRole('heading', { name: 'Platform Product Manager' })).toBeDefined()
+  expect(screen.getByRole('heading', { name: 'Platform Product Manager', level: 1 })).toBeDefined()
 })
 
 test('renders the shared page-top alert when a saved job is selected', () => {
-  render(
+  const { container } = render(
     <WorkspaceScreen
       {...baseProperties}
       applicationRuntimeAlert={createRuntimeAlert({
@@ -206,6 +206,38 @@ test('renders the shared page-top alert when a saved job is selected', () => {
     />,
   )
 
-  expect(screen.getByRole('alert')).toBeDefined()
-  expect(screen.getAllByText("We couldn't save the PDF.")).toHaveLength(1)
+  const renderScope = within(container)
+
+  expect(renderScope.getByRole('alert')).toBeDefined()
+  expect(renderScope.getAllByText("We couldn't save the PDF.")).toHaveLength(1)
+  expect(renderScope.getAllByRole('button', { name: 'Save CV and cover letter' })).toHaveLength(1)
+})
+
+test('renders the draft alert below the page title and intro copy', () => {
+  const { container } = render(
+    <WorkspaceScreen
+      {...baseProperties}
+      draftRuntimeAlert={createRuntimeAlert({
+        owner: {
+          scope: 'job_vacancies',
+          view: 'draft',
+        },
+        priority: 300,
+        source: 'draft_selection',
+        title: "We couldn't save where you left off.",
+        variant: 'error',
+      })}
+      selectedWorkspaceItem="draft"
+    />,
+  )
+
+  const contentPane = container.querySelector('aside + div')
+  expect(contentPane).not.toBeNull()
+  const contentText = contentPane?.textContent ?? ''
+  const expectedIntro = 'Check the job details before tailoring your CV and cover letter.'
+
+  expect(contentText.indexOf('Add a job')).toBeLessThan(contentText.indexOf(expectedIntro))
+  expect(contentText.indexOf(expectedIntro)).toBeLessThan(
+    contentText.indexOf("We couldn't save where you left off."),
+  )
 })

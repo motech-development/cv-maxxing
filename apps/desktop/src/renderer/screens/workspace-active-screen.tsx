@@ -13,7 +13,6 @@ interface WorkspaceApplicationViewProperties {
   isExportingPdf: boolean
   onCopyCoverLetterText: () => void
   onDeleteTailoredApplication: () => void
-  onExportPdf: () => void
   onPreviewErrorChange?: (message: string | null) => void
   onSelectPreviewDocument: (kind: PreviewDocumentKind) => void
   preview: TailoredApplicationPreview | null
@@ -26,14 +25,11 @@ export function WorkspaceApplicationView({
   isExportingPdf,
   onCopyCoverLetterText,
   onDeleteTailoredApplication,
-  onExportPdf,
   onPreviewErrorChange,
   onSelectPreviewDocument,
   preview,
   previewDocumentKind,
 }: WorkspaceApplicationViewProperties) {
-  const resolvedApplicationTitle =
-    preview?.vacancyTitle ?? preview?.title ?? applicationTitle ?? 'Saved job'
   const resolvedVacancySubtitle = preview?.employer ?? preview?.vacancyTitle ?? applicationTitle
   let activeDocumentPreview = null
 
@@ -57,23 +53,7 @@ export function WorkspaceApplicationView({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          <h1 className="m-0 text-[32px] font-extrabold tracking-[-0.03em] text-[var(--color-copy-strong)]">
-            {resolvedApplicationTitle}
-          </h1>
-          {resolvedVacancySubtitle ? (
-            <p className="mt-2 text-sm leading-6 text-[var(--color-copy-muted)]">
-              {resolvedVacancySubtitle}
-            </p>
-          ) : null}
-        </div>
-        <Button disabled={preview === null || isExportingPdf} onClick={onExportPdf} tone="primary">
-          Save CV and cover letter
-        </Button>
-      </div>
-
-      <div className="mt-4 flex min-h-0 min-w-0 flex-1 gap-4">
+      <div className="flex min-h-0 min-w-0 flex-1 gap-4">
         <PanelCard className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 overflow-hidden p-[18px]">
           <div className="flex gap-2">
             <button

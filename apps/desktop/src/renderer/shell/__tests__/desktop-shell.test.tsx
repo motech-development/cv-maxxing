@@ -113,6 +113,9 @@ test('renders the standard page-top alert slot below the page title and intro co
   )
 
   const contentPane = container.querySelector('aside + div')
+  const pageAlert = screen.getByTestId('page-alert')
+  const pageAlertSlot = pageAlert.parentElement
+  const pageBody = screen.getByTestId('page-body').parentElement
   const contentText = contentPane?.textContent ?? ''
 
   expect(contentText).toContain('Page title')
@@ -122,4 +125,7 @@ test('renders the standard page-top alert slot below the page title and intro co
   expect(contentText.indexOf('Page title')).toBeLessThan(contentText.indexOf('Intro copy'))
   expect(contentText.indexOf('Intro copy')).toBeLessThan(contentText.indexOf('Shared alert'))
   expect(contentText.indexOf('Shared alert')).toBeLessThan(contentText.indexOf('Body'))
+  expect(pageAlertSlot?.className).toContain('w-full')
+  expect(pageAlertSlot?.className).toContain('self-stretch')
+  expect(pageBody?.className).toContain('w-full')
 })

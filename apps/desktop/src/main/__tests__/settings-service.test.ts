@@ -232,3 +232,29 @@ test('resets encrypted metadata, artifacts, run workspaces, and browser session 
 
   await store.close()
 })
+
+test('surfaces the configured reset failure before clearing local app data', async () => {
+  const closeActiveJobs = vi.fn(() => Promise.resolve())
+  const localAppData = {
+    reset: vi.fn(() => Promise.resolve()),
+  }
+  const restartApp = vi.fn(() => Promise.resolve())
+  const settings = createSettingsService({
+    allowResetLocalAppDataErrorMessage: true,
+    browserSessionRootPath: path.join(tmpdir(), 'cv-maxxing-settings-browser-sessions'),
+    closeActiveJobs,
+    getAppVersion: () => '1.0.0',
+    localAppData,
+    resetLocalAppDataErrorMessage: "We couldn't reset your app data right now. Try again.",
+    restartApp,
+  })
+
+  await expect(
+    settings.resetLocalAppData({
+      confirmationPhrase: SETTINGS_RESET_CONFIRMATION_PHRASE,
+    }),
+  ).rejects.toThrow("We couldn't reset your app data right now. Try again.")
+  expect(closeActiveJobs).not.toHaveBeenCalled()
+  expect(localAppData.reset).not.toHaveBeenCalled()
+  expect(restartApp).not.toHaveBeenCalled()
+})

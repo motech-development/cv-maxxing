@@ -51,7 +51,7 @@ export function AiWorkerSignInRequiredScreen({
         tone: 'warning',
       }}
     >
-      <PanelCard className="p-6">
+      <PanelCard className="w-full p-6">
         <p className="m-0 text-[18px] font-extrabold text-[var(--color-copy-strong)]">
           Continue on this Mac
         </p>
@@ -73,7 +73,7 @@ export function AiWorkerSignInRequiredScreen({
         </div>
       </PanelCard>
 
-      <PanelCard className="mt-4 min-h-[18rem] bg-[var(--color-shell-topbar)] p-[18px]">
+      <PanelCard className="mt-4 w-full min-h-[18rem] bg-[var(--color-shell-topbar)] p-[18px]">
         <p className="m-0 text-[13px] font-extrabold text-[var(--color-surface-0)]">
           Waiting for you to sign in
         </p>

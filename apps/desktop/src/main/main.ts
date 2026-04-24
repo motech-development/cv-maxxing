@@ -134,6 +134,7 @@ interface ElectronDockLike {
 type ElectronDesktopApp = ElectronAppLike & {
   dock?: ElectronDockLike
   getPath: (name: 'userData') => string
+  isPackaged: boolean
   getVersion: () => string
   relaunch: () => void
 }
@@ -194,6 +195,7 @@ interface RuntimeEnvironment {
   CV_MAXXING_STARTUP_DESTINATION?: string
   CV_MAXXING_TAILORED_APPLICATION_PREVIEW_DELAY_MS?: string
   CV_MAXXING_TEST_ADAPTED_CV_EXPORT_PATH?: string
+  CV_MAXXING_TEST_RESET_LOCAL_APP_DATA_ERROR?: string
   CV_MAXXING_VACANCY_BROWSER_SESSION_CLOSE_AFTER_LOAD?: string
   CV_MAXXING_VACANCY_BROWSER_SESSION_HTML?: string
   CV_MAXXING_VACANCY_BROWSER_SESSION_RESOLVED_URL?: string
@@ -633,6 +635,7 @@ async function createRuntimeServices(electronRuntime: ElectronRuntimeModule): Pr
       normalizationService: originalCvNormalizationService,
     }),
     settings: createSettingsService({
+      allowResetLocalAppDataErrorMessage: !electronRuntime.app.isPackaged,
       browserSessionRootPath: path.join(paths.rootDirectoryPath, 'browser-sessions'),
       closeActiveJobs: async () => {
         await tailoredApplication.abandonPendingGeneration()
@@ -641,6 +644,7 @@ async function createRuntimeServices(electronRuntime: ElectronRuntimeModule): Pr
         return electronRuntime.app.getVersion()
       },
       localAppData,
+      resetLocalAppDataErrorMessage: environment.CV_MAXXING_TEST_RESET_LOCAL_APP_DATA_ERROR,
       restartApp: () => {
         if (environment.CV_MAXXING_DISABLE_APP_RELAUNCH_ON_RESET === 'true') {
           return Promise.resolve()

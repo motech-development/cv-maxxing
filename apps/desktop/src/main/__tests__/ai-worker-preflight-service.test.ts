@@ -188,3 +188,18 @@ test('restores the workspace destination when a pending generation is ready to r
 
   await expect(service.getStartupDestination()).resolves.toBe('workspace')
 })
+
+test('rejects opening the AI setup guide when the test-only failure override is set', async () => {
+  const openAiWorkerSetupGuide = vi.fn().mockImplementation(() => Promise.resolve())
+  const service = createAiWorkerPreflightService({
+    environment: {
+      CV_MAXXING_TEST_OPEN_AI_SETUP_GUIDE_ERROR: "We couldn't open help right now. Try again.",
+    },
+    openAiWorkerSetupGuide,
+  })
+
+  await expect(service.openAiWorkerSetupGuide()).rejects.toThrow(
+    "We couldn't open help right now. Try again.",
+  )
+  expect(openAiWorkerSetupGuide).not.toHaveBeenCalled()
+})
