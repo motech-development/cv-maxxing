@@ -262,6 +262,7 @@ test('captures the second page of a multi-page tailored CV preview', async () =>
   })
   await page.getByRole('button', { name: 'Next page' }).click()
   await expect(page.getByText(/Page 2 of (?:[2-9]|[1-9]\d+)/u)).toBeVisible()
+  await hideScrollbars(page)
   await expect(page.locator('[data-testid="pdf-preview-toolbar"]')).toHaveScreenshot(
     'workspace-multipage-preview-page-2.png',
     {

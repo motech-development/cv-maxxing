@@ -65,6 +65,7 @@ These rules always apply. Follow project-local rules first when they are more sp
 - Do not add telemetry, analytics, crash reporting, remote config, runtime font CDN calls, v1 automatic update checks, or bulk app-data backup/export.
 - Do not use MUI or Redux. Prefer Tailwind with CSS-variable tokens, Radix primitives where useful, and TanStack Query for IPC-backed async renderer state.
 - Keep Playwright visual baselines for the desktop app under `apps/desktop/tests/e2e/*-snapshots` and update them only through the package-owned visual test command.
+- Hide scrollbars before desktop visual captures when layout width matters, so Playwright snapshots stay stable across macOS environments with overlay and non-overlay scrollbar settings.
 
 ---
 
