@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { beforeEach, expect, test, vi } from 'vitest'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 
 import type { TailoredApplicationPdfPreview } from '../../../shared/tailored-application.js'
 
@@ -26,6 +26,10 @@ vi.mock('pdfjs-dist/legacy/build/pdf.mjs', () => {
 })
 
 import { PdfPreviewCard } from '../pdf-preview-card.js'
+
+afterEach(() => {
+  cleanup()
+})
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -190,4 +194,39 @@ test('navigates between PDF pages without surfacing a detached worker buffer err
   })
 
   expect(screen.queryByText(detachedBufferErrorMessage)).toBeNull()
+})
+
+test('reports PDF preview failures upward without rendering an inline runtime message', async () => {
+  const onPreviewErrorChange = vi.fn()
+
+  getDocumentMock.mockImplementationOnce(() => {
+    return {
+      destroy: vi.fn().mockImplementation(() => Promise.resolve()),
+      promise: Promise.resolve().then(() => {
+        throw new Error('PDF preview failed.')
+      }),
+    }
+  })
+
+  render(
+    <PdfPreviewCard
+      emptyStateCopy="No PDF preview"
+      onPreviewErrorChange={onPreviewErrorChange}
+      preview={{
+        pageCount: 1,
+        pdfBytes: new Uint8Array([37, 80, 68, 70]),
+      }}
+      previewKey="adapted-cv-preview"
+      title="Adapted CV"
+    />,
+  )
+
+  await waitFor(() => {
+    expect(onPreviewErrorChange).toHaveBeenLastCalledWith('PDF preview failed.')
+  })
+
+  expect(screen.queryByText('PDF preview failed.')).toBeNull()
+  expect(screen.getByLabelText('Adapted CV PDF preview').parentElement?.className).toContain(
+    'hidden',
+  )
 })

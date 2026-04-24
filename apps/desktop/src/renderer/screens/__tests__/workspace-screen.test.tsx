@@ -207,5 +207,5 @@ test('renders the shared page-top alert when a saved job is selected', () => {
   )
 
   expect(screen.getByRole('alert')).toBeDefined()
-  expect(screen.getByText("We couldn't save the PDF.")).toBeDefined()
+  expect(screen.getAllByText("We couldn't save the PDF.")).toHaveLength(1)
 })

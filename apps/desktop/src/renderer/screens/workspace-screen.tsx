@@ -38,6 +38,7 @@ interface WorkspaceScreenProperties {
   onDeleteTailoredApplication: () => void
   onExportPdf: () => void
   onOpenVacancyBrowserSession: () => void
+  onPreviewErrorChange?: (message: string | null) => void
   onReviewPastedVacancy: () => void
   onReviewVacancyUrl: () => void
   onSelectApplication: (tailoredApplicationId: string) => void
@@ -76,6 +77,7 @@ export function WorkspaceScreen({
   onDeleteTailoredApplication,
   onExportPdf,
   onOpenVacancyBrowserSession,
+  onPreviewErrorChange,
   onReviewPastedVacancy,
   onReviewVacancyUrl,
   onSelectApplication,
@@ -158,6 +160,7 @@ export function WorkspaceScreen({
           onCopyCoverLetterText={onCopyCoverLetterText}
           onDeleteTailoredApplication={onDeleteTailoredApplication}
           onExportPdf={onExportPdf}
+          onPreviewErrorChange={onPreviewErrorChange}
           onSelectPreviewDocument={onSelectPreviewDocument}
           preview={preview}
           previewDocumentKind={previewDocumentKind}

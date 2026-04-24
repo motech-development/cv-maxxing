@@ -1256,6 +1256,28 @@ export function App() {
     )
   }
 
+  const handleSavedApplicationPreviewErrorChange = (message: string | null): void => {
+    if (message === null) {
+      setSavedApplicationRuntimeAlertState((currentAlert) => {
+        if (currentAlert?.source !== 'saved_application_preview') {
+          return currentAlert
+        }
+
+        return null
+      })
+
+      return
+    }
+
+    setSavedApplicationRuntimeAlert(
+      createSavedApplicationRuntimeAlert({
+        message,
+        priority: 400,
+        source: 'saved_application_preview',
+      }),
+    )
+  }
+
   const handleSelectRailItem = (item: 'job_vacancies' | 'original_cv' | 'settings' | 'setup') => {
     if (!viewModel.canEnterWorkspace || item === 'setup') {
       return
@@ -1994,6 +2016,7 @@ export function App() {
             onExportPdf={() => {
               handleExportAdaptedCvPdf().catch(() => null)
             }}
+            onPreviewErrorChange={handleSavedApplicationPreviewErrorChange}
             onReviewPastedVacancy={() => {
               if (isSubmittingVacancyReview) {
                 return

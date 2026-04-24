@@ -14,6 +14,7 @@ interface WorkspaceApplicationViewProperties {
   onCopyCoverLetterText: () => void
   onDeleteTailoredApplication: () => void
   onExportPdf: () => void
+  onPreviewErrorChange?: (message: string | null) => void
   onSelectPreviewDocument: (kind: PreviewDocumentKind) => void
   preview: TailoredApplicationPreview | null
   previewDocumentKind: PreviewDocumentKind
@@ -26,6 +27,7 @@ export function WorkspaceApplicationView({
   onCopyCoverLetterText,
   onDeleteTailoredApplication,
   onExportPdf,
+  onPreviewErrorChange,
   onSelectPreviewDocument,
   preview,
   previewDocumentKind,
@@ -103,6 +105,7 @@ export function WorkspaceApplicationView({
           </div>
           <PdfPreviewCard
             emptyStateCopy={documentEmptyStateCopy}
+            onPreviewErrorChange={onPreviewErrorChange}
             preview={activeDocumentPreview}
             previewKey={
               preview === null ? previewDocumentKind : `${preview.id}:${previewDocumentKind}`

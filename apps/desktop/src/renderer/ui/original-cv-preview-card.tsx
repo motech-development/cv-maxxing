@@ -32,6 +32,7 @@ export function OriginalCvPreviewCard({
     return (
       <PdfPreviewCard
         emptyStateCopy={emptyStateCopy}
+        onPreviewErrorChange={onPreviewErrorChange}
         preview={preview}
         previewKey={previewKey}
         title={title}

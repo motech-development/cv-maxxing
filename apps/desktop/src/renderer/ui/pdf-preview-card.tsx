@@ -15,6 +15,7 @@ interface PdfPreviewCardPreview {
 
 interface PdfPreviewCardProperties {
   emptyStateCopy: string
+  onPreviewErrorChange?: (message: string | null) => void
   preview: PdfPreviewCardPreview | null
   previewKey: string
   title: string
@@ -26,6 +27,7 @@ const ZOOM_STEP = 0.2
 
 export function PdfPreviewCard({
   emptyStateCopy,
+  onPreviewErrorChange,
   preview,
   previewKey,
   title,
@@ -38,13 +40,22 @@ export function PdfPreviewCard({
     )
   }
 
-  return <LoadedPdfPreviewCard key={previewKey} preview={preview} title={title} />
+  return (
+    <LoadedPdfPreviewCard
+      key={previewKey}
+      onPreviewErrorChange={onPreviewErrorChange}
+      preview={preview}
+      title={title}
+    />
+  )
 }
 
 function LoadedPdfPreviewCard({
+  onPreviewErrorChange,
   preview,
   title,
 }: {
+  onPreviewErrorChange?: (message: string | null) => void
   preview: PdfPreviewCardPreview
   title: string
 }) {
@@ -171,6 +182,10 @@ function LoadedPdfPreviewCard({
     }
   }, [currentPage, preview, scrollportWidth, zoom])
 
+  useEffect(() => {
+    onPreviewErrorChange?.(renderError)
+  }, [onPreviewErrorChange, renderError])
+
   return (
     <div className="flex h-full min-h-[520px] min-w-0 max-w-full flex-col gap-4 rounded-[8px] border border-[var(--color-border)] bg-[var(--color-surface-1)] p-[18px]">
       <div
@@ -231,9 +246,6 @@ function LoadedPdfPreviewCard({
       </div>
 
       <div className="min-h-0 min-w-0 max-w-full flex-1 overflow-hidden rounded-[6px] bg-[var(--color-shell-canvas)] p-4">
-        {renderError ? (
-          <p className="m-0 text-sm text-[var(--color-copy-muted)]">{renderError}</p>
-        ) : null}
         <div
           className={`${renderError ? 'hidden' : 'block'} h-full w-full overflow-auto`}
           ref={scrollportReference}

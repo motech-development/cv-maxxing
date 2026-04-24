@@ -19,6 +19,7 @@ test('keeps the document preview column shrinkable beside the vacancy panel', ()
       onCopyCoverLetterText={onCopyCoverLetterText}
       onDeleteTailoredApplication={onDeleteTailoredApplication}
       onExportPdf={onExportPdf}
+      onPreviewErrorChange={vi.fn()}
       onSelectPreviewDocument={onSelectPreviewDocument}
       preview={null}
       previewDocumentKind="adapted_cv"
