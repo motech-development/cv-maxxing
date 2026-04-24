@@ -1,6 +1,6 @@
 import { writeFile } from 'node:fs/promises'
 
-import { expect, test } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
 
 import {
   expectActiveOriginalCv,
@@ -19,6 +19,15 @@ import {
 test.afterEach(async () => {
   await cleanupVisualTestArtifacts()
 })
+
+async function expectStableOriginalCvPreview(page: Page) {
+  await expect(page.getByText(/Page 1 of \d+/u)).toBeVisible({
+    timeout: 15_000,
+  })
+  await expect(page.getByLabel('Your CV PDF preview')).toBeVisible({
+    timeout: 15_000,
+  })
+}
 
 test('captures the first-launch screen', async () => {
   const testPaths = await createVisualTestPaths()
@@ -60,6 +69,7 @@ test('captures the active original CV screen', async () => {
     page,
   })
   await expectActiveOriginalCv(page, 'ada-lovelace.pdf')
+  await expectStableOriginalCvPreview(page)
   await hideScrollbars(page)
   await expect(page).toHaveScreenshot('original-cv-active-screen.png', {
     animations: 'disabled',

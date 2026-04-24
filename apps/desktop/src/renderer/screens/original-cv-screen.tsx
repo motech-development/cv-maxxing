@@ -262,10 +262,6 @@ function OriginalCvActiveState({
   originalCv: OriginalCvSummary
   originalCvDetail: OriginalCvDetail | null | undefined
 }) {
-  const resolvedName =
-    originalCvDetail?.profile.fullName.trim() === ''
-      ? originalCv.headline
-      : (originalCvDetail?.profile.fullName ?? originalCv.headline)
   const previewEmptyStateCopy = 'Your CV preview will appear here.'
 
   return (
@@ -285,9 +281,6 @@ function OriginalCvActiveState({
       ) : (
         <div className="flex min-h-0 min-w-0 flex-1 gap-4">
           <div className="flex min-h-0 min-w-0 flex-[1.7] flex-col gap-3">
-            <p className="m-0 text-2xl font-extrabold uppercase tracking-[-0.02em] text-[var(--color-copy-strong)]">
-              {resolvedName}
-            </p>
             <OriginalCvPreviewCard
               emptyStateCopy={previewEmptyStateCopy}
               onPreviewErrorChange={onPreviewErrorChange}

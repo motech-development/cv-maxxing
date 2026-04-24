@@ -3134,16 +3134,6 @@
                       "padding": 28,
                       "children": [
                         {
-                          "type": "text",
-                          "id": "CYb1M",
-                          "name": "pdfCvName",
-                          "fill": "$app.ink",
-                          "content": "MO HOUSSAIN",
-                          "fontFamily": "Manrope",
-                          "fontSize": 24,
-                          "fontWeight": "800"
-                        },
-                        {
                           "type": "frame",
                           "id": "J5luv",
                           "name": "pdfCvBlock",

@@ -117,6 +117,7 @@ test('renders the populated Your CV screen with a selectable sidebar item, PDF p
   expect(screen.getByText('ada@lovelace.dev')).toBeDefined()
   expect(screen.getByText('Workflow design')).toBeDefined()
   expect(screen.getByText(/Analytical Engines Ltd/u)).toBeDefined()
+  expect(screen.queryByText('Ada Lovelace')).toBeNull()
   expect(screen.getByLabelText('Rendered original CV preview')).toBeDefined()
 
   const profilePanel = screen.getByText('Extracted profile').closest('section')
