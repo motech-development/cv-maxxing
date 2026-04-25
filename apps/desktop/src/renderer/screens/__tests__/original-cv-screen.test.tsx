@@ -228,6 +228,35 @@ test('renders the populated add-a-cv replacement view from design/app.pen', () =
   expect(replacementCallout?.className).not.toContain('max-w-4xl')
 })
 
+test('routes dropped files through the add-a-cv dropzone callback', () => {
+  const onFileDrop = vi.fn()
+
+  render(
+    <OriginalCvScreen
+      activeOriginalCv={null}
+      isImportingOriginalCv={false}
+      onFileDrop={onFileDrop}
+      onFileSelection={vi.fn()}
+      onImportOriginalCv={vi.fn()}
+      onSelectOriginalCv={vi.fn()}
+      originalCvFile={null}
+      runtimeAlert={null}
+    />,
+  )
+
+  fireEvent.drop(screen.getByText('Drop a PDF or DOCX here or choose a file'), {
+    dataTransfer: {
+      files: [
+        new File(['resume'], 'ada-lovelace.pdf', {
+          type: 'application/pdf',
+        }),
+      ],
+    },
+  })
+
+  expect(onFileDrop).toHaveBeenCalledTimes(1)
+})
+
 test('renders the Your CV metadata fallback card at full content width', () => {
   render(
     <OriginalCvScreen

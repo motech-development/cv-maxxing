@@ -397,6 +397,7 @@ export function App() {
   const [vacancyDraft, setVacancyDraft] = useState(initialVacancyDraft)
   const [draftActionAlert, setDraftActionAlertState] = useState<RuntimeAlert | null>(null)
   const [vacancyPreviewOverride, setVacancyPreviewOverride] = useState<VacancySummary | null>(null)
+  const isStartingOriginalCvImport = useRef(false)
   const isResumingPendingGeneration = useRef(false)
   const lastResumedCommandId = useRef<string | null>(null)
 
@@ -1647,10 +1648,11 @@ export function App() {
     nextStartupDestination: OriginalCvImportDestination
     topLevelSectionAfterImport: OriginalCvImportTopLevelSection
   }): Promise<void> => {
-    if (file === null || importOriginalCvMutation.isPending) {
+    if (file === null || importOriginalCvMutation.isPending || isStartingOriginalCvImport.current) {
       return
     }
 
+    isStartingOriginalCvImport.current = true
     setOriginalCvRuntimeAlert(activeOriginalCvRuntimeAlertView, null)
     clearDraftWorkspaceAlert()
 
@@ -1669,16 +1671,22 @@ export function App() {
           view: activeOriginalCvRuntimeAlertView,
         }),
       )
+    } finally {
+      isStartingOriginalCvImport.current = false
     }
   }
 
-  const handleOriginalCvFile = ({
+  const handleOriginalCvFile = async ({
     nextFile,
     setFile,
+    nextStartupDestination,
+    topLevelSectionAfterImport,
   }: {
     nextFile: File | null
+    nextStartupDestination: OriginalCvImportDestination
     setFile: (file: File | null) => void
-  }): void => {
+    topLevelSectionAfterImport: OriginalCvImportTopLevelSection
+  }): Promise<void> => {
     if (nextFile === null) {
       setOriginalCvRuntimeAlert(activeOriginalCvRuntimeAlertView, null)
       setFile(null)
@@ -1702,21 +1710,31 @@ export function App() {
 
     setOriginalCvRuntimeAlert(activeOriginalCvRuntimeAlertView, null)
     setFile(nextFile)
+    await handleOriginalCvImport({
+      file: nextFile,
+      nextStartupDestination,
+      topLevelSectionAfterImport,
+    })
   }
 
   const handleOriginalCvSectionSelection = (event: ChangeEvent<HTMLInputElement>): void => {
     handleOriginalCvFile({
       nextFile: event.target.files?.[0] ?? null,
+      nextStartupDestination: 'workspace',
       setFile: setOriginalCvSectionFile,
-    })
+      topLevelSectionAfterImport: 'original_cv',
+    }).catch(() => null)
   }
 
   const handleOriginalCvSectionDrop = (event: DragEvent<HTMLElement>): void => {
     event.preventDefault()
+
     handleOriginalCvFile({
       nextFile: event.dataTransfer.files[0] ?? null,
+      nextStartupDestination: 'workspace',
       setFile: setOriginalCvSectionFile,
-    })
+      topLevelSectionAfterImport: 'original_cv',
+    }).catch(() => null)
   }
 
   const handleStartOriginalCvReplacement = (): void => {

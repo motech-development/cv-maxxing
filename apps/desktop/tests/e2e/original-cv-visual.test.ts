@@ -124,7 +124,6 @@ test('captures the original CV import error state', async () => {
 
   await expect(page.getByRole('heading', { name: 'Add a CV' })).toBeVisible()
   await page.getByLabel('Your CV file').setInputFiles(testPaths.unreadablePdfPath)
-  await page.getByRole('button', { name: 'Add a CV' }).click()
   await expect(
     page.getByText("We couldn't read enough from this CV. Use a text-based PDF or DOCX.").first(),
   ).toBeVisible()

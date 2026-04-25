@@ -18,7 +18,6 @@ export async function importOriginalCvFromFirstLaunch({
 }): Promise<void> {
   await expect(page.getByRole('heading', { name: 'Add a CV' })).toBeVisible()
   await page.getByLabel('Your CV file').setInputFiles(filePath)
-  await page.getByRole('button', { name: 'Add a CV' }).click()
   await expectActiveOriginalCv(page, filename)
 }
 

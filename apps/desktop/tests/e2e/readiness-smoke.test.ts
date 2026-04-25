@@ -60,7 +60,6 @@ async function importOriginalCvFromFirstLaunch({
 }) {
   await expect(page.getByRole('heading', { name: 'Add a CV' })).toBeVisible()
   await page.getByLabel('Your CV file').setInputFiles(filePath)
-  await page.getByRole('button', { name: 'Add a CV' }).click()
   await expectActiveOriginalCv(page, filename)
 }
 
@@ -133,7 +132,6 @@ test('rejects unreadable original CV imports without leaving the first-launch fl
 
   await expect(page.getByRole('heading', { name: 'Add a CV' })).toBeVisible()
   await page.getByLabel('Your CV file').setInputFiles(testPaths.pdfPath)
-  await page.getByRole('button', { name: 'Add a CV' }).click()
   await expect(
     page.getByText("We couldn't read enough from this CV. Use a text-based PDF or DOCX.").first(),
   ).toBeVisible()
@@ -170,7 +168,6 @@ test('rejects non-English original CV imports without leaving the first-launch f
 
   await expect(page.getByRole('heading', { name: 'Add a CV' })).toBeVisible()
   await page.getByLabel('Your CV file').setInputFiles(testPaths.docxPath)
-  await page.getByRole('button', { name: 'Add a CV' }).click()
   await expect(
     page
       .getByText(
@@ -255,7 +252,6 @@ test('replaces the active CV from the workspace with a DOCX file', async () => {
   await expectActiveOriginalCv(page, 'ada-lovelace.pdf')
   await openOriginalCvReplacementScreen(page)
   await page.getByLabel('Your CV file').setInputFiles(testPaths.docxPath)
-  await page.getByRole('button', { name: 'Add a CV' }).click()
   await expectActiveOriginalCv(page, 'ada-lovelace-revised.docx')
   await expect(
     page.getByText(
@@ -305,7 +301,6 @@ test('rejects an unreadable original CV replacement without leaving the workspac
   })
   await openOriginalCvReplacementScreen(page)
   await page.getByLabel('Your CV file').setInputFiles(testPaths.unreadablePdfPath)
-  await page.getByRole('button', { name: 'Add a CV' }).click()
   await expect(
     page.getByText("We couldn't read enough from this CV. Use a text-based PDF or DOCX.").first(),
   ).toBeVisible()

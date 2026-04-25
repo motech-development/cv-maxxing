@@ -696,31 +696,6 @@ test('returns the same Original CV alert object when no matching source exists',
   expect(clearOriginalCvRuntimeAlertsBySource(alerts, 'original_cv_query')).toBe(alerts)
 })
 
-test('accepts an original CV dropped onto the first-launch import surface', async () => {
-  renderApp({
-    aiWorker: createAiWorkerApi({
-      getAiWorkerPreflight: vi.fn().mockResolvedValue({
-        canResumeGeneration: true,
-        message: 'The local AI worker is ready.',
-        provider: 'codex',
-        status: 'ready',
-      }),
-    }),
-  })
-
-  await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Add a CV' })).toBeDefined()
-  })
-
-  fireEvent.drop(screen.getByText('Drop a PDF or DOCX here or choose a file'), {
-    dataTransfer: {
-      files: [new File(['resume'], 'ada-lovelace.docx')],
-    },
-  })
-
-  expect(screen.getAllByText('Selected: ada-lovelace.docx')).toHaveLength(2)
-})
-
 test('imports the first original CV into Your CV and persists the resulting section selection', async () => {
   const setWorkspaceSelection = vi.fn().mockImplementation(() => Promise.resolve())
   const importedOriginalCv = {
@@ -789,7 +764,6 @@ test('imports the first original CV into Your CV and persists the resulting sect
       files: [new File(['%PDF-1.7'], 'ada-lovelace.pdf', { type: 'application/pdf' })],
     },
   })
-  fireEvent.click(screen.getByRole('button', { name: 'Add a CV' }))
 
   await waitFor(() => {
     expect(importOriginalCv).toHaveBeenCalledTimes(1)
@@ -850,7 +824,6 @@ test('shows the workspace overlay while importing the first original CV from fir
       files: [new File(['%PDF-1.7'], 'ada-lovelace.pdf', { type: 'application/pdf' })],
     },
   })
-  fireEvent.click(screen.getByRole('button', { name: 'Add a CV' }))
 
   await waitFor(() => {
     expect(importOriginalCv).toHaveBeenCalledTimes(1)
@@ -917,7 +890,6 @@ test('shows a single shared alert when the first Your CV import is rejected', as
       files: [new File(['%PDF-1.7'], 'ada-lovelace.pdf', { type: 'application/pdf' })],
     },
   })
-  fireEvent.click(screen.getByRole('button', { name: 'Add a CV' }))
 
   await waitFor(() => {
     expect(importOriginalCv).toHaveBeenCalledTimes(1)
@@ -927,7 +899,7 @@ test('shows a single shared alert when the first Your CV import is rejected', as
   expect(screen.getAllByText('Choose a clearer PDF or DOCX copy of your CV.')).toHaveLength(1)
 })
 
-test('imports the first original CV from the mutation payload while the workspace refetch is still pending', async () => {
+test('starts importing the first original CV as soon as a valid file is selected', async () => {
   const importedOriginalCv = {
     fileType: 'pdf' as const,
     headline: 'Principal Product Designer',
@@ -983,7 +955,6 @@ test('imports the first original CV from the mutation payload while the workspac
       files: [new File(['%PDF-1.7'], 'ada-lovelace.pdf', { type: 'application/pdf' })],
     },
   })
-  fireEvent.click(screen.getByRole('button', { name: 'Add a CV' }))
 
   await waitFor(() => {
     expect(screen.getByRole('heading', { name: 'Your CV' })).toBeDefined()
@@ -1030,7 +1001,6 @@ test('routes first-launch import into the AI worker sign-in flow when the import
       files: [new File(['%PDF-1.7'], 'ada-lovelace.pdf', { type: 'application/pdf' })],
     },
   })
-  fireEvent.click(screen.getByRole('button', { name: 'Add a CV' }))
 
   await waitFor(() => {
     expect(importOriginalCv).toHaveBeenCalledTimes(1)
@@ -1440,7 +1410,6 @@ test('keeps replacement alerts scoped to the Add a CV view when you leave and re
       files: [new File(['%PDF-1.7'], 'ada-lovelace.pdf', { type: 'application/pdf' })],
     },
   })
-  fireEvent.click(screen.getByRole('button', { name: 'Add a CV' }))
 
   await waitFor(() => {
     expect(importOriginalCv).toHaveBeenCalledTimes(1)
