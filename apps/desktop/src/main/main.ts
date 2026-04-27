@@ -56,6 +56,7 @@ const rendererDevelopmentUrl = process.env.CV_MAXXING_RENDERER_URL
 const require = createRequire(import.meta.url)
 
 interface AppLike {
+  configureAboutPanelMetadata?: () => void
   on: (event: 'activate' | 'window-all-closed', handler: () => void) => unknown
   quit: () => void
   setDockIcon?: () => void
@@ -131,12 +132,18 @@ interface ElectronDockLike {
   setIcon: (iconPath: string) => void
 }
 
+interface ElectronAboutPanelOptions {
+  applicationName: string
+  applicationVersion: string
+}
+
 type ElectronDesktopApp = ElectronAppLike & {
   dock?: ElectronDockLike
   getPath: (name: 'userData') => string
   isPackaged: boolean
   getVersion: () => string
   relaunch: () => void
+  setAboutPanelOptions: (options: ElectronAboutPanelOptions) => void
 }
 
 interface ElectronBrowserWindowConstructor {
@@ -148,6 +155,8 @@ interface RuntimeDependencyOptions {
   aiWorker: AiWorkerPreflightService
   app: ElectronAppLike & {
     dock?: ElectronDockLike
+    getVersion: () => string
+    setAboutPanelOptions: (options: ElectronAboutPanelOptions) => void
   }
   browserWindowConstructor: ElectronBrowserWindowConstructor
   ipcMain: IpcMainLike
@@ -427,6 +436,8 @@ export function createDesktopAppBootstrap({
   async function start(): Promise<void> {
     await app.whenReady()
 
+    app.configureAboutPanelMetadata?.()
+
     if (platform === 'darwin') {
       app.setDockIcon?.()
     }
@@ -474,6 +485,12 @@ export function createElectronRuntimeDependencies({
   return {
     aiWorker,
     app: {
+      configureAboutPanelMetadata: () => {
+        app.setAboutPanelOptions({
+          applicationName: DESKTOP_APP_NAME,
+          applicationVersion: app.getVersion(),
+        })
+      },
       on: (event, handler) => {
         if (event === 'activate') {
           return app.on('activate', () => {

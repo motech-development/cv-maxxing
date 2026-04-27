@@ -1475,8 +1475,10 @@ test('runtime dependencies adapt Electron primitives for the bootstrap contract'
   const runtimeDependencies = createElectronRuntimeDependencies({
     aiWorker,
     app: {
+      getVersion: vi.fn(() => '1.0.0'),
       on,
       quit,
+      setAboutPanelOptions: vi.fn(),
       whenReady,
     },
     browserWindowConstructor: BrowserWindowDouble,
@@ -1585,8 +1587,10 @@ test('createElectronRuntimeDependencies exposes a Darwin dock icon setter backed
       dock: {
         setIcon,
       },
+      getVersion: vi.fn(() => '1.0.0'),
       on: vi.fn(),
       quit: vi.fn(),
+      setAboutPanelOptions: vi.fn(),
       whenReady: vi.fn(() => Promise.resolve()),
     },
     browserWindowConstructor: Object.assign(constructor, {
@@ -1616,4 +1620,94 @@ test('createElectronRuntimeDependencies exposes a Darwin dock icon setter backed
   runtimeDependencies.app.setDockIcon?.()
 
   expect(setIcon).toHaveBeenCalledWith(appIconPath)
+})
+
+test('runtime-backed bootstrap configures native About metadata from the Electron app version', async () => {
+  const eventHandlers = new Map<AppEvent, (...args: unknown[]) => void>()
+  const getVersion = vi.fn(() => '2.3.4')
+  const setAboutPanelOptions = vi.fn()
+  const loadFile = vi.fn(() => Promise.resolve())
+  const loadURL = vi.fn(() => Promise.resolve())
+  const getAllWindows = vi.fn().mockReturnValue([{ loadFile, loadURL }])
+  const constructor = vi.fn()
+  const BrowserWindowDouble = Object.assign(
+    function BrowserWindowDouble(options: unknown) {
+      constructor(options)
+
+      return {
+        loadFile,
+        loadURL,
+      }
+    } as unknown as new (options: unknown) => {
+      loadFile: typeof loadFile
+      loadURL: typeof loadURL
+    },
+    {
+      getAllWindows,
+    },
+  )
+  const app = {
+    getVersion,
+    on: vi.fn((event: AppEvent, handler: (...args: unknown[]) => void) => {
+      eventHandlers.set(event, handler)
+    }),
+    quit: vi.fn(),
+    setAboutPanelOptions,
+    whenReady: vi.fn(() => Promise.resolve()),
+  }
+  const runtimeDependencies = createElectronRuntimeDependencies({
+    aiWorker: {
+      getAiWorkerPreflight: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+      getStartupDestination: vi.fn().mockResolvedValue('workspace'),
+      openAiWorkerSetupGuide: vi.fn().mockImplementation(() => Promise.resolve()),
+      retryAiWorkerPreflight: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+      startAiWorkerSignIn: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+    },
+    app,
+    browserWindowConstructor: BrowserWindowDouble,
+    ipcMain: {
+      handle: vi.fn(),
+    },
+    onOriginalCvImported: vi.fn().mockImplementation(() => Promise.resolve()),
+    originalCv: {
+      getActiveOriginalCvDetail: vi.fn(),
+      getWorkspaceState: vi.fn().mockResolvedValue({
+        activeOriginalCv: null,
+        snapshotCount: 0,
+      }),
+      importOriginalCv: vi.fn(),
+    },
+    settings: createSettingsDouble(),
+    tailoredApplication: createTailoredApplicationDouble(),
+    vacancy: createVacancyDouble(),
+    platform: 'linux',
+    preloadPath: '/tmp/preload.js',
+    rendererDevelopmentUrl: undefined,
+    rendererIndexPath: '/tmp/index.html',
+  })
+
+  const bootstrap = createDesktopAppBootstrap(runtimeDependencies)
+
+  await bootstrap.start()
+
+  expect(getVersion).toHaveBeenCalledTimes(1)
+  expect(setAboutPanelOptions).toHaveBeenCalledWith({
+    applicationName: 'CV Maxxing',
+    applicationVersion: '2.3.4',
+  })
 })
