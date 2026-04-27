@@ -942,7 +942,7 @@ test('does not infer a saved tailored application from the unified workspace sta
   await electronApp.close()
 })
 
-test('retries the AI from settings and routes back to repair when the fresh check fails', async () => {
+test('does not show recovery actions in connected AI settings', async () => {
   const testPaths = await createOriginalCvTestPaths()
 
   const electronApp = await launchDesktopApp({
@@ -957,8 +957,10 @@ test('retries the AI from settings and routes back to repair when the fresh chec
   await expect(page.getByRole('heading', { name: 'Add a CV' })).toBeVisible()
   await page.getByRole('button', { name: 'Settings' }).click()
   await expect(page.getByRole('heading', { name: 'AI' })).toBeVisible()
-  await page.getByRole('button', { name: 'Try again' }).click()
-  await expect(page.getByRole('button', { name: 'Get help' })).toBeVisible()
+  await expect(page.getByText('Using')).toBeVisible()
+  await expect(page.getByText('Codex')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Try again' })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Get help' })).toHaveCount(0)
 
   await electronApp.close()
 })

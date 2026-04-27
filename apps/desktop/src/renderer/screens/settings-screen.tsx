@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react'
 import { Shield, Sparkles } from 'lucide-react'
 
+import type { AiWorkerPreflightStatus } from '../../shared/ai-worker-preflight.js'
+import { formatAiWorkerProviderName } from '../../shared/ai-worker-provider-display.js'
 import type { SettingsSnapshot } from '../../shared/settings.js'
 import type { RuntimeAlert } from '../runtime-alerts.js'
 import { DesktopShell, type RailItemId } from '../shell/desktop-shell.js'
@@ -29,6 +31,7 @@ interface SettingsScreenProperties {
   onSelectSection: (section: SettingsSection) => void
   runtimeAlert: RuntimeAlert | null
   snapshot: SettingsSnapshot
+  workerStatus: AiWorkerPreflightStatus
   workerStatusLabel: string
   workerStatusTone: 'danger' | 'muted' | 'ready' | 'warning'
 }
@@ -58,13 +61,14 @@ export function SettingsScreen({
   onSelectSection,
   runtimeAlert,
   snapshot,
+  workerStatus,
   workerStatusLabel,
   workerStatusTone,
 }: SettingsScreenProperties) {
   const pageTitle = activeSection === 'ai_worker' ? 'AI' : 'Local data'
   const pageIntro =
     activeSection === 'ai_worker'
-      ? 'Use this area if AI needs attention or you need setup help on this Mac.'
+      ? 'Check the AI connection CV Maxxing uses for tailoring.'
       : 'Manage saved sign-ins for job pages and fully reset the app on this Mac.'
 
   return (
@@ -112,6 +116,7 @@ export function SettingsScreen({
           onOpenSetupGuide={onOpenSetupGuide}
           onRetryAiWorker={onRetryAiWorker}
           snapshot={snapshot}
+          workerStatus={workerStatus}
           workerStatusLabel={workerStatusLabel}
           workerStatusTone={workerStatusTone}
         />
@@ -164,6 +169,7 @@ function AiWorkerSettingsSection({
   onOpenSetupGuide,
   onRetryAiWorker,
   snapshot,
+  workerStatus,
   workerStatusLabel,
   workerStatusTone,
 }: {
@@ -172,20 +178,25 @@ function AiWorkerSettingsSection({
   onOpenSetupGuide: () => void
   onRetryAiWorker: () => void
   snapshot: SettingsSnapshot
+  workerStatus: AiWorkerPreflightStatus
   workerStatusLabel: string
   workerStatusTone: 'danger' | 'muted' | 'ready' | 'warning'
 }) {
+  const shouldShowRecoveryActions = workerStatus !== 'ready'
+
   return (
     <PanelCard className="p-6">
       <p className="m-0 text-[18px] font-extrabold text-[var(--color-copy-strong)]">
         AI connection
       </p>
       <p className="mt-2 max-w-3xl text-[13px] leading-[1.4] text-[var(--color-copy-muted)]">
-        Your normal app experience stays focused on jobs and documents. Come back here only if AI
-        needs attention.
+        CV Maxxing uses this connection to tailor your CV and cover letter.
       </p>
       <div className="mt-4 grid gap-3">
-        <SettingsValueRow label="Using" value={snapshot.workerCommand} />
+        <SettingsValueRow
+          label="Using"
+          value={formatAiWorkerProviderName(snapshot.workerProvider)}
+        />
         <div className="rounded-[var(--radius-card)] border border-[var(--color-border)] bg-white p-3">
           <div className="flex items-center justify-between gap-3">
             <p className="m-0 text-[13px] font-extrabold text-[var(--color-copy-strong)]">
@@ -195,14 +206,16 @@ function AiWorkerSettingsSection({
           </div>
         </div>
       </div>
-      <div className="mt-5 flex gap-3">
-        <Button disabled={isRetryingAiWorker} onClick={onRetryAiWorker} tone="primary">
-          {isRetryingAiWorker ? 'Trying again...' : 'Try again'}
-        </Button>
-        <Button disabled={isOpeningSetupGuide} onClick={onOpenSetupGuide} tone="secondary">
-          {isOpeningSetupGuide ? 'Opening help...' : 'Get help'}
-        </Button>
-      </div>
+      {shouldShowRecoveryActions ? (
+        <div className="mt-5 flex gap-3">
+          <Button disabled={isRetryingAiWorker} onClick={onRetryAiWorker} tone="primary">
+            {isRetryingAiWorker ? 'Trying again...' : 'Try again'}
+          </Button>
+          <Button disabled={isOpeningSetupGuide} onClick={onOpenSetupGuide} tone="secondary">
+            {isOpeningSetupGuide ? 'Opening help...' : 'Get help'}
+          </Button>
+        </div>
+      ) : null}
     </PanelCard>
   )
 }

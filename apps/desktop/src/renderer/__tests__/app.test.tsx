@@ -308,6 +308,7 @@ function createSettingsApi(overrides?: Partial<(typeof globalThis.window.cvMaxxi
         telemetry: false,
       },
       workerCommand: 'codex',
+      workerProvider: 'codex',
     }),
     resetLocalAppData: vi.fn().mockImplementation(() => Promise.resolve()),
     ...overrides,
@@ -531,52 +532,6 @@ test('opens the setup guide from the repair flow', async () => {
   await waitFor(() => {
     expect(openAiWorkerSetupGuide).toHaveBeenCalledTimes(1)
   })
-})
-
-test('falls back to user-friendly help copy when the settings AI guide returns an IPC wrapper error', async () => {
-  renderApp({
-    aiWorker: createAiWorkerApi({
-      getAiWorkerPreflight: vi.fn().mockResolvedValue({
-        canResumeGeneration: true,
-        message: 'The local AI worker is ready.',
-        provider: 'codex',
-        status: 'ready',
-      }),
-      getStartupDestination: vi.fn().mockResolvedValue('workspace'),
-      openAiWorkerSetupGuide: vi
-        .fn()
-        .mockRejectedValue(
-          new Error(
-            "Error invoking remote method 'ai-worker:open-setup-guide': Error\n    at openAiWorkerSetupGuide (ipc.js:10:5)",
-          ),
-        ),
-    }),
-    originalCv: createOriginalCvApi({
-      getOriginalCvWorkspaceState: vi.fn().mockResolvedValue({
-        activeOriginalCv: createOriginalCvDetailFixture().originalCv,
-        snapshotCount: 1,
-      }),
-    }),
-  })
-
-  await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
-  })
-
-  fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
-
-  await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'AI' })).toBeDefined()
-  })
-
-  fireEvent.click(screen.getByRole('button', { name: 'Get help' }))
-
-  await waitFor(() => {
-    expect(screen.getByRole('alert')).toBeDefined()
-  })
-
-  expect(screen.getByText("We couldn't open help right now. Try again.")).toBeDefined()
-  expect(screen.queryByText(/Error invoking remote method/u)).toBeNull()
 })
 
 test('renders the dedicated unavailable setup screen', async () => {
@@ -5591,14 +5546,7 @@ test('shows a shared draft alert when abandoning the pending draft fails', async
   })
 })
 
-test('opens settings from the rail, shows version and privacy guardrails, and retries the AI worker from settings', async () => {
-  const retryAiWorkerPreflight = vi.fn().mockResolvedValue({
-    canResumeGeneration: true,
-    message: 'The local AI worker is ready.',
-    provider: 'codex',
-    status: 'ready',
-  })
-
+test('opens settings from the rail, formats the connected AI provider, and shows local data settings', async () => {
   renderApp({
     aiWorker: createAiWorkerApi({
       getAiWorkerPreflight: vi.fn().mockResolvedValue({
@@ -5608,7 +5556,6 @@ test('opens settings from the rail, shows version and privacy guardrails, and re
         status: 'ready',
       }),
       getStartupDestination: vi.fn().mockResolvedValue('first_launch'),
-      retryAiWorkerPreflight,
     }),
   })
 
@@ -5624,7 +5571,10 @@ test('opens settings from the rail, shows version and privacy guardrails, and re
 
   expect(screen.getByText('AI connection')).toBeDefined()
   expect(screen.getByText('Using')).toBeDefined()
-  expect(screen.getByText('codex')).toBeDefined()
+  expect(screen.getByText('Codex')).toBeDefined()
+  expect(screen.queryByText('codex')).toBeNull()
+  expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull()
+  expect(screen.queryByRole('button', { name: 'Get help' })).toBeNull()
 
   fireEvent.click(screen.getByRole('button', { name: 'Show Local data settings' }))
 
@@ -5646,13 +5596,6 @@ test('opens settings from the rail, shows version and privacy guardrails, and re
   expect(screen.getByText('1.0.0')).toBeDefined()
   expect(screen.getByText('Telemetry')).toBeDefined()
   expect(screen.getByText('Automatic update checks')).toBeDefined()
-
-  fireEvent.click(screen.getByRole('button', { name: 'Show AI settings' }))
-  fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
-
-  await waitFor(() => {
-    expect(retryAiWorkerPreflight).toHaveBeenCalledTimes(1)
-  })
 })
 
 test('shows a shared settings alert when saving the selected rail item fails', async () => {
@@ -5773,7 +5716,7 @@ test('clears a shared settings selection alert after a later successful save', a
   })
 })
 
-test('leaves settings and returns to the repair screen when the AI worker retry fails', async () => {
+test('does not offer AI recovery actions from connected settings', async () => {
   const retryAiWorkerPreflight = vi.fn().mockResolvedValue({
     canResumeGeneration: false,
     failureCode: 'runtime_missing',
@@ -5826,15 +5769,9 @@ test('leaves settings and returns to the repair screen when the AI worker retry 
     expect(screen.getByRole('heading', { name: 'AI' })).toBeDefined()
   })
 
-  fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
-
-  await waitFor(() => {
-    expect(retryAiWorkerPreflight).toHaveBeenCalledTimes(1)
-  })
-
-  await waitFor(() => {
-    expect(screen.getByRole('button', { name: 'Try again' })).toBeDefined()
-  })
+  expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull()
+  expect(screen.queryByRole('button', { name: 'Get help' })).toBeNull()
+  expect(retryAiWorkerPreflight).not.toHaveBeenCalled()
 })
 
 test('requires the destructive confirmation phrase before resetting local app data and returns to first launch after reset', async () => {

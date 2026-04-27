@@ -18,6 +18,7 @@ test('preload exposes settings queries and destructive controls over typed IPC',
         telemetry: false,
       },
       workerCommand: 'codex',
+      workerProvider: 'codex',
     })
     .mockImplementationOnce(() => Promise.resolve())
     .mockImplementationOnce(() => Promise.resolve())
@@ -36,6 +37,7 @@ test('preload exposes settings queries and destructive controls over typed IPC',
       telemetry: false,
     },
     workerCommand: 'codex',
+    workerProvider: 'codex',
   })
   await expect(desktopApi.settings.clearJobSiteBrowserData()).resolves.toBeUndefined()
   await expect(

@@ -174,6 +174,7 @@ function createSettingsDouble() {
         telemetry: false,
       },
       workerCommand: 'codex',
+      workerProvider: 'codex',
     }),
     resetLocalAppData: vi.fn().mockImplementation(() => Promise.resolve()),
   }
@@ -655,6 +656,7 @@ test('bootstrap registers the full AI worker onboarding IPC surface and opens th
       telemetry: false,
     },
     workerCommand: 'codex',
+    workerProvider: 'codex',
   })
   await expect(
     registeredHandlers.get(SETTINGS_IPC_CHANNELS.clearJobSiteBrowserData)?.(),

@@ -57,6 +57,7 @@ test('bootstrap registers settings IPC handlers and delegates privacy actions to
         telemetry: false,
       },
       workerCommand: 'codex',
+      workerProvider: 'codex',
     }),
     resetLocalAppData: vi.fn(() => Promise.resolve()),
   }
@@ -165,6 +166,7 @@ test('bootstrap registers settings IPC handlers and delegates privacy actions to
       telemetry: false,
     },
     workerCommand: 'codex',
+    workerProvider: 'codex',
   })
   await expect(
     registeredHandlers.get(SETTINGS_IPC_CHANNELS.clearJobSiteBrowserData)?.(),

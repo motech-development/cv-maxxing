@@ -68,6 +68,7 @@ test('returns a provider-neutral settings snapshot with explicit privacy guardra
       telemetry: false,
     },
     workerCommand: 'codex',
+    workerProvider: 'codex',
   })
 
   await store.close()

@@ -4923,7 +4923,7 @@
                   "fill": "$app.muted",
                   "textGrowth": "fixed-width",
                   "width": "fill_container",
-                  "content": "Use this area if AI needs attention or you need setup help on this Mac.",
+                  "content": "Check the AI connection CV Maxxing uses for tailoring.",
                   "fontFamily": "Manrope",
                   "fontSize": 13,
                   "fontWeight": "normal"
@@ -4961,7 +4961,7 @@
                       "fill": "$app.muted",
                       "textGrowth": "fixed-width",
                       "width": "fill_container",
-                      "content": "Your normal app experience stays focused on jobs and documents. Come back here only if AI needs attention.",
+                      "content": "CV Maxxing uses this connection to tailor your CV and cover letter.",
                       "lineHeight": 1.4,
                       "fontFamily": "Manrope",
                       "fontSize": 13,
@@ -4993,7 +4993,7 @@
                           "id": "1FpAV",
                           "name": "pathValueSettings",
                           "fill": "$app.muted",
-                          "content": "codex",
+                          "content": "Codex",
                           "fontFamily": "Manrope",
                           "fontSize": 13,
                           "fontWeight": "normal"

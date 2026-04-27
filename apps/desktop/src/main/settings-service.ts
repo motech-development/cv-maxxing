@@ -1,5 +1,6 @@
 import { rm } from 'node:fs/promises'
 
+import type { AiWorkerProvider } from '../shared/ai-worker-preflight.js'
 import type {
   ResetLocalAppDataInput,
   SettingsPrivacyState,
@@ -40,6 +41,7 @@ interface SettingsServiceOptions {
   resetLocalAppDataErrorMessage?: string
   restartApp?: () => Promise<void>
   workerCommand?: string
+  workerProvider?: AiWorkerProvider
 }
 
 export function createSettingsService({
@@ -51,6 +53,7 @@ export function createSettingsService({
   resetLocalAppDataErrorMessage,
   restartApp = resolveVoid,
   workerCommand = 'codex',
+  workerProvider = 'codex',
 }: SettingsServiceOptions): SettingsService {
   return {
     clearJobSiteBrowserData: async (): Promise<void> => {
@@ -64,6 +67,7 @@ export function createSettingsService({
         appVersion: getAppVersion(),
         privacy: blockedPrivacyState,
         workerCommand,
+        workerProvider,
       })
     },
     resetLocalAppData: async ({ confirmationPhrase }: ResetLocalAppDataInput): Promise<void> => {

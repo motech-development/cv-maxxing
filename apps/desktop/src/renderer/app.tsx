@@ -2642,6 +2642,7 @@ export function App() {
           }}
           runtimeAlert={activeSettingsRuntimeAlert}
           snapshot={settingsSnapshot}
+          workerStatus={viewModel.status}
           workerStatusLabel={workerStatusLabel}
           workerStatusTone={workerStatusTone}
         />
