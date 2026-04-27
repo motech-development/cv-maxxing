@@ -83,6 +83,14 @@ test('captures the settings local data screen', async () => {
     page,
   })
   await openLocalDataSettings(page)
+  await expect(page.getByText('App version')).toBeVisible()
+  await expect(page.getByText('Privacy guardrails')).toHaveCount(0)
+  await expect(page.getByText('Telemetry')).toHaveCount(0)
+  await expect(
+    page.getByText(
+      'This permanently removes your CV, saved jobs, documents, settings, and sign-ins from this device. Bulk backup or export is not available in v1.',
+    ),
+  ).toBeVisible()
   await hideScrollbars(page)
   await expect(page).toHaveScreenshot('settings-local-data-screen.png', {
     animations: 'disabled',

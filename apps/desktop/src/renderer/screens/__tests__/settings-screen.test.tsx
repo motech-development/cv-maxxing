@@ -13,14 +13,6 @@ const noop = vi.fn()
 
 const settingsSnapshot = {
   appVersion: '1.0.0',
-  privacy: {
-    analytics: false,
-    automaticUpdateChecks: false,
-    crashReporting: false,
-    remoteConfig: false,
-    runtimeFontCdnCalls: false,
-    telemetry: false,
-  },
   workerCommand: 'codex',
   workerProvider: 'codex',
 } as const
@@ -78,4 +70,34 @@ test('keeps recovery actions visible when AI settings are not ready', () => {
 
   expect(screen.getByRole('button', { name: 'Try again' })).toBeDefined()
   expect(screen.getByRole('button', { name: 'Get help' })).toBeDefined()
+})
+
+test('keeps app version visible without privacy guardrails in Local data settings', () => {
+  render(
+    <SettingsScreen
+      activeSection="local_data"
+      isClearingJobSiteBrowserData={false}
+      isOpeningSetupGuide={false}
+      isResettingLocalAppData={false}
+      isRetryingAiWorker={false}
+      onClearJobSiteBrowserData={noop}
+      onOpenSetupGuide={noop}
+      onResetLocalAppData={noop}
+      onRetryAiWorker={noop}
+      onSelectRailItem={noop}
+      onSelectSection={noop}
+      runtimeAlert={null}
+      snapshot={settingsSnapshot}
+      workerStatus="ready"
+      workerStatusLabel="Connected"
+      workerStatusTone="ready"
+    />,
+  )
+
+  expect(screen.getByText('App version')).toBeDefined()
+  expect(screen.getByText('1.0.0')).toBeDefined()
+  expect(screen.queryByText('Privacy guardrails')).toBeNull()
+  expect(screen.queryByText('Telemetry')).toBeNull()
+  expect(screen.queryByText('Automatic update checks')).toBeNull()
+  expect(screen.queryByText('Blocked')).toBeNull()
 })

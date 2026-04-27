@@ -165,14 +165,6 @@ function createSettingsDouble() {
     clearJobSiteBrowserData: vi.fn().mockImplementation(() => Promise.resolve()),
     getSettingsSnapshot: vi.fn().mockResolvedValue({
       appVersion: '1.0.0',
-      privacy: {
-        analytics: false,
-        automaticUpdateChecks: false,
-        crashReporting: false,
-        remoteConfig: false,
-        runtimeFontCdnCalls: false,
-        telemetry: false,
-      },
       workerCommand: 'codex',
       workerProvider: 'codex',
     }),
@@ -647,14 +639,6 @@ test('bootstrap registers the full AI worker onboarding IPC surface and opens th
   expect(onOriginalCvImported).toHaveBeenCalledTimes(1)
   await expect(registeredHandlers.get(SETTINGS_IPC_CHANNELS.getSnapshot)?.()).resolves.toEqual({
     appVersion: '1.0.0',
-    privacy: {
-      analytics: false,
-      automaticUpdateChecks: false,
-      crashReporting: false,
-      remoteConfig: false,
-      runtimeFontCdnCalls: false,
-      telemetry: false,
-    },
     workerCommand: 'codex',
     workerProvider: 'codex',
   })

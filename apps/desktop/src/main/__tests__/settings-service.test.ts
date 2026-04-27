@@ -44,7 +44,7 @@ function createKeychainBoundary(secret = Buffer.alloc(32, 7)): KeychainBoundary 
   }
 }
 
-test('returns a provider-neutral settings snapshot with explicit privacy guardrails and version info', async () => {
+test('returns a provider-neutral settings snapshot with only visible settings data', async () => {
   const paths = await createTestPaths()
   const store = await openLocalAppData({
     keychain: createKeychainBoundary(),
@@ -59,14 +59,6 @@ test('returns a provider-neutral settings snapshot with explicit privacy guardra
 
   await expect(settings.getSettingsSnapshot()).resolves.toEqual({
     appVersion: '1.2.3',
-    privacy: {
-      analytics: false,
-      automaticUpdateChecks: false,
-      crashReporting: false,
-      remoteConfig: false,
-      runtimeFontCdnCalls: false,
-      telemetry: false,
-    },
     workerCommand: 'codex',
     workerProvider: 'codex',
   })

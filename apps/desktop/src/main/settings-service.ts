@@ -1,22 +1,9 @@
 import { rm } from 'node:fs/promises'
 
 import type { AiWorkerProvider } from '../shared/ai-worker-preflight.js'
-import type {
-  ResetLocalAppDataInput,
-  SettingsPrivacyState,
-  SettingsSnapshot,
-} from '../shared/settings.js'
+import type { ResetLocalAppDataInput, SettingsSnapshot } from '../shared/settings.js'
 import { SETTINGS_RESET_CONFIRMATION_PHRASE } from '../shared/settings.js'
 import type { LocalAppDataStore } from './local-app-data-service.js'
-
-const blockedPrivacyState: SettingsPrivacyState = {
-  analytics: false,
-  automaticUpdateChecks: false,
-  crashReporting: false,
-  remoteConfig: false,
-  runtimeFontCdnCalls: false,
-  telemetry: false,
-}
 
 const resolveVoid = (): Promise<void> => {
   return Promise.resolve()
@@ -65,7 +52,6 @@ export function createSettingsService({
     getSettingsSnapshot: (): Promise<SettingsSnapshot> => {
       return Promise.resolve({
         appVersion: getAppVersion(),
-        privacy: blockedPrivacyState,
         workerCommand,
         workerProvider,
       })

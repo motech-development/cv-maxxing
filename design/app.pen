@@ -5311,71 +5311,15 @@
                   "fill": "$app.muted",
                   "textGrowth": "fixed-width",
                   "width": "fill_container",
-                  "content": "Control app-managed browser sessions and destructive local resets for this machine.",
+                  "content": "Manage saved sign-ins for job pages and fully reset the app on this device.",
                   "fontFamily": "Manrope",
                   "fontSize": 13,
                   "fontWeight": "normal"
                 },
                 {
                   "type": "frame",
-                  "id": "S3gyn",
-                  "name": "Settings runtime alert",
-                  "width": "fill_container",
-                  "fill": "#FFF0F0",
-                  "cornerRadius": 10,
-                  "stroke": {
-                    "align": "inside",
-                    "thickness": 1,
-                    "fill": "#E4B7B7"
-                  },
-                  "layout": "vertical",
-                  "gap": 8,
-                  "padding": [
-                    16,
-                    18
-                  ],
-                  "children": [
-                    {
-                      "type": "text",
-                      "id": "dfidT",
-                      "name": "settingsAlertLabel",
-                      "fill": "#7A1F1F",
-                      "content": "Needs attention",
-                      "fontFamily": "Manrope",
-                      "fontSize": 11,
-                      "fontWeight": "800"
-                    },
-                    {
-                      "type": "text",
-                      "id": "5zNtF",
-                      "name": "settingsAlertTitle",
-                      "fill": "#7A1F1F",
-                      "textGrowth": "fixed-width",
-                      "width": "fill_container",
-                      "content": "Local data can't be cleared right now.",
-                      "fontFamily": "Manrope",
-                      "fontSize": 16,
-                      "fontWeight": "800"
-                    },
-                    {
-                      "type": "text",
-                      "id": "ac9IX",
-                      "name": "settingsAlertBody",
-                      "fill": "#7A1F1F",
-                      "textGrowth": "fixed-width",
-                      "width": "fill_container",
-                      "content": "Finish the action already in progress, then come back here to clear local data on this Mac.",
-                      "lineHeight": 1.4,
-                      "fontFamily": "Manrope",
-                      "fontSize": 13,
-                      "fontWeight": "normal"
-                    }
-                  ]
-                },
-                {
-                  "type": "frame",
                   "id": "rAYFx",
-                  "name": "Worker settings card",
+                  "name": "Job-site browser data card",
                   "width": "fill_container",
                   "fill": "#F7F8F6",
                   "cornerRadius": 8,
@@ -5393,7 +5337,7 @@
                       "id": "Jn9ra",
                       "name": "settingsCardTitle",
                       "fill": "$app.ink",
-                      "content": "Before you clear local data",
+                      "content": "Job-site browser data",
                       "fontFamily": "Manrope",
                       "fontSize": 18,
                       "fontWeight": "800"
@@ -5405,7 +5349,7 @@
                       "fill": "$app.muted",
                       "textGrowth": "fixed-width",
                       "width": "fill_container",
-                      "content": "Use this area for deliberate cleanup and reset steps. Clearing local data does not change jobs you have already created on this Mac.",
+                      "content": "Clear saved sign-ins and browsing data for job pages without deleting your CV, saved jobs, or app settings.",
                       "lineHeight": 1.4,
                       "fontFamily": "Manrope",
                       "fontSize": 13,
@@ -5414,35 +5358,134 @@
                     {
                       "type": "frame",
                       "id": "OA86b",
-                      "name": "pathRowSettings",
-                      "width": "fill_container",
+                      "name": "clearBrowserDataButton",
                       "fill": "#FFFFFF",
                       "cornerRadius": 8,
-                      "gap": 12,
-                      "padding": 12,
+                      "stroke": {
+                        "align": "inside",
+                        "thickness": 1,
+                        "fill": "$app.divider"
+                      },
+                      "padding": [
+                        10,
+                        14
+                      ],
                       "alignItems": "center",
                       "children": [
                         {
                           "type": "text",
                           "id": "TrMBE",
-                          "name": "pathLabelSettings",
+                          "name": "clearBrowserDataLabel",
                           "fill": "$app.ink",
-                          "content": "Includes",
+                          "content": "Clear browser data",
                           "fontFamily": "Manrope",
                           "fontSize": 13,
                           "fontWeight": "800"
-                        },
-                        {
-                          "type": "text",
-                          "id": "0IGzw",
-                          "name": "pathValueSettings",
-                          "fill": "$app.muted",
-                          "content": "Saved browser sessions on this Mac",
-                          "fontFamily": "Manrope",
-                          "fontSize": 13,
-                          "fontWeight": "normal"
                         }
                       ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "RQd4n",
+                  "name": "Reset local app data card",
+                  "width": "fill_container",
+                  "fill": "#FFF0F0",
+                  "cornerRadius": 8,
+                  "stroke": {
+                    "align": "inside",
+                    "thickness": 1,
+                    "fill": "#7A1F1F"
+                  },
+                  "layout": "vertical",
+                  "gap": 14,
+                  "padding": 24,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "ZQn7v",
+                      "name": "resetLocalDataTitle",
+                      "fill": "#7A1F1F",
+                      "content": "Reset local app data",
+                      "fontFamily": "Manrope",
+                      "fontSize": 18,
+                      "fontWeight": "800"
+                    },
+                    {
+                      "type": "text",
+                      "id": "nsZx4",
+                      "name": "resetLocalDataText",
+                      "fill": "#7A1F1F",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "This permanently removes your CV, saved jobs, documents, settings, and sign-ins from this device. Bulk backup or export is not available in v1.",
+                      "lineHeight": 1.4,
+                      "fontFamily": "Manrope",
+                      "fontSize": 13,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "iDcUi",
+                      "name": "resetLocalDataButton",
+                      "fill": "#7A1F1F",
+                      "cornerRadius": 8,
+                      "padding": [
+                        10,
+                        14
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "t1Ih7",
+                          "name": "resetLocalDataButtonLabel",
+                          "fill": "#FFFFFF",
+                          "content": "Reset local app data",
+                          "fontFamily": "Manrope",
+                          "fontSize": 13,
+                          "fontWeight": "800"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "Wv8Aa",
+                  "name": "App version card",
+                  "width": "fill_container",
+                  "fill": "#F7F8F6",
+                  "cornerRadius": 8,
+                  "stroke": {
+                    "align": "inside",
+                    "thickness": 1,
+                    "fill": "$app.divider"
+                  },
+                  "padding": 16,
+                  "justifyContent": "space_between",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "q9jS1",
+                      "name": "appVersionLabel",
+                      "fill": "$app.ink",
+                      "content": "App version",
+                      "fontFamily": "Manrope",
+                      "fontSize": 13,
+                      "fontWeight": "800"
+                    },
+                    {
+                      "type": "text",
+                      "id": "Uj5yD",
+                      "name": "appVersionValue",
+                      "fill": "$app.muted",
+                      "content": "1.0.0",
+                      "fontFamily": "Manrope",
+                      "fontSize": 13,
+                      "fontWeight": "normal"
                     }
                   ]
                 }

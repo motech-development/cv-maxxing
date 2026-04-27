@@ -9,14 +9,6 @@ test('preload exposes settings queries and destructive controls over typed IPC',
     .fn()
     .mockResolvedValueOnce({
       appVersion: '1.0.0',
-      privacy: {
-        analytics: false,
-        automaticUpdateChecks: false,
-        crashReporting: false,
-        remoteConfig: false,
-        runtimeFontCdnCalls: false,
-        telemetry: false,
-      },
       workerCommand: 'codex',
       workerProvider: 'codex',
     })
@@ -28,14 +20,6 @@ test('preload exposes settings queries and destructive controls over typed IPC',
 
   await expect(desktopApi.settings.getSettingsSnapshot()).resolves.toEqual({
     appVersion: '1.0.0',
-    privacy: {
-      analytics: false,
-      automaticUpdateChecks: false,
-      crashReporting: false,
-      remoteConfig: false,
-      runtimeFontCdnCalls: false,
-      telemetry: false,
-    },
     workerCommand: 'codex',
     workerProvider: 'codex',
   })

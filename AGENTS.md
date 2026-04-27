@@ -43,6 +43,8 @@ These rules always apply. Follow project-local rules first when they are more sp
 - Treat `design/icon.pen` as the authoritative reference for app icon artwork and export source geometry.
 - When the renderer owns a custom desktop shell header, configure the macOS Electron window to hide duplicate native title-bar chrome and do not render faux traffic-light controls inside the shell.
 - When editing `.pen` files through the Pencil editor, treat the editor state as authoritative until the user saves; disk reads and git diffs will not reflect unsaved Pencil changes.
+- When aligning implementation with `.pen` designs, use the Pencil MCP to inspect and edit the design, then verify the affected frame with a Pencil screenshot before treating the design update as complete.
+- After Pencil MCP edits, save the active Pencil/VS Code editor with `Cmd+S` before verifying `design/*.pen` on disk; then confirm persistence with a disk read or git diff.
 - Treat `design/cv.pen` as the authoritative reference for CV/PDF visual layout, with `design/cv.html` as the implementation reference for HTML-based rendering and PDF export.
 - Keep browser functions serialized into injected CV/PDF HTML fully self-contained. Do not reference module-scope helpers or constants from code embedded via `String(fn)` in the Electron print pipeline.
 - The product is Electron-first and local desktop-first; do not introduce a required web backend unless a later task proves it necessary.
@@ -65,6 +67,7 @@ These rules always apply. Follow project-local rules first when they are more sp
 - Do not add telemetry, analytics, crash reporting, remote config, runtime font CDN calls, v1 automatic update checks, or bulk app-data backup/export.
 - Do not use MUI or Redux. Prefer Tailwind with CSS-variable tokens, Radix primitives where useful, and TanStack Query for IPC-backed async renderer state.
 - Keep Playwright visual baselines for the desktop app under `apps/desktop/tests/e2e/*-snapshots` and update them only through the package-owned visual test command.
+- Before updating desktop Playwright visual snapshots, run the package-owned desktop build so snapshots are captured from the current implementation rather than stale compiled assets.
 - Hide scrollbars before desktop visual captures when layout width matters, so Playwright snapshots stay stable across macOS environments with overlay and non-overlay scrollbar settings.
 
 ---

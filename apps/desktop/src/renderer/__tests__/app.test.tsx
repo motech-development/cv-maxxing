@@ -299,14 +299,6 @@ function createSettingsApi(overrides?: Partial<(typeof globalThis.window.cvMaxxi
     clearJobSiteBrowserData: vi.fn().mockImplementation(() => Promise.resolve()),
     getSettingsSnapshot: vi.fn().mockResolvedValue({
       appVersion: '1.0.0',
-      privacy: {
-        analytics: false,
-        automaticUpdateChecks: false,
-        crashReporting: false,
-        remoteConfig: false,
-        runtimeFontCdnCalls: false,
-        telemetry: false,
-      },
       workerCommand: 'codex',
       workerProvider: 'codex',
     }),
@@ -5589,13 +5581,14 @@ test('opens settings from the rail, formats the connected AI provider, and shows
   ).toBeDefined()
   expect(
     screen.getByText(
-      'This permanently removes your CV, saved jobs, documents, settings, and sign-ins from this Mac. Bulk backup or export is not available in v1.',
+      'This permanently removes your CV, saved jobs, documents, settings, and sign-ins from this device. Bulk backup or export is not available in v1.',
     ),
   ).toBeDefined()
   expect(screen.getByText('App version')).toBeDefined()
   expect(screen.getByText('1.0.0')).toBeDefined()
-  expect(screen.getByText('Telemetry')).toBeDefined()
-  expect(screen.getByText('Automatic update checks')).toBeDefined()
+  expect(screen.queryByText('Privacy guardrails')).toBeNull()
+  expect(screen.queryByText('Telemetry')).toBeNull()
+  expect(screen.queryByText('Automatic update checks')).toBeNull()
 })
 
 test('shows a shared settings alert when saving the selected rail item fails', async () => {

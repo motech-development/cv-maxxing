@@ -48,14 +48,6 @@ test('bootstrap registers settings IPC handlers and delegates privacy actions to
     clearJobSiteBrowserData: vi.fn(() => Promise.resolve()),
     getSettingsSnapshot: vi.fn().mockResolvedValue({
       appVersion: '1.0.0',
-      privacy: {
-        analytics: false,
-        automaticUpdateChecks: false,
-        crashReporting: false,
-        remoteConfig: false,
-        runtimeFontCdnCalls: false,
-        telemetry: false,
-      },
       workerCommand: 'codex',
       workerProvider: 'codex',
     }),
@@ -157,14 +149,6 @@ test('bootstrap registers settings IPC handlers and delegates privacy actions to
   expect(handle).toHaveBeenCalledWith(SETTINGS_IPC_CHANNELS.resetLocalAppData, expect.any(Function))
   await expect(registeredHandlers.get(SETTINGS_IPC_CHANNELS.getSnapshot)?.()).resolves.toEqual({
     appVersion: '1.0.0',
-    privacy: {
-      analytics: false,
-      automaticUpdateChecks: false,
-      crashReporting: false,
-      remoteConfig: false,
-      runtimeFontCdnCalls: false,
-      telemetry: false,
-    },
     workerCommand: 'codex',
     workerProvider: 'codex',
   })

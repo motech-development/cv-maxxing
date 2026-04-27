@@ -2689,7 +2689,7 @@ export function App() {
         >
           <p className="m-0">
             This permanently removes your CV, saved jobs, documents, settings, and sign-ins from
-            this Mac.
+            this device.
           </p>
           <label
             className="block text-[11px] font-extrabold uppercase tracking-[0.12em] text-[var(--color-status-danger)]"

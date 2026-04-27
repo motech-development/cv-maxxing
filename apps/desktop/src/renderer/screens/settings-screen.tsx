@@ -36,15 +36,6 @@ interface SettingsScreenProperties {
   workerStatusTone: 'danger' | 'muted' | 'ready' | 'warning'
 }
 
-const privacyRows = [
-  'Telemetry',
-  'Analytics',
-  'Crash reporting',
-  'Remote config',
-  'Runtime font CDN calls',
-  'Automatic update checks',
-] as const
-
 export function SettingsScreen({
   activeSection,
   appOverlay,
@@ -69,7 +60,7 @@ export function SettingsScreen({
   const pageIntro =
     activeSection === 'ai_worker'
       ? 'Check the AI connection CV Maxxing uses for tailoring.'
-      : 'Manage saved sign-ins for job pages and fully reset the app on this Mac.'
+      : 'Manage saved sign-ins for job pages and fully reset the app on this device.'
 
   return (
     <DesktopShell
@@ -260,7 +251,7 @@ function LocalDataSettingsSection({
         </p>
         <p className="mt-2 max-w-3xl text-[13px] leading-[1.4] text-[var(--color-status-danger)]">
           This permanently removes your CV, saved jobs, documents, settings, and sign-ins from this
-          Mac. Bulk backup or export is not available in v1.
+          device. Bulk backup or export is not available in v1.
         </p>
         <div className="mt-5">
           <Button disabled={isResettingLocalAppData} onClick={onResetLocalAppData} tone="primary">
@@ -269,18 +260,12 @@ function LocalDataSettingsSection({
         </div>
       </PanelCard>
 
-      <PanelCard className="p-6">
-        <p className="m-0 text-[18px] font-extrabold text-[var(--color-copy-strong)]">
-          Privacy guardrails
-        </p>
-        <p className="mt-2 max-w-3xl text-[13px] leading-[1.4] text-[var(--color-copy-muted)]">
-          CV Maxxing stays local-first in v1 and blocks hidden background integrations.
-        </p>
-        <div className="mt-4 grid gap-2">
-          <SettingsValueRow label="App version" value={snapshot.appVersion} />
-          {privacyRows.map((label) => {
-            return <SettingsValueRow key={label} label={label} value="Blocked" />
-          })}
+      <PanelCard className="bg-[var(--color-surface-0)] p-4">
+        <div className="flex items-center justify-between gap-3">
+          <p className="m-0 text-[13px] font-extrabold text-[var(--color-copy-strong)]">
+            App version
+          </p>
+          <p className="m-0 text-[13px] text-[var(--color-copy-muted)]">{snapshot.appVersion}</p>
         </div>
       </PanelCard>
     </div>
