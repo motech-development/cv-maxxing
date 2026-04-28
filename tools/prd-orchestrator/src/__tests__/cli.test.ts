@@ -175,6 +175,9 @@ describe('PRD orchestrator CLI', () => {
 
     expect(adapters.events).toContain('sandcastle:repair-review')
     expect(adapters.events).toContain('git:amend-child-commit')
+    expect(adapters.amendedCommitMessages.at(0)).toContain('Acceptance evidence:')
+    expect(adapters.amendedCommitMessages.at(0)).toContain('Verification evidence:')
+    expect(adapters.amendedCommitMessages.at(0)).toContain('Closes #82')
     expect(adapters.events.filter((event) => event === 'coderabbit:review')).toHaveLength(2)
   })
 
@@ -195,6 +198,55 @@ describe('PRD orchestrator CLI', () => {
 
     expect(adapters.events).toContain('sandcastle:repair-verification')
     expect(adapters.events.filter((event) => event === 'verification:run')).toHaveLength(2)
+  })
+
+  it('re-analyses unexpected worker write surfaces before applying the diff', async () => {
+    const adapters = createLiveAdapters({
+      impactAnalyses: [
+        {
+          designFiles: [],
+          expectedFiles: ['tools/prd-orchestrator/src/cli.ts'],
+          expectedModules: ['@cv-maxxing/prd-orchestrator'],
+          riskLevel: 'low',
+          sharedContracts: [],
+          tests: ['tools/prd-orchestrator/src/__tests__/cli.test.ts'],
+        },
+        {
+          designFiles: [],
+          expectedFiles: ['apps/desktop/src/main.ts'],
+          expectedModules: ['@cv-maxxing/desktop'],
+          riskLevel: 'medium',
+          sharedContracts: [],
+          tests: ['apps/desktop/src/__tests__/main.test.ts'],
+        },
+      ],
+      workerChangedFiles: ['apps/desktop/src/main.ts'],
+    })
+
+    await expect(
+      runPrdOrchestratorCliAsync({
+        adapters,
+        arguments_: ['run', '--one-child'],
+        stdin: '',
+      }),
+    ).resolves.toMatchObject({
+      exitCode: 0,
+    })
+
+    expect(adapters.events).toEqual(
+      expect.arrayContaining([
+        'sandcastle:impact-analysis',
+        'sandcastle:implementation',
+        'sandcastle:impact-analysis',
+        'git:apply-worker-diff',
+      ]),
+    )
+    expect(adapters.events.filter((event) => event === 'sandcastle:impact-analysis')).toHaveLength(
+      2,
+    )
+    expect(adapters.events.lastIndexOf('sandcastle:impact-analysis')).toBeLessThan(
+      adapters.events.indexOf('git:apply-worker-diff'),
+    )
   })
 
   it('records unrecoverable blockers in the draft PR before stopping', async () => {
@@ -262,6 +314,7 @@ describe('PRD orchestrator CLI', () => {
     expect(adapters.events).toContain('github:get-pr')
     expect(adapters.events).toContain('github:get-current-pr')
     expect(adapters.events).toContain('state:read-run-status')
+    expect(adapters.events).toContain('state:read-artifact-status')
     expect(adapters.events).toContain('state:cleanup')
   })
 
@@ -280,6 +333,9 @@ describe('PRD orchestrator CLI', () => {
 
 interface CreateLiveAdaptersOptions {
   readonly codeRabbitFindingsBeforeClean?: number
+  readonly impactAnalyses?: readonly Awaited<
+    ReturnType<PrdOrchestratorLiveAdapters['sandcastle']['runImpactAnalysis']>
+  >[]
   readonly verificationFailuresBeforeClean?: number
   readonly workerChangedFiles?: readonly string[]
 }
@@ -288,9 +344,12 @@ const createLiveAdapters = (
   options: CreateLiveAdaptersOptions = {},
 ): PrdOrchestratorLiveAdapters & {
   readonly events: string[]
+  readonly amendedCommitMessages: string[]
 } => {
   const events: string[] = []
+  const amendedCommitMessages: string[] = []
   let codeRabbitReviewCount = 0
+  let impactAnalysisCount = 0
   let verificationRunCount = 0
 
   return {
@@ -301,6 +360,7 @@ const createLiveAdapters = (
         return Promise.resolve('passed')
       },
     },
+    amendedCommitMessages,
     codeRabbit: {
       reviewChild: () => {
         events.push('coderabbit:review')
@@ -337,8 +397,9 @@ const createLiveAdapters = (
           hash: 'abc123456789',
         })
       },
-      amendChildCommit: () => {
+      amendChildCommit: (message) => {
         events.push('git:amend-child-commit')
+        amendedCommitMessages.push(message)
 
         return Promise.resolve({
           hash: 'def456789012',
@@ -447,6 +508,12 @@ const createLiveAdapters = (
       },
       runImpactAnalysis: () => {
         events.push('sandcastle:impact-analysis')
+        const impactAnalysis = options.impactAnalyses?.[impactAnalysisCount]
+        impactAnalysisCount += 1
+
+        if (impactAnalysis !== undefined) {
+          return Promise.resolve(impactAnalysis)
+        }
 
         return Promise.resolve({
           designFiles: [],
@@ -502,6 +569,15 @@ const createLiveAdapters = (
           phase: 'complete',
           prNumber: 123,
           prUrl: 'https://github.com/motech-development/cv-maxxing/pull/123',
+        })
+      },
+      readArtifactStatus: () => {
+        events.push('state:read-artifact-status')
+
+        return Promise.resolve({
+          cleanupStatus: '1 stale artifact eligible for cleanup',
+          lockStatus: 'no active lock',
+          sandcastleStatus: '0 active worktrees, 0 active containers',
         })
       },
       recoverRunStatusFromPr: () => {

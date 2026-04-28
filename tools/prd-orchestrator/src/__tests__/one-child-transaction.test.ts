@@ -224,6 +224,7 @@ describe('one-child transaction planning', () => {
   it('selects host verification commands from affected modules and targeted tests', () => {
     expect(selectVerificationCommands(impactAnalysis)).toEqual([
       'pnpm lint',
+      'pnpm --filter @cv-maxxing/desktop typecheck',
       'pnpm --filter @cv-maxxing/prd-orchestrator typecheck',
       'pnpm --filter @cv-maxxing/prd-orchestrator test:unit -- tools/prd-orchestrator/src/__tests__/one-child-transaction.test.ts',
     ])

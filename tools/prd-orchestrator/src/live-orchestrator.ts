@@ -10,6 +10,7 @@ import {
   type RunStatus,
 } from './run-guardrails.js'
 import {
+  enforceWriteSurface,
   planOneChildTransaction,
   selectVerificationCommands,
   type MainBranchStatus,
@@ -79,6 +80,7 @@ export interface PrdOrchestratorLiveAdapters {
   readonly state: {
     readonly acquireRunLock: () => Promise<LiveRunLockResult>
     readonly cleanup: () => Promise<CleanupPlan>
+    readonly readArtifactStatus?: () => Promise<AutomationArtifactStatus>
     readonly readRunStatus: () => Promise<RunStatus>
     readonly recoverRunStatusFromPr: (pr: AutomationPrDetails) => Promise<void>
     readonly recordRunStatus: (status: RunStatus) => Promise<void>
@@ -88,6 +90,12 @@ export interface PrdOrchestratorLiveAdapters {
   readonly verification: {
     readonly runCommands: (commands: readonly string[]) => Promise<readonly string[]>
   }
+}
+
+export interface AutomationArtifactStatus {
+  readonly cleanupStatus: string
+  readonly lockStatus: string
+  readonly sandcastleStatus: string
 }
 
 export interface PrdOrchestratorLiveConfiguration {
@@ -325,11 +333,56 @@ const executeLiveOneChildWithLock = async (
     siblingSummaries,
     workerBranchName,
   })
-
-  const verificationCommands = selectVerificationCommands(impactAnalysis)
-  const verifiedWorkerResult = await repairVerificationUntilClean({
+  const writeSurface = await resolveWriteSurfaceBeforeApply({
     adapters,
     impactAnalysis,
+    parentPrd: selectedPrd,
+    parentPrdBody,
+    selectedChild,
+    siblingSummaries,
+    workerChangedFiles: workerResult.changedFiles,
+  })
+
+  if (writeSurface.blockers.length > 0) {
+    const status = createRunStatus({
+      blockers: writeSurface.blockers,
+      branchName: branchSeedPlan.prdBranchName,
+      codeRabbitStatus: 'not run',
+      completedChildIssueNumbers,
+      currentChildIssueNumber: selectedChild.issueNumber,
+      phase: 'blocked',
+      pr: draftPr,
+      prdIssueNumber: selectedPrd.issueNumber,
+    })
+
+    await recordBlockedProgress({
+      adapters,
+      body: generateDraftPrBody({
+        branchName: branchSeedPlan.prdBranchName,
+        childTasks: selectedPrd.childTasks,
+        ledger: createBlockedLedger(selectedPrd.childTasks, selectedChild.issueNumber),
+        parentPrdIssueNumber: selectedPrd.issueNumber,
+        prdTitle: selectedPrd.title,
+      }),
+      draftPr,
+      status,
+    })
+
+    return {
+      exitCode: 1,
+      stderr: `${writeSurface.blockers.join('\n')}\n`,
+      stdout: `${renderOneChildSummary({
+        childIssueNumber: selectedChild.issueNumber,
+        pr: draftPr,
+        status,
+      })}\n`,
+    }
+  }
+
+  const verificationCommands = selectVerificationCommands(writeSurface.impactAnalysis)
+  const verifiedWorkerResult = await repairVerificationUntilClean({
+    adapters,
+    impactAnalysis: writeSurface.impactAnalysis,
     parentPrd: selectedPrd,
     parentPrdBody,
     prdBranchName: branchSeedPlan.prdBranchName,
@@ -344,9 +397,13 @@ const executeLiveOneChildWithLock = async (
     childCommitHash: undefined,
     codeRabbitStatus: 'not run',
     completedChildIssueNumbers,
-    dependencyChangeJustification: undefined,
+    dependencyChangeJustification: createDependencyChangeJustification({
+      changedFiles: verifiedWorkerResult.workerResult.changedFiles,
+      childTask: selectedChild,
+      impactAnalysis: verifiedWorkerResult.impactAnalysis,
+    }),
     existingLedger: createPendingLedger(selectedPrd.childTasks),
-    impactAnalysis,
+    impactAnalysis: verifiedWorkerResult.impactAnalysis,
     issues,
     mainBranchStatus,
     remoteAutomationPr: draftPr,
@@ -399,7 +456,7 @@ const executeLiveOneChildWithLock = async (
     branchName: branchSeedPlan.prdBranchName,
     childCommitHash: commit.hash,
     draftPr,
-    impactAnalysis,
+    impactAnalysis: verifiedWorkerResult.impactAnalysis,
     parentPrd: selectedPrd,
     parentPrdBody,
     selectedChild,
@@ -407,14 +464,19 @@ const executeLiveOneChildWithLock = async (
     verificationCommands,
     workerBranchName,
     initialResult: codeRabbitResult,
+    curatedCommitMessage: commitReadyPlan.commitMessage,
   })
   const finalPlan = planOneChildTransaction({
     childCommitHash: cleanReview.commitHash,
     codeRabbitStatus: cleanReview.result.status,
     completedChildIssueNumbers,
-    dependencyChangeJustification: undefined,
+    dependencyChangeJustification: createDependencyChangeJustification({
+      changedFiles: verifiedWorkerResult.workerResult.changedFiles,
+      childTask: selectedChild,
+      impactAnalysis: verifiedWorkerResult.impactAnalysis,
+    }),
     existingLedger: createPendingLedger(selectedPrd.childTasks),
-    impactAnalysis,
+    impactAnalysis: verifiedWorkerResult.impactAnalysis,
     issues,
     mainBranchStatus,
     remoteAutomationPr: draftPr,
@@ -435,6 +497,12 @@ const executeLiveOneChildWithLock = async (
           draftPr,
           selectedPrd,
           verificationEvidence,
+          verificationEvidenceByChild: createVerificationEvidenceByChild({
+            childTasks: selectedPrd.childTasks,
+            completedChildren,
+            currentChildIssueNumber: selectedChild.issueNumber,
+            currentVerificationEvidence: verificationEvidence,
+          }),
         })
       : {
           blockers: [],
@@ -498,13 +566,23 @@ export const executeStatus = async (
 ): Promise<LiveCommandResult> => {
   const status = await adapters.state.readRunStatus()
   const currentPr = await adapters.github.getCurrentPr()
+  const artifactStatus = await adapters.state.readArtifactStatus?.()
   const prLine =
     currentPr === undefined ? '' : `Current PR: #${String(currentPr.prNumber)} ${currentPr.url}\n`
+  const artifactLines =
+    artifactStatus === undefined
+      ? ''
+      : [
+          `Lock: ${artifactStatus.lockStatus}`,
+          `Sandcastle: ${artifactStatus.sandcastleStatus}`,
+          `Cleanup: ${artifactStatus.cleanupStatus}`,
+          '',
+        ].join('\n')
 
   return {
     exitCode: status.blockers.length === 0 ? 0 : 1,
     stderr: '',
-    stdout: `${formatRunStatus(status)}\n${prLine}`,
+    stdout: `${formatRunStatus(status)}\n${artifactLines}${prLine}`,
   }
 }
 
@@ -545,6 +623,18 @@ const createPendingLedger = (
     issueNumber: childTask.issueNumber,
     status: 'pending',
     verificationStatus: 'not run',
+  }))
+
+const createBlockedLedger = (
+  childTasks: readonly ParsedChildTask[],
+  blockedChildIssueNumber: number,
+): readonly ChildTaskProgress[] =>
+  childTasks.map((childTask) => ({
+    codeRabbitStatus: 'not run',
+    issueNumber: childTask.issueNumber,
+    status: childTask.issueNumber === blockedChildIssueNumber ? 'blocked' : 'pending',
+    verificationStatus:
+      childTask.issueNumber === blockedChildIssueNumber ? 'blocked before commit' : 'not run',
   }))
 
 const createWorkerBranchName = (
@@ -634,13 +724,31 @@ const repairVerificationUntilClean = async (input: {
   readonly workerBranchName: string
   readonly workerResult: RunImplementationResult
 }): Promise<{
+  readonly impactAnalysis: SandcastleImpactAnalysisResult
   readonly verificationEvidence: readonly string[]
   readonly workerResult: RunImplementationResult
 }> => {
   let workerResult = input.workerResult
+  let impactAnalysis = input.impactAnalysis
   const seenErrors = new Set<string>()
 
   for (;;) {
+    const writeSurface = await resolveWriteSurfaceBeforeApply({
+      adapters: input.adapters,
+      impactAnalysis,
+      parentPrd: input.parentPrd,
+      parentPrdBody: input.parentPrdBody,
+      selectedChild: input.selectedChild,
+      siblingSummaries: input.siblingSummaries,
+      workerChangedFiles: workerResult.changedFiles,
+    })
+
+    if (writeSurface.blockers.length > 0) {
+      throw new Error(writeSurface.blockers.join('\n'))
+    }
+
+    impactAnalysis = writeSurface.impactAnalysis
+
     await input.adapters.git.applyWorkerDiff({
       prdBranchName: input.prdBranchName,
       workerBranchName: workerResult.workerBranchName,
@@ -648,8 +756,9 @@ const repairVerificationUntilClean = async (input: {
 
     try {
       return {
+        impactAnalysis,
         verificationEvidence: await input.adapters.verification.runCommands(
-          input.verificationCommands,
+          selectVerificationCommands(impactAnalysis),
         ),
         workerResult,
       }
@@ -664,7 +773,7 @@ const repairVerificationUntilClean = async (input: {
       workerResult = await input.adapters.sandcastle.repairVerificationFailure({
         childTask: input.selectedChild,
         errorMessage,
-        impactAnalysis: input.impactAnalysis,
+        impactAnalysis,
         parentPrd: input.parentPrd,
         parentPrdBody: input.parentPrdBody,
         prdBranchName: input.prdBranchName,
@@ -688,6 +797,7 @@ const repairCodeRabbitFindingsUntilClean = async (input: {
   readonly siblingSummaries: readonly SiblingTaskSummary[]
   readonly verificationCommands: readonly string[]
   readonly workerBranchName: string
+  readonly curatedCommitMessage: string
 }): Promise<{
   readonly commitHash: string
   readonly result: ReviewChildResult
@@ -718,16 +828,40 @@ const repairCodeRabbitFindingsUntilClean = async (input: {
       siblingSummaries: input.siblingSummaries,
       workerBranchName: input.workerBranchName,
     })
+    const writeSurface = await resolveWriteSurfaceBeforeApply({
+      adapters: input.adapters,
+      impactAnalysis: input.impactAnalysis,
+      parentPrd: input.parentPrd,
+      parentPrdBody: input.parentPrdBody,
+      selectedChild: input.selectedChild,
+      siblingSummaries: input.siblingSummaries,
+      workerChangedFiles: workerResult.changedFiles,
+    })
+
+    if (writeSurface.blockers.length > 0) {
+      return {
+        commitHash,
+        result: {
+          findings: writeSurface.blockers.map((blocker, index) => ({
+            body: blocker,
+            id: `write-surface-${String(index + 1)}`,
+            source: 'cli',
+            title: 'Unexpected write surface',
+          })),
+          status: 'findings',
+        },
+      }
+    }
 
     await input.adapters.git.applyWorkerDiff({
       prdBranchName: input.branchName,
       workerBranchName: workerResult.workerBranchName,
     })
-    await input.adapters.verification.runCommands(input.verificationCommands)
-
-    const commit = await input.adapters.git.amendChildCommit(
-      `fix: address CodeRabbit review for #${String(input.selectedChild.issueNumber)}`,
+    await input.adapters.verification.runCommands(
+      selectVerificationCommands(writeSurface.impactAnalysis),
     )
+
+    const commit = await input.adapters.git.amendChildCommit(input.curatedCommitMessage)
 
     commitHash = commit.hash
 
@@ -757,6 +891,7 @@ const finalizePrdIfReady = async (input: {
   readonly draftPr: RemoteAutomationPr
   readonly selectedPrd: SelectedPrdPlan
   readonly verificationEvidence: readonly string[]
+  readonly verificationEvidenceByChild: readonly string[]
 }): Promise<{
   readonly blockers: readonly string[]
   readonly ciStatus: CiStatus
@@ -772,7 +907,11 @@ const finalizePrdIfReady = async (input: {
     prdTitle: input.selectedPrd.title,
   })
   const finalAudit = generateFinalPrdAcceptanceAudit({
-    architectureChecks: ['Implementation stayed within issue #80 PRD scope and ARCHITECTURE.md.'],
+    architectureChecks: [
+      `Implementation stayed within PRD #${String(
+        input.selectedPrd.issueNumber,
+      )} scope and ARCHITECTURE.md.`,
+    ],
     childTasks: input.selectedPrd.childTasks.map((childTask) => ({
       acceptanceCriteria: childTask.acceptanceCriteria,
       issueNumber: childTask.issueNumber,
@@ -784,7 +923,7 @@ const finalizePrdIfReady = async (input: {
     mergeInstructions,
     parentPrdIssueNumber: input.selectedPrd.issueNumber,
     parentUserStories: createParentUserStoryAudit(input.selectedPrd.childTasks),
-    verificationEvidence: input.verificationEvidence,
+    verificationEvidence: input.verificationEvidenceByChild,
   })
 
   await input.adapters.github.postPrComment(input.draftPr.prNumber, finalAudit)
@@ -815,6 +954,118 @@ const finalizePrdIfReady = async (input: {
   }
 }
 
+const resolveWriteSurfaceBeforeApply = async (input: {
+  readonly adapters: PrdOrchestratorLiveAdapters
+  readonly impactAnalysis: SandcastleImpactAnalysisResult
+  readonly parentPrd: SelectedPrdPlan
+  readonly parentPrdBody: string
+  readonly selectedChild: ParsedChildTask
+  readonly siblingSummaries: readonly SiblingTaskSummary[]
+  readonly workerChangedFiles: readonly string[]
+}): Promise<{
+  readonly blockers: readonly string[]
+  readonly impactAnalysis: SandcastleImpactAnalysisResult
+}> => {
+  let impactAnalysis = input.impactAnalysis
+  const seenFingerprints = new Set<string>()
+
+  for (;;) {
+    const decision = enforceWriteSurface({
+      changedFiles: input.workerChangedFiles,
+      dependencyChangeJustification: createDependencyChangeJustification({
+        changedFiles: input.workerChangedFiles,
+        childTask: input.selectedChild,
+        impactAnalysis,
+      }),
+      impactAnalysis,
+    })
+
+    if (decision.action === 'accept') {
+      return {
+        blockers: [],
+        impactAnalysis,
+      }
+    }
+
+    const fingerprint = `${decision.unexpectedFiles.join('|')}::${JSON.stringify(impactAnalysis)}`
+
+    if (seenFingerprints.has(fingerprint)) {
+      return {
+        blockers: [
+          `worker diff touched files outside impact-analysis write surface after re-analysis: ${decision.unexpectedFiles.join(
+            ', ',
+          )}`,
+        ],
+        impactAnalysis,
+      }
+    }
+
+    seenFingerprints.add(fingerprint)
+    impactAnalysis = await input.adapters.sandcastle.runImpactAnalysis({
+      childTask: input.selectedChild,
+      parentPrd: input.parentPrd,
+      parentPrdBody: input.parentPrdBody,
+      siblingSummaries: input.siblingSummaries,
+    })
+  }
+}
+
+const createDependencyChangeJustification = (input: {
+  readonly changedFiles: readonly string[]
+  readonly childTask: ParsedChildTask
+  readonly impactAnalysis: SandcastleImpactAnalysisResult
+}): string | undefined => {
+  const dependencyFiles = input.changedFiles.filter((filePath) => isDependencyChangeFile(filePath))
+
+  if (dependencyFiles.length === 0) {
+    return undefined
+  }
+
+  const expectedFiles = new Set([
+    ...input.impactAnalysis.designFiles,
+    ...input.impactAnalysis.expectedFiles,
+    ...input.impactAnalysis.tests,
+  ])
+
+  if (dependencyFiles.every((filePath) => expectedFiles.has(filePath))) {
+    return `Impact analysis for child #${String(
+      input.childTask.issueNumber,
+    )} explicitly includes dependency changes: ${dependencyFiles.join(', ')}.`
+  }
+
+  const taskText = [
+    input.childTask.title,
+    input.childTask.whatToBuild,
+    ...input.childTask.acceptanceCriteria,
+  ]
+    .join('\n')
+    .toLowerCase()
+
+  if (/\b(dependency|dependencies|package|pnpm|install|library|sdk)\b/.test(taskText)) {
+    return `Child #${String(
+      input.childTask.issueNumber,
+    )} requires dependency changes to satisfy its task scope.`
+  }
+
+  return undefined
+}
+
+const createVerificationEvidenceByChild = (input: {
+  readonly childTasks: readonly ParsedChildTask[]
+  readonly completedChildren: readonly number[]
+  readonly currentChildIssueNumber: number
+  readonly currentVerificationEvidence: readonly string[]
+}): readonly string[] =>
+  input.childTasks
+    .filter((childTask) => input.completedChildren.includes(childTask.issueNumber))
+    .flatMap((childTask) =>
+      childTask.issueNumber === input.currentChildIssueNumber
+        ? input.currentVerificationEvidence.map(
+            (evidence) => `#${String(childTask.issueNumber)}: ${evidence}`,
+          )
+        : [`#${String(childTask.issueNumber)}: verification evidence recorded in child commit`],
+    )
+
 const createParentUserStoryAudit = (
   childTasks: readonly ParsedChildTask[],
 ): readonly ParentUserStoryAudit[] => {
@@ -839,5 +1090,8 @@ const slugify = (value: string): string =>
 
 const isCleanUpToDateMain = (status: MainBranchStatus): boolean =>
   status.clean && status.currentBranch === 'main' && status.upToDate
+
+const isDependencyChangeFile = (filePath: string): boolean =>
+  filePath === 'package.json' || filePath === 'pnpm-lock.yaml' || filePath.endsWith('/package.json')
 
 export { evaluateCleanupPlan as createCleanupPlanFromArtifacts } from './run-guardrails.js'

@@ -13,6 +13,7 @@ const healthyPreflightInputs = {
   ciPollingAvailable: true,
   cleanWorkingTree: true,
   codeRabbitAvailable: true,
+  codexAvailable: true,
   dockerAvailable: true,
   githubReadWriteAvailable: true,
   gitPushAvailable: true,
@@ -53,6 +54,10 @@ describe('run guardrails', () => {
         },
         {
           name: 'CodeRabbit availability',
+          passed: true,
+        },
+        {
+          name: 'Codex availability',
           passed: true,
         },
         {
