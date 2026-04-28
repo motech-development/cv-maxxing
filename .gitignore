@@ -8,5 +8,13 @@ coverage
 **/release
 **/playwright-report
 **/test-results
+**/*.tsbuildinfo
 *.log
 .playwright-mcp/
+.sandcastle/.env
+.sandcastle/.env.*
+.sandcastle/artifacts/
+.sandcastle/logs/
+.sandcastle/runs/
+.sandcastle/tmp/
+.sandcastle/worktrees/

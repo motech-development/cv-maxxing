@@ -3,6 +3,9 @@
   "references": [
     {
       "path": "./apps/desktop"
+    },
+    {
+      "path": "./tools/prd-orchestrator"
     }
   ]
 }
