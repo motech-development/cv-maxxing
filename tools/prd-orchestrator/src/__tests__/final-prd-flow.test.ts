@@ -81,7 +81,21 @@ describe('final PRD repair and audit flow', () => {
         prNumber: 12,
       }),
     ).toEqual({
-      command: 'gh run list --branch agent/prd-branch --json status,conclusion',
+      command: undefined,
+      reason: 'GitHub Actions polling requires the pushed PRD branch name.',
+      shouldPoll: false,
+    })
+
+    expect(
+      planGitHubActionsPolling({
+        allChildrenComplete: true,
+        branchName: 'agent/prd-80-automate-prd-implementation',
+        prdBranchPushed: true,
+        prNumber: 12,
+      }),
+    ).toEqual({
+      command:
+        'gh run list --branch agent/prd-80-automate-prd-implementation --json status,conclusion',
       reason: 'Full PRD implementation is pushed; poll CI before final audit.',
       shouldPoll: true,
     })

@@ -74,6 +74,36 @@ Generate the PR state.
   },
 ] as const
 
+const independentMultiChildIssueObjects = [
+  issueObjects[0],
+  issueObjects[1],
+  {
+    body: `## Parent PRD
+
+#80
+
+## What to build
+
+Generate the PR state.
+
+## Acceptance criteria
+
+- [ ] Draft PR state is generated.
+
+## Blocked by
+
+None - can start immediately.
+
+## User stories addressed
+
+- User story 1
+`,
+    number: 84,
+    state: 'OPEN',
+    title: 'Generate PRD draft PR state, ledger, and merge instructions',
+  },
+] as const
+
 const parentPrdWithTwoStories = {
   body: `## User Stories
 
@@ -241,6 +271,21 @@ describe('PRD orchestrator CLI', () => {
     })
   })
 
+  it('reports malformed issue JSON with a controlled parser error', () => {
+    expect(() =>
+      runPrdOrchestratorCli({
+        arguments_: ['plan'],
+        stdin: '{',
+      }),
+    ).toThrow(TypeError)
+    expect(() =>
+      runPrdOrchestratorCli({
+        arguments_: ['plan'],
+        stdin: '{',
+      }),
+    ).toThrow('Invalid JSON input:')
+  })
+
   it('runs every child task in dependency order for the full live run command', async () => {
     const adapters = createLiveAdapters({
       issues: multiChildIssueObjects,
@@ -258,6 +303,104 @@ describe('PRD orchestrator CLI', () => {
     expect(adapters.events.filter((event) => event === 'coderabbit:review')).toHaveLength(2)
     expect(adapters.events).toContain('github:mark-ready-for-review')
     expect(adapters.events).toContain('lock:release')
+  })
+
+  it('schedules all currently executable children as one parallel-safe live batch', async () => {
+    const adapters = createLiveAdapters({
+      issues: independentMultiChildIssueObjects,
+    })
+    const result = await runPrdOrchestratorCliAsync({
+      adapters,
+      arguments_: ['run'],
+      stdin: '',
+    })
+    const firstImplementationIndex = adapters.events.indexOf('sandcastle:implementation')
+    const firstApplyIndex = adapters.events.indexOf('git:apply-worker-diff')
+
+    expect(result.exitCode).toBe(0)
+    expect(adapters.completedChildIssueNumbers).toEqual([82, 84])
+    expect(adapters.events.filter((event) => event === 'sandcastle:impact-analysis')).toHaveLength(
+      2,
+    )
+    expect(adapters.events.filter((event) => event === 'sandcastle:implementation')).toHaveLength(2)
+    expect(adapters.events.lastIndexOf('sandcastle:impact-analysis')).toBeLessThan(
+      firstImplementationIndex,
+    )
+    expect(adapters.events.lastIndexOf('sandcastle:implementation')).toBeLessThan(firstApplyIndex)
+    expect(new Set(adapters.workerBranchNames).size).toBe(2)
+    expect(adapters.recordedStatuses.some((status) => status.phase.includes('2 executable'))).toBe(
+      true,
+    )
+  })
+
+  it('serializes live full-run batches when impact surfaces overlap', async () => {
+    const adapters = createLiveAdapters({
+      impactAnalyses: [
+        {
+          designFiles: [],
+          expectedFiles: ['tools/prd-orchestrator/src/shared.ts'],
+          expectedModules: ['@cv-maxxing/prd-orchestrator'],
+          riskLevel: 'medium',
+          sharedContracts: [],
+          tests: ['tools/prd-orchestrator/src/__tests__/cli.test.ts'],
+        },
+        {
+          designFiles: [],
+          expectedFiles: ['tools/prd-orchestrator/src/shared.ts'],
+          expectedModules: ['@cv-maxxing/prd-orchestrator'],
+          riskLevel: 'medium',
+          sharedContracts: [],
+          tests: ['tools/prd-orchestrator/src/__tests__/cli.test.ts'],
+        },
+      ],
+      issues: independentMultiChildIssueObjects,
+      workerChangedFilesByChildIssueNumber: new Map([
+        [82, ['tools/prd-orchestrator/src/shared.ts']],
+        [84, ['tools/prd-orchestrator/src/shared.ts']],
+      ]),
+    })
+
+    await expect(
+      runPrdOrchestratorCliAsync({
+        adapters,
+        arguments_: ['run'],
+        stdin: '',
+      }),
+    ).resolves.toMatchObject({
+      exitCode: 0,
+    })
+
+    expect(adapters.events.indexOf('git:commit-child')).toBeLessThan(
+      adapters.events.lastIndexOf('sandcastle:implementation'),
+    )
+  })
+
+  it('records a blocked full-run child while continuing independent executable children', async () => {
+    const adapters = createLiveAdapters({
+      blockedImplementationChildIssueNumbers: new Set([82]),
+      issues: independentMultiChildIssueObjects,
+    })
+    const result = await runPrdOrchestratorCliAsync({
+      adapters,
+      arguments_: ['run'],
+      stdin: '',
+    })
+    const latestPrBody = adapters.updatedPrBodies.at(-1) ?? ''
+
+    expect(result.exitCode).toBe(1)
+    expect(result.stderr).toBe('Full run blocked after continuing independent child work.\n')
+    expect(adapters.completedChildIssueNumbers).toEqual([84])
+    expect(latestPrBody).toContain(
+      '| #82 | Build PRD and child-task planning from GitHub Markdown | blocked |',
+    )
+    expect(latestPrBody).toContain(
+      '| #84 | Generate PRD draft PR state, ledger, and merge instructions | complete |',
+    )
+    expect(adapters.recordedStatuses.at(-1)).toMatchObject({
+      blockers: ['Child #82 is blocked.'],
+      completedChildren: [84],
+      phase: 'blocked',
+    })
   })
 
   it('fetches live issues for plan when stdin is empty', async () => {
@@ -362,7 +505,6 @@ describe('PRD orchestrator CLI', () => {
       'lock:acquire',
       'github:list-open-issues',
       'state:record-run-status',
-      'state:read-run-status',
       'lock:release',
     ])
     expect(adapters.recordedStatuses.at(-1)).toMatchObject({
@@ -680,12 +822,16 @@ const createLiveAdapters = (
   readonly completedChildIssueNumbers: number[]
   readonly postedComments: string[]
   readonly recordedStatuses: RunStatus[]
+  readonly updatedPrBodies: string[]
+  readonly workerBranchNames: string[]
 } => {
   const events: string[] = []
   const amendedCommitMessages: string[] = []
   const recordedStatuses: RunStatus[] = []
   const postedComments: string[] = []
   const completedChildIssueNumbers: number[] = []
+  const updatedPrBodies: string[] = []
+  const workerBranchNames: string[] = []
   let codeRabbitReviewCount = 0
   let impactAnalysisCount = 0
   let lastRecordedStatus:
@@ -728,6 +874,8 @@ const createLiveAdapters = (
       },
     },
     events,
+    updatedPrBodies,
+    workerBranchNames,
     recordedStatuses,
     git: {
       applyWorkerDiff: () => {
@@ -770,12 +918,14 @@ const createLiveAdapters = (
       getChildCommitReferences: () => {
         events.push('git:get-child-commit-references')
 
-        return Promise.resolve([
-          {
-            childIssueNumber: 82,
-            commitHash: 'abc123456789',
-          },
-        ])
+        return Promise.resolve(
+          (completedChildIssueNumbers.length === 0 ? [82] : completedChildIssueNumbers).map(
+            (childIssueNumber) => ({
+              childIssueNumber,
+              commitHash: `abc${String(childIssueNumber)}3456789`,
+            }),
+          ),
+        )
       },
       getMainBranchStatus: () => {
         events.push('git:get-main-branch-status')
@@ -867,8 +1017,9 @@ const createLiveAdapters = (
 
         return Promise.resolve()
       },
-      updatePrBody: () => {
+      updatePrBody: (_prNumber, body) => {
         events.push('github:update-pr-body')
+        updatedPrBodies.push(body)
 
         return Promise.resolve()
       },
@@ -915,28 +1066,35 @@ const createLiveAdapters = (
         }
 
         const expectedFile =
-          activeChildIssueNumber === 83
+          activeChildIssueNumber === 83 || activeChildIssueNumber === 84
             ? 'tools/prd-orchestrator/src/draft-pr-state.ts'
             : 'tools/prd-orchestrator/src/cli.ts'
 
         return Promise.resolve({
           designFiles: [],
           expectedFiles: [expectedFile],
-          expectedModules: ['@cv-maxxing/prd-orchestrator'],
+          expectedModules:
+            activeChildIssueNumber === 83 || activeChildIssueNumber === 84
+              ? ['@cv-maxxing/prd-orchestrator/draft-pr-state']
+              : ['@cv-maxxing/prd-orchestrator'],
           riskLevel: 'low',
           sharedContracts: [],
-          tests: ['tools/prd-orchestrator/src/__tests__/cli.test.ts'],
+          tests:
+            activeChildIssueNumber === 83 || activeChildIssueNumber === 84
+              ? ['tools/prd-orchestrator/src/__tests__/draft-pr-state.test.ts']
+              : ['tools/prd-orchestrator/src/__tests__/cli.test.ts'],
         })
       },
       runImplementation: (input) => {
         events.push('sandcastle:implementation')
+        workerBranchNames.push(input.workerBranchName)
         const childIssueNumber = input.childTask.issueNumber
         const changedFiles =
           options.blockedImplementationChildIssueNumbers?.has(childIssueNumber) === true
             ? ['unexpected/out-of-scope.ts']
             : (options.workerChangedFilesByChildIssueNumber?.get(childIssueNumber) ??
               options.workerChangedFiles ?? [
-                childIssueNumber === 83
+                childIssueNumber === 83 || childIssueNumber === 84
                   ? 'tools/prd-orchestrator/src/draft-pr-state.ts'
                   : 'tools/prd-orchestrator/src/cli.ts',
               ])

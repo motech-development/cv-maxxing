@@ -440,6 +440,7 @@ const slugify = (value: string): string =>
     .trim()
     .toLowerCase()
     .replaceAll(/[^a-z0-9]+/g, '-')
+    .slice(0, 80)
     .replaceAll(/^-+|-+$/g, '')
 
 const isDependencyChangeFile = (filePath: string): boolean => {
