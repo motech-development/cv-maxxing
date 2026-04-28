@@ -18,10 +18,14 @@ import {
   type AutomationPrDetails,
   type ChildCommitResult,
   type CreateDraftPrInput,
+  type LivePreflightResult,
+  type LiveRunLockResult,
   type PreparePrdBranchInput,
+  type PrdOrchestratorLiveConfiguration,
   type PrdOrchestratorLiveAdapters,
   type PushPrdBranchInput,
   type PollChecksInput,
+  type RepairVerificationFailureInput,
   type ReviewChildInput,
   type ReviewChildResult,
   type RunImpactAnalysisInput,
@@ -37,7 +41,7 @@ import type {
 import type { GitHubIssue, ParsedChildTask } from './planning.js'
 import type { CodeRabbitFinding } from './coderabbit-review.js'
 
-interface ShellCommandInput {
+export interface DefaultLiveAdapterShellCommandInput {
   readonly args: readonly string[]
   readonly command: string
   readonly cwd?: string
@@ -45,35 +49,51 @@ interface ShellCommandInput {
   readonly timeoutMs?: number
 }
 
-interface ShellCommandResult {
+export interface DefaultLiveAdapterShellCommandResult {
   readonly stderr: string
   readonly stdout: string
 }
+
+export type DefaultLiveAdapterShellRunner = (
+  input: DefaultLiveAdapterShellCommandInput,
+) => Promise<DefaultLiveAdapterShellCommandResult>
 
 const defaultTimeoutMs = 10 * 60 * 1000
 const runStateRoot = '.git/prd-orchestrator/runs'
 const latestRunId = 'latest'
 const statusFileName = 'status.json'
+const lockFileName = 'lock.json'
 
 export const createDefaultPrdOrchestratorLiveAdapters = (
   cwd = process.cwd(),
+  configuration?: PrdOrchestratorLiveConfiguration,
+  shellRunner?: DefaultLiveAdapterShellRunner,
 ): PrdOrchestratorLiveAdapters => {
-  const shell = createShellRunner(cwd)
+  const shell = shellRunner ?? createShellRunner(cwd)
+  const resolvedConfiguration = configuration ?? createEnvironmentConfiguration()
 
   return {
     ci: createCiAdapter(shell),
     codeRabbit: createCodeRabbitAdapter(shell),
+    configuration: resolvedConfiguration,
     git: createGitAdapter(shell),
     github: createGitHubAdapter(shell),
-    sandcastle: createSandcastleAdapter(cwd, shell),
-    state: createRunStateAdapter(cwd),
+    sandcastle: createSandcastleAdapter(cwd, shell, resolvedConfiguration),
+    state: createRunStateAdapter(cwd, shell),
     verification: createVerificationAdapter(shell),
   }
 }
 
+const createEnvironmentConfiguration = (): PrdOrchestratorLiveConfiguration => ({
+  codexEffort: process.env.CV_MAXXING_PRD_ORCHESTRATOR_CODEX_EFFORT,
+  codexModel: process.env.CV_MAXXING_PRD_ORCHESTRATOR_CODEX_MODEL,
+})
+
 const createShellRunner =
   (defaultCwd: string) =>
-  async (input: ShellCommandInput): Promise<ShellCommandResult> => {
+  async (
+    input: DefaultLiveAdapterShellCommandInput,
+  ): Promise<DefaultLiveAdapterShellCommandResult> => {
     return await new Promise((resolve, reject) => {
       const child = spawn(input.command, input.args, {
         cwd: input.cwd ?? defaultCwd,
@@ -131,7 +151,7 @@ const createShellRunner =
   }
 
 const createGitHubAdapter = (
-  shell: (input: ShellCommandInput) => Promise<ShellCommandResult>,
+  shell: DefaultLiveAdapterShellRunner,
 ): PrdOrchestratorLiveAdapters['github'] => ({
   createDraftPr: async (input: CreateDraftPrInput): Promise<RemoteAutomationPr> => {
     const bodyFilePath = await writeTemporaryFile('prd-pr-body-', input.body)
@@ -210,6 +230,25 @@ const createGitHubAdapter = (
       url: parseStringField(pullRequest, 'url'),
     }
   },
+  getCurrentPr: async (): Promise<AutomationPrDetails | undefined> => {
+    try {
+      const result = await shell({
+        args: ['pr', 'view', '--json', 'number,url,headRefName,body,isDraft'],
+        command: 'gh',
+      })
+      const pullRequest = parseJsonRecord(result.stdout)
+
+      return {
+        body: parseStringField(pullRequest, 'body'),
+        branchName: parseStringField(pullRequest, 'headRefName'),
+        isDraft: parseBooleanField(pullRequest, 'isDraft'),
+        prNumber: parseNumberField(pullRequest, 'number'),
+        url: parseStringField(pullRequest, 'url'),
+      }
+    } catch {
+      return undefined
+    }
+  },
   listOpenIssues: async (): Promise<readonly GitHubIssue[]> => {
     const result = await shell({
       args: [
@@ -252,7 +291,7 @@ const createGitHubAdapter = (
 })
 
 const createGitAdapter = (
-  shell: (input: ShellCommandInput) => Promise<ShellCommandResult>,
+  shell: DefaultLiveAdapterShellRunner,
 ): PrdOrchestratorLiveAdapters['git'] => ({
   applyWorkerDiff: async (input: ApplyWorkerDiffInput): Promise<void> => {
     await shell({
@@ -263,6 +302,27 @@ const createGitAdapter = (
       args: ['merge', '--squash', '--no-commit', input.workerBranchName],
       command: 'git',
     })
+  },
+  amendChildCommit: async (message: string): Promise<ChildCommitResult> => {
+    const messageFilePath = await writeTemporaryFile('prd-child-amend-', message)
+
+    await shell({
+      args: ['add', '--all'],
+      command: 'git',
+    })
+    await shell({
+      args: ['commit', '--amend', '-F', messageFilePath],
+      command: 'git',
+    })
+
+    const result = await shell({
+      args: ['rev-parse', 'HEAD'],
+      command: 'git',
+    })
+
+    return {
+      hash: result.stdout.trim(),
+    }
   },
   commitChild: async (message: string): Promise<ChildCommitResult> => {
     const messageFilePath = await writeTemporaryFile('prd-child-commit-', message)
@@ -377,8 +437,87 @@ const createGitAdapter = (
 
 const createSandcastleAdapter = (
   cwd: string,
-  shell: (input: ShellCommandInput) => Promise<ShellCommandResult>,
+  shell: DefaultLiveAdapterShellRunner,
+  configuration: PrdOrchestratorLiveConfiguration,
 ): PrdOrchestratorLiveAdapters['sandcastle'] => ({
+  repairReviewFindings: async (
+    input: RunImplementationInput & {
+      readonly findings: readonly CodeRabbitFinding[]
+    },
+  ): Promise<RunImplementationResult> => {
+    const prompt = [
+      await buildImplementationPrompt(cwd, input),
+      '',
+      '## CodeRabbit Findings To Repair',
+      '',
+      ...input.findings.map((finding) => `- ${finding.id}: ${finding.title}\n${finding.body}`),
+    ].join('\n')
+    const result = await run({
+      agent: codex(configuration.codexModel ?? 'gpt-5.5', {
+        effort: parseCodexEffort(configuration.codexEffort),
+        env: {},
+      }),
+      branchStrategy: {
+        branch: input.workerBranchName,
+        type: 'branch',
+      },
+      cwd,
+      maxIterations: 1,
+      prompt,
+      sandbox: docker({
+        env: {},
+        mounts: [],
+      }),
+    })
+    const changedFiles = await shell({
+      args: ['diff', '--name-only', `${input.prdBranchName}..${result.branch}`],
+      command: 'git',
+    })
+
+    return {
+      changedFiles: parseChangedFiles(changedFiles.stdout),
+      stdout: result.stdout,
+      workerBranchName: result.branch,
+    }
+  },
+  repairVerificationFailure: async (
+    input: RepairVerificationFailureInput,
+  ): Promise<RunImplementationResult> => {
+    const prompt = [
+      await buildImplementationPrompt(cwd, input),
+      '',
+      '## Verification Failure To Repair',
+      '',
+      input.errorMessage,
+    ].join('\n')
+    const result = await run({
+      agent: codex(configuration.codexModel ?? 'gpt-5.5', {
+        effort: parseCodexEffort(configuration.codexEffort),
+        env: {},
+      }),
+      branchStrategy: {
+        branch: input.workerBranchName,
+        type: 'branch',
+      },
+      cwd,
+      maxIterations: 1,
+      prompt,
+      sandbox: docker({
+        env: {},
+        mounts: [],
+      }),
+    })
+    const changedFiles = await shell({
+      args: ['diff', '--name-only', `${input.prdBranchName}..${result.branch}`],
+      command: 'git',
+    })
+
+    return {
+      changedFiles: parseChangedFiles(changedFiles.stdout),
+      stdout: result.stdout,
+      workerBranchName: result.branch,
+    }
+  },
   runImpactAnalysis: async (
     input: RunImpactAnalysisInput,
   ): Promise<SandcastleImpactAnalysisResult> => {
@@ -407,8 +546,8 @@ const createSandcastleAdapter = (
   runImplementation: async (input: RunImplementationInput): Promise<RunImplementationResult> => {
     const prompt = await buildImplementationPrompt(cwd, input)
     const result = await run({
-      agent: codex(process.env.CV_MAXXING_PRD_ORCHESTRATOR_CODEX_MODEL ?? 'gpt-5.5', {
-        effort: parseCodexEffort(process.env.CV_MAXXING_PRD_ORCHESTRATOR_CODEX_EFFORT),
+      agent: codex(configuration.codexModel ?? 'gpt-5.5', {
+        effort: parseCodexEffort(configuration.codexEffort),
         env: {},
       }),
       branchStrategy: {
@@ -429,10 +568,7 @@ const createSandcastleAdapter = (
     })
 
     return {
-      changedFiles: changedFiles.stdout
-        .split('\n')
-        .map((line) => line.trim())
-        .filter((line) => line.length > 0),
+      changedFiles: parseChangedFiles(changedFiles.stdout),
       stdout: result.stdout,
       workerBranchName: result.branch,
     }
@@ -440,7 +576,7 @@ const createSandcastleAdapter = (
 })
 
 const createVerificationAdapter = (
-  shell: (input: ShellCommandInput) => Promise<ShellCommandResult>,
+  shell: DefaultLiveAdapterShellRunner,
 ): PrdOrchestratorLiveAdapters['verification'] => ({
   runCommands: async (commands: readonly string[]): Promise<readonly string[]> => {
     const evidence: string[] = []
@@ -459,7 +595,7 @@ const createVerificationAdapter = (
 })
 
 const createCodeRabbitAdapter = (
-  shell: (input: ShellCommandInput) => Promise<ShellCommandResult>,
+  shell: DefaultLiveAdapterShellRunner,
 ): PrdOrchestratorLiveAdapters['codeRabbit'] => ({
   reviewChild: async (input: ReviewChildInput): Promise<ReviewChildResult> => {
     if (input.prNumber <= 0) {
@@ -485,7 +621,7 @@ const createCodeRabbitAdapter = (
 })
 
 const createCiAdapter = (
-  shell: (input: ShellCommandInput) => Promise<ShellCommandResult>,
+  shell: DefaultLiveAdapterShellRunner,
 ): PrdOrchestratorLiveAdapters['ci'] => ({
   pollChecks: async (input: PollChecksInput): Promise<CiStatus> => {
     const result = await shell({
@@ -509,10 +645,50 @@ const createCiAdapter = (
   },
 })
 
-const createRunStateAdapter = (cwd: string): PrdOrchestratorLiveAdapters['state'] => ({
+const createRunStateAdapter = (
+  cwd: string,
+  shell: DefaultLiveAdapterShellRunner,
+): PrdOrchestratorLiveAdapters['state'] => ({
+  acquireRunLock: async (): Promise<LiveRunLockResult> => {
+    const runDirectory = path.join(cwd, runStateRoot, latestRunId)
+
+    await mkdir(runDirectory, {
+      recursive: true,
+    })
+
+    try {
+      await writeFile(
+        path.join(runDirectory, lockFileName),
+        JSON.stringify(
+          {
+            heartbeatIso: new Date().toISOString(),
+            pid: process.pid,
+          },
+          null,
+          2,
+        ),
+        {
+          encoding: 'utf8',
+          flag: 'wx',
+        },
+      )
+
+      return {
+        blockers: [],
+        lockId: latestRunId,
+        ready: true,
+      }
+    } catch {
+      return {
+        blockers: ['Another PRD orchestrator run is already active.'],
+        lockId: undefined,
+        ready: false,
+      }
+    }
+  },
   cleanup: async (): Promise<CleanupPlan> => {
     const nowEpochMs = Date.now()
-    const artifacts = await discoverCleanupArtifacts(cwd)
+    const artifacts = await discoverCleanupArtifacts(cwd, shell)
     const plan = createCleanupPlanFromArtifacts({
       activeRunIds: [latestRunId],
       artifacts,
@@ -521,12 +697,7 @@ const createRunStateAdapter = (cwd: string): PrdOrchestratorLiveAdapters['state'
     })
 
     await Promise.all(
-      plan.remove.map((artifactPath) =>
-        rm(path.join(cwd, artifactPath), {
-          force: true,
-          recursive: true,
-        }),
-      ),
+      plan.remove.map((artifactPath) => removeCleanupArtifact(cwd, shell, artifactPath)),
     )
 
     return plan
@@ -556,6 +727,33 @@ const createRunStateAdapter = (cwd: string): PrdOrchestratorLiveAdapters['state'
       }
     }
   },
+  recoverRunStatusFromPr: async (pr: AutomationPrDetails): Promise<void> => {
+    await mkdir(path.join(cwd, runStateRoot, latestRunId), {
+      recursive: true,
+    })
+    await writeFile(
+      path.join(cwd, runStateRoot, latestRunId, statusFileName),
+      JSON.stringify(
+        {
+          activePrdIssueNumber: undefined,
+          blockers: [],
+          branchName: pr.branchName,
+          ciStatus: undefined,
+          codeRabbitStatus: undefined,
+          completedChildren: [],
+          currentChildIssueNumber: undefined,
+          heartbeatIso: new Date().toISOString(),
+          lastCommand: 'resume-pr',
+          phase: 'resuming',
+          prNumber: pr.prNumber,
+          prUrl: pr.url,
+        } satisfies RunStatus,
+        null,
+        2,
+      ),
+      'utf8',
+    )
+  },
   recordRunStatus: async (statusValue: RunStatus): Promise<void> => {
     const runDirectory = path.join(cwd, runStateRoot, latestRunId)
 
@@ -568,10 +766,45 @@ const createRunStateAdapter = (cwd: string): PrdOrchestratorLiveAdapters['state'
       'utf8',
     )
   },
+  releaseRunLock: async (): Promise<void> => {
+    await rm(path.join(cwd, runStateRoot, latestRunId, lockFileName), {
+      force: true,
+    })
+  },
+  runPreflight: async (): Promise<LivePreflightResult> => {
+    const commandChecks = await Promise.all(
+      [
+        ['node', ['--version']],
+        ['pnpm', ['--version']],
+        ['gh', ['auth', 'status']],
+        ['git', ['--version']],
+        ['docker', ['ps']],
+        ['coderabbit', ['--version']],
+      ].map(async ([command, args]) => {
+        try {
+          await shell({
+            args: args as readonly string[],
+            command: command as string,
+            timeoutMs: 60 * 1000,
+          })
+
+          return ''
+        } catch {
+          return `${command as string} preflight failed`
+        }
+      }),
+    )
+    const blockers = commandChecks.filter((blocker) => blocker.length > 0)
+
+    return {
+      blockers,
+      ready: blockers.length === 0,
+    }
+  },
 })
 
 const viewPullRequestByHead = async (
-  shell: (input: ShellCommandInput) => Promise<ShellCommandResult>,
+  shell: DefaultLiveAdapterShellRunner,
   branchName: string,
 ): Promise<AutomationPrDetails> => {
   const result = await shell({
@@ -637,7 +870,10 @@ const buildImplementationPrompt = async (
     .replace('{{EXPECTED_WRITE_SURFACES}}', JSON.stringify(input.impactAnalysis, null, 2))
 }
 
-const discoverCleanupArtifacts = async (cwd: string): Promise<readonly CleanupArtifact[]> => {
+const discoverCleanupArtifacts = async (
+  cwd: string,
+  shell: DefaultLiveAdapterShellRunner,
+): Promise<readonly CleanupArtifact[]> => {
   const artifactRoots: readonly {
     readonly category: CleanupArtifact['category']
     readonly path: string
@@ -683,7 +919,96 @@ const discoverCleanupArtifacts = async (cwd: string): Promise<readonly CleanupAr
     }),
   )
 
-  return artifactGroups.flat()
+  return [
+    ...artifactGroups.flat(),
+    ...(await discoverLocalBranchArtifacts(cwd)),
+    ...(await discoverContainerArtifacts(shell)),
+  ]
+}
+
+const discoverLocalBranchArtifacts = async (cwd: string): Promise<readonly CleanupArtifact[]> => {
+  try {
+    const gitDirectory = path.join(cwd, '.git/refs/heads/agent')
+    const entries = await readdir(gitDirectory)
+
+    return await Promise.all(
+      entries.map(async (entry): Promise<CleanupArtifact> => {
+        const branchPath = `branch:agent/${entry}`
+        const branchStat = await stat(path.join(gitDirectory, entry))
+
+        return {
+          category: 'sandbox-branch',
+          lastModifiedEpochMs: branchStat.mtimeMs,
+          path: branchPath,
+        }
+      }),
+    )
+  } catch {
+    return []
+  }
+}
+
+const discoverContainerArtifacts = async (
+  shell: DefaultLiveAdapterShellRunner,
+): Promise<readonly CleanupArtifact[]> => {
+  try {
+    const result = await shell({
+      args: [
+        'ps',
+        '--all',
+        '--filter',
+        'name=prd-orchestrator',
+        '--format',
+        '{{.ID}}\t{{.CreatedAt}}',
+      ],
+      command: 'docker',
+    })
+
+    return result.stdout
+      .split('\n')
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0)
+      .map((line) => {
+        const [containerId] = line.split('\t')
+
+        return {
+          category: 'container',
+          lastModifiedEpochMs: 0,
+          path: `container:${containerId ?? ''}`,
+        } satisfies CleanupArtifact
+      })
+  } catch {
+    return []
+  }
+}
+
+const removeCleanupArtifact = async (
+  cwd: string,
+  shell: DefaultLiveAdapterShellRunner,
+  artifactPath: string,
+): Promise<void> => {
+  if (artifactPath.startsWith('branch:')) {
+    await shell({
+      args: ['branch', '-D', artifactPath.slice('branch:'.length)],
+      command: 'git',
+    })
+
+    return
+  }
+
+  if (artifactPath.startsWith('container:')) {
+    await shell({
+      args: ['rm', '-f', artifactPath.slice('container:'.length)],
+      command: 'docker',
+    })
+
+    return
+  }
+
+  await rm(path.join(cwd, artifactPath), {
+    force: true,
+    recursive: true,
+  })
 }
 
 const writeTemporaryFile = async (prefix: string, content: string): Promise<string> => {
@@ -920,6 +1245,12 @@ const parseClosedIssueNumbers = (content: string): readonly number[] => [
       .filter((issueNumber) => Number.isInteger(issueNumber)),
   ),
 ]
+
+const parseChangedFiles = (content: string): readonly string[] =>
+  content
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0)
 
 const parseCodexEffort = (value: string | undefined): 'high' | 'low' | 'medium' | 'xhigh' => {
   if (value === 'low' || value === 'medium' || value === 'high' || value === 'xhigh') {

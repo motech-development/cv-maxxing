@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { runPrdOrchestratorCli, runPrdOrchestratorCliAsync } from '../cli.js'
+import { createDefaultPrdOrchestratorLiveAdapters } from '../default-live-adapters.js'
 import type { PrdOrchestratorLiveAdapters } from '../live-orchestrator.js'
 import type { RemoteAutomationPr } from '../run-guardrails.js'
 
@@ -134,6 +135,8 @@ describe('PRD orchestrator CLI', () => {
     expect(result.stdout).toContain('Completed child #82')
     expect(result.stdout).toContain('Draft PR: #123')
     expect(adapters.events).toEqual([
+      'preflight:run',
+      'lock:acquire',
       'github:list-open-issues',
       'git:get-main-branch-status',
       'github:find-automation-pr',
@@ -151,7 +154,78 @@ describe('PRD orchestrator CLI', () => {
       'github:post-pr-comment',
       'github:mark-ready-for-review',
       'state:record-run-status',
+      'lock:release',
     ])
+  })
+
+  it('repairs CodeRabbit findings by amending the child commit and rerunning review', async () => {
+    const adapters = createLiveAdapters({
+      codeRabbitFindingsBeforeClean: 1,
+    })
+
+    await expect(
+      runPrdOrchestratorCliAsync({
+        adapters,
+        arguments_: ['run', '--one-child'],
+        stdin: '',
+      }),
+    ).resolves.toMatchObject({
+      exitCode: 0,
+    })
+
+    expect(adapters.events).toContain('sandcastle:repair-review')
+    expect(adapters.events).toContain('git:amend-child-commit')
+    expect(adapters.events.filter((event) => event === 'coderabbit:review')).toHaveLength(2)
+  })
+
+  it('repairs verification failures before committing the child task', async () => {
+    const adapters = createLiveAdapters({
+      verificationFailuresBeforeClean: 1,
+    })
+
+    await expect(
+      runPrdOrchestratorCliAsync({
+        adapters,
+        arguments_: ['run', '--one-child'],
+        stdin: '',
+      }),
+    ).resolves.toMatchObject({
+      exitCode: 0,
+    })
+
+    expect(adapters.events).toContain('sandcastle:repair-verification')
+    expect(adapters.events.filter((event) => event === 'verification:run')).toHaveLength(2)
+  })
+
+  it('records unrecoverable blockers in the draft PR before stopping', async () => {
+    const adapters = createLiveAdapters({
+      workerChangedFiles: ['apps/desktop/src/main.ts'],
+    })
+    const result = await runPrdOrchestratorCliAsync({
+      adapters,
+      arguments_: ['run', '--one-child'],
+      stdin: '',
+    })
+
+    expect(result.exitCode).toBe(1)
+    expect(adapters.events).toContain('github:update-pr-body')
+    expect(adapters.events).toContain('github:post-pr-comment')
+    expect(adapters.events).toContain('state:record-run-status')
+    expect(adapters.events).toContain('lock:release')
+  })
+
+  it('resumes an automation PR by validating ownership and continuing the live run', async () => {
+    const adapters = createLiveAdapters()
+    const result = await runPrdOrchestratorCliAsync({
+      adapters,
+      arguments_: ['resume-pr', '123'],
+      stdin: '',
+    })
+
+    expect(result.exitCode).toBe(0)
+    expect(adapters.events).toContain('github:get-pr')
+    expect(adapters.events).toContain('state:recover-run-status')
+    expect(adapters.events).toContain('github:list-open-issues')
   })
 
   it('supports resume-pr, status, and cleanup commands', async () => {
@@ -186,15 +260,38 @@ describe('PRD orchestrator CLI', () => {
     })
 
     expect(adapters.events).toContain('github:get-pr')
+    expect(adapters.events).toContain('github:get-current-pr')
     expect(adapters.events).toContain('state:read-run-status')
     expect(adapters.events).toContain('state:cleanup')
   })
+
+  it('passes CLI model and effort flags to the default live adapter factory', () => {
+    const adapters = createDefaultPrdOrchestratorLiveAdapters('/repo', {
+      codexEffort: 'xhigh',
+      codexModel: 'gpt-5.5',
+    })
+
+    expect(adapters.configuration).toEqual({
+      codexEffort: 'xhigh',
+      codexModel: 'gpt-5.5',
+    })
+  })
 })
 
-const createLiveAdapters = (): PrdOrchestratorLiveAdapters & {
+interface CreateLiveAdaptersOptions {
+  readonly codeRabbitFindingsBeforeClean?: number
+  readonly verificationFailuresBeforeClean?: number
+  readonly workerChangedFiles?: readonly string[]
+}
+
+const createLiveAdapters = (
+  options: CreateLiveAdaptersOptions = {},
+): PrdOrchestratorLiveAdapters & {
   readonly events: string[]
 } => {
   const events: string[] = []
+  let codeRabbitReviewCount = 0
+  let verificationRunCount = 0
 
   return {
     ci: {
@@ -207,10 +304,22 @@ const createLiveAdapters = (): PrdOrchestratorLiveAdapters & {
     codeRabbit: {
       reviewChild: () => {
         events.push('coderabbit:review')
+        codeRabbitReviewCount += 1
+        const findings =
+          codeRabbitReviewCount <= (options.codeRabbitFindingsBeforeClean ?? 0)
+            ? [
+                {
+                  body: 'Repair this finding.',
+                  id: `finding-${String(codeRabbitReviewCount)}`,
+                  source: 'github-pr-review' as const,
+                  title: 'CodeRabbit finding',
+                },
+              ]
+            : []
 
         return Promise.resolve({
-          findings: [],
-          status: 'passed',
+          findings,
+          status: findings.length === 0 ? 'passed' : 'findings',
         })
       },
     },
@@ -226,6 +335,13 @@ const createLiveAdapters = (): PrdOrchestratorLiveAdapters & {
 
         return Promise.resolve({
           hash: 'abc123456789',
+        })
+      },
+      amendChildCommit: () => {
+        events.push('git:amend-child-commit')
+
+        return Promise.resolve({
+          hash: 'def456789012',
         })
       },
       getMainBranchStatus: () => {
@@ -276,6 +392,17 @@ const createLiveAdapters = (): PrdOrchestratorLiveAdapters & {
           url: 'https://github.com/motech-development/cv-maxxing/pull/123',
         })
       },
+      getCurrentPr: () => {
+        events.push('github:get-current-pr')
+
+        return Promise.resolve({
+          body: '## Automation\n\nManaged by `@cv-maxxing/prd-orchestrator`.',
+          branchName: 'agent/prd-80-automate-prd-implementation',
+          isDraft: true,
+          prNumber: 123,
+          url: 'https://github.com/motech-development/cv-maxxing/pull/123',
+        })
+      },
       listOpenIssues: () => {
         events.push('github:list-open-issues')
 
@@ -298,6 +425,26 @@ const createLiveAdapters = (): PrdOrchestratorLiveAdapters & {
       },
     },
     sandcastle: {
+      repairReviewFindings: () => {
+        events.push('sandcastle:repair-review')
+
+        return Promise.resolve({
+          changedFiles: ['tools/prd-orchestrator/src/cli.ts'],
+          stdout: 'repaired review',
+          workerBranchName:
+            'agent/prd-80-child-82-build-prd-and-child-task-planning-from-github-markdown',
+        })
+      },
+      repairVerificationFailure: () => {
+        events.push('sandcastle:repair-verification')
+
+        return Promise.resolve({
+          changedFiles: ['tools/prd-orchestrator/src/cli.ts'],
+          stdout: 'repaired verification',
+          workerBranchName:
+            'agent/prd-80-child-82-build-prd-and-child-task-planning-from-github-markdown',
+        })
+      },
       runImpactAnalysis: () => {
         events.push('sandcastle:impact-analysis')
 
@@ -314,7 +461,7 @@ const createLiveAdapters = (): PrdOrchestratorLiveAdapters & {
         events.push('sandcastle:implementation')
 
         return Promise.resolve({
-          changedFiles: ['tools/prd-orchestrator/src/cli.ts'],
+          changedFiles: options.workerChangedFiles ?? ['tools/prd-orchestrator/src/cli.ts'],
           stdout: 'implemented child',
           workerBranchName:
             'agent/prd-80-child-82-build-prd-and-child-task-planning-from-github-markdown',
@@ -322,6 +469,15 @@ const createLiveAdapters = (): PrdOrchestratorLiveAdapters & {
       },
     },
     state: {
+      acquireRunLock: () => {
+        events.push('lock:acquire')
+
+        return Promise.resolve({
+          blockers: [],
+          lockId: 'run-1',
+          ready: true,
+        })
+      },
       cleanup: () => {
         events.push('state:cleanup')
 
@@ -348,15 +504,38 @@ const createLiveAdapters = (): PrdOrchestratorLiveAdapters & {
           prUrl: 'https://github.com/motech-development/cv-maxxing/pull/123',
         })
       },
+      recoverRunStatusFromPr: () => {
+        events.push('state:recover-run-status')
+
+        return Promise.resolve()
+      },
       recordRunStatus: () => {
         events.push('state:record-run-status')
 
         return Promise.resolve()
       },
+      releaseRunLock: () => {
+        events.push('lock:release')
+
+        return Promise.resolve()
+      },
+      runPreflight: () => {
+        events.push('preflight:run')
+
+        return Promise.resolve({
+          blockers: [],
+          ready: true,
+        })
+      },
     },
     verification: {
       runCommands: () => {
         events.push('verification:run')
+        verificationRunCount += 1
+
+        if (verificationRunCount <= (options.verificationFailuresBeforeClean ?? 0)) {
+          return Promise.reject(new Error('verification failed'))
+        }
 
         return Promise.resolve([
           'pnpm lint',
