@@ -208,7 +208,15 @@ const parseIssueJson = (stdin: string): readonly GitHubIssue[] => {
 const parseOneChildCommandInput = (
   stdin: string,
 ): Parameters<typeof planOneChildTransaction>[0] => {
-  const parsedJson: unknown = JSON.parse(stdin)
+  let parsedJson: unknown
+
+  try {
+    parsedJson = JSON.parse(stdin)
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'unknown error'
+
+    throw new TypeError(`Invalid JSON input: ${message}`)
+  }
 
   if (!isRecord(parsedJson) || !Array.isArray(parsedJson.issues)) {
     throw new TypeError('Expected stdin to contain an object with `issues` and `transaction`.')
