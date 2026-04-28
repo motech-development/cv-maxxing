@@ -16,17 +16,45 @@ Run state belongs outside tracked files under `.git/prd-orchestrator/runs/<run-i
 
 ## Dry-run planning
 
-Issue 82 implements the read-only `plan` command. It accepts GitHub issue JSON on stdin as either an array of issues or an object with an `issues` array:
+`plan` accepts GitHub issue JSON on stdin as either an array of issues or an object with an `issues` array:
 
 ```sh
 pnpm --filter @cv-maxxing/prd-orchestrator plan < issues.json
 ```
 
-The command prints the selected PRD, child task DAG, blockers, warnings, next executable tasks, and unavailable PRDs. It does not create branches, pull requests, commits, worktrees, or Sandcastle workers.
+Without stdin, `plan` reads open issues through `gh issue list` and prints the selected PRD, child task DAG, blockers, warnings, next executable tasks, and unavailable PRDs. It does not create branches, pull requests, commits, worktrees, or Sandcastle workers.
+
+## Live one-child execution
+
+`run --one-child` accepts the same JSON preview input as the planner tests when stdin is provided. Without stdin, it runs the live orchestration tracer bullet:
+
+1. fetch open GitHub issues
+2. require a clean, up-to-date local `main`
+3. create or resume the PRD draft branch and PR
+4. run Sandcastle impact analysis and implementation on isolated worker branches
+5. apply the worker diff to the PRD branch
+6. run selected host verification commands
+7. create one child commit, push with `--force-with-lease`, run CodeRabbit, and update the draft PR ledger
+8. write local run state under `.git/prd-orchestrator/runs/latest/status.json`
+
+```sh
+pnpm --filter @cv-maxxing/prd-orchestrator build
+pnpm --filter @cv-maxxing/prd-orchestrator exec prd-orchestrator run --one-child
+```
 
 ## Full-run foundation
 
-Issue 89 keeps full multi-child live execution out of scope, but documents and tests the scheduling foundation that a later full `run` command will use:
+## Resume, status, cleanup
+
+`resume-pr <number>` verifies that the PR is owned by the orchestrator and prints the recovered run status.
+
+`status` prints the latest local run state.
+
+`cleanup` removes stale run and Sandcastle artifacts while preserving active run state and committed `.sandcastle` config.
+
+## Full-run foundation
+
+The scheduler foundation supports the later full multi-child `run` loop:
 
 - only currently unblocked child tasks are eligible for scheduling
 - non-overlapping impact surfaces may run in one parallel batch
@@ -36,4 +64,4 @@ Issue 89 keeps full multi-child live execution out of scope, but documents and t
 - cleanup preserves active PRD runs, active Sandcastle artifacts, committed `.sandcastle` config, and live processes
 - status and resume logic remain inspectable from run state, PR body ledger, remote PR state, and commits
 
-Live multi-child execution, remote branch mutation, and automatic merge remain outside this slice.
+Automatic merge remains outside the orchestrator boundary. Human review and merge are required.

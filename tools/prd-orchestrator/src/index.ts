@@ -53,7 +53,19 @@ export {
   renderDryRunPlan,
 } from './planning.js'
 
-export { createPlanFromIssueJson, runPrdOrchestratorCli } from './cli.js'
+export {
+  createPlanFromIssueJson,
+  runPrdOrchestratorCli,
+  runPrdOrchestratorCliAsync,
+} from './cli.js'
+export { createDefaultPrdOrchestratorLiveAdapters } from './default-live-adapters.js'
+export {
+  executeCleanup,
+  executeLiveOneChild,
+  executeLivePlan,
+  executeResumePr,
+  executeStatus,
+} from './live-orchestrator.js'
 
 export {
   createChildCommitMessage,
@@ -111,7 +123,11 @@ export {
   validateSandcastleBranchStrategy,
 } from './sandcastle-impact-analysis.js'
 
-export type { PrdOrchestratorCliInput, PrdOrchestratorCliResult } from './cli.js'
+export type {
+  PrdOrchestratorCliAsyncInput,
+  PrdOrchestratorCliInput,
+  PrdOrchestratorCliResult,
+} from './cli.js'
 
 export type {
   BranchCommit,
@@ -183,6 +199,22 @@ export type {
   ScheduleBatch,
   SchedulePlan,
 } from './full-run-scheduler.js'
+
+export type {
+  ApplyWorkerDiffInput,
+  AutomationPrDetails,
+  ChildCommitResult,
+  CreateDraftPrInput,
+  LiveCommandResult,
+  PrdOrchestratorLiveAdapters,
+  PreparePrdBranchInput,
+  PushPrdBranchInput,
+  ReviewChildInput,
+  ReviewChildResult,
+  RunImpactAnalysisInput,
+  RunImplementationInput,
+  RunImplementationResult,
+} from './live-orchestrator.js'
 
 export type {
   DraftPullRequestTransaction,
