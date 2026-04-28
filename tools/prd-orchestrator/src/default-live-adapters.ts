@@ -245,12 +245,7 @@ const createGitHubAdapter = (
     }
   },
   getReviewFindings: async (prNumber: number): Promise<readonly ResumePrFinding[]> => {
-    const pullRequest = await shell({
-      args: ['pr', 'view', String(prNumber), '--json', 'reviews,comments,statusCheckRollup'],
-      command: 'gh',
-    })
-
-    return parseCodeRabbitFindings(pullRequest.stdout)
+    return await getCodeRabbitPrFindings(shell, prNumber)
   },
   getCurrentPr: async (): Promise<AutomationPrDetails | undefined> => {
     try {
@@ -446,7 +441,14 @@ const createGitAdapter = (
           command: 'git',
         })
 
-        return parseChildCommitReferences(result.stdout)
+        const references = parseChildCommitReferences(result.stdout)
+
+        return await Promise.all(
+          references.map(async (reference) => ({
+            ...reference,
+            changedFiles: await getCommitChangedFiles(shell, reference.commitHash),
+          })),
+        )
       } catch {
         return []
       }
@@ -765,11 +767,7 @@ const createCodeRabbitAdapter = (
       command: 'coderabbit',
       timeoutMs: 60 * 60 * 1000,
     })
-    const pullRequest = await shell({
-      args: ['pr', 'view', String(input.prNumber), '--json', 'reviews,comments,statusCheckRollup'],
-      command: 'gh',
-    })
-    const findings = parseCodeRabbitFindings(pullRequest.stdout)
+    const findings = await getCodeRabbitPrFindings(shell, input.prNumber)
 
     return {
       findings,
@@ -777,6 +775,41 @@ const createCodeRabbitAdapter = (
     }
   },
 })
+
+const getCodeRabbitPrFindings = async (
+  shell: DefaultLiveAdapterShellRunner,
+  prNumber: number,
+): Promise<readonly CodeRabbitFinding[]> => {
+  const pullRequest = await shell({
+    args: ['pr', 'view', String(prNumber), '--json', 'reviews,comments,statusCheckRollup'],
+    command: 'gh',
+  })
+  const reviewComments = await getInlineReviewComments(shell, prNumber)
+
+  return parseCodeRabbitFindings(pullRequest.stdout, reviewComments.stdout)
+}
+
+const getInlineReviewComments = async (
+  shell: DefaultLiveAdapterShellRunner,
+  prNumber: number,
+): Promise<DefaultLiveAdapterShellCommandResult> => {
+  try {
+    return await shell({
+      args: [
+        'api',
+        `repos/{owner}/{repo}/pulls/${String(prNumber)}/comments`,
+        '--paginate',
+        '--slurp',
+      ],
+      command: 'gh',
+    })
+  } catch {
+    return {
+      stderr: '',
+      stdout: '[]',
+    }
+  }
+}
 
 const createCiAdapter = (
   shell: DefaultLiveAdapterShellRunner,
@@ -1523,17 +1556,34 @@ const parseGitHubActionsRun = (
   }
 }
 
-const parseCodeRabbitFindings = (content: string): readonly CodeRabbitFinding[] => {
+const parseCodeRabbitFindings = (
+  content: string,
+  inlineReviewCommentsContent = '[]',
+): readonly CodeRabbitFinding[] => {
   const pullRequest = parseJsonRecord(content)
   const reviews = Array.isArray(pullRequest.reviews) ? pullRequest.reviews : []
   const comments = Array.isArray(pullRequest.comments) ? pullRequest.comments : []
+  const inlineReviewComments = parseInlineReviewComments(inlineReviewCommentsContent)
   const checks = Array.isArray(pullRequest.statusCheckRollup) ? pullRequest.statusCheckRollup : []
 
   return [
     ...reviews.flatMap((review, index) => parseCodeRabbitReviewFinding(review, index)),
     ...comments.flatMap((comment, index) => parseCodeRabbitCommentFinding(comment, index)),
+    ...inlineReviewComments.flatMap((comment, index) =>
+      parseCodeRabbitInlineReviewCommentFinding(comment, index),
+    ),
     ...checks.flatMap((check, index) => parseCodeRabbitCheckFinding(check, index)),
   ]
+}
+
+const parseInlineReviewComments = (content: string): readonly unknown[] => {
+  const parsedContent = parseJsonArray(content)
+
+  if (parsedContent.every((item) => Array.isArray(item))) {
+    return parsedContent.flatMap((item) => item as readonly unknown[])
+  }
+
+  return parsedContent
 }
 
 const parseCodeRabbitReviewFinding = (
@@ -1570,7 +1620,7 @@ const parseCodeRabbitCommentFinding = (
     return []
   }
 
-  const author = comment.author
+  const author = comment.author ?? comment.user
   const authorLogin = isRecord(author) ? parseOptionalStringField(author, 'login') : undefined
 
   if (authorLogin?.toLowerCase().includes('coderabbit') !== true) {
@@ -1583,6 +1633,38 @@ const parseCodeRabbitCommentFinding = (
       id: `coderabbit-comment-${String(index + 1)}`,
       source: 'github-pr-review',
       title: 'CodeRabbit PR comment',
+    },
+  ]
+}
+
+const parseCodeRabbitInlineReviewCommentFinding = (
+  comment: unknown,
+  index: number,
+): readonly CodeRabbitFinding[] => {
+  if (!isRecord(comment)) {
+    return []
+  }
+
+  const author = comment.author ?? comment.user
+  const authorLogin = isRecord(author) ? parseOptionalStringField(author, 'login') : undefined
+
+  if (authorLogin?.toLowerCase().includes('coderabbit') !== true) {
+    return []
+  }
+
+  return [
+    {
+      body: parseOptionalStringField(comment, 'body') ?? 'CodeRabbit left an inline comment.',
+      commitHash:
+        parseOptionalStringField(comment, 'commit_id') ??
+        parseOptionalStringField(comment, 'original_commit_id'),
+      filePath: parseOptionalStringField(comment, 'path'),
+      id: `coderabbit-inline-comment-${String(index + 1)}`,
+      lineNumber:
+        parseOptionalNumberField(comment, 'line') ??
+        parseOptionalNumberField(comment, 'original_line'),
+      source: 'github-pr-review',
+      title: 'CodeRabbit inline review comment',
     },
   ]
 }
@@ -1779,6 +1861,22 @@ const parseChildCommitReferences = (content: string): readonly ChildCommitRefere
         },
       ]
     })
+
+const getCommitChangedFiles = async (
+  shell: DefaultLiveAdapterShellRunner,
+  commitHash: string,
+): Promise<readonly string[]> => {
+  try {
+    const result = await shell({
+      args: ['show', '--format=', '--name-only', commitHash],
+      command: 'git',
+    })
+
+    return parseChangedFiles(result.stdout)
+  } catch {
+    return []
+  }
+}
 
 const parseChangedFiles = (content: string): readonly string[] =>
   content

@@ -191,7 +191,15 @@ describe('final PRD repair and audit flow', () => {
       blockers: [],
       finalCleanupCommit: {
         findingIds: ['finding-2'],
-        message: 'chore: address final PRD review findings',
+        message:
+          'chore: address final PRD review findings\n\nFinal cleanup rationale:\n- finding-2: No child commit mapping context was available.',
+        rationales: [
+          {
+            findingId: 'finding-2',
+            rationale: 'No child commit mapping context was available.',
+            source: 'github-check',
+          },
+        ],
       },
       forcePush: {
         branchName: 'agent/prd-80-automate-prd-implementation',
@@ -199,7 +207,170 @@ describe('final PRD repair and audit flow', () => {
       },
       inspectCi: true,
       inspectCodeRabbit: true,
+      nonActionableFindings: [],
       returnToDraft: true,
+    })
+  })
+
+  it('maps live PR findings to child commits by commit hash or changed file', () => {
+    expect(
+      planResumePrRepair({
+        childCommits: [
+          {
+            changedFiles: ['tools/prd-orchestrator/src/final-prd-flow.ts'],
+            childIssueNumber: 81,
+            commitHash: 'abc123456789',
+          },
+          {
+            changedFiles: ['tools/prd-orchestrator/src/default-live-adapters.ts'],
+            childIssueNumber: 88,
+            commitHash: 'def123456789',
+          },
+        ],
+        findings: [
+          {
+            body: 'The review comment was left on a child commit.',
+            commitHash: 'abc123456789',
+            id: 'finding-by-commit',
+            source: 'github-pr-review',
+            title: 'Commit-scoped finding',
+          },
+          {
+            body: 'The inline comment was left on a file changed by child #88.',
+            filePath: 'tools/prd-orchestrator/src/default-live-adapters.ts',
+            id: 'finding-by-file',
+            source: 'github-pr-review',
+            title: 'File-scoped finding',
+          },
+        ],
+        ownership: {
+          body: automationPrBody,
+          branchName: 'agent/prd-80-automate-prd-implementation',
+          prNumber: 12,
+        },
+        prIsDraft: true,
+      }),
+    ).toMatchObject({
+      action: 'repair',
+      amendChildCommits: [
+        {
+          childIssueNumber: 81,
+          commitHash: 'abc123456789',
+          findingIds: ['finding-by-commit'],
+        },
+        {
+          childIssueNumber: 88,
+          commitHash: 'def123456789',
+          findingIds: ['finding-by-file'],
+        },
+      ],
+      finalCleanupCommit: undefined,
+      returnToDraft: false,
+    })
+  })
+
+  it('carries unmapped and ambiguous PR findings as final cleanup with rationale', () => {
+    expect(
+      planResumePrRepair({
+        childCommits: [
+          {
+            changedFiles: ['shared.ts'],
+            childIssueNumber: 81,
+            commitHash: 'abc123456789',
+          },
+          {
+            changedFiles: ['shared.ts'],
+            childIssueNumber: 88,
+            commitHash: 'def123456789',
+          },
+        ],
+        findings: [
+          {
+            body: 'General PR summary finding.',
+            id: 'finding-without-context',
+            source: 'github-pr-review',
+            title: 'Summary finding',
+          },
+          {
+            body: 'The file was touched by multiple child commits.',
+            filePath: 'shared.ts',
+            id: 'ambiguous-file-finding',
+            source: 'github-pr-review',
+            title: 'Ambiguous file finding',
+          },
+        ],
+        ownership: {
+          body: automationPrBody,
+          branchName: 'agent/prd-80-automate-prd-implementation',
+          prNumber: 12,
+        },
+        prIsDraft: true,
+      }),
+    ).toMatchObject({
+      action: 'repair',
+      amendChildCommits: [],
+      finalCleanupCommit: {
+        findingIds: ['finding-without-context', 'ambiguous-file-finding'],
+        rationales: [
+          {
+            findingId: 'finding-without-context',
+            rationale: 'No child commit mapping context was available.',
+            source: 'github-pr-review',
+          },
+          {
+            findingId: 'ambiguous-file-finding',
+            rationale: 'File shared.ts matched multiple child commits: #81, #88.',
+            source: 'github-pr-review',
+          },
+        ],
+      },
+    })
+  })
+
+  it('records non-actionable PR findings with rationale instead of repairing them', () => {
+    expect(
+      planResumePrRepair({
+        childCommits: [
+          {
+            changedFiles: ['tools/prd-orchestrator/src/final-prd-flow.ts'],
+            childIssueNumber: 81,
+            commitHash: 'abc123456789',
+          },
+        ],
+        findings: [
+          {
+            body: 'Use Redux for this state flow.',
+            conflictsWith: 'project-instructions',
+            filePath: 'tools/prd-orchestrator/src/final-prd-flow.ts',
+            id: 'non-actionable-finding',
+            rationale: 'Project instructions explicitly forbid Redux.',
+            source: 'github-pr-review',
+            title: 'Use Redux',
+          },
+        ],
+        ownership: {
+          body: automationPrBody,
+          branchName: 'agent/prd-80-automate-prd-implementation',
+          prNumber: 12,
+        },
+        prIsDraft: true,
+      }),
+    ).toEqual({
+      action: 'clean',
+      amendChildCommits: [],
+      blockers: [],
+      finalCleanupCommit: undefined,
+      forcePush: undefined,
+      inspectCi: true,
+      inspectCodeRabbit: true,
+      nonActionableFindings: [
+        {
+          findingId: 'non-actionable-finding',
+          rationale: 'Project instructions explicitly forbid Redux.',
+          source: 'github-pr-review',
+        },
+      ],
+      returnToDraft: false,
     })
   })
 
@@ -231,6 +402,7 @@ describe('final PRD repair and audit flow', () => {
       forcePush: undefined,
       inspectCi: false,
       inspectCodeRabbit: false,
+      nonActionableFindings: [],
       returnToDraft: false,
     })
 

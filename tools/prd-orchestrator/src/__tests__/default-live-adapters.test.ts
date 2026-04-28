@@ -69,7 +69,7 @@ describe('default live adapters', () => {
     })
   })
 
-  it('inspects CodeRabbit PR reviews, comments, and check rollups after the CLI review', async () => {
+  it('inspects CodeRabbit PR reviews, comments, inline comments, and check rollups', async () => {
     const shell = createRecordingShell()
     const adapters = createDefaultPrdOrchestratorLiveAdapters('/repo', undefined, shell.run)
 
@@ -89,10 +89,19 @@ describe('default live adapters', () => {
           title: 'CodeRabbit requested changes',
         },
         {
-          body: 'Inline comment body.',
+          body: 'Top-level comment body.',
           id: 'coderabbit-comment-1',
           source: 'github-pr-review',
           title: 'CodeRabbit PR comment',
+        },
+        {
+          body: 'Inline comment body.',
+          commitHash: 'abc123456789',
+          filePath: 'tools/prd-orchestrator/src/default-live-adapters.ts',
+          id: 'coderabbit-inline-comment-1',
+          lineNumber: 42,
+          source: 'github-pr-review',
+          title: 'CodeRabbit inline review comment',
         },
         {
           body: 'CodeRabbit check CodeRabbit failed with conclusion failure.',
@@ -105,6 +114,9 @@ describe('default live adapters', () => {
     })
     expect(shell.commands.map((command) => formatCommand(command))).toContain(
       'gh pr view 123 --json reviews,comments,statusCheckRollup',
+    )
+    expect(shell.commands.map((command) => formatCommand(command))).toContain(
+      'gh api repos/{owner}/{repo}/pulls/123/comments --paginate --slurp',
     )
   })
 
@@ -232,7 +244,7 @@ const responseForCommand = (command: DefaultLiveAdapterShellCommandInput): strin
           author: {
             login: 'coderabbitai',
           },
-          body: 'Inline comment body.',
+          body: 'Top-level comment body.',
         },
       ],
       reviews: [
@@ -252,6 +264,22 @@ const responseForCommand = (command: DefaultLiveAdapterShellCommandInput): strin
         },
       ],
     })
+  }
+
+  if (formattedCommand === 'gh api repos/{owner}/{repo}/pulls/123/comments --paginate --slurp') {
+    return JSON.stringify([
+      [
+        {
+          body: 'Inline comment body.',
+          commit_id: 'abc123456789',
+          line: 42,
+          path: 'tools/prd-orchestrator/src/default-live-adapters.ts',
+          user: {
+            login: 'coderabbitai',
+          },
+        },
+      ],
+    ])
   }
 
   if (formattedCommand === 'git rev-parse HEAD') {
