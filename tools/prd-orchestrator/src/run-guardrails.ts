@@ -3,6 +3,7 @@ export interface PreflightInput {
   readonly ciPollingAvailable: boolean
   readonly cleanWorkingTree: boolean
   readonly codeRabbitAvailable: boolean
+  readonly codexAvailable: boolean
   readonly dockerAvailable: boolean
   readonly githubReadWriteAvailable: boolean
   readonly gitPushAvailable: boolean
@@ -131,6 +132,10 @@ export const evaluatePreflight = (input: PreflightInput): PreflightResult => {
     {
       name: 'CodeRabbit availability',
       passed: input.codeRabbitAvailable,
+    },
+    {
+      name: 'Codex availability',
+      passed: input.codexAvailable,
     },
     {
       name: 'CI polling capability',

@@ -38,6 +38,7 @@ import type {
   RemoteAutomationPr,
   RunStatus,
 } from './run-guardrails.js'
+import { evaluatePreflight } from './run-guardrails.js'
 import type { GitHubIssue, ParsedChildTask } from './planning.js'
 import type { CodeRabbitFinding } from './coderabbit-review.js'
 
@@ -60,7 +61,6 @@ export type DefaultLiveAdapterShellRunner = (
 
 const defaultTimeoutMs = 10 * 60 * 1000
 const runStateRoot = '.git/prd-orchestrator/runs'
-const latestRunId = 'latest'
 const statusFileName = 'status.json'
 const lockFileName = 'lock.json'
 
@@ -648,160 +648,360 @@ const createCiAdapter = (
 const createRunStateAdapter = (
   cwd: string,
   shell: DefaultLiveAdapterShellRunner,
-): PrdOrchestratorLiveAdapters['state'] => ({
-  acquireRunLock: async (): Promise<LiveRunLockResult> => {
-    const runDirectory = path.join(cwd, runStateRoot, latestRunId)
+): PrdOrchestratorLiveAdapters['state'] => {
+  let activeRunId = createRunId()
 
-    await mkdir(runDirectory, {
-      recursive: true,
-    })
+  const activeRunDirectory = (): string => path.join(cwd, runStateRoot, activeRunId)
 
-    try {
-      await writeFile(
-        path.join(runDirectory, lockFileName),
-        JSON.stringify(
+  return {
+    acquireRunLock: async (): Promise<LiveRunLockResult> => {
+      const runDirectory = activeRunDirectory()
+
+      await mkdir(runDirectory, {
+        recursive: true,
+      })
+
+      try {
+        await writeFile(
+          path.join(runDirectory, lockFileName),
+          JSON.stringify(
+            {
+              heartbeatIso: new Date().toISOString(),
+              pid: process.pid,
+              runId: activeRunId,
+            },
+            null,
+            2,
+          ),
           {
-            heartbeatIso: new Date().toISOString(),
-            pid: process.pid,
+            encoding: 'utf8',
+            flag: 'wx',
           },
-          null,
-          2,
-        ),
-        {
-          encoding: 'utf8',
-          flag: 'wx',
-        },
+        )
+
+        return {
+          blockers: [],
+          lockId: activeRunId,
+          ready: true,
+        }
+      } catch {
+        return {
+          blockers: ['Another PRD orchestrator run is already active.'],
+          lockId: undefined,
+          ready: false,
+        }
+      }
+    },
+    cleanup: async (): Promise<CleanupPlan> => {
+      const nowEpochMs = Date.now()
+      const artifacts = await discoverCleanupArtifacts(cwd, shell)
+      const activeRunIds = await discoverActiveRunIds(cwd)
+      const plan = createCleanupPlanFromArtifacts({
+        activeRunIds,
+        artifacts,
+        liveProcessIds: getCurrentProcessIds(),
+        nowEpochMs,
+        retentionDays: 7,
+      })
+
+      await Promise.all(
+        plan.remove.map((artifactPath) => removeCleanupArtifact(cwd, shell, artifactPath)),
       )
 
-      return {
-        blockers: [],
-        lockId: latestRunId,
-        ready: true,
-      }
-    } catch {
-      return {
-        blockers: ['Another PRD orchestrator run is already active.'],
-        lockId: undefined,
-        ready: false,
-      }
-    }
-  },
-  cleanup: async (): Promise<CleanupPlan> => {
-    const nowEpochMs = Date.now()
-    const artifacts = await discoverCleanupArtifacts(cwd, shell)
-    const plan = createCleanupPlanFromArtifacts({
-      activeRunIds: [latestRunId],
-      artifacts,
-      nowEpochMs,
-      retentionDays: 7,
-    })
+      return plan
+    },
+    readRunStatus: async (): Promise<RunStatus> => {
+      try {
+        const runDirectory = await findLatestRunDirectory(cwd)
+        const content = await readFile(path.join(runDirectory, statusFileName), 'utf8')
 
-    await Promise.all(
-      plan.remove.map((artifactPath) => removeCleanupArtifact(cwd, shell, artifactPath)),
-    )
-
-    return plan
-  },
-  readRunStatus: async (): Promise<RunStatus> => {
-    try {
-      const content = await readFile(
-        path.join(cwd, runStateRoot, latestRunId, statusFileName),
-        'utf8',
-      )
-
-      return parseRunStatus(JSON.parse(content))
-    } catch {
-      return {
-        activePrdIssueNumber: undefined,
-        blockers: [],
-        branchName: undefined,
-        ciStatus: undefined,
-        codeRabbitStatus: undefined,
-        completedChildren: [],
-        currentChildIssueNumber: undefined,
-        heartbeatIso: undefined,
-        lastCommand: undefined,
-        phase: 'idle',
-        prNumber: undefined,
-        prUrl: undefined,
-      }
-    }
-  },
-  recoverRunStatusFromPr: async (pr: AutomationPrDetails): Promise<void> => {
-    await mkdir(path.join(cwd, runStateRoot, latestRunId), {
-      recursive: true,
-    })
-    await writeFile(
-      path.join(cwd, runStateRoot, latestRunId, statusFileName),
-      JSON.stringify(
-        {
+        return parseRunStatus(JSON.parse(content))
+      } catch {
+        return {
           activePrdIssueNumber: undefined,
           blockers: [],
-          branchName: pr.branchName,
+          branchName: undefined,
           ciStatus: undefined,
           codeRabbitStatus: undefined,
           completedChildren: [],
           currentChildIssueNumber: undefined,
-          heartbeatIso: new Date().toISOString(),
-          lastCommand: 'resume-pr',
-          phase: 'resuming',
-          prNumber: pr.prNumber,
-          prUrl: pr.url,
-        } satisfies RunStatus,
-        null,
-        2,
-      ),
-      'utf8',
-    )
-  },
-  recordRunStatus: async (statusValue: RunStatus): Promise<void> => {
-    const runDirectory = path.join(cwd, runStateRoot, latestRunId)
+          heartbeatIso: undefined,
+          lastCommand: undefined,
+          phase: 'idle',
+          prNumber: undefined,
+          prUrl: undefined,
+        }
+      }
+    },
+    readArtifactStatus: async () => {
+      const artifacts = await discoverCleanupArtifacts(cwd, shell)
+      const activeRunIds = await discoverActiveRunIds(cwd)
+      const activeWorktrees = artifacts.filter(
+        (artifact) =>
+          artifact.category === 'sandbox-branch' &&
+          artifact.path.startsWith('.sandcastle/worktrees/') &&
+          artifact.runId !== undefined &&
+          activeRunIds.includes(artifact.runId),
+      ).length
+      const activeContainers = artifacts.filter(
+        (artifact) =>
+          artifact.category === 'container' && artifact.lastModifiedEpochMs > Date.now() - 1000,
+      ).length
+      const staleArtifacts = createCleanupPlanFromArtifacts({
+        activeRunIds,
+        artifacts,
+        liveProcessIds: getCurrentProcessIds(),
+        nowEpochMs: Date.now(),
+        retentionDays: 7,
+      }).remove.length
 
-    await mkdir(runDirectory, {
-      recursive: true,
+      return {
+        cleanupStatus:
+          staleArtifacts === 0
+            ? 'no stale artifacts eligible for cleanup'
+            : `${String(staleArtifacts)} stale artifacts eligible for cleanup`,
+        lockStatus:
+          activeRunIds.length === 0
+            ? 'no active lock'
+            : `active run locks: ${activeRunIds.join(', ')}`,
+        sandcastleStatus: `${String(activeWorktrees)} active worktrees, ${String(
+          activeContainers,
+        )} active containers`,
+      }
+    },
+    recoverRunStatusFromPr: async (pr: AutomationPrDetails): Promise<void> => {
+      activeRunId = createRunId()
+      await mkdir(activeRunDirectory(), {
+        recursive: true,
+      })
+      await writeFile(
+        path.join(activeRunDirectory(), statusFileName),
+        JSON.stringify(
+          {
+            activePrdIssueNumber: undefined,
+            blockers: [],
+            branchName: pr.branchName,
+            ciStatus: undefined,
+            codeRabbitStatus: undefined,
+            completedChildren: [],
+            currentChildIssueNumber: undefined,
+            heartbeatIso: new Date().toISOString(),
+            lastCommand: 'resume-pr',
+            phase: 'resuming',
+            prNumber: pr.prNumber,
+            prUrl: pr.url,
+          } satisfies RunStatus,
+          null,
+          2,
+        ),
+        'utf8',
+      )
+    },
+    recordRunStatus: async (statusValue: RunStatus): Promise<void> => {
+      const runDirectory = activeRunDirectory()
+
+      await mkdir(runDirectory, {
+        recursive: true,
+      })
+      await writeFile(
+        path.join(runDirectory, statusFileName),
+        JSON.stringify(statusValue, null, 2),
+        'utf8',
+      )
+    },
+    releaseRunLock: async (): Promise<void> => {
+      await rm(path.join(activeRunDirectory(), lockFileName), {
+        force: true,
+      })
+    },
+    runPreflight: async (): Promise<LivePreflightResult> => {
+      const [
+        nodeAvailable,
+        pnpmAvailable,
+        gitAvailable,
+        cleanWorkingTree,
+        mainUpdateAvailable,
+        ghAuthAvailable,
+        githubReadWriteAvailable,
+        gitPushAvailable,
+        ciPollingAvailable,
+        dockerAvailable,
+        sandcastleAvailable,
+        codeRabbitAvailable,
+        codexAvailable,
+        baselineRepoCommandsAvailable,
+      ] = await Promise.all([
+        commandSucceeds(shell, 'node', ['--version']),
+        commandSucceeds(shell, 'pnpm', ['--version']),
+        commandSucceeds(shell, 'git', ['--version']),
+        commandSucceedsWithOutput(
+          shell,
+          'git',
+          ['status', '--porcelain'],
+          (stdout) => stdout === '',
+        ),
+        commandSucceeds(shell, 'git', ['fetch', '--dry-run', 'origin', 'main']),
+        commandSucceeds(shell, 'gh', ['auth', 'status']),
+        commandSucceeds(shell, 'gh', [
+          'pr',
+          'list',
+          '--state',
+          'open',
+          '--limit',
+          '1',
+          '--json',
+          'number',
+        ]),
+        commandSucceeds(shell, 'git', ['push', '--dry-run', 'origin', 'HEAD']),
+        commandSucceeds(shell, 'gh', [
+          'run',
+          'list',
+          '--limit',
+          '1',
+          '--json',
+          'status,conclusion',
+        ]),
+        commandSucceeds(shell, 'docker', ['ps', '--format', '{{.ID}}']),
+        commandSucceeds(shell, 'node', [
+          '--input-type=module',
+          '--eval',
+          'import("@ai-hero/sandcastle")',
+        ]),
+        commandSucceeds(shell, 'coderabbit', ['--version']),
+        commandSucceeds(shell, 'codex', ['--version']),
+        commandSucceeds(shell, 'pnpm', [
+          '--filter',
+          '@cv-maxxing/prd-orchestrator',
+          'exec',
+          'vitest',
+          '--version',
+        ]),
+      ])
+      const preflight = evaluatePreflight({
+        baselineRepoCommandsAvailable: baselineRepoCommandsAvailable && gitAvailable,
+        ciPollingAvailable,
+        cleanWorkingTree,
+        codeRabbitAvailable,
+        codexAvailable,
+        dockerAvailable,
+        githubReadWriteAvailable: ghAuthAvailable && githubReadWriteAvailable,
+        gitPushAvailable,
+        mainUpdateAvailable,
+        nodeAvailable,
+        pnpmAvailable,
+        sandcastleAvailable,
+      })
+
+      return {
+        blockers: preflight.blockers,
+        ready: preflight.ready,
+      }
+    },
+  }
+}
+
+const commandSucceeds = async (
+  shell: DefaultLiveAdapterShellRunner,
+  command: string,
+  args: readonly string[],
+): Promise<boolean> => {
+  try {
+    await shell({
+      args,
+      command,
+      timeoutMs: 60 * 1000,
     })
-    await writeFile(
-      path.join(runDirectory, statusFileName),
-      JSON.stringify(statusValue, null, 2),
-      'utf8',
-    )
-  },
-  releaseRunLock: async (): Promise<void> => {
-    await rm(path.join(cwd, runStateRoot, latestRunId, lockFileName), {
-      force: true,
+
+    return true
+  } catch {
+    return false
+  }
+}
+
+const commandSucceedsWithOutput = async (
+  shell: DefaultLiveAdapterShellRunner,
+  command: string,
+  args: readonly string[],
+  validate: (stdout: string) => boolean,
+): Promise<boolean> => {
+  try {
+    const result = await shell({
+      args,
+      command,
+      timeoutMs: 60 * 1000,
     })
-  },
-  runPreflight: async (): Promise<LivePreflightResult> => {
-    const commandChecks = await Promise.all(
-      [
-        ['node', ['--version']],
-        ['pnpm', ['--version']],
-        ['gh', ['auth', 'status']],
-        ['git', ['--version']],
-        ['docker', ['ps']],
-        ['coderabbit', ['--version']],
-      ].map(async ([command, args]) => {
+
+    return validate(result.stdout.trim())
+  } catch {
+    return false
+  }
+}
+
+const createRunId = (): string =>
+  `${new Date().toISOString().replaceAll(/[-:.]/g, '').slice(0, 15)}-${String(process.pid)}`
+
+const findLatestRunDirectory = async (cwd: string): Promise<string> => {
+  const root = path.join(cwd, runStateRoot)
+  const entries = await readdir(root)
+  const runDirectories = await Promise.all(
+    entries.map(async (entry) => {
+      const runDirectory = path.join(root, entry)
+      const runDirectoryStat = await stat(runDirectory)
+
+      return {
+        lastModifiedEpochMs: runDirectoryStat.mtimeMs,
+        path: runDirectory,
+      }
+    }),
+  )
+  const latestRunDirectory = runDirectories.toSorted(
+    (left, right) => right.lastModifiedEpochMs - left.lastModifiedEpochMs,
+  )[0]
+
+  if (latestRunDirectory === undefined) {
+    throw new Error('No PRD orchestrator run state exists.')
+  }
+
+  return latestRunDirectory.path
+}
+
+const discoverActiveRunIds = async (cwd: string): Promise<readonly string[]> => {
+  try {
+    const entries = await readdir(path.join(cwd, runStateRoot))
+    const activeRunIds = await Promise.all(
+      entries.map(async (entry): Promise<string | undefined> => {
         try {
-          await shell({
-            args: args as readonly string[],
-            command: command as string,
-            timeoutMs: 60 * 1000,
-          })
+          const content = await readFile(path.join(cwd, runStateRoot, entry, lockFileName), 'utf8')
+          const lock: unknown = JSON.parse(content)
 
-          return ''
+          if (!isRecord(lock) || typeof lock.pid !== 'number') {
+            return undefined
+          }
+
+          return isProcessAlive(lock.pid) ? entry : undefined
         } catch {
-          return `${command as string} preflight failed`
+          return undefined
         }
       }),
     )
-    const blockers = commandChecks.filter((blocker) => blocker.length > 0)
 
-    return {
-      blockers,
-      ready: blockers.length === 0,
-    }
-  },
-})
+    return activeRunIds.filter((runId): runId is string => runId !== undefined)
+  } catch {
+    return []
+  }
+}
+
+const getCurrentProcessIds = (): readonly number[] => [process.pid]
+
+const isProcessAlive = (pid: number): boolean => {
+  try {
+    process.kill(pid, 0)
+
+    return true
+  } catch {
+    return false
+  }
+}
 
 const viewPullRequestByHead = async (
   shell: DefaultLiveAdapterShellRunner,
@@ -959,7 +1159,7 @@ const discoverContainerArtifacts = async (
         '--filter',
         'name=prd-orchestrator',
         '--format',
-        '{{.ID}}\t{{.CreatedAt}}',
+        '{{.ID}}\t{{.Status}}\t{{.Names}}',
       ],
       command: 'docker',
     })
@@ -969,12 +1169,14 @@ const discoverContainerArtifacts = async (
       .map((line) => line.trim())
       .filter((line) => line.length > 0)
       .map((line) => {
-        const [containerId] = line.split('\t')
+        const [containerId, status, name] = line.split('\t')
+        const active = status?.startsWith('Up') === true
 
         return {
           category: 'container',
-          lastModifiedEpochMs: 0,
+          lastModifiedEpochMs: active ? Date.now() : 0,
           path: `container:${containerId ?? ''}`,
+          runId: parseRunIdFromArtifactName(name),
         } satisfies CleanupArtifact
       })
   } catch {
@@ -1251,6 +1453,14 @@ const parseChangedFiles = (content: string): readonly string[] =>
     .split('\n')
     .map((line) => line.trim())
     .filter((line) => line.length > 0)
+
+const parseRunIdFromArtifactName = (value: string | undefined): string | undefined => {
+  if (value === undefined) {
+    return undefined
+  }
+
+  return /prd-orchestrator-([a-zA-Z0-9_.:-]+)/.exec(value)?.[1]
+}
 
 const parseCodexEffort = (value: string | undefined): 'high' | 'low' | 'medium' | 'xhigh' => {
   if (value === 'low' || value === 'medium' || value === 'high' || value === 'xhigh') {

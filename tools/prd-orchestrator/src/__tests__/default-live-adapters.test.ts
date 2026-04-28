@@ -38,10 +38,18 @@ describe('default live adapters', () => {
       'gh run list --branch agent/prd-80-test --json name,status,conclusion --limit 20',
       'node --version',
       'pnpm --version',
-      'gh auth status',
       'git --version',
-      'docker ps',
+      'git status --porcelain',
+      'git fetch --dry-run origin main',
+      'gh auth status',
+      'gh pr list --state open --limit 1 --json number',
+      'git push --dry-run origin HEAD',
+      'gh run list --limit 1 --json status,conclusion',
+      'docker ps --format {{.ID}}',
+      'node --input-type=module --eval import("@ai-hero/sandcastle")',
       'coderabbit --version',
+      'codex --version',
+      'pnpm --filter @cv-maxxing/prd-orchestrator exec vitest --version',
     ])
   })
 
@@ -52,7 +60,7 @@ describe('default live adapters', () => {
     const adapters = createDefaultPrdOrchestratorLiveAdapters('/repo', undefined, shell.run)
 
     await expect(adapters.state.runPreflight()).resolves.toEqual({
-      blockers: ['gh preflight failed'],
+      blockers: ['GitHub read/write capability'],
       ready: false,
     })
   })

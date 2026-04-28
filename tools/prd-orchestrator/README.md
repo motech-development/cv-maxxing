@@ -35,7 +35,7 @@ Without stdin, `plan` reads open issues through `gh issue list` and prints the s
 5. apply the worker diff to the PRD branch
 6. run selected host verification commands
 7. create one child commit, push with `--force-with-lease`, run CodeRabbit, and update the draft PR ledger
-8. write local run state under `.git/prd-orchestrator/runs/latest/status.json`
+8. write local run state under `.git/prd-orchestrator/runs/<run-id>/status.json`
 
 ```sh
 pnpm --filter @cv-maxxing/prd-orchestrator build

@@ -386,11 +386,20 @@ const createUpdatedLedger = (input: {
 }
 
 const selectAffectedPackageTypechecks = (expectedModules: readonly string[]): readonly string[] => {
-  if (expectedModules.includes('@cv-maxxing/prd-orchestrator')) {
-    return ['pnpm --filter @cv-maxxing/prd-orchestrator typecheck']
+  const commands = new Set<string>([
+    'pnpm --filter @cv-maxxing/desktop typecheck',
+    'pnpm --filter @cv-maxxing/prd-orchestrator typecheck',
+  ])
+
+  if (expectedModules.includes('@cv-maxxing/desktop')) {
+    commands.add('pnpm --filter @cv-maxxing/desktop typecheck')
   }
 
-  return []
+  if (expectedModules.includes('@cv-maxxing/prd-orchestrator')) {
+    commands.add('pnpm --filter @cv-maxxing/prd-orchestrator typecheck')
+  }
+
+  return [...commands]
 }
 
 const selectTargetedTestCommands = (
