@@ -1,0 +1,9 @@
+.env
+.env.*
+artifacts/
+logs/
+runs/
+tmp/
+worktrees/
+*.log
+*.patch

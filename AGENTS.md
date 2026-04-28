@@ -69,6 +69,7 @@ These rules always apply. Follow project-local rules first when they are more sp
 - Keep Playwright visual baselines for the desktop app under `apps/desktop/tests/e2e/*-snapshots` and update them only through the package-owned visual test command.
 - Before updating desktop Playwright visual snapshots, run the package-owned desktop build so snapshots are captured from the current implementation rather than stale compiled assets.
 - Hide scrollbars before desktop visual captures when layout width matters, so Playwright snapshots stay stable across macOS environments with overlay and non-overlay scrollbar settings.
+- Keep repo-level PRD automation in `tools/prd-orchestrator`, and use one automation-owned draft pull request per PRD.
 
 ---
 

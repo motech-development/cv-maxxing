@@ -1,0 +1,15 @@
+# PRD Orchestrator
+
+`@cv-maxxing/prd-orchestrator` is the repo-level automation package for running PRD implementation work from GitHub child tasks.
+
+The v1 lifecycle is intentionally narrow:
+
+1. `plan` inspects the first eligible PRD and prints a dry-run execution plan.
+2. `run --one-child` proves one child task from selection through draft PR update.
+3. `resume-pr <number>` resumes an existing automation-owned draft PR.
+4. `status` reports local lock, run, Sandcastle, and draft PR status.
+5. `cleanup` removes stale local orchestrator and Sandcastle artifacts while preserving active runs.
+
+The orchestrator owns GitHub, git push, CodeRabbit, and CI polling credentials. Sandcastle workers are isolated Docker workers that receive PRD context and task prompts, but they do not receive GitHub credentials and do not mutate GitHub directly.
+
+Run state belongs outside tracked files under `.git/prd-orchestrator/runs/<run-id>/`. Sandcastle runtime artifacts remain untracked under `.sandcastle/`.
