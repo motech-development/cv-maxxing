@@ -55,7 +55,26 @@ export {
 
 export { createPlanFromIssueJson, runPrdOrchestratorCli } from './cli.js'
 
+export {
+  createChildCommitMessage,
+  generateDraftPrBody,
+  generateMergeInstructions,
+  generatePrdConventionalCommitTitle,
+  reconcileDraftPrStateFromCommits,
+} from './draft-pr-state.js'
+
 export type { PrdOrchestratorCliInput, PrdOrchestratorCliResult } from './cli.js'
+
+export type {
+  BranchCommit,
+  ChildTaskProgress,
+  ChildTaskProgressStatus,
+  CreateChildCommitMessageInput,
+  DraftPrChildTask,
+  GenerateDraftPrBodyInput,
+  GenerateMergeInstructionsInput,
+  ReconcileDraftPrStateInput,
+} from './draft-pr-state.js'
 
 export type {
   ChildTaskDagNode,
