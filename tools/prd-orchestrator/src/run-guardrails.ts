@@ -99,7 +99,10 @@ export interface CleanupPlan {
 }
 
 const runStateRoot = '.git/prd-orchestrator/runs'
+const repoRunLockPath = '.git/prd-orchestrator/lock.json'
 const staleLockHeartbeatMs = 15 * 60 * 1000
+
+export const createRepoRunLockPath = (): string => repoRunLockPath
 
 export const createRunStatePath = (runId: string): string => `${runStateRoot}/${runId}`
 

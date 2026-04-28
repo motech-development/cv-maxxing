@@ -64,6 +64,45 @@ describe('default live adapters', () => {
       ready: false,
     })
   })
+
+  it('inspects CodeRabbit PR reviews, comments, and check rollups after the CLI review', async () => {
+    const shell = createRecordingShell()
+    const adapters = createDefaultPrdOrchestratorLiveAdapters('/repo', undefined, shell.run)
+
+    await expect(
+      adapters.codeRabbit.reviewChild({
+        branchName: 'agent/prd-80-test',
+        childCommitHash: 'abc123456789',
+        childIssueNumber: 81,
+        prNumber: 123,
+      }),
+    ).resolves.toEqual({
+      findings: [
+        {
+          body: 'Requested changes from review.',
+          id: 'coderabbit-review-1',
+          source: 'github-pr-review',
+          title: 'CodeRabbit requested changes',
+        },
+        {
+          body: 'Inline comment body.',
+          id: 'coderabbit-comment-1',
+          source: 'github-pr-review',
+          title: 'CodeRabbit PR comment',
+        },
+        {
+          body: 'CodeRabbit check CodeRabbit failed with conclusion failure.',
+          id: 'coderabbit-check-1',
+          source: 'github-check',
+          title: 'CodeRabbit check failed',
+        },
+      ],
+      status: 'findings',
+    })
+    expect(shell.commands.map((command) => formatCommand(command))).toContain(
+      'gh pr view 123 --json reviews,comments,statusCheckRollup',
+    )
+  })
 })
 
 const createRecordingShell = (
@@ -127,6 +166,35 @@ const responseForCommand = (command: DefaultLiveAdapterShellCommandInput): strin
         status: 'completed',
       },
     ])
+  }
+
+  if (formattedCommand.startsWith('gh pr view 123 --json reviews')) {
+    return JSON.stringify({
+      comments: [
+        {
+          author: {
+            login: 'coderabbitai',
+          },
+          body: 'Inline comment body.',
+        },
+      ],
+      reviews: [
+        {
+          author: {
+            login: 'coderabbitai',
+          },
+          body: 'Requested changes from review.',
+          state: 'CHANGES_REQUESTED',
+        },
+      ],
+      statusCheckRollup: [
+        {
+          conclusion: 'failure',
+          name: 'CodeRabbit',
+          status: 'COMPLETED',
+        },
+      ],
+    })
   }
 
   return ''

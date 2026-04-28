@@ -226,8 +226,20 @@ describe('one-child transaction planning', () => {
       'pnpm lint',
       'pnpm --filter @cv-maxxing/desktop typecheck',
       'pnpm --filter @cv-maxxing/prd-orchestrator typecheck',
+      'pnpm --filter @cv-maxxing/desktop test:visual',
       'pnpm --filter @cv-maxxing/prd-orchestrator test:unit -- tools/prd-orchestrator/src/__tests__/one-child-transaction.test.ts',
     ])
+
+    expect(
+      selectVerificationCommands({
+        designFiles: ['design/app.pen'],
+        expectedFiles: ['apps/desktop/src/renderer/App.tsx'],
+        expectedModules: ['@cv-maxxing/desktop'],
+        riskLevel: 'medium',
+        sharedContracts: [],
+        tests: [],
+      }),
+    ).toContain('pnpm --filter @cv-maxxing/desktop test:visual')
   })
 
   it('records blockers when clean up-to-date main or write-surface checks fail', () => {

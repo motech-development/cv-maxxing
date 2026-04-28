@@ -242,6 +242,71 @@ export const executeLiveOneChild = async (
   }
 }
 
+export const executeLiveRun = async (
+  adapters: PrdOrchestratorLiveAdapters,
+): Promise<LiveCommandResult> => {
+  const preflight = await adapters.state.runPreflight()
+
+  if (!preflight.ready) {
+    return blockedResult(preflight.blockers.join('\n'))
+  }
+
+  const lock = await adapters.state.acquireRunLock()
+
+  if (!lock.ready) {
+    return blockedResult(lock.blockers.join('\n'))
+  }
+
+  try {
+    return await executeLiveRunWithLock(adapters)
+  } finally {
+    await adapters.state.releaseRunLock()
+  }
+}
+
+const executeLiveRunWithLock = async (
+  adapters: PrdOrchestratorLiveAdapters,
+): Promise<LiveCommandResult> => {
+  let previousCompletedChildren = ''
+  let lastChildResult: LiveCommandResult | undefined
+
+  for (;;) {
+    lastChildResult = await executeLiveOneChildWithLock(adapters)
+
+    if (lastChildResult.exitCode !== 0) {
+      return lastChildResult
+    }
+
+    const status = await adapters.state.readRunStatus()
+
+    if (status.phase === 'ready-for-review') {
+      return {
+        exitCode: 0,
+        stderr: '',
+        stdout: [
+          `Completed PRD ${formatOptionalIssueReference(status.activePrdIssueNumber)}`,
+          `Draft PR: ${formatOptionalIssueReference(status.prNumber)} ${status.prUrl ?? ''}`.trim(),
+          `Completed children: ${status.completedChildren
+            .map((issueNumber) => formatOptionalIssueReference(issueNumber))
+            .join(', ')}`,
+        ].join('\n'),
+      }
+    }
+
+    if (status.phase === 'blocked') {
+      return lastChildResult
+    }
+
+    const completedChildren = status.completedChildren.join(',')
+
+    if (completedChildren === previousCompletedChildren) {
+      return blockedResult('Full run made no child-task progress.')
+    }
+
+    previousCompletedChildren = completedChildren
+  }
+}
+
 const executeLiveOneChildWithLock = async (
   adapters: PrdOrchestratorLiveAdapters,
 ): Promise<LiveCommandResult> => {
@@ -558,7 +623,7 @@ export const executeResumePr = async (
 
   await adapters.state.recoverRunStatusFromPr(pr)
 
-  return await executeLiveOneChild(adapters)
+  return await executeLiveRun(adapters)
 }
 
 export const executeStatus = async (
@@ -1093,5 +1158,8 @@ const isCleanUpToDateMain = (status: MainBranchStatus): boolean =>
 
 const isDependencyChangeFile = (filePath: string): boolean =>
   filePath === 'package.json' || filePath === 'pnpm-lock.yaml' || filePath.endsWith('/package.json')
+
+const formatOptionalIssueReference = (issueNumber: number | undefined): string =>
+  issueNumber === undefined ? 'none' : `#${String(issueNumber)}`
 
 export { evaluateCleanupPlan as createCleanupPlanFromArtifacts } from './run-guardrails.js'

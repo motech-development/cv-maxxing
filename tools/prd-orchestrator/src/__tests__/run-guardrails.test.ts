@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  createRepoRunLockPath,
   createRunStatePath,
   evaluateCleanupPlan,
   evaluatePreflight,
@@ -168,6 +169,7 @@ describe('run guardrails', () => {
     expect(createRunStatePath('2026-04-28T160000Z-prd-80')).toBe(
       '.git/prd-orchestrator/runs/2026-04-28T160000Z-prd-80',
     )
+    expect(createRepoRunLockPath()).toBe('.git/prd-orchestrator/lock.json')
   })
 
   it('formats status with active PRD, PR, phase, child progress, health, and link', () => {

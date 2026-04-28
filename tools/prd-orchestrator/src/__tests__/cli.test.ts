@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import { runPrdOrchestratorCli, runPrdOrchestratorCliAsync } from '../cli.js'
 import { createDefaultPrdOrchestratorLiveAdapters } from '../default-live-adapters.js'
-import type { PrdOrchestratorLiveAdapters } from '../live-orchestrator.js'
+import type { PrdOrchestratorLiveAdapters, GitHubIssue } from '../index.js'
 import type { RemoteAutomationPr } from '../run-guardrails.js'
 
 const issueObjects = [
@@ -43,6 +43,36 @@ None - can start immediately.
 ] as const
 
 const issueJson = JSON.stringify(issueObjects)
+
+const multiChildIssueObjects = [
+  issueObjects[0],
+  issueObjects[1],
+  {
+    body: `## Parent PRD
+
+#80
+
+## What to build
+
+Generate the PR state.
+
+## Acceptance criteria
+
+- [ ] Draft PR state is generated.
+
+## Blocked by
+
+- Blocked by #82
+
+## User stories addressed
+
+- User story 1
+`,
+    number: 83,
+    state: 'OPEN',
+    title: 'Generate PRD draft PR state, ledger, and merge instructions',
+  },
+] as const
 
 describe('PRD orchestrator CLI', () => {
   it('prints a dry-run plan from issue JSON on stdin', () => {
@@ -109,6 +139,25 @@ describe('PRD orchestrator CLI', () => {
     })
   })
 
+  it('runs every child task in dependency order for the full live run command', async () => {
+    const adapters = createLiveAdapters({
+      issues: multiChildIssueObjects,
+    })
+    const result = await runPrdOrchestratorCliAsync({
+      adapters,
+      arguments_: ['run'],
+      stdin: '',
+    })
+
+    expect(result.exitCode).toBe(0)
+    expect(result.stdout).toContain('Completed PRD #80')
+    expect(adapters.completedChildIssueNumbers).toEqual([82, 83])
+    expect(adapters.events.filter((event) => event === 'git:commit-child')).toHaveLength(2)
+    expect(adapters.events.filter((event) => event === 'coderabbit:review')).toHaveLength(2)
+    expect(adapters.events).toContain('github:mark-ready-for-review')
+    expect(adapters.events).toContain('lock:release')
+  })
+
   it('fetches live issues for plan when stdin is empty', async () => {
     const adapters = createLiveAdapters()
     const result = await runPrdOrchestratorCliAsync({
@@ -139,6 +188,7 @@ describe('PRD orchestrator CLI', () => {
       'lock:acquire',
       'github:list-open-issues',
       'git:get-main-branch-status',
+      'git:get-completed-children',
       'github:find-automation-pr',
       'git:prepare-prd-branch',
       'github:create-draft-pr',
@@ -336,6 +386,7 @@ interface CreateLiveAdaptersOptions {
   readonly impactAnalyses?: readonly Awaited<
     ReturnType<PrdOrchestratorLiveAdapters['sandcastle']['runImpactAnalysis']>
   >[]
+  readonly issues?: readonly GitHubIssue[]
   readonly verificationFailuresBeforeClean?: number
   readonly workerChangedFiles?: readonly string[]
 }
@@ -345,9 +396,11 @@ const createLiveAdapters = (
 ): PrdOrchestratorLiveAdapters & {
   readonly events: string[]
   readonly amendedCommitMessages: string[]
+  readonly completedChildIssueNumbers: number[]
 } => {
   const events: string[] = []
   const amendedCommitMessages: string[] = []
+  const completedChildIssueNumbers: number[] = []
   let codeRabbitReviewCount = 0
   let impactAnalysisCount = 0
   let verificationRunCount = 0
@@ -361,6 +414,7 @@ const createLiveAdapters = (
       },
     },
     amendedCommitMessages,
+    completedChildIssueNumbers,
     codeRabbit: {
       reviewChild: () => {
         events.push('coderabbit:review')
@@ -390,8 +444,13 @@ const createLiveAdapters = (
 
         return Promise.resolve()
       },
-      commitChild: () => {
+      commitChild: (message) => {
         events.push('git:commit-child')
+        const issueNumber = Number.parseInt(/Closes #(\d+)/.exec(message)?.[1] ?? '', 10)
+
+        if (Number.isInteger(issueNumber)) {
+          completedChildIssueNumbers.push(issueNumber)
+        }
 
         return Promise.resolve({
           hash: 'abc123456789',
@@ -413,6 +472,11 @@ const createLiveAdapters = (
           currentBranch: 'main',
           upToDate: true,
         })
+      },
+      getCompletedChildIssueNumbers: () => {
+        events.push('git:get-completed-children')
+
+        return Promise.resolve([...completedChildIssueNumbers])
       },
       preparePrdBranch: () => {
         events.push('git:prepare-prd-branch')
@@ -467,7 +531,7 @@ const createLiveAdapters = (
       listOpenIssues: () => {
         events.push('github:list-open-issues')
 
-        return Promise.resolve(issueObjects)
+        return Promise.resolve(options.issues ?? issueObjects)
       },
       markReadyForReview: () => {
         events.push('github:mark-ready-for-review')
@@ -555,18 +619,22 @@ const createLiveAdapters = (
       },
       readRunStatus: () => {
         events.push('state:read-run-status')
+        const issues = options.issues ?? issueObjects
+        const childIssueCount = issues.filter((issue) => issue.number !== 80).length
+        const phase =
+          completedChildIssueNumbers.length >= childIssueCount ? 'ready-for-review' : 'complete'
 
         return Promise.resolve({
           activePrdIssueNumber: 80,
           blockers: [],
           branchName: 'agent/prd-80-automate-prd-implementation',
-          ciStatus: 'unknown',
+          ciStatus: phase === 'ready-for-review' ? 'passed' : 'unknown',
           codeRabbitStatus: 'passed',
-          completedChildren: [82],
+          completedChildren: [...completedChildIssueNumbers],
           currentChildIssueNumber: undefined,
           heartbeatIso: '2026-04-28T17:00:00.000Z',
-          lastCommand: 'run --one-child',
-          phase: 'complete',
+          lastCommand: phase === 'ready-for-review' ? 'final audit posted' : 'run --one-child',
+          phase,
           prNumber: 123,
           prUrl: 'https://github.com/motech-development/cv-maxxing/pull/123',
         })

@@ -38,7 +38,7 @@ import type {
   RemoteAutomationPr,
   RunStatus,
 } from './run-guardrails.js'
-import { evaluatePreflight } from './run-guardrails.js'
+import { createRepoRunLockPath, evaluatePreflight } from './run-guardrails.js'
 import type { GitHubIssue, ParsedChildTask } from './planning.js'
 import type { CodeRabbitFinding } from './coderabbit-review.js'
 
@@ -608,7 +608,7 @@ const createCodeRabbitAdapter = (
       timeoutMs: 60 * 60 * 1000,
     })
     const pullRequest = await shell({
-      args: ['pr', 'view', String(input.prNumber), '--json', 'reviews'],
+      args: ['pr', 'view', String(input.prNumber), '--json', 'reviews,comments,statusCheckRollup'],
       command: 'gh',
     })
     const findings = parseCodeRabbitFindings(pullRequest.stdout)
@@ -656,14 +656,18 @@ const createRunStateAdapter = (
   return {
     acquireRunLock: async (): Promise<LiveRunLockResult> => {
       const runDirectory = activeRunDirectory()
+      const lockFilePath = path.join(cwd, createRepoRunLockPath())
 
       await mkdir(runDirectory, {
+        recursive: true,
+      })
+      await mkdir(path.dirname(lockFilePath), {
         recursive: true,
       })
 
       try {
         await writeFile(
-          path.join(runDirectory, lockFileName),
+          lockFilePath,
           JSON.stringify(
             {
               heartbeatIso: new Date().toISOString(),
@@ -810,7 +814,7 @@ const createRunStateAdapter = (
       )
     },
     releaseRunLock: async (): Promise<void> => {
-      await rm(path.join(activeRunDirectory(), lockFileName), {
+      await rm(path.join(cwd, createRepoRunLockPath()), {
         force: true,
       })
     },
@@ -966,28 +970,34 @@ const findLatestRunDirectory = async (cwd: string): Promise<string> => {
 }
 
 const discoverActiveRunIds = async (cwd: string): Promise<readonly string[]> => {
+  const repoLockRunId = await readActiveRunIdFromLock(path.join(cwd, createRepoRunLockPath()))
+
   try {
     const entries = await readdir(path.join(cwd, runStateRoot))
     const activeRunIds = await Promise.all(
       entries.map(async (entry): Promise<string | undefined> => {
-        try {
-          const content = await readFile(path.join(cwd, runStateRoot, entry, lockFileName), 'utf8')
-          const lock: unknown = JSON.parse(content)
-
-          if (!isRecord(lock) || typeof lock.pid !== 'number') {
-            return undefined
-          }
-
-          return isProcessAlive(lock.pid) ? entry : undefined
-        } catch {
-          return undefined
-        }
+        return await readActiveRunIdFromLock(path.join(cwd, runStateRoot, entry, lockFileName))
       }),
     )
 
-    return activeRunIds.filter((runId): runId is string => runId !== undefined)
+    return [repoLockRunId, ...activeRunIds].filter((runId): runId is string => runId !== undefined)
   } catch {
-    return []
+    return repoLockRunId === undefined ? [] : [repoLockRunId]
+  }
+}
+
+const readActiveRunIdFromLock = async (lockFilePath: string): Promise<string | undefined> => {
+  try {
+    const content = await readFile(lockFilePath, 'utf8')
+    const lock: unknown = JSON.parse(content)
+
+    if (!isRecord(lock) || typeof lock.pid !== 'number' || typeof lock.runId !== 'string') {
+      return undefined
+    }
+
+    return isProcessAlive(lock.pid) ? lock.runId : undefined
+  } catch {
+    return undefined
   }
 }
 
@@ -1274,37 +1284,97 @@ const parseGitHubActionsRun = (
 
 const parseCodeRabbitFindings = (content: string): readonly CodeRabbitFinding[] => {
   const pullRequest = parseJsonRecord(content)
-  const reviews = pullRequest.reviews
+  const reviews = Array.isArray(pullRequest.reviews) ? pullRequest.reviews : []
+  const comments = Array.isArray(pullRequest.comments) ? pullRequest.comments : []
+  const checks = Array.isArray(pullRequest.statusCheckRollup) ? pullRequest.statusCheckRollup : []
 
-  if (!Array.isArray(reviews)) {
+  return [
+    ...reviews.flatMap((review, index) => parseCodeRabbitReviewFinding(review, index)),
+    ...comments.flatMap((comment, index) => parseCodeRabbitCommentFinding(comment, index)),
+    ...checks.flatMap((check, index) => parseCodeRabbitCheckFinding(check, index)),
+  ]
+}
+
+const parseCodeRabbitReviewFinding = (
+  review: unknown,
+  index: number,
+): readonly CodeRabbitFinding[] => {
+  if (!isRecord(review)) {
     return []
   }
 
-  return reviews.flatMap((review, index): readonly CodeRabbitFinding[] => {
-    if (!isRecord(review)) {
-      return []
-    }
+  const author = review.author
+  const authorLogin = isRecord(author) ? parseOptionalStringField(author, 'login') : undefined
+  const state = parseOptionalStringField(review, 'state')
 
-    const author = review.author
-    const authorLogin = isRecord(author) ? parseOptionalStringField(author, 'login') : undefined
-    const state = parseOptionalStringField(review, 'state')
+  if (authorLogin?.toLowerCase().includes('coderabbit') !== true || state !== 'CHANGES_REQUESTED') {
+    return []
+  }
 
-    if (
-      authorLogin?.toLowerCase().includes('coderabbit') !== true ||
-      state !== 'CHANGES_REQUESTED'
-    ) {
-      return []
-    }
+  return [
+    {
+      body: parseOptionalStringField(review, 'body') ?? 'CodeRabbit requested changes.',
+      id: `coderabbit-review-${String(index + 1)}`,
+      source: 'github-pr-review',
+      title: 'CodeRabbit requested changes',
+    },
+  ]
+}
 
-    return [
-      {
-        body: parseOptionalStringField(review, 'body') ?? 'CodeRabbit requested changes.',
-        id: `coderabbit-review-${String(index + 1)}`,
-        source: 'github-pr-review',
-        title: 'CodeRabbit requested changes',
-      },
-    ]
-  })
+const parseCodeRabbitCommentFinding = (
+  comment: unknown,
+  index: number,
+): readonly CodeRabbitFinding[] => {
+  if (!isRecord(comment)) {
+    return []
+  }
+
+  const author = comment.author
+  const authorLogin = isRecord(author) ? parseOptionalStringField(author, 'login') : undefined
+
+  if (authorLogin?.toLowerCase().includes('coderabbit') !== true) {
+    return []
+  }
+
+  return [
+    {
+      body: parseOptionalStringField(comment, 'body') ?? 'CodeRabbit left a PR comment.',
+      id: `coderabbit-comment-${String(index + 1)}`,
+      source: 'github-pr-review',
+      title: 'CodeRabbit PR comment',
+    },
+  ]
+}
+
+const parseCodeRabbitCheckFinding = (
+  check: unknown,
+  index: number,
+): readonly CodeRabbitFinding[] => {
+  if (!isRecord(check)) {
+    return []
+  }
+
+  const name = parseOptionalStringField(check, 'name') ?? ''
+  const conclusion = parseOptionalStringField(check, 'conclusion')
+  const status = parseOptionalStringField(check, 'status')
+  const failed =
+    conclusion !== undefined &&
+    conclusion !== 'success' &&
+    conclusion !== 'neutral' &&
+    conclusion !== 'skipped'
+
+  if (!name.toLowerCase().includes('coderabbit') || status !== 'COMPLETED' || !failed) {
+    return []
+  }
+
+  return [
+    {
+      body: `CodeRabbit check ${name} failed with conclusion ${conclusion}.`,
+      id: `coderabbit-check-${String(index + 1)}`,
+      source: 'github-check',
+      title: 'CodeRabbit check failed',
+    },
+  ]
 }
 
 const parseRunStatus = (value: unknown): RunStatus => {
