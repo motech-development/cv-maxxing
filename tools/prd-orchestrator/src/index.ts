@@ -63,6 +63,14 @@ export {
   reconcileDraftPrStateFromCommits,
 } from './draft-pr-state.js'
 
+export {
+  createRunStatePath,
+  evaluateCleanupPlan,
+  evaluatePreflight,
+  evaluateRunLock,
+  formatRunStatus,
+} from './run-guardrails.js'
+
 export type { PrdOrchestratorCliInput, PrdOrchestratorCliResult } from './cli.js'
 
 export type {
@@ -75,6 +83,22 @@ export type {
   GenerateMergeInstructionsInput,
   ReconcileDraftPrStateInput,
 } from './draft-pr-state.js'
+
+export type {
+  CleanupArtifact,
+  CleanupArtifactCategory,
+  CleanupPlan,
+  EvaluateCleanupPlanInput,
+  EvaluateRunLockInput,
+  PreflightCheck,
+  PreflightInput,
+  PreflightResult,
+  RemoteAutomationPr,
+  RunLock,
+  RunLockAction,
+  RunLockDecision,
+  RunStatus,
+} from './run-guardrails.js'
 
 export type {
   ChildTaskDagNode,
