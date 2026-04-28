@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { runPrdOrchestratorCli, runPrdOrchestratorCliAsync } from '../cli.js'
 import { createDefaultPrdOrchestratorLiveAdapters } from '../default-live-adapters.js'
 import type { CodeRabbitFinding, PrdOrchestratorLiveAdapters, GitHubIssue } from '../index.js'
-import type { RemoteAutomationPr } from '../run-guardrails.js'
+import type { RemoteAutomationPr, RunStatus } from '../run-guardrails.js'
 
 const issueObjects = [
   {
@@ -71,6 +71,108 @@ Generate the PR state.
     number: 83,
     state: 'OPEN',
     title: 'Generate PRD draft PR state, ledger, and merge instructions',
+  },
+] as const
+
+const parentPrdWithTwoStories = {
+  body: `## User Stories
+
+1. As a maintainer, I want planning.
+2. As a maintainer, I want safe dependency ordering.
+`,
+  number: 80,
+  state: 'OPEN',
+  title: 'PRD: Automate PRD implementation',
+} as const
+
+const childWithAcceptance = {
+  body: `## Parent PRD
+
+#80
+
+## What to build
+
+Plan one child.
+
+## Acceptance criteria
+
+- [ ] A dry-run plan command prints planning details.
+
+## Blocked by
+
+None - can start immediately.
+
+## User stories addressed
+
+- User story 1
+- User story 2
+`,
+  number: 82,
+  state: 'OPEN',
+  title: 'Build PRD and child-task planning from GitHub Markdown',
+} as const
+
+const blockedPlanningCases = [
+  {
+    blockers: ['#82 has no acceptance criteria'],
+    issues: [
+      issueObjects[0],
+      {
+        ...issueObjects[1],
+        body: issueObjects[1].body.replace(
+          /## Acceptance criteria[\S\s]*?## Blocked by/,
+          '## Blocked by',
+        ),
+      },
+    ],
+    name: 'missing acceptance criteria',
+  },
+  {
+    blockers: ['#82 contains HITL/unresolved-decision markers'],
+    issues: [
+      issueObjects[0],
+      {
+        ...issueObjects[1],
+        body: issueObjects[1].body.replace('Plan one child.', 'HITL: choose the child scope.'),
+      },
+    ],
+    name: 'HITL markers',
+  },
+  {
+    blockers: ['User story 2 is not covered by child tasks'],
+    issues: [parentPrdWithTwoStories, issueObjects[1]],
+    name: 'uncovered user stories',
+  },
+  {
+    blockers: ['#82 depends on unknown child issue #999'],
+    issues: [
+      issueObjects[0],
+      {
+        ...issueObjects[1],
+        body: issueObjects[1].body.replace('None - can start immediately.', '- Blocked by #999'),
+      },
+    ],
+    name: 'unknown dependency graph references',
+  },
+  {
+    blockers: ['Child task dependencies contain a cycle'],
+    issues: [
+      parentPrdWithTwoStories,
+      {
+        ...childWithAcceptance,
+        body: childWithAcceptance.body.replace('None - can start immediately.', '- Blocked by #83'),
+      },
+      {
+        ...childWithAcceptance,
+        body: childWithAcceptance.body
+          .replace('Plan one child.', 'Plan a second child.')
+          .replace('None - can start immediately.', '- Blocked by #82')
+          .replace('- User story 1\n- User story 2', '- User story 2'),
+        number: 83,
+        title: 'Generate PRD draft PR state, ledger, and merge instructions',
+      },
+    ],
+    name: 'cyclic dependency graphs',
   },
 ] as const
 
@@ -206,6 +308,106 @@ describe('PRD orchestrator CLI', () => {
       'state:record-run-status',
       'lock:release',
     ])
+  })
+
+  it.each(blockedPlanningCases)(
+    'blocks run --one-child before live mutations for $name',
+    async ({ blockers, issues }) => {
+      const adapters = createLiveAdapters({
+        issues,
+      })
+      const result = await runPrdOrchestratorCliAsync({
+        adapters,
+        arguments_: ['run', '--one-child'],
+        stdin: '',
+      })
+
+      expect(result.exitCode).toBe(1)
+      expect(result.stderr).toBe(`${blockers.join('\n')}\n`)
+      expect(result.stdout).toBe('')
+      expect(adapters.events).toEqual([
+        'preflight:run',
+        'lock:acquire',
+        'github:list-open-issues',
+        'state:record-run-status',
+        'lock:release',
+      ])
+      expect(adapters.recordedStatuses.at(-1)).toMatchObject({
+        activePrdIssueNumber: 80,
+        blockers,
+        completedChildren: [],
+        currentChildIssueNumber: undefined,
+        phase: 'blocked',
+        prNumber: undefined,
+        prUrl: undefined,
+      })
+    },
+  )
+
+  it('blocks full run before branch, PR, Sandcastle, commit, push, or PR-body mutation', async () => {
+    const blockers = ['#82 has no acceptance criteria']
+    const adapters = createLiveAdapters({
+      issues: blockedPlanningCases[0].issues,
+    })
+    const result = await runPrdOrchestratorCliAsync({
+      adapters,
+      arguments_: ['run'],
+      stdin: '',
+    })
+
+    expect(result.exitCode).toBe(1)
+    expect(result.stderr).toBe(`${blockers.join('\n')}\n`)
+    expect(adapters.events).toEqual([
+      'preflight:run',
+      'lock:acquire',
+      'github:list-open-issues',
+      'state:record-run-status',
+      'state:read-run-status',
+      'lock:release',
+    ])
+    expect(adapters.recordedStatuses.at(-1)).toMatchObject({
+      blockers,
+      completedChildren: [],
+      currentChildIssueNumber: undefined,
+      phase: 'blocked',
+    })
+  })
+
+  it('blocks resume continuation before repair or PR mutation when planning blockers exist', async () => {
+    const blockers = ['#82 has no acceptance criteria']
+    const adapters = createLiveAdapters({
+      issues: blockedPlanningCases[0].issues,
+      resumePrFindings: [
+        {
+          body: 'Fix the child commit.',
+          childIssueNumber: 82,
+          id: 'resume-child-finding',
+          source: 'github-pr-review',
+          title: 'Child issue regression',
+        },
+      ],
+    })
+    const result = await runPrdOrchestratorCliAsync({
+      adapters,
+      arguments_: ['resume-pr', '123'],
+      stdin: '',
+    })
+
+    expect(result.exitCode).toBe(1)
+    expect(result.stderr).toBe(`${blockers.join('\n')}\n`)
+    expect(adapters.events).toEqual([
+      'github:get-pr',
+      'github:list-open-issues',
+      'state:record-run-status',
+    ])
+    expect(adapters.recordedStatuses.at(-1)).toMatchObject({
+      blockers,
+      completedChildren: [],
+      currentChildIssueNumber: undefined,
+      phase: 'blocked',
+      prNumber: undefined,
+      prUrl: undefined,
+    })
   })
 
   it('repairs CodeRabbit findings by amending the child commit and rerunning review', async () => {
@@ -477,9 +679,11 @@ const createLiveAdapters = (
   readonly amendedCommitMessages: string[]
   readonly completedChildIssueNumbers: number[]
   readonly postedComments: string[]
+  readonly recordedStatuses: RunStatus[]
 } => {
   const events: string[] = []
   const amendedCommitMessages: string[] = []
+  const recordedStatuses: RunStatus[] = []
   const postedComments: string[] = []
   const completedChildIssueNumbers: number[] = []
   let codeRabbitReviewCount = 0
@@ -524,6 +728,7 @@ const createLiveAdapters = (
       },
     },
     events,
+    recordedStatuses,
     git: {
       applyWorkerDiff: () => {
         events.push('git:apply-worker-diff')
@@ -806,6 +1011,7 @@ const createLiveAdapters = (
       recordRunStatus: (status) => {
         events.push('state:record-run-status')
         lastRecordedStatus = status
+        recordedStatuses.push(status)
 
         return Promise.resolve()
       },
