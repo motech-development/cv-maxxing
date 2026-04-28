@@ -22,7 +22,12 @@ import {
   type ParsedChildTask,
   type SelectedPrdPlan,
 } from './planning.js'
-import type { CodeRabbitFinding } from './coderabbit-review.js'
+import {
+  classifyCodeRabbitFinding,
+  recordNonActionableFinding,
+  type CodeRabbitFinding,
+  type NonActionableFindingRecord,
+} from './coderabbit-review.js'
 import type {
   SandcastleImpactAnalysisResult,
   SiblingTaskSummary,
@@ -30,9 +35,12 @@ import type {
 import {
   evaluateReadyForReviewGate,
   generateFinalPrdAcceptanceAudit,
+  planResumePrRepair,
   validateAutomationPrOwnership,
+  type ChildCommitReference,
   type CiStatus,
   type ParentUserStoryAudit,
+  type ResumePrFinding,
 } from './final-prd-flow.js'
 
 export interface PrdOrchestratorLiveAdapters {
@@ -46,7 +54,12 @@ export interface PrdOrchestratorLiveAdapters {
   readonly git: {
     readonly applyWorkerDiff: (input: ApplyWorkerDiffInput) => Promise<void>
     readonly amendChildCommit: (message: string) => Promise<ChildCommitResult>
+    readonly checkoutChildCommit?: (input: CheckoutChildCommitInput) => Promise<void>
     readonly commitChild: (message: string) => Promise<ChildCommitResult>
+    readonly commitFinalCleanup?: (message: string) => Promise<ChildCommitResult>
+    readonly getChildCommitReferences?: (
+      branchName: string,
+    ) => Promise<readonly ChildCommitReference[]>
     readonly getCompletedChildIssueNumbers?: (branchName: string) => Promise<readonly number[]>
     readonly getMainBranchStatus: () => Promise<MainBranchStatus>
     readonly preparePrdBranch: (input: PreparePrdBranchInput) => Promise<void>
@@ -54,10 +67,12 @@ export interface PrdOrchestratorLiveAdapters {
   }
   readonly github: {
     readonly createDraftPr: (input: CreateDraftPrInput) => Promise<RemoteAutomationPr>
+    readonly convertPrToDraft?: (prNumber: number) => Promise<void>
     readonly findAutomationPr: (
       prdIssueNumber: number,
       branchName: string,
     ) => Promise<RemoteAutomationPr | undefined>
+    readonly getReviewFindings?: (prNumber: number) => Promise<readonly ResumePrFinding[]>
     readonly getPr: (prNumber: number) => Promise<AutomationPrDetails>
     readonly getCurrentPr: () => Promise<AutomationPrDetails | undefined>
     readonly listOpenIssues: () => Promise<readonly GitHubIssue[]>
@@ -68,6 +83,9 @@ export interface PrdOrchestratorLiveAdapters {
   readonly sandcastle: {
     readonly repairReviewFindings: (
       input: RepairReviewFindingsInput,
+    ) => Promise<RunImplementationResult>
+    readonly repairResumeFindings?: (
+      input: RepairResumeFindingsInput,
     ) => Promise<RunImplementationResult>
     readonly repairVerificationFailure: (
       input: RepairVerificationFailureInput,
@@ -132,6 +150,12 @@ export interface PreparePrdBranchInput {
   readonly remoteAutomationPr: RemoteAutomationPr | undefined
 }
 
+export interface CheckoutChildCommitInput {
+  readonly branchName: string
+  readonly childIssueNumber: number
+  readonly commitHash: string
+}
+
 export interface ApplyWorkerDiffInput {
   readonly prdBranchName: string
   readonly workerBranchName: string
@@ -167,6 +191,13 @@ export interface RunImplementationResult {
 
 export interface RepairReviewFindingsInput extends RunImplementationInput {
   readonly findings: readonly CodeRabbitFinding[]
+}
+
+export interface RepairResumeFindingsInput {
+  readonly branchName: string
+  readonly findings: readonly ResumePrFinding[]
+  readonly prNumber: number
+  readonly workerBranchName: string
 }
 
 export interface RepairVerificationFailureInput extends RunImplementationInput {
@@ -269,17 +300,56 @@ const executeLiveRunWithLock = async (
 ): Promise<LiveCommandResult> => {
   let previousCompletedChildren = ''
   let lastChildResult: LiveCommandResult | undefined
+  const blockedChildIssueNumbers = new Set<number>()
+  let continuedAfterBlocker = false
 
   for (;;) {
-    lastChildResult = await executeLiveOneChildWithLock(adapters)
+    lastChildResult = await executeLiveOneChildWithLock(adapters, {
+      blockedChildIssueNumbers: [...blockedChildIssueNumbers],
+    })
 
     if (lastChildResult.exitCode !== 0) {
+      const status = await adapters.state.readRunStatus()
+
+      for (const completedChildIssueNumber of status.completedChildren) {
+        blockedChildIssueNumbers.delete(completedChildIssueNumber)
+      }
+
+      if (status.phase !== 'blocked' || status.currentChildIssueNumber === undefined) {
+        return lastChildResult
+      }
+
+      blockedChildIssueNumbers.add(status.currentChildIssueNumber)
+
+      const completedChildren = status.completedChildren.join(',')
+
+      if (completedChildren !== previousCompletedChildren) {
+        previousCompletedChildren = completedChildren
+        continuedAfterBlocker = true
+      }
+
+      if (await hasRunnableChildAfterBlocker(adapters, [...blockedChildIssueNumbers])) {
+        continue
+      }
+
+      if (continuedAfterBlocker) {
+        return blockedResult('Full run blocked after continuing independent child work.')
+      }
+
       return lastChildResult
     }
 
     const status = await adapters.state.readRunStatus()
 
+    for (const completedChildIssueNumber of status.completedChildren) {
+      blockedChildIssueNumbers.delete(completedChildIssueNumber)
+    }
+
     if (status.phase === 'ready-for-review') {
+      if (blockedChildIssueNumbers.size > 0) {
+        return blockedResult('Full run blocked after continuing independent child work.')
+      }
+
       return {
         exitCode: 0,
         stderr: '',
@@ -299,6 +369,13 @@ const executeLiveRunWithLock = async (
 
     const completedChildren = status.completedChildren.join(',')
 
+    if (
+      blockedChildIssueNumbers.size > 0 &&
+      !(await hasRunnableChildAfterBlocker(adapters, [...blockedChildIssueNumbers]))
+    ) {
+      return blockedResult('Full run blocked after continuing independent child work.')
+    }
+
     if (completedChildren === previousCompletedChildren) {
       return blockedResult('Full run made no child-task progress.')
     }
@@ -309,6 +386,9 @@ const executeLiveRunWithLock = async (
 
 const executeLiveOneChildWithLock = async (
   adapters: PrdOrchestratorLiveAdapters,
+  input: {
+    readonly blockedChildIssueNumbers?: readonly number[]
+  } = {},
 ): Promise<LiveCommandResult> => {
   const issues = await adapters.github.listOpenIssues()
   const dryRunPlan = createDryRunPlan(issues)
@@ -343,7 +423,11 @@ const executeLiveOneChildWithLock = async (
 
   const completedChildIssueNumbers =
     (await adapters.git.getCompletedChildIssueNumbers?.(branchSeedPlan.prdBranchName)) ?? []
-  const selectedChild = selectNextChild(selectedPrd, completedChildIssueNumbers)
+  const selectedChild = selectNextChild(
+    selectedPrd,
+    completedChildIssueNumbers,
+    input.blockedChildIssueNumbers ?? [],
+  )
 
   if (selectedChild === undefined) {
     return blockedResult('No unblocked child task is available.')
@@ -621,6 +705,84 @@ export const executeResumePr = async (
     }
   }
 
+  const reviewFindings = (await adapters.github.getReviewFindings?.(prNumber)) ?? []
+  const childCommits = (await adapters.git.getChildCommitReferences?.(pr.branchName)) ?? []
+  const repairPlan = planResumePrRepair({
+    childCommits,
+    findings: reviewFindings,
+    ownership: {
+      body: pr.body,
+      branchName: pr.branchName,
+      prNumber,
+    },
+    prIsDraft: pr.isDraft,
+  })
+
+  if (repairPlan.action === 'blocked') {
+    return {
+      exitCode: 1,
+      stderr: `${repairPlan.blockers.join('\n')}\n`,
+      stdout: '',
+    }
+  }
+
+  if (repairPlan.returnToDraft) {
+    await adapters.github.convertPrToDraft?.(prNumber)
+  }
+
+  for (const amendPlan of repairPlan.amendChildCommits) {
+    const findings = reviewFindings.filter((finding) => amendPlan.findingIds.includes(finding.id))
+
+    await adapters.git.checkoutChildCommit?.({
+      branchName: pr.branchName,
+      childIssueNumber: amendPlan.childIssueNumber,
+      commitHash: amendPlan.commitHash,
+    })
+    const workerResult = await adapters.sandcastle.repairResumeFindings?.({
+      branchName: pr.branchName,
+      findings,
+      prNumber,
+      workerBranchName: `${pr.branchName}-resume-${String(amendPlan.childIssueNumber)}`,
+    })
+
+    if (workerResult !== undefined) {
+      await adapters.git.applyWorkerDiff({
+        prdBranchName: pr.branchName,
+        workerBranchName: workerResult.workerBranchName,
+      })
+    }
+
+    await adapters.git.amendChildCommit(
+      createResumeChildCommitMessage(amendPlan.childIssueNumber, findings),
+    )
+  }
+
+  if (repairPlan.finalCleanupCommit !== undefined) {
+    const findings = reviewFindings.filter((finding) =>
+      repairPlan.finalCleanupCommit?.findingIds.includes(finding.id),
+    )
+
+    const workerResult = await adapters.sandcastle.repairResumeFindings?.({
+      branchName: pr.branchName,
+      findings,
+      prNumber,
+      workerBranchName: `${pr.branchName}-resume-final-cleanup`,
+    })
+
+    if (workerResult !== undefined) {
+      await adapters.git.applyWorkerDiff({
+        prdBranchName: pr.branchName,
+        workerBranchName: workerResult.workerBranchName,
+      })
+    }
+
+    await adapters.git.commitFinalCleanup?.(repairPlan.finalCleanupCommit.message)
+  }
+
+  if (repairPlan.forcePush !== undefined) {
+    await adapters.git.pushPrdBranch(repairPlan.forcePush)
+  }
+
   await adapters.state.recoverRunStatusFromPr(pr)
 
   return await executeLiveRun(adapters)
@@ -666,14 +828,20 @@ export const executeCleanup = async (
 const selectNextChild = (
   selectedPrd: SelectedPrdPlan,
   completedChildIssueNumbers: readonly number[],
+  blockedChildIssueNumbers: readonly number[] = [],
 ): ParsedChildTask | undefined => {
   const completed = new Set(completedChildIssueNumbers)
+  const blocked = new Set(blockedChildIssueNumbers)
   const childTasksByIssueNumber = new Map(
     selectedPrd.childTasks.map((childTask) => [childTask.issueNumber, childTask]),
   )
   const executableIssueNumber = selectedPrd.childTaskDag
-    .filter((node) => !completed.has(node.issueNumber))
-    .find((node) => node.dependencies.every((dependency) => completed.has(dependency)))?.issueNumber
+    .filter((node) => !completed.has(node.issueNumber) && !blocked.has(node.issueNumber))
+    .find((node) =>
+      node.dependencies.every(
+        (dependency) => completed.has(dependency) && !blocked.has(dependency),
+      ),
+    )?.issueNumber
 
   return executableIssueNumber === undefined
     ? undefined
@@ -872,7 +1040,33 @@ const repairCodeRabbitFindingsUntilClean = async (input: {
   const seenFindingFingerprints = new Set<string>()
 
   while (result.findings.length > 0) {
-    const fingerprint = result.findings.map((finding) => finding.id).join('|')
+    const classifications = result.findings.map((finding) => classifyCodeRabbitFinding(finding))
+    const actionableFindings = classifications.flatMap((classification) =>
+      classification.kind === 'actionable' ? [classification.finding] : [],
+    )
+    const newNonActionableRecords = classifications.flatMap((classification) =>
+      classification.kind === 'non-actionable'
+        ? [recordNonActionableFinding(classification.finding)]
+        : [],
+    )
+
+    if (newNonActionableRecords.length > 0) {
+      await input.adapters.github.postPrComment(
+        input.draftPr.prNumber,
+        renderNonActionableFindingRecords(newNonActionableRecords),
+      )
+    }
+
+    if (actionableFindings.length === 0) {
+      result = {
+        findings: [],
+        status: 'passed',
+      }
+
+      break
+    }
+
+    const fingerprint = actionableFindings.map((finding) => finding.id).join('|')
 
     if (seenFindingFingerprints.has(fingerprint)) {
       return {
@@ -885,7 +1079,7 @@ const repairCodeRabbitFindingsUntilClean = async (input: {
 
     const workerResult = await input.adapters.sandcastle.repairReviewFindings({
       childTask: input.selectedChild,
-      findings: result.findings,
+      findings: actionableFindings,
       impactAnalysis: input.impactAnalysis,
       parentPrd: input.parentPrd,
       parentPrdBody: input.parentPrdBody,
@@ -948,6 +1142,51 @@ const repairCodeRabbitFindingsUntilClean = async (input: {
     result,
   }
 }
+
+const hasRunnableChildAfterBlocker = async (
+  adapters: PrdOrchestratorLiveAdapters,
+  blockedChildIssueNumbers: readonly number[],
+): Promise<boolean> => {
+  const issues = await adapters.github.listOpenIssues()
+  const selectedPrd = createDryRunPlan(issues).selectedPrd
+
+  if (selectedPrd === undefined) {
+    return false
+  }
+
+  const branchName = createPrdBranchName(selectedPrd.issueNumber, selectedPrd.title)
+  const completedChildIssueNumbers =
+    (await adapters.git.getCompletedChildIssueNumbers?.(branchName)) ?? []
+
+  return (
+    selectNextChild(selectedPrd, completedChildIssueNumbers, blockedChildIssueNumbers) !== undefined
+  )
+}
+
+const renderNonActionableFindingRecords = (
+  records: readonly NonActionableFindingRecord[],
+): string =>
+  [
+    '## CodeRabbit Findings Recorded As Non-Actionable',
+    '',
+    ...records.map((record) => `- ${record.findingId} (${record.source}): ${record.rationale}`),
+  ].join('\n')
+
+const createResumeChildCommitMessage = (
+  childIssueNumber: number,
+  findings: readonly ResumePrFinding[],
+): string =>
+  [
+    `fix: address review findings for child #${String(childIssueNumber)}`,
+    '',
+    'Verification evidence:',
+    '- Resume repair applied from PR review findings.',
+    '',
+    'Review findings:',
+    ...findings.map((finding) => `- ${finding.id}: ${finding.title}`),
+    '',
+    `Closes #${String(childIssueNumber)}`,
+  ].join('\n')
 
 const finalizePrdIfReady = async (input: {
   readonly adapters: PrdOrchestratorLiveAdapters
@@ -1152,6 +1391,9 @@ const slugify = (value: string): string =>
     .replaceAll(/[^a-z0-9]+/g, '-')
     .replaceAll(/^-+|-+$/g, '')
     .slice(0, 80)
+
+const createPrdBranchName = (issueNumber: number, title: string): string =>
+  `agent/prd-${String(issueNumber)}-${slugify(title.replace(/^PRD:\s*/i, ''))}`
 
 const isCleanUpToDateMain = (status: MainBranchStatus): boolean =>
   status.clean && status.currentBranch === 'main' && status.upToDate

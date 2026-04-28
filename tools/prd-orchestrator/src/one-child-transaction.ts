@@ -240,7 +240,7 @@ export const selectVerificationCommands = (
   impactAnalysis: SandcastleImpactAnalysisResult,
 ): readonly string[] => [
   'pnpm lint',
-  ...selectAffectedPackageTypechecks(impactAnalysis.expectedModules),
+  ...selectAffectedPackageTypechecks(),
   ...selectDesignVerificationCommands(impactAnalysis.designFiles),
   ...selectTargetedTestCommands(impactAnalysis),
 ]
@@ -386,21 +386,11 @@ const createUpdatedLedger = (input: {
   })
 }
 
-const selectAffectedPackageTypechecks = (expectedModules: readonly string[]): readonly string[] => {
-  const commands = new Set<string>([
+const selectAffectedPackageTypechecks = (): readonly string[] => {
+  return [
     'pnpm --filter @cv-maxxing/desktop typecheck',
     'pnpm --filter @cv-maxxing/prd-orchestrator typecheck',
-  ])
-
-  if (expectedModules.includes('@cv-maxxing/desktop')) {
-    commands.add('pnpm --filter @cv-maxxing/desktop typecheck')
-  }
-
-  if (expectedModules.includes('@cv-maxxing/prd-orchestrator')) {
-    commands.add('pnpm --filter @cv-maxxing/prd-orchestrator typecheck')
-  }
-
-  return [...commands]
+  ]
 }
 
 const selectTargetedTestCommands = (
