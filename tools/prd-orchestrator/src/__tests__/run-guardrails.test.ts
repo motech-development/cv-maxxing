@@ -196,6 +196,28 @@ CI: not started
 PR link: https://github.com/motech-development/cv-maxxing/pull/12`)
   })
 
+  it('formats useful status after a run has no active child left', () => {
+    expect(
+      formatRunStatus({
+        activePrdIssueNumber: 80,
+        blockers: [],
+        branchName: 'agent/prd-80-automate-prd-implementation',
+        ciStatus: 'passed',
+        codeRabbitStatus: 'passed',
+        completedChildren: [81, 82, 83],
+        currentChildIssueNumber: undefined,
+        heartbeatIso: undefined,
+        lastCommand: 'final audit posted',
+        phase: 'ready-for-review',
+        prNumber: 12,
+        prUrl: 'https://github.com/motech-development/cv-maxxing/pull/12',
+      }),
+    ).toContain(`Phase: ready-for-review
+Current child: none
+Completed children: #81, #82, #83
+Blockers: none`)
+  })
+
   it('applies cleanup retention without touching active runs or committed config', () => {
     expect(
       evaluateCleanupPlan({
@@ -248,6 +270,56 @@ PR link: https://github.com/motech-development/cv-maxxing/pull/12`)
         'agent/prd-80-child-81',
         'prd-orchestrator-run-old',
       ],
+    })
+  })
+
+  it('preserves active PRD runs, active Sandcastle artifacts, committed config, and live processes', () => {
+    expect(
+      evaluateCleanupPlan({
+        activeRunIds: ['run-active'],
+        artifacts: [
+          {
+            category: 'run-log',
+            lastModifiedEpochMs: 0,
+            path: '.git/prd-orchestrator/runs/run-active/agent.log',
+            runId: 'run-active',
+          },
+          {
+            category: 'sandcastle-artifact',
+            lastModifiedEpochMs: 0,
+            path: '.sandcastle/worktrees/run-active',
+            runId: 'run-active',
+          },
+          {
+            category: 'committed-config',
+            lastModifiedEpochMs: 0,
+            path: '.sandcastle/Dockerfile',
+          },
+          {
+            category: 'container',
+            lastModifiedEpochMs: 0,
+            path: 'sandcastle-live',
+            pid: 456,
+          },
+          {
+            category: 'run-log',
+            lastModifiedEpochMs: 0,
+            path: '.git/prd-orchestrator/runs/run-old/agent.log',
+            runId: 'run-old',
+          },
+        ],
+        liveProcessIds: [456],
+        nowEpochMs: 8 * 24 * 60 * 60 * 1000,
+        retentionDays: 7,
+      }),
+    ).toEqual({
+      preserve: [
+        '.git/prd-orchestrator/runs/run-active/agent.log',
+        '.sandcastle/worktrees/run-active',
+        '.sandcastle/Dockerfile',
+        'sandcastle-live',
+      ],
+      remove: ['.git/prd-orchestrator/runs/run-old/agent.log'],
     })
   })
 })

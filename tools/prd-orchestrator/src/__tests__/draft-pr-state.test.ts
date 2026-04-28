@@ -177,4 +177,61 @@ Closes #83`)
       },
     ])
   })
+
+  it('recovers interrupted run progress from commits while preserving PR body ledger state', () => {
+    expect(
+      reconcileDraftPrStateFromCommits({
+        childTasks: [
+          ...childTasks,
+          {
+            issueNumber: 83,
+            title: 'Block unresolved decisions',
+          },
+        ],
+        commits: [
+          {
+            body: 'Acceptance evidence:\n- Parser handles child issues.\n\nCloses #82',
+            hash: 'def4567890',
+            subject: 'feat: build PRD planning core',
+          },
+        ],
+        existingLedger: [
+          {
+            codeRabbitStatus: 'passed',
+            issueNumber: 81,
+            shortCommitHash: 'abc1234',
+            status: 'complete',
+            verificationStatus: 'recorded in commit abc1234',
+          },
+          {
+            codeRabbitStatus: 'pending',
+            issueNumber: 83,
+            status: 'blocked',
+            verificationStatus: 'external blocker recorded',
+          },
+        ],
+      }),
+    ).toEqual([
+      {
+        codeRabbitStatus: 'passed',
+        issueNumber: 81,
+        shortCommitHash: 'abc1234',
+        status: 'complete',
+        verificationStatus: 'recorded in commit abc1234',
+      },
+      {
+        codeRabbitStatus: 'pending',
+        issueNumber: 82,
+        shortCommitHash: 'def4567',
+        status: 'complete',
+        verificationStatus: 'recorded in commit def4567',
+      },
+      {
+        codeRabbitStatus: 'pending',
+        issueNumber: 83,
+        status: 'blocked',
+        verificationStatus: 'external blocker recorded',
+      },
+    ])
+  })
 })

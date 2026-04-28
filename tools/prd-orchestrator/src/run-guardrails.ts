@@ -80,12 +80,14 @@ export interface CleanupArtifact {
   readonly category: CleanupArtifactCategory
   readonly lastModifiedEpochMs: number
   readonly path: string
+  readonly pid?: number
   readonly runId?: string
 }
 
 export interface EvaluateCleanupPlanInput {
   readonly activeRunIds: readonly string[]
   readonly artifacts: readonly CleanupArtifact[]
+  readonly liveProcessIds?: readonly number[]
   readonly nowEpochMs: number
   readonly retentionDays: number
 }
@@ -199,12 +201,20 @@ export const formatRunStatus = (status: RunStatus): string =>
 
 export const evaluateCleanupPlan = (input: EvaluateCleanupPlanInput): CleanupPlan => {
   const activeRunIds = new Set(input.activeRunIds)
+  const liveProcessIds =
+    input.liveProcessIds === undefined ? new Set<number>() : new Set(input.liveProcessIds)
   const retentionMs = input.retentionDays * 24 * 60 * 60 * 1000
 
   return input.artifacts.reduce<CleanupPlan>(
     (plan, artifact) => {
       if (
-        shouldRemoveArtifact({ activeRunIds, artifact, nowEpochMs: input.nowEpochMs, retentionMs })
+        shouldRemoveArtifact({
+          activeRunIds,
+          artifact,
+          liveProcessIds,
+          nowEpochMs: input.nowEpochMs,
+          retentionMs,
+        })
       ) {
         return {
           preserve: plan.preserve,
@@ -263,6 +273,7 @@ const evaluateLocalLock = (input: {
 const shouldRemoveArtifact = (input: {
   readonly activeRunIds: ReadonlySet<string>
   readonly artifact: CleanupArtifact
+  readonly liveProcessIds: ReadonlySet<number>
   readonly nowEpochMs: number
   readonly retentionMs: number
 }): boolean => {
@@ -271,6 +282,10 @@ const shouldRemoveArtifact = (input: {
   }
 
   if (input.artifact.runId !== undefined && input.activeRunIds.has(input.artifact.runId)) {
+    return false
+  }
+
+  if (input.artifact.pid !== undefined && input.liveProcessIds.has(input.artifact.pid)) {
     return false
   }
 

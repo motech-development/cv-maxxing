@@ -96,6 +96,12 @@ export {
 } from './final-prd-flow.js'
 
 export {
+  groupRunnableTasksByImpactSurface,
+  planBlockedTaskContinuation,
+  planRemediationAttempt,
+} from './full-run-scheduler.js'
+
+export {
   buildImpactAnalysisPrompt,
   buildSandcastleImpactAnalysisOptions,
   createCodexImpactAnalysisConfig,
@@ -166,6 +172,17 @@ export type {
   ResumePrFinding,
   ResumePrRepairPlan,
 } from './final-prd-flow.js'
+
+export type {
+  BlockedTaskContinuationPlan,
+  PlanBlockedTaskContinuationInput,
+  PlanRemediationAttemptInput,
+  RemediationAttempt,
+  RemediationAttemptPlan,
+  RunnableTaskImpact,
+  ScheduleBatch,
+  SchedulePlan,
+} from './full-run-scheduler.js'
 
 export type {
   DraftPullRequestTransaction,
