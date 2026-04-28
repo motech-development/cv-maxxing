@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import { runPrdOrchestratorCli } from '../cli.js'
 
-const issueJson = JSON.stringify([
+const issueObjects = [
   {
     body: `## User Stories
 
@@ -37,7 +37,9 @@ None - can start immediately.
     state: 'OPEN',
     title: 'Build PRD and child-task planning from GitHub Markdown',
   },
-])
+] as const
+
+const issueJson = JSON.stringify(issueObjects)
 
 describe('PRD orchestrator CLI', () => {
   it('prints a dry-run plan from issue JSON on stdin', () => {
@@ -53,15 +55,53 @@ describe('PRD orchestrator CLI', () => {
     expect(result.stdout).toContain('Next executable tasks: #82')
   })
 
+  it('prints a run --one-child transaction preview from issue and transaction JSON', () => {
+    const result = runPrdOrchestratorCli({
+      arguments_: ['run', '--one-child'],
+      stdin: JSON.stringify({
+        issues: issueObjects,
+        transaction: {
+          childCommitHash: 'abc123456789',
+          codeRabbitStatus: 'passed',
+          completedChildIssueNumbers: [],
+          existingLedger: [],
+          impactAnalysis: {
+            designFiles: [],
+            expectedFiles: ['tools/prd-orchestrator/src/cli.ts'],
+            expectedModules: ['@cv-maxxing/prd-orchestrator'],
+            riskLevel: 'low',
+            sharedContracts: [],
+            tests: ['tools/prd-orchestrator/src/__tests__/cli.test.ts'],
+          },
+          mainBranchStatus: {
+            clean: true,
+            currentBranch: 'main',
+            upToDate: true,
+          },
+          verificationEvidence: ['pnpm lint'],
+          workerChangedFiles: ['tools/prd-orchestrator/src/cli.ts'],
+        },
+      }),
+    })
+
+    expect(result.exitCode).toBe(0)
+    expect(result.stderr).toBe('')
+    expect(result.stdout).toContain('PRD Orchestrator One-Child Transaction')
+    expect(result.stdout).toContain(
+      'Selected child: #82 Build PRD and child-task planning from GitHub Markdown',
+    )
+    expect(result.stdout).toContain('Write surface: accept')
+  })
+
   it('rejects unsupported commands without mutating state', () => {
     expect(
       runPrdOrchestratorCli({
-        arguments_: ['run', '--one-child'],
+        arguments_: ['resume-pr', '12'],
         stdin: issueJson,
       }),
     ).toEqual({
       exitCode: 1,
-      stderr: 'Unsupported command. Only read-only `plan` is supported.\n',
+      stderr: 'Unsupported command. Supported commands: `plan`, `run --one-child`.\n',
       stdout: '',
     })
   })
