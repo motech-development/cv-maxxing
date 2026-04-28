@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import { runPrdOrchestratorCli, runPrdOrchestratorCliAsync } from '../cli.js'
 import { createDefaultPrdOrchestratorLiveAdapters } from '../default-live-adapters.js'
-import type { PrdOrchestratorLiveAdapters, GitHubIssue } from '../index.js'
+import type { CodeRabbitFinding, PrdOrchestratorLiveAdapters, GitHubIssue } from '../index.js'
 import type { RemoteAutomationPr } from '../run-guardrails.js'
 
 const issueObjects = [
@@ -231,6 +231,37 @@ describe('PRD orchestrator CLI', () => {
     expect(adapters.events.filter((event) => event === 'coderabbit:review')).toHaveLength(2)
   })
 
+  it('records non-actionable CodeRabbit findings without sending them to repair workers', async () => {
+    const adapters = createLiveAdapters({
+      codeRabbitFindings: [
+        {
+          body: 'Use Redux for this state flow.',
+          conflictsWith: 'project-instructions',
+          id: 'finding-conflict',
+          rationale: 'Project instructions explicitly forbid Redux.',
+          source: 'github-pr-review',
+          title: 'Use Redux',
+        },
+      ],
+    })
+
+    await expect(
+      runPrdOrchestratorCliAsync({
+        adapters,
+        arguments_: ['run', '--one-child'],
+        stdin: '',
+      }),
+    ).resolves.toMatchObject({
+      exitCode: 0,
+    })
+
+    expect(adapters.events).not.toContain('sandcastle:repair-review')
+    expect(adapters.events).toContain('github:post-pr-comment')
+    expect(adapters.postedComments.join('\n')).toContain(
+      'Project instructions explicitly forbid Redux.',
+    )
+  })
+
   it('repairs verification failures before committing the child task', async () => {
     const adapters = createLiveAdapters({
       verificationFailuresBeforeClean: 1,
@@ -330,6 +361,48 @@ describe('PRD orchestrator CLI', () => {
     expect(adapters.events).toContain('github:list-open-issues')
   })
 
+  it('resumes by repairing PR findings before returning to the full live run', async () => {
+    const adapters = createLiveAdapters({
+      resumePrFindings: [
+        {
+          body: 'Fix the child commit.',
+          childIssueNumber: 82,
+          id: 'resume-child-finding',
+          source: 'github-pr-review',
+          title: 'Child issue regression',
+        },
+        {
+          body: 'Tighten final audit wording.',
+          id: 'resume-final-finding',
+          source: 'github-check',
+          title: 'Final cleanup',
+        },
+      ],
+    })
+    const result = await runPrdOrchestratorCliAsync({
+      adapters,
+      arguments_: ['resume-pr', '123'],
+      stdin: '',
+    })
+
+    expect(result.exitCode).toBe(0)
+    expect(adapters.events).toEqual(
+      expect.arrayContaining([
+        'github:get-pr',
+        'github:convert-pr-to-draft',
+        'git:checkout-child-commit',
+        'sandcastle:repair-resume-findings',
+        'git:apply-worker-diff',
+        'git:amend-child-commit',
+        'git:commit-final-cleanup',
+        'git:push-prd-branch',
+        'state:recover-run-status',
+        'github:list-open-issues',
+      ]),
+    )
+    expect(adapters.amendedCommitMessages.at(0)).toContain('Closes #82')
+  })
+
   it('supports resume-pr, status, and cleanup commands', async () => {
     const adapters = createLiveAdapters()
 
@@ -382,13 +455,19 @@ describe('PRD orchestrator CLI', () => {
 })
 
 interface CreateLiveAdaptersOptions {
+  readonly blockedImplementationChildIssueNumbers?: ReadonlySet<number>
+  readonly codeRabbitFindings?: readonly CodeRabbitFinding[]
   readonly codeRabbitFindingsBeforeClean?: number
   readonly impactAnalyses?: readonly Awaited<
     ReturnType<PrdOrchestratorLiveAdapters['sandcastle']['runImpactAnalysis']>
   >[]
   readonly issues?: readonly GitHubIssue[]
+  readonly resumePrFindings?: readonly (CodeRabbitFinding & {
+    readonly childIssueNumber?: number
+  })[]
   readonly verificationFailuresBeforeClean?: number
   readonly workerChangedFiles?: readonly string[]
+  readonly workerChangedFilesByChildIssueNumber?: ReadonlyMap<number, readonly string[]>
 }
 
 const createLiveAdapters = (
@@ -397,13 +476,19 @@ const createLiveAdapters = (
   readonly events: string[]
   readonly amendedCommitMessages: string[]
   readonly completedChildIssueNumbers: number[]
+  readonly postedComments: string[]
 } => {
   const events: string[] = []
   const amendedCommitMessages: string[] = []
+  const postedComments: string[] = []
   const completedChildIssueNumbers: number[] = []
   let codeRabbitReviewCount = 0
   let impactAnalysisCount = 0
+  let lastRecordedStatus:
+    | Awaited<ReturnType<PrdOrchestratorLiveAdapters['state']['readRunStatus']>>
+    | undefined
   let verificationRunCount = 0
+  let activeChildIssueNumber: number | undefined
 
   return {
     ci: {
@@ -420,7 +505,8 @@ const createLiveAdapters = (
         events.push('coderabbit:review')
         codeRabbitReviewCount += 1
         const findings =
-          codeRabbitReviewCount <= (options.codeRabbitFindingsBeforeClean ?? 0)
+          options.codeRabbitFindings ??
+          (codeRabbitReviewCount <= (options.codeRabbitFindingsBeforeClean ?? 0)
             ? [
                 {
                   body: 'Repair this finding.',
@@ -429,7 +515,7 @@ const createLiveAdapters = (
                   title: 'CodeRabbit finding',
                 },
               ]
-            : []
+            : [])
 
         return Promise.resolve({
           findings,
@@ -463,6 +549,28 @@ const createLiveAdapters = (
         return Promise.resolve({
           hash: 'def456789012',
         })
+      },
+      checkoutChildCommit: () => {
+        events.push('git:checkout-child-commit')
+
+        return Promise.resolve()
+      },
+      commitFinalCleanup: () => {
+        events.push('git:commit-final-cleanup')
+
+        return Promise.resolve({
+          hash: 'fed789012345',
+        })
+      },
+      getChildCommitReferences: () => {
+        events.push('git:get-child-commit-references')
+
+        return Promise.resolve([
+          {
+            childIssueNumber: 82,
+            commitHash: 'abc123456789',
+          },
+        ])
       },
       getMainBranchStatus: () => {
         events.push('git:get-main-branch-status')
@@ -512,10 +620,20 @@ const createLiveAdapters = (
         return Promise.resolve({
           body: '## Automation\n\nManaged by `@cv-maxxing/prd-orchestrator`.',
           branchName: 'agent/prd-80-automate-prd-implementation',
-          isDraft: true,
+          isDraft: options.resumePrFindings === undefined,
           prNumber: 123,
           url: 'https://github.com/motech-development/cv-maxxing/pull/123',
         })
+      },
+      convertPrToDraft: () => {
+        events.push('github:convert-pr-to-draft')
+
+        return Promise.resolve()
+      },
+      getReviewFindings: () => {
+        events.push('github:get-review-findings')
+
+        return Promise.resolve(options.resumePrFindings ?? [])
       },
       getCurrentPr: () => {
         events.push('github:get-current-pr')
@@ -538,8 +656,9 @@ const createLiveAdapters = (
 
         return Promise.resolve()
       },
-      postPrComment: () => {
+      postPrComment: (_prNumber, body) => {
         events.push('github:post-pr-comment')
+        postedComments.push(body)
 
         return Promise.resolve()
       },
@@ -550,6 +669,16 @@ const createLiveAdapters = (
       },
     },
     sandcastle: {
+      repairResumeFindings: () => {
+        events.push('sandcastle:repair-resume-findings')
+
+        return Promise.resolve({
+          changedFiles: ['tools/prd-orchestrator/src/cli.ts'],
+          stdout: 'repaired resume findings',
+          workerBranchName:
+            'agent/prd-80-child-82-build-prd-and-child-task-planning-from-github-markdown',
+        })
+      },
       repairReviewFindings: () => {
         events.push('sandcastle:repair-review')
 
@@ -570,8 +699,9 @@ const createLiveAdapters = (
             'agent/prd-80-child-82-build-prd-and-child-task-planning-from-github-markdown',
         })
       },
-      runImpactAnalysis: () => {
+      runImpactAnalysis: (input) => {
         events.push('sandcastle:impact-analysis')
+        activeChildIssueNumber = input.childTask.issueNumber
         const impactAnalysis = options.impactAnalyses?.[impactAnalysisCount]
         impactAnalysisCount += 1
 
@@ -579,20 +709,35 @@ const createLiveAdapters = (
           return Promise.resolve(impactAnalysis)
         }
 
+        const expectedFile =
+          activeChildIssueNumber === 83
+            ? 'tools/prd-orchestrator/src/draft-pr-state.ts'
+            : 'tools/prd-orchestrator/src/cli.ts'
+
         return Promise.resolve({
           designFiles: [],
-          expectedFiles: ['tools/prd-orchestrator/src/cli.ts'],
+          expectedFiles: [expectedFile],
           expectedModules: ['@cv-maxxing/prd-orchestrator'],
           riskLevel: 'low',
           sharedContracts: [],
           tests: ['tools/prd-orchestrator/src/__tests__/cli.test.ts'],
         })
       },
-      runImplementation: () => {
+      runImplementation: (input) => {
         events.push('sandcastle:implementation')
+        const childIssueNumber = input.childTask.issueNumber
+        const changedFiles =
+          options.blockedImplementationChildIssueNumbers?.has(childIssueNumber) === true
+            ? ['unexpected/out-of-scope.ts']
+            : (options.workerChangedFilesByChildIssueNumber?.get(childIssueNumber) ??
+              options.workerChangedFiles ?? [
+                childIssueNumber === 83
+                  ? 'tools/prd-orchestrator/src/draft-pr-state.ts'
+                  : 'tools/prd-orchestrator/src/cli.ts',
+              ])
 
         return Promise.resolve({
-          changedFiles: options.workerChangedFiles ?? ['tools/prd-orchestrator/src/cli.ts'],
+          changedFiles,
           stdout: 'implemented child',
           workerBranchName:
             'agent/prd-80-child-82-build-prd-and-child-task-planning-from-github-markdown',
@@ -619,6 +764,11 @@ const createLiveAdapters = (
       },
       readRunStatus: () => {
         events.push('state:read-run-status')
+
+        if (lastRecordedStatus !== undefined) {
+          return Promise.resolve(lastRecordedStatus)
+        }
+
         const issues = options.issues ?? issueObjects
         const childIssueCount = issues.filter((issue) => issue.number !== 80).length
         const phase =
@@ -653,8 +803,9 @@ const createLiveAdapters = (
 
         return Promise.resolve()
       },
-      recordRunStatus: () => {
+      recordRunStatus: (status) => {
         events.push('state:record-run-status')
+        lastRecordedStatus = status
 
         return Promise.resolve()
       },
@@ -687,5 +838,6 @@ const createLiveAdapters = (
         ])
       },
     },
+    postedComments,
   }
 }

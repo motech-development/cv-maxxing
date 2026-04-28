@@ -11,12 +11,18 @@ import {
   parseImpactAnalysisResult,
   type SandcastleImpactAnalysisResult,
 } from './sandcastle-impact-analysis.js'
-import { interpretGitHubActionsStatus, type CiStatus } from './final-prd-flow.js'
+import {
+  interpretGitHubActionsStatus,
+  type ChildCommitReference,
+  type CiStatus,
+  type ResumePrFinding,
+} from './final-prd-flow.js'
 import {
   createCleanupPlanFromArtifacts,
   type ApplyWorkerDiffInput,
   type AutomationPrDetails,
   type ChildCommitResult,
+  type CheckoutChildCommitInput,
   type CreateDraftPrInput,
   type LivePreflightResult,
   type LiveRunLockResult,
@@ -25,6 +31,7 @@ import {
   type PrdOrchestratorLiveAdapters,
   type PushPrdBranchInput,
   type PollChecksInput,
+  type RepairResumeFindingsInput,
   type RepairVerificationFailureInput,
   type ReviewChildInput,
   type ReviewChildResult,
@@ -182,6 +189,12 @@ const createGitHubAdapter = (
       url: pr.url,
     }
   },
+  convertPrToDraft: async (prNumber: number): Promise<void> => {
+    await shell({
+      args: ['pr', 'ready', String(prNumber), '--undo'],
+      command: 'gh',
+    })
+  },
   findAutomationPr: async (
     prdIssueNumber: number,
     branchName: string,
@@ -229,6 +242,14 @@ const createGitHubAdapter = (
       prNumber: parseNumberField(pullRequest, 'number'),
       url: parseStringField(pullRequest, 'url'),
     }
+  },
+  getReviewFindings: async (prNumber: number): Promise<readonly ResumePrFinding[]> => {
+    const pullRequest = await shell({
+      args: ['pr', 'view', String(prNumber), '--json', 'reviews,comments,statusCheckRollup'],
+      command: 'gh',
+    })
+
+    return parseCodeRabbitFindings(pullRequest.stdout)
   },
   getCurrentPr: async (): Promise<AutomationPrDetails | undefined> => {
     try {
@@ -324,6 +345,12 @@ const createGitAdapter = (
       hash: result.stdout.trim(),
     }
   },
+  checkoutChildCommit: async (input: CheckoutChildCommitInput): Promise<void> => {
+    await shell({
+      args: ['checkout', input.branchName],
+      command: 'git',
+    })
+  },
   commitChild: async (message: string): Promise<ChildCommitResult> => {
     const messageFilePath = await writeTemporaryFile('prd-child-commit-', message)
 
@@ -343,6 +370,41 @@ const createGitAdapter = (
 
     return {
       hash: result.stdout.trim(),
+    }
+  },
+  commitFinalCleanup: async (message: string): Promise<ChildCommitResult> => {
+    const messageFilePath = await writeTemporaryFile('prd-final-cleanup-', message)
+
+    await shell({
+      args: ['add', '--all'],
+      command: 'git',
+    })
+    await shell({
+      args: ['commit', '-F', messageFilePath],
+      command: 'git',
+    })
+
+    const result = await shell({
+      args: ['rev-parse', 'HEAD'],
+      command: 'git',
+    })
+
+    return {
+      hash: result.stdout.trim(),
+    }
+  },
+  getChildCommitReferences: async (
+    branchName: string,
+  ): Promise<readonly ChildCommitReference[]> => {
+    try {
+      const result = await shell({
+        args: ['log', '--format=%H%x00%B%x00%x00', `main..${branchName}`],
+        command: 'git',
+      })
+
+      return parseChildCommitReferences(result.stdout)
+    } catch {
+      return []
     }
   },
   getCompletedChildIssueNumbers: async (branchName: string): Promise<readonly number[]> => {
@@ -480,6 +542,47 @@ const createSandcastleAdapter = (
       workerBranchName: result.branch,
     }
   },
+  repairResumeFindings: async (
+    input: RepairResumeFindingsInput,
+  ): Promise<RunImplementationResult> => {
+    const prompt = [
+      'Repair findings discovered while resuming an automation-owned PR.',
+      '',
+      `PR: #${String(input.prNumber)}`,
+      `Branch: ${input.branchName}`,
+      '',
+      '## Findings',
+      '',
+      ...input.findings.map((finding) => `- ${finding.id}: ${finding.title}\n${finding.body}`),
+    ].join('\n')
+    const result = await run({
+      agent: codex(configuration.codexModel ?? 'gpt-5.5', {
+        effort: parseCodexEffort(configuration.codexEffort),
+        env: {},
+      }),
+      branchStrategy: {
+        branch: input.workerBranchName,
+        type: 'branch',
+      },
+      cwd,
+      maxIterations: 1,
+      prompt,
+      sandbox: docker({
+        env: {},
+        mounts: [],
+      }),
+    })
+    const changedFiles = await shell({
+      args: ['diff', '--name-only', `${input.branchName}..${result.branch}`],
+      command: 'git',
+    })
+
+    return {
+      changedFiles: parseChangedFiles(changedFiles.stdout),
+      stdout: result.stdout,
+      workerBranchName: result.branch,
+    }
+  },
   repairVerificationFailure: async (
     input: RepairVerificationFailureInput,
   ): Promise<RunImplementationResult> => {
@@ -530,7 +633,10 @@ const createSandcastleAdapter = (
           packageManager: 'pnpm',
         },
         childIssueNumber: input.childTask.issueNumber,
-        cliOverrides: {},
+        cliOverrides: {
+          effort: configuration.codexEffort,
+          model: configuration.codexModel,
+        },
         env: process.env,
         parentPrdBody: input.parentPrdBody,
         prdIssueNumber: input.parentPrd.issueNumber,
@@ -689,6 +795,31 @@ const createRunStateAdapter = (
           ready: true,
         }
       } catch {
+        if (await recoverStaleRepoLock(lockFilePath)) {
+          await writeFile(
+            lockFilePath,
+            JSON.stringify(
+              {
+                heartbeatIso: new Date().toISOString(),
+                pid: process.pid,
+                runId: activeRunId,
+              },
+              null,
+              2,
+            ),
+            {
+              encoding: 'utf8',
+              flag: 'wx',
+            },
+          )
+
+          return {
+            blockers: [],
+            lockId: activeRunId,
+            ready: true,
+          }
+        }
+
         return {
           blockers: ['Another PRD orchestrator run is already active.'],
           lockId: undefined,
@@ -901,6 +1032,38 @@ const createRunStateAdapter = (
         ready: preflight.ready,
       }
     },
+  }
+}
+
+const recoverStaleRepoLock = async (lockFilePath: string): Promise<boolean> => {
+  try {
+    const content = await readFile(lockFilePath, 'utf8')
+    const lock: unknown = JSON.parse(content)
+
+    if (!isRecord(lock) || typeof lock.pid !== 'number') {
+      return false
+    }
+
+    if (isProcessAlive(lock.pid)) {
+      return false
+    }
+
+    const heartbeatIso =
+      typeof lock.heartbeatIso === 'string' ? lock.heartbeatIso : new Date(0).toISOString()
+    const heartbeatEpochMs = Date.parse(heartbeatIso)
+    const staleHeartbeatMs = 15 * 60 * 1000
+
+    if (Number.isFinite(heartbeatEpochMs) && Date.now() - heartbeatEpochMs < staleHeartbeatMs) {
+      return false
+    }
+
+    await rm(lockFilePath, {
+      force: true,
+    })
+
+    return true
+  } catch {
+    return false
   }
 }
 
@@ -1517,6 +1680,27 @@ const parseClosedIssueNumbers = (content: string): readonly number[] => [
       .filter((issueNumber) => Number.isInteger(issueNumber)),
   ),
 ]
+
+const parseChildCommitReferences = (content: string): readonly ChildCommitReference[] =>
+  content
+    .split('\0\0')
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0)
+    .flatMap((entry) => {
+      const [hash, body] = entry.split('\0')
+      const issueNumber = parseClosedIssueNumbers(body ?? '').at(0)
+
+      if (hash === undefined || issueNumber === undefined) {
+        return []
+      }
+
+      return [
+        {
+          childIssueNumber: issueNumber,
+          commitHash: hash,
+        },
+      ]
+    })
 
 const parseChangedFiles = (content: string): readonly string[] =>
   content
