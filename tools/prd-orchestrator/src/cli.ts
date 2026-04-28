@@ -272,7 +272,7 @@ const isChildTaskProgressStatus = (value: unknown): value is ChildTaskProgress['
   value === 'blocked' || value === 'complete' || value === 'pending'
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null
+  typeof value === 'object' && value !== null && !Array.isArray(value)
 
 export const createPlanFromIssueJson = (issueJson: string): DryRunPlan =>
   createDryRunPlan(parseIssueJson(issueJson))
