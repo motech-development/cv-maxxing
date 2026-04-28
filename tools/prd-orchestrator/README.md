@@ -13,3 +13,13 @@ The v1 lifecycle is intentionally narrow:
 The orchestrator owns GitHub, git push, CodeRabbit, and CI polling credentials. Sandcastle workers are isolated Docker workers that receive PRD context and task prompts, but they do not receive GitHub credentials and do not mutate GitHub directly.
 
 Run state belongs outside tracked files under `.git/prd-orchestrator/runs/<run-id>/`. Sandcastle runtime artifacts remain untracked under `.sandcastle/`.
+
+## Dry-run planning
+
+Issue 82 implements the read-only `plan` command. It accepts GitHub issue JSON on stdin as either an array of issues or an object with an `issues` array:
+
+```sh
+pnpm --filter @cv-maxxing/prd-orchestrator plan < issues.json
+```
+
+The command prints the selected PRD, child task DAG, blockers, warnings, next executable tasks, and unavailable PRDs. It does not create branches, pull requests, commits, worktrees, or Sandcastle workers.
