@@ -35,6 +35,7 @@ import {
 } from './final-prd-flow.js'
 
 export interface PrdOrchestratorLiveAdapters {
+  readonly configuration?: PrdOrchestratorLiveConfiguration
   readonly ci: {
     readonly pollChecks: (input: PollChecksInput) => Promise<CiStatus>
   }
@@ -43,6 +44,7 @@ export interface PrdOrchestratorLiveAdapters {
   }
   readonly git: {
     readonly applyWorkerDiff: (input: ApplyWorkerDiffInput) => Promise<void>
+    readonly amendChildCommit: (message: string) => Promise<ChildCommitResult>
     readonly commitChild: (message: string) => Promise<ChildCommitResult>
     readonly getCompletedChildIssueNumbers?: (branchName: string) => Promise<readonly number[]>
     readonly getMainBranchStatus: () => Promise<MainBranchStatus>
@@ -56,25 +58,52 @@ export interface PrdOrchestratorLiveAdapters {
       branchName: string,
     ) => Promise<RemoteAutomationPr | undefined>
     readonly getPr: (prNumber: number) => Promise<AutomationPrDetails>
+    readonly getCurrentPr: () => Promise<AutomationPrDetails | undefined>
     readonly listOpenIssues: () => Promise<readonly GitHubIssue[]>
     readonly markReadyForReview: (prNumber: number) => Promise<void>
     readonly postPrComment: (prNumber: number, body: string) => Promise<void>
     readonly updatePrBody: (prNumber: number, body: string) => Promise<void>
   }
   readonly sandcastle: {
+    readonly repairReviewFindings: (
+      input: RepairReviewFindingsInput,
+    ) => Promise<RunImplementationResult>
+    readonly repairVerificationFailure: (
+      input: RepairVerificationFailureInput,
+    ) => Promise<RunImplementationResult>
     readonly runImpactAnalysis: (
       input: RunImpactAnalysisInput,
     ) => Promise<SandcastleImpactAnalysisResult>
     readonly runImplementation: (input: RunImplementationInput) => Promise<RunImplementationResult>
   }
   readonly state: {
+    readonly acquireRunLock: () => Promise<LiveRunLockResult>
     readonly cleanup: () => Promise<CleanupPlan>
     readonly readRunStatus: () => Promise<RunStatus>
+    readonly recoverRunStatusFromPr: (pr: AutomationPrDetails) => Promise<void>
     readonly recordRunStatus: (status: RunStatus) => Promise<void>
+    readonly releaseRunLock: () => Promise<void>
+    readonly runPreflight: () => Promise<LivePreflightResult>
   }
   readonly verification: {
     readonly runCommands: (commands: readonly string[]) => Promise<readonly string[]>
   }
+}
+
+export interface PrdOrchestratorLiveConfiguration {
+  readonly codexEffort: string | undefined
+  readonly codexModel: string | undefined
+}
+
+export interface LivePreflightResult {
+  readonly blockers: readonly string[]
+  readonly ready: boolean
+}
+
+export interface LiveRunLockResult {
+  readonly blockers: readonly string[]
+  readonly lockId: string | undefined
+  readonly ready: boolean
 }
 
 export interface LiveCommandResult {
@@ -128,6 +157,14 @@ export interface RunImplementationResult {
   readonly workerBranchName: string
 }
 
+export interface RepairReviewFindingsInput extends RunImplementationInput {
+  readonly findings: readonly CodeRabbitFinding[]
+}
+
+export interface RepairVerificationFailureInput extends RunImplementationInput {
+  readonly errorMessage: string
+}
+
 export interface ReviewChildInput {
   readonly branchName: string
   readonly childCommitHash: string
@@ -176,6 +213,28 @@ export const executeLivePlan = async (
 }
 
 export const executeLiveOneChild = async (
+  adapters: PrdOrchestratorLiveAdapters,
+): Promise<LiveCommandResult> => {
+  const preflight = await adapters.state.runPreflight()
+
+  if (!preflight.ready) {
+    return blockedResult(preflight.blockers.join('\n'))
+  }
+
+  const lock = await adapters.state.acquireRunLock()
+
+  if (!lock.ready) {
+    return blockedResult(lock.blockers.join('\n'))
+  }
+
+  try {
+    return await executeLiveOneChildWithLock(adapters)
+  } finally {
+    await adapters.state.releaseRunLock()
+  }
+}
+
+const executeLiveOneChildWithLock = async (
   adapters: PrdOrchestratorLiveAdapters,
 ): Promise<LiveCommandResult> => {
   const issues = await adapters.github.listOpenIssues()
@@ -267,13 +326,20 @@ export const executeLiveOneChild = async (
     workerBranchName,
   })
 
-  await adapters.git.applyWorkerDiff({
-    prdBranchName: branchSeedPlan.prdBranchName,
-    workerBranchName: workerResult.workerBranchName,
-  })
-
   const verificationCommands = selectVerificationCommands(impactAnalysis)
-  const verificationEvidence = await adapters.verification.runCommands(verificationCommands)
+  const verifiedWorkerResult = await repairVerificationUntilClean({
+    adapters,
+    impactAnalysis,
+    parentPrd: selectedPrd,
+    parentPrdBody,
+    prdBranchName: branchSeedPlan.prdBranchName,
+    selectedChild,
+    siblingSummaries,
+    verificationCommands,
+    workerBranchName,
+    workerResult,
+  })
+  const verificationEvidence = verifiedWorkerResult.verificationEvidence
   const commitReadyPlan = planOneChildTransaction({
     childCommitHash: undefined,
     codeRabbitStatus: 'not run',
@@ -285,7 +351,7 @@ export const executeLiveOneChild = async (
     mainBranchStatus,
     remoteAutomationPr: draftPr,
     verificationEvidence,
-    workerChangedFiles: workerResult.changedFiles,
+    workerChangedFiles: verifiedWorkerResult.workerResult.changedFiles,
   })
 
   if (commitReadyPlan.status === 'blocked') {
@@ -300,7 +366,12 @@ export const executeLiveOneChild = async (
       prdIssueNumber: selectedPrd.issueNumber,
     })
 
-    await adapters.state.recordRunStatus(status)
+    await recordBlockedProgress({
+      adapters,
+      body: commitReadyPlan.prBodyAfterChildUpdate,
+      draftPr,
+      status,
+    })
 
     return {
       exitCode: 1,
@@ -323,9 +394,23 @@ export const executeLiveOneChild = async (
     childIssueNumber: selectedChild.issueNumber,
     prNumber: draftPr.prNumber,
   })
-  const finalPlan = planOneChildTransaction({
+  const cleanReview = await repairCodeRabbitFindingsUntilClean({
+    adapters,
+    branchName: branchSeedPlan.prdBranchName,
     childCommitHash: commit.hash,
-    codeRabbitStatus: codeRabbitResult.status,
+    draftPr,
+    impactAnalysis,
+    parentPrd: selectedPrd,
+    parentPrdBody,
+    selectedChild,
+    siblingSummaries,
+    verificationCommands,
+    workerBranchName,
+    initialResult: codeRabbitResult,
+  })
+  const finalPlan = planOneChildTransaction({
+    childCommitHash: cleanReview.commitHash,
+    codeRabbitStatus: cleanReview.result.status,
     completedChildIssueNumbers,
     dependencyChangeJustification: undefined,
     existingLedger: createPendingLedger(selectedPrd.childTasks),
@@ -334,7 +419,7 @@ export const executeLiveOneChild = async (
     mainBranchStatus,
     remoteAutomationPr: draftPr,
     verificationEvidence,
-    workerChangedFiles: workerResult.changedFiles,
+    workerChangedFiles: verifiedWorkerResult.workerResult.changedFiles,
   })
   const completedChildren = [...completedChildIssueNumbers, selectedChild.issueNumber]
   const allChildrenComplete = completedChildren.length === selectedPrd.childTasks.length
@@ -342,7 +427,7 @@ export const executeLiveOneChild = async (
   await adapters.github.updatePrBody(draftPr.prNumber, finalPlan.prBodyAfterChildUpdate)
 
   const finalizationResult =
-    allChildrenComplete && codeRabbitResult.findings.length === 0
+    allChildrenComplete && cleanReview.result.findings.length === 0
       ? await finalizePrdIfReady({
           adapters,
           branchName: branchSeedPlan.prdBranchName,
@@ -354,19 +439,19 @@ export const executeLiveOneChild = async (
       : {
           blockers: [],
           ciStatus: undefined,
-          phase: codeRabbitResult.findings.length === 0 ? 'complete' : 'blocked',
+          phase: cleanReview.result.findings.length === 0 ? 'complete' : 'blocked',
         }
   const status = createRunStatus({
     blockers:
-      codeRabbitResult.findings.length === 0
+      cleanReview.result.findings.length === 0
         ? finalizationResult.blockers
-        : codeRabbitResult.findings.map((finding) => finding.title),
+        : cleanReview.result.findings.map((finding) => finding.title),
     branchName: branchSeedPlan.prdBranchName,
     ciStatus: finalizationResult.ciStatus,
-    codeRabbitStatus: codeRabbitResult.status,
+    codeRabbitStatus: cleanReview.result.status,
     completedChildIssueNumbers: completedChildren,
     currentChildIssueNumber: undefined,
-    phase: codeRabbitResult.findings.length === 0 ? finalizationResult.phase : 'blocked',
+    phase: cleanReview.result.findings.length === 0 ? finalizationResult.phase : 'blocked',
     pr: draftPr,
     prdIssueNumber: selectedPrd.issueNumber,
   })
@@ -374,7 +459,7 @@ export const executeLiveOneChild = async (
   await adapters.state.recordRunStatus(status)
 
   return {
-    exitCode: codeRabbitResult.findings.length === 0 ? 0 : 1,
+    exitCode: cleanReview.result.findings.length === 0 ? 0 : 1,
     stderr: '',
     stdout: `${renderOneChildSummary({
       childIssueNumber: selectedChild.issueNumber,
@@ -403,24 +488,23 @@ export const executeResumePr = async (
     }
   }
 
-  const status = await adapters.state.readRunStatus()
+  await adapters.state.recoverRunStatusFromPr(pr)
 
-  return {
-    exitCode: 0,
-    stderr: '',
-    stdout: `Resume PR #${String(prNumber)}\n${formatRunStatus(status)}\n`,
-  }
+  return await executeLiveOneChild(adapters)
 }
 
 export const executeStatus = async (
   adapters: PrdOrchestratorLiveAdapters,
 ): Promise<LiveCommandResult> => {
   const status = await adapters.state.readRunStatus()
+  const currentPr = await adapters.github.getCurrentPr()
+  const prLine =
+    currentPr === undefined ? '' : `Current PR: #${String(currentPr.prNumber)} ${currentPr.url}\n`
 
   return {
     exitCode: status.blockers.length === 0 ? 0 : 1,
     stderr: '',
-    stdout: `${formatRunStatus(status)}\n`,
+    stdout: `${formatRunStatus(status)}\n${prLine}`,
   }
 }
 
@@ -520,6 +604,151 @@ const blockedResult = (message: string): LiveCommandResult => ({
   stderr: `${message}\n`,
   stdout: '',
 })
+
+const recordBlockedProgress = async (input: {
+  readonly adapters: PrdOrchestratorLiveAdapters
+  readonly body: string
+  readonly draftPr: RemoteAutomationPr
+  readonly status: RunStatus
+}): Promise<void> => {
+  const blockerBody = [
+    '## PRD Orchestrator Blocker',
+    '',
+    ...input.status.blockers.map((blocker) => `- ${blocker}`),
+  ].join('\n')
+
+  await input.adapters.github.updatePrBody(input.draftPr.prNumber, input.body)
+  await input.adapters.github.postPrComment(input.draftPr.prNumber, blockerBody)
+  await input.adapters.state.recordRunStatus(input.status)
+}
+
+const repairVerificationUntilClean = async (input: {
+  readonly adapters: PrdOrchestratorLiveAdapters
+  readonly impactAnalysis: SandcastleImpactAnalysisResult
+  readonly parentPrd: SelectedPrdPlan
+  readonly parentPrdBody: string
+  readonly prdBranchName: string
+  readonly selectedChild: ParsedChildTask
+  readonly siblingSummaries: readonly SiblingTaskSummary[]
+  readonly verificationCommands: readonly string[]
+  readonly workerBranchName: string
+  readonly workerResult: RunImplementationResult
+}): Promise<{
+  readonly verificationEvidence: readonly string[]
+  readonly workerResult: RunImplementationResult
+}> => {
+  let workerResult = input.workerResult
+  const seenErrors = new Set<string>()
+
+  for (;;) {
+    await input.adapters.git.applyWorkerDiff({
+      prdBranchName: input.prdBranchName,
+      workerBranchName: workerResult.workerBranchName,
+    })
+
+    try {
+      return {
+        verificationEvidence: await input.adapters.verification.runCommands(
+          input.verificationCommands,
+        ),
+        workerResult,
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+
+      if (seenErrors.has(errorMessage)) {
+        throw error
+      }
+
+      seenErrors.add(errorMessage)
+      workerResult = await input.adapters.sandcastle.repairVerificationFailure({
+        childTask: input.selectedChild,
+        errorMessage,
+        impactAnalysis: input.impactAnalysis,
+        parentPrd: input.parentPrd,
+        parentPrdBody: input.parentPrdBody,
+        prdBranchName: input.prdBranchName,
+        siblingSummaries: input.siblingSummaries,
+        workerBranchName: input.workerBranchName,
+      })
+    }
+  }
+}
+
+const repairCodeRabbitFindingsUntilClean = async (input: {
+  readonly adapters: PrdOrchestratorLiveAdapters
+  readonly branchName: string
+  readonly childCommitHash: string
+  readonly draftPr: RemoteAutomationPr
+  readonly impactAnalysis: SandcastleImpactAnalysisResult
+  readonly initialResult: ReviewChildResult
+  readonly parentPrd: SelectedPrdPlan
+  readonly parentPrdBody: string
+  readonly selectedChild: ParsedChildTask
+  readonly siblingSummaries: readonly SiblingTaskSummary[]
+  readonly verificationCommands: readonly string[]
+  readonly workerBranchName: string
+}): Promise<{
+  readonly commitHash: string
+  readonly result: ReviewChildResult
+}> => {
+  let commitHash = input.childCommitHash
+  let result = input.initialResult
+  const seenFindingFingerprints = new Set<string>()
+
+  while (result.findings.length > 0) {
+    const fingerprint = result.findings.map((finding) => finding.id).join('|')
+
+    if (seenFindingFingerprints.has(fingerprint)) {
+      return {
+        commitHash,
+        result,
+      }
+    }
+
+    seenFindingFingerprints.add(fingerprint)
+
+    const workerResult = await input.adapters.sandcastle.repairReviewFindings({
+      childTask: input.selectedChild,
+      findings: result.findings,
+      impactAnalysis: input.impactAnalysis,
+      parentPrd: input.parentPrd,
+      parentPrdBody: input.parentPrdBody,
+      prdBranchName: input.branchName,
+      siblingSummaries: input.siblingSummaries,
+      workerBranchName: input.workerBranchName,
+    })
+
+    await input.adapters.git.applyWorkerDiff({
+      prdBranchName: input.branchName,
+      workerBranchName: workerResult.workerBranchName,
+    })
+    await input.adapters.verification.runCommands(input.verificationCommands)
+
+    const commit = await input.adapters.git.amendChildCommit(
+      `fix: address CodeRabbit review for #${String(input.selectedChild.issueNumber)}`,
+    )
+
+    commitHash = commit.hash
+
+    await input.adapters.git.pushPrdBranch({
+      branchName: input.branchName,
+      mode: 'force-with-lease',
+    })
+
+    result = await input.adapters.codeRabbit.reviewChild({
+      branchName: input.branchName,
+      childCommitHash: commitHash,
+      childIssueNumber: input.selectedChild.issueNumber,
+      prNumber: input.draftPr.prNumber,
+    })
+  }
+
+  return {
+    commitHash,
+    result,
+  }
+}
 
 const finalizePrdIfReady = async (input: {
   readonly adapters: PrdOrchestratorLiveAdapters

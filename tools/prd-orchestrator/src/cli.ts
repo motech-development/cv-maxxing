@@ -19,6 +19,7 @@ import {
   executeLivePlan,
   executeResumePr,
   executeStatus,
+  type PrdOrchestratorLiveConfiguration,
   type PrdOrchestratorLiveAdapters,
 } from './live-orchestrator.js'
 
@@ -60,7 +61,8 @@ export const runPrdOrchestratorCli = (input: PrdOrchestratorCliInput): PrdOrches
 export const runPrdOrchestratorCliAsync = async (
   input: PrdOrchestratorCliAsyncInput,
 ): Promise<PrdOrchestratorCliResult> => {
-  const [command, subcommand] = input.arguments_
+  const parsedArguments = parseLiveCliArguments(input.arguments_)
+  const [command, subcommand] = parsedArguments.arguments_
   const trimmedStdin = input.stdin.trim()
 
   if (command === 'plan' && trimmedStdin.length > 0) {
@@ -71,7 +73,9 @@ export const runPrdOrchestratorCliAsync = async (
     return runOneChildCommand(input.stdin)
   }
 
-  const adapters = input.adapters ?? createDefaultPrdOrchestratorLiveAdapters()
+  const adapters =
+    input.adapters ??
+    createDefaultPrdOrchestratorLiveAdapters(process.cwd(), parsedArguments.configuration)
 
   if (command === 'plan') {
     return await executeLivePlan(adapters)
@@ -100,6 +104,55 @@ export const runPrdOrchestratorCliAsync = async (
     stderr:
       'Unsupported command. Supported commands: `plan`, `run --one-child`, `resume-pr <number>`, `status`, `cleanup`.\n',
     stdout: '',
+  }
+}
+
+interface ParsedLiveCliArguments {
+  readonly arguments_: readonly string[]
+  readonly configuration: PrdOrchestratorLiveConfiguration
+}
+
+const parseLiveCliArguments = (arguments_: readonly string[]): ParsedLiveCliArguments => {
+  const commandArguments: string[] = []
+  let codexEffort: string | undefined
+  let codexModel: string | undefined
+
+  for (let index = 0; index < arguments_.length; index += 1) {
+    const argument = arguments_[index]
+
+    if (argument === '--model') {
+      codexModel = arguments_[index + 1]
+      index += 1
+      continue
+    }
+
+    if (argument === '--effort') {
+      codexEffort = arguments_[index + 1]
+      index += 1
+      continue
+    }
+
+    if (argument?.startsWith('--model=') === true) {
+      codexModel = argument.slice('--model='.length)
+      continue
+    }
+
+    if (argument?.startsWith('--effort=') === true) {
+      codexEffort = argument.slice('--effort='.length)
+      continue
+    }
+
+    if (argument !== undefined) {
+      commandArguments.push(argument)
+    }
+  }
+
+  return {
+    arguments_: commandArguments,
+    configuration: {
+      codexEffort,
+      codexModel,
+    },
   }
 }
 
