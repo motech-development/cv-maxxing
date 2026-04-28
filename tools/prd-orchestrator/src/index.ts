@@ -87,6 +87,15 @@ export {
 } from './coderabbit-review.js'
 
 export {
+  evaluateReadyForReviewGate,
+  generateFinalPrdAcceptanceAudit,
+  interpretGitHubActionsStatus,
+  planGitHubActionsPolling,
+  planResumePrRepair,
+  validateAutomationPrOwnership,
+} from './final-prd-flow.js'
+
+export {
   buildImpactAnalysisPrompt,
   buildSandcastleImpactAnalysisOptions,
   createCodexImpactAnalysisConfig,
@@ -137,6 +146,26 @@ export type {
   NonActionableFindingRecord,
   PlanChildCodeRabbitReviewInput,
 } from './coderabbit-review.js'
+
+export type {
+  AutomationPrOwnership,
+  AutomationPrOwnershipInput,
+  ChildCommitReference,
+  ChildTaskAudit,
+  CiStatus,
+  EvaluateReadyForReviewGateInput,
+  GenerateFinalPrdAcceptanceAuditInput,
+  GitHubActionsPollingPlan,
+  GitHubActionsRun,
+  GitHubActionsStatus,
+  InterpretGitHubActionsStatusInput,
+  ParentUserStoryAudit,
+  PlanGitHubActionsPollingInput,
+  PlanResumePrRepairInput,
+  ReadyForReviewGate,
+  ResumePrFinding,
+  ResumePrRepairPlan,
+} from './final-prd-flow.js'
 
 export type {
   DraftPullRequestTransaction,
