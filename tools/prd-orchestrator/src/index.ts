@@ -45,3 +45,23 @@ export const prdOrchestratorLifecycle = {
   humanMergeBoundary: true,
   runStateRoot: '.git/prd-orchestrator/runs',
 } as const satisfies PrdOrchestratorLifecycle
+
+export {
+  createDryRunPlan,
+  isOpenPrdIssue,
+  parseChildTaskIssue,
+  renderDryRunPlan,
+} from './planning.js'
+
+export { createPlanFromIssueJson, runPrdOrchestratorCli } from './cli.js'
+
+export type { PrdOrchestratorCliInput, PrdOrchestratorCliResult } from './cli.js'
+
+export type {
+  ChildTaskDagNode,
+  DryRunPlan,
+  GitHubIssue,
+  ParsedChildTask,
+  SelectedPrdPlan,
+  UnavailablePrd,
+} from './planning.js'
