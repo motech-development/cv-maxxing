@@ -38,7 +38,6 @@ export interface SafeSandcastleBranchStrategy {
 }
 
 export interface DependencyCacheInputs {
-  readonly hasNodeModules: boolean
   readonly packageManager: 'npm' | 'pnpm' | 'yarn'
 }
 
@@ -370,7 +369,7 @@ const toSandcastleBranchStrategy = (
 })
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null
+  typeof value === 'object' && value !== null && !Array.isArray(value)
 
 const parseStringArray = (value: unknown, fieldName: string): readonly string[] => {
   if (!isStringArray(value)) {

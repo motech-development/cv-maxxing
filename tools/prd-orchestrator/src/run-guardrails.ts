@@ -158,7 +158,11 @@ export const evaluatePreflight = (input: PreflightInput): PreflightResult => {
 
 export const evaluateRunLock = (input: EvaluateRunLockInput): RunLockDecision => {
   if (input.existingLock !== undefined) {
-    return evaluateLocalLock(input)
+    return evaluateLocalLock({
+      existingLock: input.existingLock,
+      nowEpochMs: input.nowEpochMs,
+      processIdsAlive: input.processIdsAlive,
+    })
   }
 
   if (input.remoteAutomationPr !== undefined) {
@@ -220,16 +224,12 @@ export const evaluateCleanupPlan = (input: EvaluateCleanupPlanInput): CleanupPla
   )
 }
 
-const evaluateLocalLock = (input: EvaluateRunLockInput): RunLockDecision => {
-  const existingLock = input.existingLock
-
-  if (existingLock === undefined) {
-    return {
-      action: 'acquire',
-      blockers: [],
-      recoverableStaleLock: false,
-    }
-  }
+const evaluateLocalLock = (input: {
+  readonly existingLock: RunLock
+  readonly nowEpochMs: number
+  readonly processIdsAlive: readonly number[]
+}): RunLockDecision => {
+  const { existingLock } = input
 
   if (input.processIdsAlive.includes(existingLock.pid)) {
     return {

@@ -93,7 +93,6 @@ describe('Sandcastle impact analysis adapter planning', () => {
     const input = {
       ...workerInput,
       cacheInputs: {
-        hasNodeModules: false,
         packageManager: 'pnpm',
       },
       cliOverrides: {},

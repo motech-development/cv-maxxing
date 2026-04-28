@@ -80,6 +80,13 @@ export {
 } from './one-child-transaction.js'
 
 export {
+  classifyCodeRabbitFinding,
+  planChildCodeRabbitReview,
+  planCodeRabbitCommand,
+  recordNonActionableFinding,
+} from './coderabbit-review.js'
+
+export {
   buildImpactAnalysisPrompt,
   buildSandcastleImpactAnalysisOptions,
   createCodexImpactAnalysisConfig,
@@ -117,6 +124,19 @@ export type {
   RunLockDecision,
   RunStatus,
 } from './run-guardrails.js'
+
+export type {
+  ChildCodeRabbitReviewAction,
+  ChildCodeRabbitReviewPlan,
+  CodeRabbitCommandInput,
+  CodeRabbitCommandPlan,
+  CodeRabbitFinding,
+  CodeRabbitFindingClassification,
+  CodeRabbitFindingConflict,
+  CodeRabbitFindingSource,
+  NonActionableFindingRecord,
+  PlanChildCodeRabbitReviewInput,
+} from './coderabbit-review.js'
 
 export type {
   DraftPullRequestTransaction,
