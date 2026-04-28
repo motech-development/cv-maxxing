@@ -286,6 +286,21 @@ describe('PRD orchestrator CLI', () => {
     ).toThrow('Invalid JSON input:')
   })
 
+  it('reports malformed run --one-child JSON with a controlled parser error', () => {
+    expect(() =>
+      runPrdOrchestratorCli({
+        arguments_: ['run', '--one-child'],
+        stdin: '{',
+      }),
+    ).toThrow(TypeError)
+    expect(() =>
+      runPrdOrchestratorCli({
+        arguments_: ['run', '--one-child'],
+        stdin: '{',
+      }),
+    ).toThrow('Invalid JSON input:')
+  })
+
   it('runs every child task in dependency order for the full live run command', async () => {
     const adapters = createLiveAdapters({
       issues: multiChildIssueObjects,
@@ -625,6 +640,93 @@ describe('PRD orchestrator CLI', () => {
     expect(adapters.events.filter((event) => event === 'verification:run')).toHaveLength(2)
   })
 
+  it('records repeated verification failures as a PR and run blocker without committing', async () => {
+    const adapters = createLiveAdapters({
+      verificationFailuresBeforeClean: 2,
+      verificationFailureMessage:
+        'pnpm lint failed\nsrc/live-orchestrator.ts: repeated verification error',
+    })
+    const result = await runPrdOrchestratorCliAsync({
+      adapters,
+      arguments_: ['run', '--one-child'],
+      stdin: '',
+    })
+    const latestPrBody = adapters.updatedPrBodies.at(-1) ?? ''
+    const latestComment = adapters.postedComments.at(-1) ?? ''
+
+    expect(result.exitCode).toBe(1)
+    expect(adapters.events).toContain('sandcastle:repair-verification')
+    expect(adapters.events.filter((event) => event === 'verification:run')).toHaveLength(2)
+    expect(adapters.events).not.toContain('git:commit-child')
+    expect(adapters.events).not.toContain('git:amend-child-commit')
+    expect(latestPrBody).toContain(
+      '| #82 | Build PRD and child-task planning from GitHub Markdown | blocked |',
+    )
+    expect(latestComment).toContain('Failing verification command: pnpm lint')
+    expect(latestComment).toContain('Error evidence: pnpm lint failed')
+    expect(adapters.recordedStatuses.at(-1)).toMatchObject({
+      blockers: [
+        'Verification repair exhausted for #82. Failing verification command: pnpm lint. Error evidence: pnpm lint failed',
+      ],
+      completedChildren: [],
+      currentChildIssueNumber: 82,
+      phase: 'blocked',
+    })
+  })
+
+  it('continues independent full-run children after verification repair is blocked', async () => {
+    const adapters = createLiveAdapters({
+      issues: independentMultiChildIssueObjects,
+      verificationFailureCountsByChildIssueNumber: new Map([[82, 2]]),
+      verificationFailureMessage: 'pnpm lint failed\nsame lint failure',
+    })
+    const result = await runPrdOrchestratorCliAsync({
+      adapters,
+      arguments_: ['run'],
+      stdin: '',
+    })
+    const latestPrBody = adapters.updatedPrBodies.at(-1) ?? ''
+
+    expect(result.exitCode).toBe(1)
+    expect(result.stderr).toBe('Full run blocked after continuing independent child work.\n')
+    expect(adapters.completedChildIssueNumbers).toEqual([84])
+    expect(adapters.events.filter((event) => event === 'git:commit-child')).toHaveLength(1)
+    expect(latestPrBody).toContain(
+      '| #82 | Build PRD and child-task planning from GitHub Markdown | blocked |',
+    )
+    expect(latestPrBody).toContain(
+      '| #84 | Generate PRD draft PR state, ledger, and merge instructions | complete |',
+    )
+  })
+
+  it('allows a later full run to continue independent children after a verification block', async () => {
+    const adapters = createLiveAdapters({
+      issues: independentMultiChildIssueObjects,
+      verificationFailureCountsByChildIssueNumber: new Map([[82, 4]]),
+      verificationFailureMessage: 'pnpm lint failed\nsame lint failure',
+    })
+
+    await expect(
+      runPrdOrchestratorCliAsync({
+        adapters,
+        arguments_: ['run', '--one-child'],
+        stdin: '',
+      }),
+    ).resolves.toMatchObject({
+      exitCode: 1,
+    })
+
+    const laterResult = await runPrdOrchestratorCliAsync({
+      adapters,
+      arguments_: ['run'],
+      stdin: '',
+    })
+
+    expect(laterResult.exitCode).toBe(1)
+    expect(adapters.completedChildIssueNumbers).toEqual([84])
+    expect(adapters.events.filter((event) => event === 'git:commit-child')).toHaveLength(1)
+  })
+
   it('re-analyses unexpected worker write surfaces before applying the diff', async () => {
     const adapters = createLiveAdapters({
       impactAnalyses: [
@@ -809,7 +911,9 @@ interface CreateLiveAdaptersOptions {
   readonly resumePrFindings?: readonly (CodeRabbitFinding & {
     readonly childIssueNumber?: number
   })[]
+  readonly verificationFailureCountsByChildIssueNumber?: ReadonlyMap<number, number>
   readonly verificationFailuresBeforeClean?: number
+  readonly verificationFailureMessage?: string
   readonly workerChangedFiles?: readonly string[]
   readonly workerChangedFilesByChildIssueNumber?: ReadonlyMap<number, readonly string[]>
 }
@@ -838,6 +942,7 @@ const createLiveAdapters = (
     | Awaited<ReturnType<PrdOrchestratorLiveAdapters['state']['readRunStatus']>>
     | undefined
   let verificationRunCount = 0
+  const verificationRunCountsByChildIssueNumber = new Map<number, number>()
   let activeChildIssueNumber: number | undefined
 
   return {
@@ -878,8 +983,12 @@ const createLiveAdapters = (
     workerBranchNames,
     recordedStatuses,
     git: {
-      applyWorkerDiff: () => {
+      applyWorkerDiff: (input) => {
         events.push('git:apply-worker-diff')
+        activeChildIssueNumber = Number.parseInt(
+          /-child-(\d+)-/.exec(input.workerBranchName)?.[1] ?? '',
+          10,
+        )
 
         return Promise.resolve()
       },
@@ -1102,8 +1211,7 @@ const createLiveAdapters = (
         return Promise.resolve({
           changedFiles,
           stdout: 'implemented child',
-          workerBranchName:
-            'agent/prd-80-child-82-build-prd-and-child-task-planning-from-github-markdown',
+          workerBranchName: input.workerBranchName,
         })
       },
     },
@@ -1191,9 +1299,26 @@ const createLiveAdapters = (
       runCommands: () => {
         events.push('verification:run')
         verificationRunCount += 1
+        const childIssueNumber = activeChildIssueNumber
+        const childVerificationRunCount =
+          childIssueNumber === undefined
+            ? verificationRunCount
+            : (verificationRunCountsByChildIssueNumber.get(childIssueNumber) ?? 0) + 1
 
-        if (verificationRunCount <= (options.verificationFailuresBeforeClean ?? 0)) {
-          return Promise.reject(new Error('verification failed'))
+        if (childIssueNumber !== undefined) {
+          verificationRunCountsByChildIssueNumber.set(childIssueNumber, childVerificationRunCount)
+        }
+        const failuresBeforeClean =
+          childIssueNumber === undefined
+            ? (options.verificationFailuresBeforeClean ?? 0)
+            : (options.verificationFailureCountsByChildIssueNumber?.get(childIssueNumber) ??
+              options.verificationFailuresBeforeClean ??
+              0)
+
+        if (childVerificationRunCount <= failuresBeforeClean) {
+          return Promise.reject(
+            new Error(options.verificationFailureMessage ?? 'verification failed'),
+          )
         }
 
         return Promise.resolve([

@@ -219,6 +219,20 @@ export interface ReviewChildResult {
   readonly status: string
 }
 
+type VerificationRepairResult =
+  | {
+      readonly impactAnalysis: SandcastleImpactAnalysisResult
+      readonly status: 'clean'
+      readonly verificationEvidence: readonly string[]
+      readonly workerResult: RunImplementationResult
+    }
+  | {
+      readonly blocker: string
+      readonly impactAnalysis: SandcastleImpactAnalysisResult
+      readonly status: 'blocked'
+      readonly workerResult: RunImplementationResult
+    }
+
 export interface PollChecksInput {
   readonly branchName: string
   readonly prNumber: number
@@ -750,7 +764,6 @@ const executeLiveOneChildWithLock = async (
     }
   }
 
-  const verificationCommands = selectVerificationCommands(writeSurface.impactAnalysis)
   const verifiedWorkerResult = await repairVerificationUntilClean({
     adapters,
     impactAnalysis: writeSurface.impactAnalysis,
@@ -759,10 +772,23 @@ const executeLiveOneChildWithLock = async (
     prdBranchName: branchSeedPlan.prdBranchName,
     selectedChild,
     siblingSummaries,
-    verificationCommands,
     workerBranchName,
     workerResult,
   })
+
+  if (verifiedWorkerResult.status === 'blocked') {
+    return await recordVerificationRepairBlockedProgress({
+      adapters,
+      blockedChildIssueNumbers: [],
+      blocker: verifiedWorkerResult.blocker,
+      branchName: branchSeedPlan.prdBranchName,
+      completedChildIssueNumbers,
+      draftPr,
+      selectedChild,
+      selectedPrd,
+    })
+  }
+
   const verificationEvidence = verifiedWorkerResult.verificationEvidence
   const commitReadyPlan = planOneChildTransaction({
     childCommitHash: undefined,
@@ -832,7 +858,7 @@ const executeLiveOneChildWithLock = async (
     parentPrdBody,
     selectedChild,
     siblingSummaries,
-    verificationCommands,
+    verificationCommands: selectVerificationCommands(verifiedWorkerResult.impactAnalysis),
     workerBranchName,
     initialResult: codeRabbitResult,
     curatedCommitMessage: commitReadyPlan.commitMessage,
@@ -990,10 +1016,24 @@ const executePreparedChildWithLock = async (input: {
     prdBranchName: input.branchSeedPlan.prdBranchName,
     selectedChild: input.selectedChild,
     siblingSummaries: input.siblingSummaries,
-    verificationCommands: selectVerificationCommands(writeSurface.impactAnalysis),
     workerBranchName: input.workerBranchName,
     workerResult: input.workerResult,
   })
+
+  if (verifiedWorkerResult.status === 'blocked') {
+    return await recordVerificationRepairBlockedProgress({
+      adapters: input.adapters,
+      blockedChildIssueNumbers: input.blockedChildIssueNumbers,
+      blocker: verifiedWorkerResult.blocker,
+      branchName: input.branchSeedPlan.prdBranchName,
+      completedChildIssueNumbers: input.completedChildIssueNumbers,
+      draftPr: input.draftPr,
+      lastCommand: input.lastCommand,
+      selectedChild: input.selectedChild,
+      selectedPrd: input.selectedPrd,
+    })
+  }
+
   const verificationEvidence = verifiedWorkerResult.verificationEvidence
   const baseLedger = await createBaseLedger({
     adapters: input.adapters,
@@ -1419,6 +1459,29 @@ const updateLedgerForChildResult = (input: {
 const formatVerificationEvidence = (items: readonly string[]): string =>
   items.length === 0 ? 'not run' : items.join('; ')
 
+const createVerificationRepairBlocker = (input: {
+  readonly errorMessage: string
+  readonly selectedChild: ParsedChildTask
+  readonly verificationCommands: readonly string[]
+}): string =>
+  `Verification repair exhausted for #${String(
+    input.selectedChild.issueNumber,
+  )}. Failing verification command: ${formatFailingVerificationCommand(
+    input.verificationCommands,
+  )}. Error evidence: ${formatConciseErrorEvidence(input.errorMessage)}`
+
+const formatFailingVerificationCommand = (commands: readonly string[]): string =>
+  commands.at(0) ?? 'unknown'
+
+const formatConciseErrorEvidence = (errorMessage: string): string => {
+  const firstLine = errorMessage
+    .split('\n')
+    .map((line) => line.trim())
+    .find((line) => line.length > 0)
+
+  return firstLine ?? 'verification failed without error output'
+}
+
 const createPendingLedger = (
   childTasks: readonly ParsedChildTask[],
 ): readonly ChildTaskProgress[] =>
@@ -1559,6 +1622,60 @@ const recordBlockedProgress = async (input: {
   await input.adapters.state.recordRunStatus(input.status)
 }
 
+const recordVerificationRepairBlockedProgress = async (input: {
+  readonly adapters: PrdOrchestratorLiveAdapters
+  readonly blockedChildIssueNumbers: readonly number[]
+  readonly blocker: string
+  readonly branchName: string
+  readonly completedChildIssueNumbers: readonly number[]
+  readonly draftPr: RemoteAutomationPr
+  readonly lastCommand?: string
+  readonly selectedChild: ParsedChildTask
+  readonly selectedPrd: SelectedPrdPlan
+}): Promise<LiveCommandResult> => {
+  const status = createRunStatus({
+    blockers: [input.blocker],
+    branchName: input.branchName,
+    codeRabbitStatus: 'not run',
+    completedChildIssueNumbers: input.completedChildIssueNumbers,
+    currentChildIssueNumber: input.selectedChild.issueNumber,
+    lastCommand: input.lastCommand,
+    phase: 'blocked',
+    pr: input.draftPr,
+    prdIssueNumber: input.selectedPrd.issueNumber,
+  })
+  const ledger = await createBaseLedger({
+    adapters: input.adapters,
+    blockedChildIssueNumbers: [...input.blockedChildIssueNumbers, input.selectedChild.issueNumber],
+    branchName: input.branchName,
+    childTasks: input.selectedPrd.childTasks,
+    completedChildIssueNumbers: input.completedChildIssueNumbers,
+  })
+
+  await recordBlockedProgress({
+    adapters: input.adapters,
+    body: generateDraftPrBody({
+      branchName: input.branchName,
+      childTasks: input.selectedPrd.childTasks,
+      ledger,
+      parentPrdIssueNumber: input.selectedPrd.issueNumber,
+      prdTitle: input.selectedPrd.title,
+    }),
+    draftPr: input.draftPr,
+    status,
+  })
+
+  return {
+    exitCode: 1,
+    stderr: `${input.blocker}\n`,
+    stdout: `${renderOneChildSummary({
+      childIssueNumber: input.selectedChild.issueNumber,
+      pr: input.draftPr,
+      status,
+    })}\n`,
+  }
+}
+
 const repairVerificationUntilClean = async (input: {
   readonly adapters: PrdOrchestratorLiveAdapters
   readonly impactAnalysis: SandcastleImpactAnalysisResult
@@ -1567,14 +1684,9 @@ const repairVerificationUntilClean = async (input: {
   readonly prdBranchName: string
   readonly selectedChild: ParsedChildTask
   readonly siblingSummaries: readonly SiblingTaskSummary[]
-  readonly verificationCommands: readonly string[]
   readonly workerBranchName: string
   readonly workerResult: RunImplementationResult
-}): Promise<{
-  readonly impactAnalysis: SandcastleImpactAnalysisResult
-  readonly verificationEvidence: readonly string[]
-  readonly workerResult: RunImplementationResult
-}> => {
+}): Promise<VerificationRepairResult> => {
   let workerResult = input.workerResult
   let impactAnalysis = input.impactAnalysis
   const seenErrors = new Set<string>()
@@ -1595,6 +1707,7 @@ const repairVerificationUntilClean = async (input: {
     }
 
     impactAnalysis = writeSurface.impactAnalysis
+    const verificationCommands = selectVerificationCommands(impactAnalysis)
 
     await input.adapters.git.applyWorkerDiff({
       prdBranchName: input.prdBranchName,
@@ -1604,16 +1717,24 @@ const repairVerificationUntilClean = async (input: {
     try {
       return {
         impactAnalysis,
-        verificationEvidence: await input.adapters.verification.runCommands(
-          selectVerificationCommands(impactAnalysis),
-        ),
+        status: 'clean',
+        verificationEvidence: await input.adapters.verification.runCommands(verificationCommands),
         workerResult,
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
 
       if (seenErrors.has(errorMessage)) {
-        throw error
+        return {
+          blocker: createVerificationRepairBlocker({
+            errorMessage,
+            selectedChild: input.selectedChild,
+            verificationCommands,
+          }),
+          impactAnalysis,
+          status: 'blocked',
+          workerResult,
+        }
       }
 
       seenErrors.add(errorMessage)
