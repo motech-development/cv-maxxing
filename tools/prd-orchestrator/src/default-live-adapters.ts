@@ -15,7 +15,7 @@ import {
 import {
   interpretGitHubActionsStatus,
   type ChildCommitReference,
-  type CiStatus,
+  type GitHubActionsStatus,
   type ResumePrFinding,
 } from './final-prd-flow.js'
 import {
@@ -93,6 +93,12 @@ export const createDefaultPrdOrchestratorLiveAdapters = (
 }
 
 const createEnvironmentConfiguration = (): PrdOrchestratorLiveConfiguration => ({
+  ciPollingIntervalMs: parseOptionalPositiveInteger(
+    process.env.CV_MAXXING_PRD_ORCHESTRATOR_CI_POLLING_INTERVAL_MS,
+  ),
+  ciPollingTimeoutMs: parseOptionalPositiveInteger(
+    process.env.CV_MAXXING_PRD_ORCHESTRATOR_CI_POLLING_TIMEOUT_MS,
+  ),
   codexEffort: process.env.CV_MAXXING_PRD_ORCHESTRATOR_CODEX_EFFORT,
   codexModel: process.env.CV_MAXXING_PRD_ORCHESTRATOR_CODEX_MODEL,
 })
@@ -814,7 +820,7 @@ const getInlineReviewComments = async (
 const createCiAdapter = (
   shell: DefaultLiveAdapterShellRunner,
 ): PrdOrchestratorLiveAdapters['ci'] => ({
-  pollChecks: async (input: PollChecksInput): Promise<CiStatus> => {
+  pollChecks: async (input: PollChecksInput): Promise<GitHubActionsStatus> => {
     const result = await shell({
       args: [
         'run',
@@ -832,7 +838,7 @@ const createCiAdapter = (
 
     return interpretGitHubActionsStatus({
       runs: parseJsonArray(result.stdout).map((runValue) => parseGitHubActionsRun(runValue)),
-    }).status
+    })
   },
 })
 
@@ -1793,6 +1799,20 @@ const parseOptionalNumberField = (
   }
 
   return fieldValue
+}
+
+const parseOptionalPositiveInteger = (value: string | undefined): number | undefined => {
+  if (value === undefined || value.length === 0) {
+    return undefined
+  }
+
+  const parsedValue = Number.parseInt(value, 10)
+
+  if (!Number.isInteger(parsedValue) || parsedValue <= 0) {
+    return undefined
+  }
+
+  return parsedValue
 }
 
 const parseBooleanField = (value: Record<string, unknown>, fieldName: string): boolean => {

@@ -104,6 +104,15 @@ describe('final PRD repair and audit flow', () => {
   it('interprets GitHub Actions status for success, pending, failure, and blockers', () => {
     expect(
       interpretGitHubActionsStatus({
+        runs: [],
+      }),
+    ).toEqual({
+      blockers: [],
+      status: 'pending',
+    })
+
+    expect(
+      interpretGitHubActionsStatus({
         runs: [
           {
             conclusion: 'success',
