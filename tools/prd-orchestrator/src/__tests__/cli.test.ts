@@ -2,7 +2,13 @@ import { describe, expect, it } from 'vitest'
 
 import { runPrdOrchestratorCli, runPrdOrchestratorCliAsync } from '../cli.js'
 import { createDefaultPrdOrchestratorLiveAdapters } from '../default-live-adapters.js'
-import type { CodeRabbitFinding, PrdOrchestratorLiveAdapters, GitHubIssue } from '../index.js'
+import type {
+  ChildCommitReference,
+  CodeRabbitFinding,
+  GitHubIssue,
+  PrdOrchestratorLiveAdapters,
+  ResumePrFinding,
+} from '../index.js'
 import type { RemoteAutomationPr, RunStatus } from '../run-guardrails.js'
 
 const issueObjects = [
@@ -886,6 +892,43 @@ describe('PRD orchestrator CLI', () => {
     )
   })
 
+  it('maps resume PR review findings by changed file before amending child commits', async () => {
+    const adapters = createLiveAdapters({
+      childCommitReferences: [
+        {
+          changedFiles: ['tools/prd-orchestrator/src/default-live-adapters.ts'],
+          childIssueNumber: 82,
+          commitHash: 'abc823456789',
+        },
+      ],
+      resumePrFindings: [
+        {
+          body: 'Fix the inline review comment.',
+          filePath: 'tools/prd-orchestrator/src/default-live-adapters.ts',
+          id: 'resume-file-finding',
+          source: 'github-pr-review',
+          title: 'File-scoped regression',
+        },
+      ],
+    })
+    const result = await runPrdOrchestratorCliAsync({
+      adapters,
+      arguments_: ['resume-pr', '123'],
+      stdin: '',
+    })
+
+    expect(result.exitCode).toBe(0)
+    expect(adapters.checkoutChildCommitInputs).toEqual([
+      {
+        branchName: 'agent/prd-80-automate-prd-implementation',
+        childIssueNumber: 82,
+        commitHash: 'abc823456789',
+      },
+    ])
+    expect(adapters.events).toContain('git:amend-child-commit')
+    expect(adapters.events).not.toContain('git:commit-final-cleanup')
+  })
+
   it('blocks resume repair instead of amending the wrong HEAD when targeted checkout is unavailable', async () => {
     const adapters = createLiveAdapters({
       omitCheckoutChildCommit: true,
@@ -967,6 +1010,7 @@ describe('PRD orchestrator CLI', () => {
 
 interface CreateLiveAdaptersOptions {
   readonly blockedImplementationChildIssueNumbers?: ReadonlySet<number>
+  readonly childCommitReferences?: readonly ChildCommitReference[]
   readonly codeRabbitFindings?: readonly CodeRabbitFinding[]
   readonly codeRabbitFindingsBeforeClean?: number
   readonly impactAnalyses?: readonly Awaited<
@@ -974,9 +1018,7 @@ interface CreateLiveAdaptersOptions {
   >[]
   readonly issues?: readonly GitHubIssue[]
   readonly omitCheckoutChildCommit?: boolean
-  readonly resumePrFindings?: readonly (CodeRabbitFinding & {
-    readonly childIssueNumber?: number
-  })[]
+  readonly resumePrFindings?: readonly ResumePrFinding[]
   readonly verificationFailureCountsByChildIssueNumber?: ReadonlyMap<number, number>
   readonly verificationFailuresBeforeClean?: number
   readonly verificationFailureMessage?: string
@@ -1108,9 +1150,14 @@ const createLiveAdapters = (
       getChildCommitReferences: () => {
         events.push('git:get-child-commit-references')
 
+        if (options.childCommitReferences !== undefined) {
+          return Promise.resolve(options.childCommitReferences)
+        }
+
         return Promise.resolve(
           (completedChildIssueNumbers.length === 0 ? [82] : completedChildIssueNumbers).map(
             (childIssueNumber) => ({
+              changedFiles: [],
               childIssueNumber,
               commitHash: `abc${String(childIssueNumber)}3456789`,
             }),

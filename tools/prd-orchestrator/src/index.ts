@@ -192,6 +192,7 @@ export type {
   PlanGitHubActionsPollingInput,
   PlanResumePrRepairInput,
   ReadyForReviewGate,
+  ResumePrFinalCleanupFinding,
   ResumePrFinding,
   ResumePrRepairPlan,
 } from './final-prd-flow.js'

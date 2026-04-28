@@ -1,4 +1,8 @@
-import type { CodeRabbitFinding } from './coderabbit-review.js'
+import {
+  recordNonActionableFinding,
+  type CodeRabbitFinding,
+  type NonActionableFindingRecord,
+} from './coderabbit-review.js'
 
 export type CiStatus = 'failed' | 'passed' | 'pending'
 
@@ -42,6 +46,7 @@ export interface GitHubActionsStatus {
 }
 
 export interface ChildCommitReference {
+  readonly changedFiles?: readonly string[]
   readonly childIssueNumber: number
   readonly commitHash: string
 }
@@ -68,7 +73,8 @@ export interface ResumePrRepairPlan {
   readonly finalCleanupCommit:
     | {
         readonly findingIds: readonly string[]
-        readonly message: 'chore: address final PRD review findings'
+        readonly message: string
+        readonly rationales: readonly ResumePrFinalCleanupFinding[]
       }
     | undefined
   readonly forcePush:
@@ -79,7 +85,14 @@ export interface ResumePrRepairPlan {
     | undefined
   readonly inspectCi: boolean
   readonly inspectCodeRabbit: boolean
+  readonly nonActionableFindings: readonly NonActionableFindingRecord[]
   readonly returnToDraft: boolean
+}
+
+export interface ResumePrFinalCleanupFinding {
+  readonly findingId: string
+  readonly rationale: string
+  readonly source: CodeRabbitFinding['source']
 }
 
 export interface ParentUserStoryAudit {
@@ -213,11 +226,16 @@ export const planResumePrRepair = (input: PlanResumePrRepairInput): ResumePrRepa
       forcePush: undefined,
       inspectCi: false,
       inspectCodeRabbit: false,
+      nonActionableFindings: [],
       returnToDraft: false,
     }
   }
 
-  const targetBlockers = findChildCommitTargetBlockers(input)
+  const actionableFindings = input.findings.filter((finding) => finding.conflictsWith === undefined)
+  const targetBlockers = findChildCommitTargetBlockers({
+    ...input,
+    findings: actionableFindings,
+  })
 
   if (targetBlockers.length > 0) {
     return {
@@ -228,30 +246,43 @@ export const planResumePrRepair = (input: PlanResumePrRepairInput): ResumePrRepa
       forcePush: undefined,
       inspectCi: false,
       inspectCodeRabbit: false,
+      nonActionableFindings: [],
       returnToDraft: false,
     }
   }
 
-  const findingsByChild = mapFindingsToChildCommits({
+  const nonActionableFindings = input.findings
+    .filter((finding) => finding.conflictsWith !== undefined)
+    .map((finding) => recordNonActionableFinding(finding))
+  const mappedFindings = mapFindingsToChildCommits({
     childCommits: input.childCommits,
-    findings: input.findings,
+    findings: actionableFindings,
   })
-  const mappedFindingIds = new Set(findingsByChild.flatMap((entry) => [...entry.findingIds]))
-  const finalCleanupFindingIds = input.findings
+  const mappedFindingIds = new Set(
+    mappedFindings.amendChildCommits.flatMap((entry) => [...entry.findingIds]),
+  )
+  const finalCleanupFindings = actionableFindings
     .filter((finding) => !mappedFindingIds.has(finding.id))
-    .map((finding) => finding.id)
-  const hasRepairWork = findingsByChild.length > 0 || finalCleanupFindingIds.length > 0
+    .map((finding) =>
+      createFinalCleanupFinding({
+        childCommits: input.childCommits,
+        finding,
+      }),
+    )
+  const hasRepairWork =
+    mappedFindings.amendChildCommits.length > 0 || finalCleanupFindings.length > 0
 
   return {
     action: hasRepairWork ? 'repair' : 'clean',
-    amendChildCommits: findingsByChild,
+    amendChildCommits: mappedFindings.amendChildCommits,
     blockers: [],
     finalCleanupCommit:
-      finalCleanupFindingIds.length === 0
+      finalCleanupFindings.length === 0
         ? undefined
         : {
-            findingIds: finalCleanupFindingIds,
-            message: finalCleanupCommitMessage,
+            findingIds: finalCleanupFindings.map((finding) => finding.findingId),
+            message: createFinalCleanupCommitMessage(finalCleanupFindings),
+            rationales: finalCleanupFindings,
           },
     forcePush: hasRepairWork
       ? {
@@ -261,6 +292,7 @@ export const planResumePrRepair = (input: PlanResumePrRepairInput): ResumePrRepa
       : undefined,
     inspectCi: true,
     inspectCodeRabbit: true,
+    nonActionableFindings,
     returnToDraft: !input.prIsDraft && hasRepairWork,
   }
 }
@@ -319,11 +351,18 @@ export const evaluateReadyForReviewGate = (
 const mapFindingsToChildCommits = (input: {
   readonly childCommits: readonly ChildCommitReference[]
   readonly findings: readonly ResumePrFinding[]
-}): ResumePrRepairPlan['amendChildCommits'] =>
-  input.childCommits.flatMap((childCommit) => {
-    const findingIds = input.findings
-      .filter((finding) => finding.childIssueNumber === childCommit.childIssueNumber)
-      .map((finding) => finding.id)
+}): {
+  readonly amendChildCommits: ResumePrRepairPlan['amendChildCommits']
+} => ({
+  amendChildCommits: input.childCommits.flatMap((childCommit) => {
+    const findingIds = input.findings.flatMap((finding) => {
+      const mapping = mapFindingToChildCommit({
+        childCommits: input.childCommits,
+        finding,
+      })
+
+      return mapping.childIssueNumber === childCommit.childIssueNumber ? [finding.id] : []
+    })
 
     if (findingIds.length === 0) {
       return []
@@ -336,7 +375,100 @@ const mapFindingsToChildCommits = (input: {
         findingIds,
       },
     ]
-  })
+  }),
+})
+
+const mapFindingToChildCommit = (input: {
+  readonly childCommits: readonly ChildCommitReference[]
+  readonly finding: ResumePrFinding
+}): {
+  readonly childIssueNumber: number | undefined
+} => {
+  if (input.finding.childIssueNumber !== undefined) {
+    return {
+      childIssueNumber: input.finding.childIssueNumber,
+    }
+  }
+
+  const matchingCommit = input.childCommits.find((childCommit) =>
+    commitHashesMatch(childCommit.commitHash, input.finding.commitHash),
+  )
+
+  if (matchingCommit !== undefined) {
+    return {
+      childIssueNumber: matchingCommit.childIssueNumber,
+    }
+  }
+
+  if (input.finding.filePath !== undefined) {
+    const matchingFileCommits = input.childCommits.filter((childCommit) =>
+      childCommit.changedFiles?.includes(input.finding.filePath ?? ''),
+    )
+
+    if (matchingFileCommits.length === 1) {
+      return {
+        childIssueNumber: matchingFileCommits[0]?.childIssueNumber,
+      }
+    }
+  }
+
+  return {
+    childIssueNumber: undefined,
+  }
+}
+
+const createFinalCleanupFinding = (input: {
+  readonly childCommits: readonly ChildCommitReference[]
+  readonly finding: ResumePrFinding
+}): ResumePrFinalCleanupFinding => ({
+  findingId: input.finding.id,
+  rationale: createFinalCleanupRationale(input),
+  source: input.finding.source,
+})
+
+const createFinalCleanupRationale = (input: {
+  readonly childCommits: readonly ChildCommitReference[]
+  readonly finding: ResumePrFinding
+}): string => {
+  if (input.finding.filePath !== undefined) {
+    const matchingFileCommits = input.childCommits.filter((childCommit) =>
+      childCommit.changedFiles?.includes(input.finding.filePath ?? ''),
+    )
+
+    if (matchingFileCommits.length > 1) {
+      return `File ${input.finding.filePath} matched multiple child commits: ${matchingFileCommits
+        .map((childCommit) => `#${String(childCommit.childIssueNumber)}`)
+        .join(', ')}.`
+    }
+
+    if (matchingFileCommits.length === 0) {
+      return `File ${input.finding.filePath} did not match any child commit changed files.`
+    }
+  }
+
+  if (input.finding.commitHash !== undefined) {
+    return `Commit ${input.finding.commitHash} did not match a known child commit.`
+  }
+
+  return 'No child commit mapping context was available.'
+}
+
+const createFinalCleanupCommitMessage = (
+  findings: readonly ResumePrFinalCleanupFinding[],
+): string =>
+  [
+    finalCleanupCommitMessage,
+    '',
+    'Final cleanup rationale:',
+    ...findings.map((finding) => `- ${finding.findingId}: ${finding.rationale}`),
+  ].join('\n')
+
+const commitHashesMatch = (
+  childCommitHash: string,
+  findingCommitHash: string | undefined,
+): boolean =>
+  findingCommitHash !== undefined &&
+  (childCommitHash.startsWith(findingCommitHash) || findingCommitHash.startsWith(childCommitHash))
 
 const formatChildAcceptanceCriteria = (childTasks: readonly ChildTaskAudit[]): readonly string[] =>
   childTasks.flatMap((childTask) => [

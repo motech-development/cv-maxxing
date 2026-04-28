@@ -7,8 +7,11 @@ export type CodeRabbitFindingConflict =
 
 export interface CodeRabbitFinding {
   readonly body: string
+  readonly commitHash?: string
   readonly conflictsWith?: CodeRabbitFindingConflict
+  readonly filePath?: string
   readonly id: string
+  readonly lineNumber?: number
   readonly rationale?: string
   readonly source: CodeRabbitFindingSource
   readonly title: string

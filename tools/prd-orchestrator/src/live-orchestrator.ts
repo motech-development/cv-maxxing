@@ -1214,6 +1214,13 @@ export const executeResumePr = async (
     await adapters.github.convertPrToDraft?.(prNumber)
   }
 
+  if (repairPlan.nonActionableFindings.length > 0) {
+    await adapters.github.postPrComment(
+      prNumber,
+      renderNonActionableFindingRecords(repairPlan.nonActionableFindings),
+    )
+  }
+
   for (const amendPlan of repairPlan.amendChildCommits) {
     const findings = reviewFindings.filter((finding) => amendPlan.findingIds.includes(finding.id))
 
