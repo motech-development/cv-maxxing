@@ -241,6 +241,7 @@ export const selectVerificationCommands = (
 ): readonly string[] => [
   'pnpm lint',
   ...selectAffectedPackageTypechecks(impactAnalysis.expectedModules),
+  ...selectDesignVerificationCommands(impactAnalysis.designFiles),
   ...selectTargetedTestCommands(impactAnalysis),
 ]
 
@@ -416,6 +417,11 @@ const selectTargetedTestCommands = (
 
   return []
 }
+
+const selectDesignVerificationCommands = (designFiles: readonly string[]): readonly string[] =>
+  designFiles.some((filePath) => filePath.endsWith('.pen'))
+    ? ['pnpm --filter @cv-maxxing/desktop test:visual']
+    : []
 
 const isCleanUpToDateMain = (status: MainBranchStatus): boolean =>
   status.currentBranch === 'main' && status.clean && status.upToDate

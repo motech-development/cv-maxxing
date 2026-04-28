@@ -17,6 +17,7 @@ import {
   executeCleanup,
   executeLiveOneChild,
   executeLivePlan,
+  executeLiveRun,
   executeResumePr,
   executeStatus,
   type PrdOrchestratorLiveConfiguration,
@@ -85,6 +86,10 @@ export const runPrdOrchestratorCliAsync = async (
     return await executeLiveOneChild(adapters)
   }
 
+  if (command === 'run') {
+    return await executeLiveRun(adapters)
+  }
+
   if (command === 'resume-pr') {
     const prNumber = parseCommandIssueNumber(subcommand, 'resume-pr')
 
@@ -102,7 +107,7 @@ export const runPrdOrchestratorCliAsync = async (
   return {
     exitCode: 1,
     stderr:
-      'Unsupported command. Supported commands: `plan`, `run --one-child`, `resume-pr <number>`, `status`, `cleanup`.\n',
+      'Unsupported command. Supported commands: `plan`, `run`, `run --one-child`, `resume-pr <number>`, `status`, `cleanup`.\n',
     stdout: '',
   }
 }

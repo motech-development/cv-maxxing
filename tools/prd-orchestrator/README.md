@@ -2,13 +2,14 @@
 
 `@cv-maxxing/prd-orchestrator` is the repo-level automation package for running PRD implementation work from GitHub child tasks.
 
-The v1 lifecycle is intentionally narrow:
+The v1 lifecycle has two execution depths:
 
 1. `plan` inspects the first eligible PRD and prints a dry-run execution plan.
 2. `run --one-child` proves one child task from selection through draft PR update.
-3. `resume-pr <number>` resumes an existing automation-owned draft PR.
-4. `status` reports local lock, run, Sandcastle, and draft PR status.
-5. `cleanup` removes stale local orchestrator and Sandcastle artifacts while preserving active runs.
+3. `run` repeats the child-task loop until the selected PRD is ready for review or blocked.
+4. `resume-pr <number>` resumes an existing automation-owned draft PR.
+5. `status` reports local lock, run, Sandcastle, and draft PR status.
+6. `cleanup` removes stale local orchestrator and Sandcastle artifacts while preserving active runs.
 
 The orchestrator owns GitHub, git push, CodeRabbit, and CI polling credentials. Sandcastle workers are isolated Docker workers that receive PRD context and task prompts, but they do not receive GitHub credentials and do not mutate GitHub directly.
 
@@ -42,7 +43,23 @@ pnpm --filter @cv-maxxing/prd-orchestrator build
 pnpm --filter @cv-maxxing/prd-orchestrator exec prd-orchestrator run --one-child
 ```
 
-## Full-run foundation
+## Full PRD execution
+
+`run` uses the same host-side transaction as `run --one-child`, but keeps the repo-level lock
+for the whole PRD and repeats the loop. Completed child tasks are recovered from PRD-branch commit
+history between iterations, so interrupted runs can continue without trusting transient worker state.
+
+The run stops when:
+
+- the PR is marked ready for review after all child tasks, local gates, CodeRabbit, GitHub Actions,
+  and the final audit pass
+- an external blocker is recorded in run state and on the PR
+- no child-task progress can be observed after a completed iteration
+
+```sh
+pnpm --filter @cv-maxxing/prd-orchestrator build
+pnpm --filter @cv-maxxing/prd-orchestrator exec prd-orchestrator run
+```
 
 ## Resume, status, cleanup
 
@@ -52,9 +69,9 @@ pnpm --filter @cv-maxxing/prd-orchestrator exec prd-orchestrator run --one-child
 
 `cleanup` removes stale run and Sandcastle artifacts while preserving active run state and committed `.sandcastle` config.
 
-## Full-run foundation
+## Scheduler and guardrail foundation
 
-The scheduler foundation supports the later full multi-child `run` loop:
+The scheduler foundation supports safe child ordering and future parallel worker execution:
 
 - only currently unblocked child tasks are eligible for scheduling
 - non-overlapping impact surfaces may run in one parallel batch

@@ -7,6 +7,7 @@ describe('PRD orchestrator command scaffold', () => {
     expect(prdOrchestratorCommands.map((command) => command.name)).toEqual([
       'plan',
       'run --one-child',
+      'run',
       'resume-pr <number>',
       'status',
       'cleanup',

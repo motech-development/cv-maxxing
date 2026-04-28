@@ -23,6 +23,11 @@ export const prdOrchestratorCommands = [
     name: 'run --one-child',
   },
   {
+    description: 'Run all eligible child tasks for the selected PRD until ready for review.',
+    mutatesRepository: true,
+    name: 'run',
+  },
+  {
     description: 'Resume automation for an existing PRD draft pull request.',
     mutatesRepository: true,
     name: 'resume-pr <number>',
@@ -61,6 +66,7 @@ export {
 export { createDefaultPrdOrchestratorLiveAdapters } from './default-live-adapters.js'
 export {
   executeCleanup,
+  executeLiveRun,
   executeLiveOneChild,
   executeLivePlan,
   executeResumePr,
@@ -77,6 +83,7 @@ export {
 
 export {
   createRunStatePath,
+  createRepoRunLockPath,
   evaluateCleanupPlan,
   evaluatePreflight,
   evaluateRunLock,
