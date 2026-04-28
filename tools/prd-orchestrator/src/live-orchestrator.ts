@@ -306,6 +306,7 @@ const executeLiveRunWithLock = async (
   for (;;) {
     lastChildResult = await executeLiveOneChildWithLock(adapters, {
       blockedChildIssueNumbers: [...blockedChildIssueNumbers],
+      lastCommand: 'run',
     })
 
     if (lastChildResult.exitCode !== 0) {
@@ -388,6 +389,7 @@ const executeLiveOneChildWithLock = async (
   adapters: PrdOrchestratorLiveAdapters,
   input: {
     readonly blockedChildIssueNumbers?: readonly number[]
+    readonly lastCommand?: string
   } = {},
 ): Promise<LiveCommandResult> => {
   const issues = await adapters.github.listOpenIssues()
@@ -396,6 +398,14 @@ const executeLiveOneChildWithLock = async (
 
   if (selectedPrd === undefined) {
     return blockedResult('No eligible PRD with child tasks is available.')
+  }
+
+  if (selectedPrd.blockers.length > 0) {
+    return await recordPreExecutionPlanningBlockers({
+      adapters,
+      lastCommand: input.lastCommand ?? 'run --one-child',
+      selectedPrd,
+    })
   }
 
   const branchSeedPlan = planOneChildTransaction({
@@ -705,6 +715,17 @@ export const executeResumePr = async (
     }
   }
 
+  const issues = await adapters.github.listOpenIssues()
+  const selectedPrd = createDryRunPlan(issues).selectedPrd
+
+  if (selectedPrd !== undefined && selectedPrd.blockers.length > 0) {
+    return await recordPreExecutionPlanningBlockers({
+      adapters,
+      lastCommand: 'resume-pr',
+      selectedPrd,
+    })
+  }
+
   const reviewFindings = (await adapters.github.getReviewFindings?.(prNumber)) ?? []
   const childCommits = (await adapters.git.getChildCommitReferences?.(pr.branchName)) ?? []
   const repairPlan = planResumePrRepair({
@@ -902,6 +923,39 @@ const createRunStatus = (input: {
   prNumber: input.pr.prNumber,
   prUrl: input.pr.url,
 })
+
+const createPreExecutionBlockedStatus = (input: {
+  readonly lastCommand: string
+  readonly selectedPrd: SelectedPrdPlan
+}): RunStatus => ({
+  activePrdIssueNumber: input.selectedPrd.issueNumber,
+  blockers: input.selectedPrd.blockers,
+  branchName: createPrdBranchName(input.selectedPrd.issueNumber, input.selectedPrd.title),
+  ciStatus: undefined,
+  codeRabbitStatus: 'not run',
+  completedChildren: [],
+  currentChildIssueNumber: undefined,
+  heartbeatIso: new Date().toISOString(),
+  lastCommand: input.lastCommand,
+  phase: 'blocked',
+  prNumber: undefined,
+  prUrl: undefined,
+})
+
+const recordPreExecutionPlanningBlockers = async (input: {
+  readonly adapters: PrdOrchestratorLiveAdapters
+  readonly lastCommand: string
+  readonly selectedPrd: SelectedPrdPlan
+}): Promise<LiveCommandResult> => {
+  const status = createPreExecutionBlockedStatus({
+    lastCommand: input.lastCommand,
+    selectedPrd: input.selectedPrd,
+  })
+
+  await input.adapters.state.recordRunStatus(status)
+
+  return blockedResult(input.selectedPrd.blockers.join('\n'))
+}
 
 const renderOneChildSummary = (input: {
   readonly childIssueNumber: number
