@@ -203,6 +203,73 @@ describe('final PRD repair and audit flow', () => {
     })
   })
 
+  it('blocks child-scoped resume findings when the target child commit cannot be found safely', () => {
+    expect(
+      planResumePrRepair({
+        childCommits: [],
+        findings: [
+          {
+            body: 'Fix the child commit.',
+            childIssueNumber: 81,
+            id: 'finding-1',
+            source: 'github-pr-review',
+            title: 'Child issue regression',
+          },
+        ],
+        ownership: {
+          body: automationPrBody,
+          branchName: 'agent/prd-80-automate-prd-implementation',
+          prNumber: 12,
+        },
+        prIsDraft: true,
+      }),
+    ).toEqual({
+      action: 'blocked',
+      amendChildCommits: [],
+      blockers: ['Cannot safely find child commit for #81 while repairing finding finding-1'],
+      finalCleanupCommit: undefined,
+      forcePush: undefined,
+      inspectCi: false,
+      inspectCodeRabbit: false,
+      returnToDraft: false,
+    })
+
+    expect(
+      planResumePrRepair({
+        childCommits: [
+          {
+            childIssueNumber: 81,
+            commitHash: 'abc123456789',
+          },
+          {
+            childIssueNumber: 81,
+            commitHash: 'def123456789',
+          },
+        ],
+        findings: [
+          {
+            body: 'Fix the child commit.',
+            childIssueNumber: 81,
+            id: 'finding-1',
+            source: 'github-pr-review',
+            title: 'Child issue regression',
+          },
+        ],
+        ownership: {
+          body: automationPrBody,
+          branchName: 'agent/prd-80-automate-prd-implementation',
+          prNumber: 12,
+        },
+        prIsDraft: true,
+      }),
+    ).toMatchObject({
+      action: 'blocked',
+      blockers: [
+        'Cannot safely choose between 2 child commits for #81 while repairing finding finding-1',
+      ],
+    })
+  })
+
   it('generates a final PRD acceptance audit as a separate PR comment', () => {
     const audit = generateFinalPrdAcceptanceAudit({
       architectureChecks: ['No telemetry added.', 'No required web backend added.'],

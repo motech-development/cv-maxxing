@@ -108,6 +108,35 @@ describe('default live adapters', () => {
     )
   })
 
+  it('checks out the exact child commit before amending and rebases the PR branch onto the amended commit', async () => {
+    const shell = createRecordingShell()
+    const adapters = createDefaultPrdOrchestratorLiveAdapters('/repo', undefined, shell.run)
+
+    await adapters.git.checkoutChildCommit?.({
+      branchName: 'agent/prd-80-test',
+      childIssueNumber: 81,
+      commitHash: 'abc123456789',
+    })
+    await adapters.git.applyWorkerDiff({
+      prdBranchName: 'agent/prd-80-test',
+      workerBranchName: 'agent/prd-80-test-resume-81',
+    })
+    await adapters.git.amendChildCommit('fix: address review findings for child #81')
+
+    expect(shell.commands.map((command) => formatCommand(command))).toEqual([
+      'git checkout agent/prd-80-test',
+      'git cat-file -e abc123456789^{commit}',
+      'git merge-base --is-ancestor abc123456789 agent/prd-80-test',
+      'git checkout abc123456789',
+      'git merge --squash --no-commit agent/prd-80-test-resume-81',
+      'git add --all',
+      'git commit --amend -F <tmp>',
+      'git rev-parse HEAD',
+      'git rebase --onto amended123456789 abc123456789 agent/prd-80-test',
+      'git checkout agent/prd-80-test',
+    ])
+  })
+
   it('re-acquires a stale repo lock atomically during recovery', async () => {
     const temporaryDirectory = await mkdtemp(path.join(tmpdir(), 'prd-orchestrator-lock-'))
     const lockDirectory = path.join(temporaryDirectory, '.git', 'prd-orchestrator')
@@ -223,6 +252,10 @@ const responseForCommand = (command: DefaultLiveAdapterShellCommandInput): strin
         },
       ],
     })
+  }
+
+  if (formattedCommand === 'git rev-parse HEAD') {
+    return 'amended123456789\n'
   }
 
   return ''

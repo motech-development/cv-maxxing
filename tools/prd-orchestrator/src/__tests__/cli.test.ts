@@ -849,6 +849,71 @@ describe('PRD orchestrator CLI', () => {
     expect(adapters.amendedCommitMessages.at(0)).toContain('Closes #82')
   })
 
+  it('targets the mapped child commit before applying resume repair output', async () => {
+    const adapters = createLiveAdapters({
+      resumePrFindings: [
+        {
+          body: 'Fix the child commit.',
+          childIssueNumber: 82,
+          id: 'resume-child-finding',
+          source: 'github-pr-review',
+          title: 'Child issue regression',
+        },
+      ],
+    })
+    const result = await runPrdOrchestratorCliAsync({
+      adapters,
+      arguments_: ['resume-pr', '123'],
+      stdin: '',
+    })
+
+    expect(result.exitCode).toBe(0)
+    expect(adapters.checkoutChildCommitInputs).toEqual([
+      {
+        branchName: 'agent/prd-80-automate-prd-implementation',
+        childIssueNumber: 82,
+        commitHash: 'abc823456789',
+      },
+    ])
+    expect(adapters.events.indexOf('git:checkout-child-commit')).toBeLessThan(
+      adapters.events.indexOf('sandcastle:repair-resume-findings'),
+    )
+    expect(adapters.events.indexOf('git:checkout-child-commit')).toBeLessThan(
+      adapters.events.indexOf('git:apply-worker-diff'),
+    )
+    expect(adapters.events.indexOf('git:checkout-child-commit')).toBeLessThan(
+      adapters.events.indexOf('git:amend-child-commit'),
+    )
+  })
+
+  it('blocks resume repair instead of amending the wrong HEAD when targeted checkout is unavailable', async () => {
+    const adapters = createLiveAdapters({
+      omitCheckoutChildCommit: true,
+      resumePrFindings: [
+        {
+          body: 'Fix the child commit.',
+          childIssueNumber: 82,
+          id: 'resume-child-finding',
+          source: 'github-pr-review',
+          title: 'Child issue regression',
+        },
+      ],
+    })
+    const result = await runPrdOrchestratorCliAsync({
+      adapters,
+      arguments_: ['resume-pr', '123'],
+      stdin: '',
+    })
+
+    expect(result.exitCode).toBe(1)
+    expect(result.stderr).toBe(
+      'Resume repair cannot safely target child commits because the git adapter does not support targeted checkout.\n',
+    )
+    expect(adapters.events).not.toContain('sandcastle:repair-resume-findings')
+    expect(adapters.events).not.toContain('git:amend-child-commit')
+    expect(adapters.events).not.toContain('git:push-prd-branch')
+  })
+
   it('supports resume-pr, status, and cleanup commands', async () => {
     const adapters = createLiveAdapters()
 
@@ -908,6 +973,7 @@ interface CreateLiveAdaptersOptions {
     ReturnType<PrdOrchestratorLiveAdapters['sandcastle']['runImpactAnalysis']>
   >[]
   readonly issues?: readonly GitHubIssue[]
+  readonly omitCheckoutChildCommit?: boolean
   readonly resumePrFindings?: readonly (CodeRabbitFinding & {
     readonly childIssueNumber?: number
   })[]
@@ -923,6 +989,11 @@ const createLiveAdapters = (
 ): PrdOrchestratorLiveAdapters & {
   readonly events: string[]
   readonly amendedCommitMessages: string[]
+  readonly checkoutChildCommitInputs: {
+    readonly branchName: string
+    readonly childIssueNumber: number
+    readonly commitHash: string
+  }[]
   readonly completedChildIssueNumbers: number[]
   readonly postedComments: string[]
   readonly recordedStatuses: RunStatus[]
@@ -931,6 +1002,11 @@ const createLiveAdapters = (
 } => {
   const events: string[] = []
   const amendedCommitMessages: string[] = []
+  const checkoutChildCommitInputs: {
+    readonly branchName: string
+    readonly childIssueNumber: number
+    readonly commitHash: string
+  }[] = []
   const recordedStatuses: RunStatus[] = []
   const postedComments: string[] = []
   const completedChildIssueNumbers: number[] = []
@@ -954,6 +1030,7 @@ const createLiveAdapters = (
       },
     },
     amendedCommitMessages,
+    checkoutChildCommitInputs,
     completedChildIssueNumbers,
     codeRabbit: {
       reviewChild: () => {
@@ -1012,11 +1089,15 @@ const createLiveAdapters = (
           hash: 'def456789012',
         })
       },
-      checkoutChildCommit: () => {
-        events.push('git:checkout-child-commit')
+      checkoutChildCommit:
+        options.omitCheckoutChildCommit === true
+          ? undefined
+          : (input) => {
+              events.push('git:checkout-child-commit')
+              checkoutChildCommitInputs.push(input)
 
-        return Promise.resolve()
-      },
+              return Promise.resolve()
+            },
       commitFinalCleanup: () => {
         events.push('git:commit-final-cleanup')
 
