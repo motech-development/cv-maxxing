@@ -314,189 +314,233 @@ const createGitHubAdapter = (
 
 const createGitAdapter = (
   shell: DefaultLiveAdapterShellRunner,
-): PrdOrchestratorLiveAdapters['git'] => ({
-  applyWorkerDiff: async (input: ApplyWorkerDiffInput): Promise<void> => {
-    await shell({
-      args: ['checkout', input.prdBranchName],
-      command: 'git',
-    })
-    await shell({
-      args: ['merge', '--squash', '--no-commit', input.workerBranchName],
-      command: 'git',
-    })
-  },
-  amendChildCommit: async (message: string): Promise<ChildCommitResult> => {
-    const messageFilePath = await writeTemporaryFile('prd-child-amend-', message)
+): PrdOrchestratorLiveAdapters['git'] => {
+  let pendingChildCommitTarget: CheckoutChildCommitInput | undefined
 
-    await shell({
-      args: ['add', '--all'],
-      command: 'git',
-    })
-    await shell({
-      args: ['commit', '--amend', '-F', messageFilePath],
-      command: 'git',
-    })
+  return {
+    applyWorkerDiff: async (input: ApplyWorkerDiffInput): Promise<void> => {
+      if (pendingChildCommitTarget === undefined) {
+        await shell({
+          args: ['checkout', input.prdBranchName],
+          command: 'git',
+        })
+      } else if (pendingChildCommitTarget.branchName !== input.prdBranchName) {
+        throw new Error(
+          `Resume repair target branch ${pendingChildCommitTarget.branchName} does not match diff branch ${input.prdBranchName}.`,
+        )
+      }
 
-    const result = await shell({
-      args: ['rev-parse', 'HEAD'],
-      command: 'git',
-    })
-
-    return {
-      hash: result.stdout.trim(),
-    }
-  },
-  checkoutChildCommit: async (input: CheckoutChildCommitInput): Promise<void> => {
-    await shell({
-      args: ['checkout', input.branchName],
-      command: 'git',
-    })
-  },
-  commitChild: async (message: string): Promise<ChildCommitResult> => {
-    const messageFilePath = await writeTemporaryFile('prd-child-commit-', message)
-
-    await shell({
-      args: ['add', '--all'],
-      command: 'git',
-    })
-    await shell({
-      args: ['commit', '-F', messageFilePath],
-      command: 'git',
-    })
-
-    const result = await shell({
-      args: ['rev-parse', 'HEAD'],
-      command: 'git',
-    })
-
-    return {
-      hash: result.stdout.trim(),
-    }
-  },
-  commitFinalCleanup: async (message: string): Promise<ChildCommitResult> => {
-    const messageFilePath = await writeTemporaryFile('prd-final-cleanup-', message)
-
-    await shell({
-      args: ['add', '--all'],
-      command: 'git',
-    })
-    await shell({
-      args: ['commit', '-F', messageFilePath],
-      command: 'git',
-    })
-
-    const result = await shell({
-      args: ['rev-parse', 'HEAD'],
-      command: 'git',
-    })
-
-    return {
-      hash: result.stdout.trim(),
-    }
-  },
-  getChildCommitReferences: async (
-    branchName: string,
-  ): Promise<readonly ChildCommitReference[]> => {
-    try {
-      const result = await shell({
-        args: ['log', '--format=%H%x00%B%x00%x00', `main..${branchName}`],
-        command: 'git',
-      })
-
-      return parseChildCommitReferences(result.stdout)
-    } catch {
-      return []
-    }
-  },
-  getCompletedChildIssueNumbers: async (branchName: string): Promise<readonly number[]> => {
-    try {
-      const result = await shell({
-        args: ['log', '--format=%H%n%B', `main..${branchName}`],
-        command: 'git',
-      })
-
-      return parseClosedIssueNumbers(result.stdout)
-    } catch {
-      return []
-    }
-  },
-  getMainBranchStatus: async () => {
-    const [statusResult, branchResult] = await Promise.all([
-      shell({
-        args: ['status', '--porcelain'],
-        command: 'git',
-      }),
-      shell({
-        args: ['branch', '--show-current'],
-        command: 'git',
-      }),
-    ])
-
-    await shell({
-      args: ['fetch', 'origin', 'main'],
-      command: 'git',
-    })
-
-    const [mainResult, originMainResult] = await Promise.all([
-      shell({
-        args: ['rev-parse', 'main'],
-        command: 'git',
-      }),
-      shell({
-        args: ['rev-parse', 'origin/main'],
-        command: 'git',
-      }),
-    ])
-
-    return {
-      clean: statusResult.stdout.trim().length === 0,
-      currentBranch: branchResult.stdout.trim(),
-      upToDate: mainResult.stdout.trim() === originMainResult.stdout.trim(),
-    }
-  },
-  preparePrdBranch: async (input: PreparePrdBranchInput): Promise<void> => {
-    await shell({
-      args: ['checkout', 'main'],
-      command: 'git',
-    })
-    await shell({
-      args: ['pull', '--ff-only', 'origin', 'main'],
-      command: 'git',
-    })
-
-    if (input.remoteAutomationPr === undefined) {
       await shell({
-        args: ['checkout', '-B', input.branchName, 'main'],
+        args: ['merge', '--squash', '--no-commit', input.workerBranchName],
+        command: 'git',
+      })
+    },
+    amendChildCommit: async (message: string): Promise<ChildCommitResult> => {
+      const messageFilePath = await writeTemporaryFile('prd-child-amend-', message)
+      const childCommitTarget = pendingChildCommitTarget
+
+      await shell({
+        args: ['add', '--all'],
         command: 'git',
       })
       await shell({
-        args: ['push', '--set-upstream', 'origin', input.branchName],
+        args: ['commit', '--amend', '-F', messageFilePath],
         command: 'git',
       })
 
-      return
-    }
+      const result = await shell({
+        args: ['rev-parse', 'HEAD'],
+        command: 'git',
+      })
+      const amendedCommitHash = result.stdout.trim()
 
-    await shell({
-      args: ['fetch', 'origin', input.branchName],
-      command: 'git',
-    })
-    await shell({
-      args: ['checkout', input.branchName],
-      command: 'git',
-    })
-    await shell({
-      args: ['pull', '--ff-only', 'origin', input.branchName],
-      command: 'git',
-    })
-  },
-  pushPrdBranch: async (input: PushPrdBranchInput): Promise<void> => {
-    await shell({
-      args: ['push', '--force-with-lease', 'origin', input.branchName],
-      command: 'git',
-    })
-  },
-})
+      if (childCommitTarget !== undefined) {
+        await shell({
+          args: [
+            'rebase',
+            '--onto',
+            amendedCommitHash,
+            childCommitTarget.commitHash,
+            childCommitTarget.branchName,
+          ],
+          command: 'git',
+        })
+        await shell({
+          args: ['checkout', childCommitTarget.branchName],
+          command: 'git',
+        })
+        pendingChildCommitTarget = undefined
+      }
+
+      return {
+        hash: amendedCommitHash,
+      }
+    },
+    checkoutChildCommit: async (input: CheckoutChildCommitInput): Promise<void> => {
+      await shell({
+        args: ['checkout', input.branchName],
+        command: 'git',
+      })
+      await shell({
+        args: ['cat-file', '-e', `${input.commitHash}^{commit}`],
+        command: 'git',
+      })
+      await shell({
+        args: ['merge-base', '--is-ancestor', input.commitHash, input.branchName],
+        command: 'git',
+      })
+      await shell({
+        args: ['checkout', input.commitHash],
+        command: 'git',
+      })
+      pendingChildCommitTarget = input
+    },
+    commitChild: async (message: string): Promise<ChildCommitResult> => {
+      const messageFilePath = await writeTemporaryFile('prd-child-commit-', message)
+
+      await shell({
+        args: ['add', '--all'],
+        command: 'git',
+      })
+      await shell({
+        args: ['commit', '-F', messageFilePath],
+        command: 'git',
+      })
+
+      const result = await shell({
+        args: ['rev-parse', 'HEAD'],
+        command: 'git',
+      })
+
+      return {
+        hash: result.stdout.trim(),
+      }
+    },
+    commitFinalCleanup: async (message: string): Promise<ChildCommitResult> => {
+      const messageFilePath = await writeTemporaryFile('prd-final-cleanup-', message)
+
+      await shell({
+        args: ['add', '--all'],
+        command: 'git',
+      })
+      await shell({
+        args: ['commit', '-F', messageFilePath],
+        command: 'git',
+      })
+
+      const result = await shell({
+        args: ['rev-parse', 'HEAD'],
+        command: 'git',
+      })
+
+      return {
+        hash: result.stdout.trim(),
+      }
+    },
+    getChildCommitReferences: async (
+      branchName: string,
+    ): Promise<readonly ChildCommitReference[]> => {
+      try {
+        const result = await shell({
+          args: ['log', '--format=%H%x00%B%x00%x00', `main..${branchName}`],
+          command: 'git',
+        })
+
+        return parseChildCommitReferences(result.stdout)
+      } catch {
+        return []
+      }
+    },
+    getCompletedChildIssueNumbers: async (branchName: string): Promise<readonly number[]> => {
+      try {
+        const result = await shell({
+          args: ['log', '--format=%H%n%B', `main..${branchName}`],
+          command: 'git',
+        })
+
+        return parseClosedIssueNumbers(result.stdout)
+      } catch {
+        return []
+      }
+    },
+    getMainBranchStatus: async () => {
+      const [statusResult, branchResult] = await Promise.all([
+        shell({
+          args: ['status', '--porcelain'],
+          command: 'git',
+        }),
+        shell({
+          args: ['branch', '--show-current'],
+          command: 'git',
+        }),
+      ])
+
+      await shell({
+        args: ['fetch', 'origin', 'main'],
+        command: 'git',
+      })
+
+      const [mainResult, originMainResult] = await Promise.all([
+        shell({
+          args: ['rev-parse', 'main'],
+          command: 'git',
+        }),
+        shell({
+          args: ['rev-parse', 'origin/main'],
+          command: 'git',
+        }),
+      ])
+
+      return {
+        clean: statusResult.stdout.trim().length === 0,
+        currentBranch: branchResult.stdout.trim(),
+        upToDate: mainResult.stdout.trim() === originMainResult.stdout.trim(),
+      }
+    },
+    preparePrdBranch: async (input: PreparePrdBranchInput): Promise<void> => {
+      await shell({
+        args: ['checkout', 'main'],
+        command: 'git',
+      })
+      await shell({
+        args: ['pull', '--ff-only', 'origin', 'main'],
+        command: 'git',
+      })
+
+      if (input.remoteAutomationPr === undefined) {
+        await shell({
+          args: ['checkout', '-B', input.branchName, 'main'],
+          command: 'git',
+        })
+        await shell({
+          args: ['push', '--set-upstream', 'origin', input.branchName],
+          command: 'git',
+        })
+
+        return
+      }
+
+      await shell({
+        args: ['fetch', 'origin', input.branchName],
+        command: 'git',
+      })
+      await shell({
+        args: ['checkout', input.branchName],
+        command: 'git',
+      })
+      await shell({
+        args: ['pull', '--ff-only', 'origin', input.branchName],
+        command: 'git',
+      })
+    },
+    pushPrdBranch: async (input: PushPrdBranchInput): Promise<void> => {
+      await shell({
+        args: ['push', '--force-with-lease', 'origin', input.branchName],
+        command: 'git',
+      })
+    },
+  }
+}
 
 const createSandcastleAdapter = (
   cwd: string,
@@ -551,6 +595,9 @@ const createSandcastleAdapter = (
       '',
       `PR: #${String(input.prNumber)}`,
       `Branch: ${input.branchName}`,
+      ...(input.targetCommitHash === undefined
+        ? []
+        : [`Target child commit: ${input.targetCommitHash}`]),
       '',
       '## Findings',
       '',
@@ -574,7 +621,11 @@ const createSandcastleAdapter = (
       }),
     })
     const changedFiles = await shell({
-      args: ['diff', '--name-only', `${input.branchName}..${result.branch}`],
+      args: [
+        'diff',
+        '--name-only',
+        `${input.targetCommitHash ?? input.branchName}..${result.branch}`,
+      ],
       command: 'git',
     })
 

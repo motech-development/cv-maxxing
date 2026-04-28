@@ -200,6 +200,7 @@ export interface RepairResumeFindingsInput {
   readonly branchName: string
   readonly findings: readonly ResumePrFinding[]
   readonly prNumber: number
+  readonly targetCommitHash?: string
   readonly workerBranchName: string
 }
 
@@ -1200,6 +1201,15 @@ export const executeResumePr = async (
     }
   }
 
+  if (repairPlan.amendChildCommits.length > 0 && adapters.git.checkoutChildCommit === undefined) {
+    return {
+      exitCode: 1,
+      stderr:
+        'Resume repair cannot safely target child commits because the git adapter does not support targeted checkout.\n',
+      stdout: '',
+    }
+  }
+
   if (repairPlan.returnToDraft) {
     await adapters.github.convertPrToDraft?.(prNumber)
   }
@@ -1216,6 +1226,7 @@ export const executeResumePr = async (
       branchName: pr.branchName,
       findings,
       prNumber,
+      targetCommitHash: amendPlan.commitHash,
       workerBranchName: `${pr.branchName}-resume-${String(amendPlan.childIssueNumber)}`,
     })
 

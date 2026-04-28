@@ -217,6 +217,21 @@ export const planResumePrRepair = (input: PlanResumePrRepairInput): ResumePrRepa
     }
   }
 
+  const targetBlockers = findChildCommitTargetBlockers(input)
+
+  if (targetBlockers.length > 0) {
+    return {
+      action: 'blocked',
+      amendChildCommits: [],
+      blockers: targetBlockers,
+      finalCleanupCommit: undefined,
+      forcePush: undefined,
+      inspectCi: false,
+      inspectCodeRabbit: false,
+      returnToDraft: false,
+    }
+  }
+
   const findingsByChild = mapFindingsToChildCommits({
     childCommits: input.childCommits,
     findings: input.findings,
@@ -334,3 +349,34 @@ const formatBulletList = (items: readonly string[]): readonly string[] =>
 
 const formatIssueReferences = (issueNumbers: readonly number[]): string =>
   issueNumbers.map((issueNumber) => `#${String(issueNumber)}`).join(', ')
+
+const findChildCommitTargetBlockers = (input: PlanResumePrRepairInput): readonly string[] =>
+  input.findings.flatMap((finding) => {
+    const childIssueNumber = finding.childIssueNumber
+
+    if (childIssueNumber === undefined) {
+      return []
+    }
+
+    const matchingChildCommits = input.childCommits.filter(
+      (childCommit) => childCommit.childIssueNumber === childIssueNumber,
+    )
+
+    if (matchingChildCommits.length === 0) {
+      return [
+        `Cannot safely find child commit for #${String(
+          childIssueNumber,
+        )} while repairing finding ${finding.id}`,
+      ]
+    }
+
+    if (matchingChildCommits.length > 1) {
+      return [
+        `Cannot safely choose between ${String(
+          matchingChildCommits.length,
+        )} child commits for #${String(childIssueNumber)} while repairing finding ${finding.id}`,
+      ]
+    }
+
+    return []
+  })
