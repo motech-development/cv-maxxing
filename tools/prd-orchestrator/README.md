@@ -23,3 +23,17 @@ pnpm --filter @cv-maxxing/prd-orchestrator plan < issues.json
 ```
 
 The command prints the selected PRD, child task DAG, blockers, warnings, next executable tasks, and unavailable PRDs. It does not create branches, pull requests, commits, worktrees, or Sandcastle workers.
+
+## Full-run foundation
+
+Issue 89 keeps full multi-child live execution out of scope, but documents and tests the scheduling foundation that a later full `run` command will use:
+
+- only currently unblocked child tasks are eligible for scheduling
+- non-overlapping impact surfaces may run in one parallel batch
+- overlapping files, design files, snapshots, shared contracts, or high-risk/uncertain analysis force sequential execution
+- a blocked child records its blocker while independent runnable children continue
+- repeated remediation requires new evidence or a changed strategy
+- cleanup preserves active PRD runs, active Sandcastle artifacts, committed `.sandcastle` config, and live processes
+- status and resume logic remain inspectable from run state, PR body ledger, remote PR state, and commits
+
+Live multi-child execution, remote branch mutation, and automatic merge remain outside this slice.
