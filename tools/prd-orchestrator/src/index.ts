@@ -71,6 +71,16 @@ export {
   formatRunStatus,
 } from './run-guardrails.js'
 
+export {
+  buildImpactAnalysisPrompt,
+  buildSandcastleImpactAnalysisOptions,
+  createCodexImpactAnalysisConfig,
+  createSandcastleImpactAnalysisRunOptions,
+  parseImpactAnalysisResult,
+  validateCredentialIsolation,
+  validateSandcastleBranchStrategy,
+} from './sandcastle-impact-analysis.js'
+
 export type { PrdOrchestratorCliInput, PrdOrchestratorCliResult } from './cli.js'
 
 export type {
@@ -99,6 +109,26 @@ export type {
   RunLockDecision,
   RunStatus,
 } from './run-guardrails.js'
+
+export type {
+  BuildSandcastleImpactAnalysisOptionsInput,
+  CodexEffort,
+  CodexImpactAnalysisConfig,
+  CodexImpactAnalysisConfigInput,
+  CredentialIsolationInput,
+  CredentialIsolationResult,
+  DependencyCacheInputs,
+  DockerCacheMount,
+  ImpactAnalysisPromptInput,
+  ImpactRiskLevel,
+  SafeSandcastleBranchStrategy,
+  SandcastleImpactAnalysisAdapterFactories,
+  SandcastleBranchStrategy,
+  SandcastleImpactAnalysisOptions,
+  SandcastleImpactAnalysisResult,
+  SandcastleImpactAnalysisRunOptions,
+  SiblingTaskSummary,
+} from './sandcastle-impact-analysis.js'
 
 export type {
   ChildTaskDagNode,

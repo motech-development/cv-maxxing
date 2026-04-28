@@ -16,6 +16,9 @@
     "test:unit": "vitest run --config vitest.config.ts",
     "typecheck": "tsc --noEmit --project tsconfig.json"
   },
+  "dependencies": {
+    "@ai-hero/sandcastle": "^0.5.5"
+  },
   "devDependencies": {
     "@types/node": "^25.5.2",
     "typescript": "^6.0.2",
