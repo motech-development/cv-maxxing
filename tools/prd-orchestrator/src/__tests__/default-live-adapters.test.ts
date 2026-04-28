@@ -1,3 +1,7 @@
+import { mkdtemp, mkdir, writeFile } from 'node:fs/promises'
+import path from 'node:path'
+import { tmpdir } from 'node:os'
+
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -102,6 +106,30 @@ describe('default live adapters', () => {
     expect(shell.commands.map((command) => formatCommand(command))).toContain(
       'gh pr view 123 --json reviews,comments,statusCheckRollup',
     )
+  })
+
+  it('re-acquires a stale repo lock atomically during recovery', async () => {
+    const temporaryDirectory = await mkdtemp(path.join(tmpdir(), 'prd-orchestrator-lock-'))
+    const lockDirectory = path.join(temporaryDirectory, '.git', 'prd-orchestrator')
+    const lockFilePath = path.join(lockDirectory, 'lock.json')
+    const adapters = createDefaultPrdOrchestratorLiveAdapters(temporaryDirectory)
+
+    await mkdir(lockDirectory, {
+      recursive: true,
+    })
+    await writeFile(
+      lockFilePath,
+      JSON.stringify({
+        heartbeatIso: new Date(0).toISOString(),
+        pid: 9_999_999,
+        runId: 'stale-run',
+      }),
+    )
+
+    await expect(adapters.state.acquireRunLock()).resolves.toMatchObject({
+      blockers: [],
+      ready: true,
+    })
   })
 })
 

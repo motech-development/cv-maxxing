@@ -156,8 +156,16 @@ export const planGitHubActionsPolling = (
     }
   }
 
+  if (input.branchName === undefined) {
+    return {
+      command: undefined,
+      reason: 'GitHub Actions polling requires the pushed PRD branch name.',
+      shouldPoll: false,
+    }
+  }
+
   return {
-    command: `gh run list --branch ${input.branchName ?? 'agent/prd-branch'} --json status,conclusion`,
+    command: `gh run list --branch ${input.branchName} --json status,conclusion`,
     reason: 'Full PRD implementation is pushed; poll CI before final audit.',
     shouldPoll: true,
   }

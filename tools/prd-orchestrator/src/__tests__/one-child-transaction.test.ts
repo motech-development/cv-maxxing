@@ -153,6 +153,37 @@ describe('one-child transaction planning', () => {
     })
   })
 
+  it('keeps generated branch slugs within a safe length', () => {
+    const longTitleIssues = issues.map((issue) =>
+      issue.number === 86
+        ? {
+            ...issue,
+            title:
+              'Implement one child task with a deliberately long title that would otherwise exceed branch name limits during automated full PRD execution',
+          }
+        : issue,
+    )
+    const plan = planOneChildTransaction({
+      childCommitHash: 'abc123456789',
+      codeRabbitStatus: 'passed',
+      completedChildIssueNumbers: [85],
+      dependencyChangeJustification: undefined,
+      existingLedger: [],
+      impactAnalysis,
+      issues: longTitleIssues,
+      mainBranchStatus: {
+        clean: true,
+        currentBranch: 'main',
+        upToDate: true,
+      },
+      remoteAutomationPr: undefined,
+      verificationEvidence: ['pnpm lint'],
+      workerChangedFiles: ['tools/prd-orchestrator/src/one-child-transaction.ts'],
+    })
+
+    expect(plan.workerRun?.branchName.length).toBeLessThanOrEqual(102)
+  })
+
   it('resumes an existing automation draft PR instead of planning a second PR', () => {
     const plan = planOneChildTransaction({
       childCommitHash: 'abc123456789',

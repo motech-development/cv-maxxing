@@ -1,7 +1,8 @@
 import { spawn } from 'node:child_process'
-import { mkdtemp, mkdir, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises'
+import { mkdtemp, mkdir, readdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
+import { setTimeout as sleep } from 'node:timers/promises'
 
 import { codex, run } from '@ai-hero/sandcastle'
 import { docker } from '@ai-hero/sandcastle/sandboxes/docker'
@@ -772,22 +773,7 @@ const createRunStateAdapter = (
       })
 
       try {
-        await writeFile(
-          lockFilePath,
-          JSON.stringify(
-            {
-              heartbeatIso: new Date().toISOString(),
-              pid: process.pid,
-              runId: activeRunId,
-            },
-            null,
-            2,
-          ),
-          {
-            encoding: 'utf8',
-            flag: 'wx',
-          },
-        )
+        await writeRunLockFile(lockFilePath, activeRunId)
 
         return {
           blockers: [],
@@ -796,28 +782,7 @@ const createRunStateAdapter = (
         }
       } catch {
         if (await recoverStaleRepoLock(lockFilePath)) {
-          await writeFile(
-            lockFilePath,
-            JSON.stringify(
-              {
-                heartbeatIso: new Date().toISOString(),
-                pid: process.pid,
-                runId: activeRunId,
-              },
-              null,
-              2,
-            ),
-            {
-              encoding: 'utf8',
-              flag: 'wx',
-            },
-          )
-
-          return {
-            blockers: [],
-            lockId: activeRunId,
-            ready: true,
-          }
+          return await acquireRecoveredRunLock(lockFilePath, activeRunId)
         }
 
         return {
@@ -1057,7 +1022,10 @@ const recoverStaleRepoLock = async (lockFilePath: string): Promise<boolean> => {
       return false
     }
 
-    await rm(lockFilePath, {
+    const staleLockFilePath = `${lockFilePath}.stale.${String(process.pid)}.${String(Date.now())}`
+
+    await rename(lockFilePath, staleLockFilePath)
+    await rm(staleLockFilePath, {
       force: true,
     })
 
@@ -1148,6 +1116,65 @@ const discoverActiveRunIds = async (cwd: string): Promise<readonly string[]> => 
     return repoLockRunId === undefined ? [] : [repoLockRunId]
   }
 }
+
+const acquireRecoveredRunLock = async (
+  lockFilePath: string,
+  activeRunId: string,
+): Promise<LiveRunLockResult> => {
+  const attempts = [0, 1, 2] as const
+
+  for (const attempt of attempts) {
+    try {
+      await writeRunLockFile(lockFilePath, activeRunId)
+
+      return {
+        blockers: [],
+        lockId: activeRunId,
+        ready: true,
+      }
+    } catch (error) {
+      if (!isFileAlreadyExistsError(error)) {
+        return {
+          blockers: ['Unable to acquire repo lock during stale-lock recovery.'],
+          lockId: undefined,
+          ready: false,
+        }
+      }
+
+      if (attempt < attempts.length - 1) {
+        await sleep(25)
+      }
+    }
+  }
+
+  return {
+    blockers: ['Another PRD orchestrator run acquired the lock during recovery.'],
+    lockId: undefined,
+    ready: false,
+  }
+}
+
+const writeRunLockFile = async (lockFilePath: string, activeRunId: string): Promise<void> => {
+  await writeFile(
+    lockFilePath,
+    JSON.stringify(
+      {
+        heartbeatIso: new Date().toISOString(),
+        pid: process.pid,
+        runId: activeRunId,
+      },
+      null,
+      2,
+    ),
+    {
+      encoding: 'utf8',
+      flag: 'wx',
+    },
+  )
+}
+
+const isFileAlreadyExistsError = (error: unknown): boolean =>
+  error instanceof Error && 'code' in error && error.code === 'EEXIST'
 
 const readActiveRunIdFromLock = async (lockFilePath: string): Promise<string | undefined> => {
   try {

@@ -184,7 +184,15 @@ const runOneChildCommand = (stdin: string): PrdOrchestratorCliResult => {
 }
 
 const parseIssueJson = (stdin: string): readonly GitHubIssue[] => {
-  const parsedJson: unknown = JSON.parse(stdin)
+  let parsedJson: unknown
+
+  try {
+    parsedJson = JSON.parse(stdin)
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'unknown error'
+
+    throw new TypeError(`Invalid JSON input: ${message}`)
+  }
 
   if (Array.isArray(parsedJson)) {
     return parsedJson.map((issue) => parseGitHubIssue(issue))

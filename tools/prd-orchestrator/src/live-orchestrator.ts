@@ -1,4 +1,5 @@
 import {
+  createChildCommitMessage,
   generateDraftPrBody,
   generateMergeInstructions,
   type ChildTaskProgress,
@@ -14,6 +15,7 @@ import {
   planOneChildTransaction,
   selectVerificationCommands,
   type MainBranchStatus,
+  type OneChildTransactionPlan,
 } from './one-child-transaction.js'
 import {
   createDryRunPlan,
@@ -42,6 +44,7 @@ import {
   type ParentUserStoryAudit,
   type ResumePrFinding,
 } from './final-prd-flow.js'
+import { groupRunnableTasksByImpactSurface } from './full-run-scheduler.js'
 
 export interface PrdOrchestratorLiveAdapters {
   readonly configuration?: PrdOrchestratorLiveConfiguration
@@ -298,90 +301,299 @@ export const executeLiveRun = async (
 const executeLiveRunWithLock = async (
   adapters: PrdOrchestratorLiveAdapters,
 ): Promise<LiveCommandResult> => {
-  let previousCompletedChildren = ''
-  let lastChildResult: LiveCommandResult | undefined
+  const issues = await adapters.github.listOpenIssues()
+  const dryRunPlan = createDryRunPlan(issues)
+  const selectedPrd = dryRunPlan.selectedPrd
+
+  if (selectedPrd === undefined) {
+    return blockedResult('No eligible PRD with child tasks is available.')
+  }
+
+  if (selectedPrd.blockers.length > 0) {
+    return await recordPreExecutionPlanningBlockers({
+      adapters,
+      lastCommand: 'run',
+      selectedPrd,
+    })
+  }
+
+  const branchSeedPlan = planOneChildTransaction({
+    childCommitHash: undefined,
+    codeRabbitStatus: 'not run',
+    completedChildIssueNumbers: [],
+    dependencyChangeJustification: undefined,
+    existingLedger: [],
+    impactAnalysis: emptyImpactAnalysis,
+    issues,
+    mainBranchStatus: {
+      clean: true,
+      currentBranch: 'main',
+      upToDate: true,
+    },
+    remoteAutomationPr: undefined,
+    verificationEvidence: [],
+    workerChangedFiles: [],
+  })
+  const mainBranchStatus = await adapters.git.getMainBranchStatus()
+
+  if (!isCleanUpToDateMain(mainBranchStatus)) {
+    return blockedResult('run must start from clean, up-to-date main.')
+  }
+
+  const remoteAutomationPr = await adapters.github.findAutomationPr(
+    selectedPrd.issueNumber,
+    branchSeedPlan.prdBranchName,
+  )
+  const parentPrdBody = issues.find((issue) => issue.number === selectedPrd.issueNumber)?.body ?? ''
+
+  await adapters.git.preparePrdBranch({
+    branchName: branchSeedPlan.prdBranchName,
+    remoteAutomationPr,
+  })
+
+  const initialCompletedChildIssueNumbers =
+    (await adapters.git.getCompletedChildIssueNumbers?.(branchSeedPlan.prdBranchName)) ?? []
+  const draftPr =
+    remoteAutomationPr ??
+    (await adapters.github.createDraftPr({
+      body: generateDraftPrBody({
+        branchName: branchSeedPlan.prdBranchName,
+        childTasks: selectedPrd.childTasks,
+        ledger: await createBaseLedger({
+          adapters,
+          blockedChildIssueNumbers: [],
+          branchName: branchSeedPlan.prdBranchName,
+          childTasks: selectedPrd.childTasks,
+          completedChildIssueNumbers: initialCompletedChildIssueNumbers,
+        }),
+        parentPrdIssueNumber: selectedPrd.issueNumber,
+        prdTitle: selectedPrd.title,
+      }),
+      branchName: branchSeedPlan.prdBranchName,
+      prdIssueNumber: selectedPrd.issueNumber,
+      title: branchSeedPlan.draftPullRequest.title,
+    }))
   const blockedChildIssueNumbers = new Set<number>()
-  let continuedAfterBlocker = false
+  let madeProgress = initialCompletedChildIssueNumbers.length > 0
 
   for (;;) {
-    lastChildResult = await executeLiveOneChildWithLock(adapters, {
-      blockedChildIssueNumbers: [...blockedChildIssueNumbers],
-      lastCommand: 'run',
-    })
+    const completedChildIssueNumbers =
+      (await adapters.git.getCompletedChildIssueNumbers?.(branchSeedPlan.prdBranchName)) ?? []
 
-    if (lastChildResult.exitCode !== 0) {
-      const status = await adapters.state.readRunStatus()
-
-      for (const completedChildIssueNumber of status.completedChildren) {
-        blockedChildIssueNumbers.delete(completedChildIssueNumber)
-      }
-
-      if (status.phase !== 'blocked' || status.currentChildIssueNumber === undefined) {
-        return lastChildResult
-      }
-
-      blockedChildIssueNumbers.add(status.currentChildIssueNumber)
-
-      const completedChildren = status.completedChildren.join(',')
-
-      if (completedChildren !== previousCompletedChildren) {
-        previousCompletedChildren = completedChildren
-        continuedAfterBlocker = true
-      }
-
-      if (await hasRunnableChildAfterBlocker(adapters, [...blockedChildIssueNumbers])) {
-        continue
-      }
-
-      if (continuedAfterBlocker) {
-        return blockedResult('Full run blocked after continuing independent child work.')
-      }
-
-      return lastChildResult
-    }
-
-    const status = await adapters.state.readRunStatus()
-
-    for (const completedChildIssueNumber of status.completedChildren) {
+    for (const completedChildIssueNumber of completedChildIssueNumbers) {
       blockedChildIssueNumbers.delete(completedChildIssueNumber)
     }
 
-    if (status.phase === 'ready-for-review') {
+    const executableChildren = selectExecutableChildren(selectedPrd, completedChildIssueNumbers, [
+      ...blockedChildIssueNumbers,
+    ])
+
+    if (executableChildren.length === 0) {
+      if (completedChildIssueNumbers.length === selectedPrd.childTasks.length) {
+        const status = await adapters.state.readRunStatus()
+
+        if (status.phase === 'ready-for-review') {
+          return {
+            exitCode: 0,
+            stderr: '',
+            stdout: renderFullRunCompletion(status),
+          }
+        }
+      }
+
       if (blockedChildIssueNumbers.size > 0) {
+        const status = createRunStatus({
+          blockers: [...blockedChildIssueNumbers].map(
+            (issueNumber) => `Child #${String(issueNumber)} is blocked.`,
+          ),
+          branchName: branchSeedPlan.prdBranchName,
+          codeRabbitStatus: 'passed',
+          completedChildIssueNumbers,
+          currentChildIssueNumber: undefined,
+          lastCommand: 'run',
+          phase: 'blocked',
+          pr: draftPr,
+          prdIssueNumber: selectedPrd.issueNumber,
+        })
+
+        await adapters.github.updatePrBody(
+          draftPr.prNumber,
+          generateDraftPrBody({
+            branchName: branchSeedPlan.prdBranchName,
+            childTasks: selectedPrd.childTasks,
+            ledger: await createBaseLedger({
+              adapters,
+              blockedChildIssueNumbers: [...blockedChildIssueNumbers],
+              branchName: branchSeedPlan.prdBranchName,
+              childTasks: selectedPrd.childTasks,
+              completedChildIssueNumbers,
+            }),
+            parentPrdIssueNumber: selectedPrd.issueNumber,
+            prdTitle: selectedPrd.title,
+          }),
+        )
+        await adapters.state.recordRunStatus(status)
+
         return blockedResult('Full run blocked after continuing independent child work.')
       }
 
-      return {
-        exitCode: 0,
-        stderr: '',
-        stdout: [
-          `Completed PRD ${formatOptionalIssueReference(status.activePrdIssueNumber)}`,
-          `Draft PR: ${formatOptionalIssueReference(status.prNumber)} ${status.prUrl ?? ''}`.trim(),
-          `Completed children: ${status.completedChildren
-            .map((issueNumber) => formatOptionalIssueReference(issueNumber))
-            .join(', ')}`,
-        ].join('\n'),
+      return blockedResult(
+        madeProgress
+          ? 'Full run made no further child-task progress.'
+          : 'No unblocked child task is available.',
+      )
+    }
+
+    const taskImpacts = await Promise.all(
+      executableChildren.map(async (childTask) => ({
+        issueNumber: childTask.issueNumber,
+        surface: await adapters.sandcastle.runImpactAnalysis({
+          childTask,
+          parentPrd: selectedPrd,
+          parentPrdBody,
+          siblingSummaries: createSiblingSummaries(
+            selectedPrd,
+            childTask,
+            completedChildIssueNumbers,
+          ),
+        }),
+      })),
+    )
+    const schedule = groupRunnableTasksByImpactSurface({
+      tasks: taskImpacts,
+    })
+
+    await adapters.state.recordRunStatus(
+      createRunStatus({
+        blockers: [...blockedChildIssueNumbers].map(
+          (issueNumber) => `Child #${String(issueNumber)} is blocked.`,
+        ),
+        branchName: branchSeedPlan.prdBranchName,
+        codeRabbitStatus: 'not run',
+        completedChildIssueNumbers,
+        currentChildIssueNumber: undefined,
+        lastCommand: 'run',
+        phase: `scheduling ${String(executableChildren.length)} executable child task${
+          executableChildren.length === 1 ? '' : 's'
+        }`,
+        pr: draftPr,
+        prdIssueNumber: selectedPrd.issueNumber,
+      }),
+    )
+
+    let blockedThisPass = false
+
+    for (const batch of schedule.batches) {
+      const batchChildren = batch.issueNumbers
+        .map((issueNumber) =>
+          executableChildren.find((childTask) => childTask.issueNumber === issueNumber),
+        )
+        .filter((childTask): childTask is ParsedChildTask => childTask !== undefined)
+      const batchImpactsByIssueNumber = new Map(
+        taskImpacts.map((taskImpact) => [taskImpact.issueNumber, taskImpact.surface]),
+      )
+      const parallelWorkerResults =
+        batch.mode === 'parallel' && batchChildren.length > 1
+          ? await Promise.all(
+              batchChildren.map(async (childTask) => ({
+                issueNumber: childTask.issueNumber,
+                workerResult: await adapters.sandcastle.runImplementation({
+                  childTask,
+                  impactAnalysis: requiredImpactForChild(
+                    batchImpactsByIssueNumber,
+                    childTask.issueNumber,
+                  ),
+                  parentPrd: selectedPrd,
+                  parentPrdBody,
+                  prdBranchName: branchSeedPlan.prdBranchName,
+                  siblingSummaries: createSiblingSummaries(
+                    selectedPrd,
+                    childTask,
+                    completedChildIssueNumbers,
+                  ),
+                  workerBranchName: createWorkerBranchName(selectedPrd, childTask),
+                }),
+              })),
+            )
+          : []
+      const parallelWorkerResultsByIssueNumber = new Map(
+        parallelWorkerResults.map((result) => [result.issueNumber, result.workerResult]),
+      )
+
+      for (const selectedChild of batchChildren) {
+        const completedBeforeChild =
+          (await adapters.git.getCompletedChildIssueNumbers?.(branchSeedPlan.prdBranchName)) ?? []
+        const impactAnalysis = requiredImpactForChild(
+          batchImpactsByIssueNumber,
+          selectedChild.issueNumber,
+        )
+        const siblingSummaries = createSiblingSummaries(
+          selectedPrd,
+          selectedChild,
+          completedBeforeChild,
+        )
+        const workerBranchName = createWorkerBranchName(selectedPrd, selectedChild)
+        const workerResult =
+          parallelWorkerResultsByIssueNumber.get(selectedChild.issueNumber) ??
+          (await adapters.sandcastle.runImplementation({
+            childTask: selectedChild,
+            impactAnalysis,
+            parentPrd: selectedPrd,
+            parentPrdBody,
+            prdBranchName: branchSeedPlan.prdBranchName,
+            siblingSummaries,
+            workerBranchName,
+          }))
+        const childResult = await executePreparedChildWithLock({
+          adapters,
+          blockedChildIssueNumbers: [...blockedChildIssueNumbers],
+          branchSeedPlan,
+          completedChildIssueNumbers: completedBeforeChild,
+          draftPr,
+          impactAnalysis,
+          issues,
+          lastCommand: 'run',
+          mainBranchStatus,
+          parentPrdBody,
+          selectedChild,
+          selectedPrd,
+          siblingSummaries,
+          workerBranchName,
+          workerResult,
+        })
+
+        if (childResult.exitCode === 0) {
+          madeProgress = true
+
+          const status = await adapters.state.readRunStatus()
+
+          if (status.phase === 'ready-for-review') {
+            return {
+              exitCode: 0,
+              stderr: '',
+              stdout: renderFullRunCompletion(status),
+            }
+          }
+
+          continue
+        }
+
+        const status = await adapters.state.readRunStatus()
+
+        if (status.phase !== 'blocked' || status.currentChildIssueNumber === undefined) {
+          return childResult
+        }
+
+        blockedChildIssueNumbers.add(status.currentChildIssueNumber)
+        blockedThisPass = true
+
+        break
+      }
+
+      if (blockedThisPass) {
+        break
       }
     }
-
-    if (status.phase === 'blocked') {
-      return lastChildResult
-    }
-
-    const completedChildren = status.completedChildren.join(',')
-
-    if (
-      blockedChildIssueNumbers.size > 0 &&
-      !(await hasRunnableChildAfterBlocker(adapters, [...blockedChildIssueNumbers]))
-    ) {
-      return blockedResult('Full run blocked after continuing independent child work.')
-    }
-
-    if (completedChildren === previousCompletedChildren) {
-      return blockedResult('Full run made no child-task progress.')
-    }
-
-    previousCompletedChildren = completedChildren
   }
 }
 
@@ -678,6 +890,7 @@ const executeLiveOneChildWithLock = async (
     codeRabbitStatus: cleanReview.result.status,
     completedChildIssueNumbers: completedChildren,
     currentChildIssueNumber: undefined,
+    lastCommand: input.lastCommand ?? 'run --one-child',
     phase: cleanReview.result.findings.length === 0 ? finalizationResult.phase : 'blocked',
     pr: draftPr,
     prdIssueNumber: selectedPrd.issueNumber,
@@ -691,6 +904,206 @@ const executeLiveOneChildWithLock = async (
     stdout: `${renderOneChildSummary({
       childIssueNumber: selectedChild.issueNumber,
       pr: draftPr,
+      status,
+    })}\n`,
+  }
+}
+
+const executePreparedChildWithLock = async (input: {
+  readonly adapters: PrdOrchestratorLiveAdapters
+  readonly blockedChildIssueNumbers: readonly number[]
+  readonly branchSeedPlan: OneChildTransactionPlan
+  readonly completedChildIssueNumbers: readonly number[]
+  readonly draftPr: RemoteAutomationPr
+  readonly impactAnalysis: SandcastleImpactAnalysisResult
+  readonly issues: readonly GitHubIssue[]
+  readonly lastCommand: string
+  readonly mainBranchStatus: MainBranchStatus
+  readonly parentPrdBody: string
+  readonly selectedChild: ParsedChildTask
+  readonly selectedPrd: SelectedPrdPlan
+  readonly siblingSummaries: readonly SiblingTaskSummary[]
+  readonly workerBranchName: string
+  readonly workerResult: RunImplementationResult
+}): Promise<LiveCommandResult> => {
+  const writeSurface = await resolveWriteSurfaceBeforeApply({
+    adapters: input.adapters,
+    impactAnalysis: input.impactAnalysis,
+    parentPrd: input.selectedPrd,
+    parentPrdBody: input.parentPrdBody,
+    selectedChild: input.selectedChild,
+    siblingSummaries: input.siblingSummaries,
+    workerChangedFiles: input.workerResult.changedFiles,
+  })
+
+  if (writeSurface.blockers.length > 0) {
+    const status = createRunStatus({
+      blockers: writeSurface.blockers,
+      branchName: input.branchSeedPlan.prdBranchName,
+      codeRabbitStatus: 'not run',
+      completedChildIssueNumbers: input.completedChildIssueNumbers,
+      currentChildIssueNumber: input.selectedChild.issueNumber,
+      lastCommand: input.lastCommand,
+      phase: 'blocked',
+      pr: input.draftPr,
+      prdIssueNumber: input.selectedPrd.issueNumber,
+    })
+
+    await recordBlockedProgress({
+      adapters: input.adapters,
+      body: generateDraftPrBody({
+        branchName: input.branchSeedPlan.prdBranchName,
+        childTasks: input.selectedPrd.childTasks,
+        ledger: await createBaseLedger({
+          adapters: input.adapters,
+          blockedChildIssueNumbers: [
+            ...input.blockedChildIssueNumbers,
+            input.selectedChild.issueNumber,
+          ],
+          branchName: input.branchSeedPlan.prdBranchName,
+          childTasks: input.selectedPrd.childTasks,
+          completedChildIssueNumbers: input.completedChildIssueNumbers,
+        }),
+        parentPrdIssueNumber: input.selectedPrd.issueNumber,
+        prdTitle: input.selectedPrd.title,
+      }),
+      draftPr: input.draftPr,
+      status,
+    })
+
+    return {
+      exitCode: 1,
+      stderr: `${writeSurface.blockers.join('\n')}\n`,
+      stdout: `${renderOneChildSummary({
+        childIssueNumber: input.selectedChild.issueNumber,
+        pr: input.draftPr,
+        status,
+      })}\n`,
+    }
+  }
+
+  const verifiedWorkerResult = await repairVerificationUntilClean({
+    adapters: input.adapters,
+    impactAnalysis: writeSurface.impactAnalysis,
+    parentPrd: input.selectedPrd,
+    parentPrdBody: input.parentPrdBody,
+    prdBranchName: input.branchSeedPlan.prdBranchName,
+    selectedChild: input.selectedChild,
+    siblingSummaries: input.siblingSummaries,
+    verificationCommands: selectVerificationCommands(writeSurface.impactAnalysis),
+    workerBranchName: input.workerBranchName,
+    workerResult: input.workerResult,
+  })
+  const verificationEvidence = verifiedWorkerResult.verificationEvidence
+  const baseLedger = await createBaseLedger({
+    adapters: input.adapters,
+    blockedChildIssueNumbers: input.blockedChildIssueNumbers,
+    branchName: input.branchSeedPlan.prdBranchName,
+    childTasks: input.selectedPrd.childTasks,
+    completedChildIssueNumbers: input.completedChildIssueNumbers,
+  })
+  const commitMessage = createChildCommitMessage({
+    acceptanceEvidence: input.selectedChild.acceptanceCriteria,
+    childIssueNumber: input.selectedChild.issueNumber,
+    childTitle: input.selectedChild.title,
+    verificationEvidence,
+  })
+  const push = {
+    branchName: input.branchSeedPlan.prdBranchName,
+    mode: 'force-with-lease',
+  } as const
+  const commit = await input.adapters.git.commitChild(commitMessage)
+
+  await input.adapters.git.pushPrdBranch(push)
+
+  const codeRabbitResult = await input.adapters.codeRabbit.reviewChild({
+    branchName: input.branchSeedPlan.prdBranchName,
+    childCommitHash: commit.hash,
+    childIssueNumber: input.selectedChild.issueNumber,
+    prNumber: input.draftPr.prNumber,
+  })
+  const cleanReview = await repairCodeRabbitFindingsUntilClean({
+    adapters: input.adapters,
+    branchName: input.branchSeedPlan.prdBranchName,
+    childCommitHash: commit.hash,
+    curatedCommitMessage: commitMessage,
+    draftPr: input.draftPr,
+    impactAnalysis: verifiedWorkerResult.impactAnalysis,
+    initialResult: codeRabbitResult,
+    parentPrd: input.selectedPrd,
+    parentPrdBody: input.parentPrdBody,
+    selectedChild: input.selectedChild,
+    siblingSummaries: input.siblingSummaries,
+    verificationCommands: selectVerificationCommands(verifiedWorkerResult.impactAnalysis),
+    workerBranchName: input.workerBranchName,
+  })
+  const completedChildren = [...input.completedChildIssueNumbers, input.selectedChild.issueNumber]
+  const allChildrenComplete = completedChildren.length === input.selectedPrd.childTasks.length
+  const finalLedger = updateLedgerForChildResult({
+    childCommitHash: cleanReview.commitHash,
+    codeRabbitStatus: cleanReview.result.status,
+    existingLedger: baseLedger,
+    selectedChild: input.selectedChild,
+    status: cleanReview.result.findings.length === 0 ? 'complete' : 'blocked',
+    verificationEvidence,
+  })
+
+  await input.adapters.github.updatePrBody(
+    input.draftPr.prNumber,
+    generateDraftPrBody({
+      branchName: input.branchSeedPlan.prdBranchName,
+      childTasks: input.selectedPrd.childTasks,
+      ledger: finalLedger,
+      parentPrdIssueNumber: input.selectedPrd.issueNumber,
+      prdTitle: input.selectedPrd.title,
+    }),
+  )
+
+  const finalizationResult =
+    allChildrenComplete && cleanReview.result.findings.length === 0
+      ? await finalizePrdIfReady({
+          adapters: input.adapters,
+          branchName: input.branchSeedPlan.prdBranchName,
+          completedChildren,
+          draftPr: input.draftPr,
+          selectedPrd: input.selectedPrd,
+          verificationEvidence,
+          verificationEvidenceByChild: createVerificationEvidenceByChild({
+            childTasks: input.selectedPrd.childTasks,
+            completedChildren,
+            currentChildIssueNumber: input.selectedChild.issueNumber,
+            currentVerificationEvidence: verificationEvidence,
+          }),
+        })
+      : {
+          blockers: [],
+          ciStatus: undefined,
+          phase: cleanReview.result.findings.length === 0 ? 'complete' : 'blocked',
+        }
+  const status = createRunStatus({
+    blockers:
+      cleanReview.result.findings.length === 0
+        ? finalizationResult.blockers
+        : cleanReview.result.findings.map((finding) => finding.title),
+    branchName: input.branchSeedPlan.prdBranchName,
+    ciStatus: finalizationResult.ciStatus,
+    codeRabbitStatus: cleanReview.result.status,
+    completedChildIssueNumbers: completedChildren,
+    currentChildIssueNumber: undefined,
+    lastCommand: input.lastCommand,
+    phase: cleanReview.result.findings.length === 0 ? finalizationResult.phase : 'blocked',
+    pr: input.draftPr,
+    prdIssueNumber: input.selectedPrd.issueNumber,
+  })
+
+  await input.adapters.state.recordRunStatus(status)
+
+  return {
+    exitCode: cleanReview.result.findings.length === 0 ? 0 : 1,
+    stderr: '',
+    stdout: `${renderOneChildSummary({
+      childIssueNumber: input.selectedChild.issueNumber,
+      pr: input.draftPr,
       status,
     })}\n`,
   }
@@ -869,6 +1282,143 @@ const selectNextChild = (
     : childTasksByIssueNumber.get(executableIssueNumber)
 }
 
+const selectExecutableChildren = (
+  selectedPrd: SelectedPrdPlan,
+  completedChildIssueNumbers: readonly number[],
+  blockedChildIssueNumbers: readonly number[] = [],
+): readonly ParsedChildTask[] => {
+  const completed = new Set(completedChildIssueNumbers)
+  const blocked = new Set(blockedChildIssueNumbers)
+  const childTasksByIssueNumber = new Map(
+    selectedPrd.childTasks.map((childTask) => [childTask.issueNumber, childTask]),
+  )
+
+  return selectedPrd.childTaskDag
+    .filter((node) => !completed.has(node.issueNumber) && !blocked.has(node.issueNumber))
+    .filter((node) =>
+      node.dependencies.every(
+        (dependency) => completed.has(dependency) && !blocked.has(dependency),
+      ),
+    )
+    .flatMap((node) => {
+      const childTask = childTasksByIssueNumber.get(node.issueNumber)
+
+      return childTask === undefined ? [] : [childTask]
+    })
+}
+
+const createSiblingSummaries = (
+  selectedPrd: SelectedPrdPlan,
+  selectedChild: ParsedChildTask,
+  completedChildIssueNumbers: readonly number[],
+): readonly SiblingTaskSummary[] =>
+  selectedPrd.childTasks
+    .filter((childTask) => childTask.issueNumber !== selectedChild.issueNumber)
+    .map((childTask) => ({
+      issueNumber: childTask.issueNumber,
+      status: completedChildIssueNumbers.includes(childTask.issueNumber) ? 'complete' : 'pending',
+      summary: childTask.whatToBuild,
+    }))
+
+const requiredImpactForChild = (
+  impactsByIssueNumber: ReadonlyMap<number, SandcastleImpactAnalysisResult>,
+  issueNumber: number,
+): SandcastleImpactAnalysisResult => {
+  const impactAnalysis = impactsByIssueNumber.get(issueNumber)
+
+  if (impactAnalysis === undefined) {
+    throw new Error(`Missing impact analysis for child #${String(issueNumber)}.`)
+  }
+
+  return impactAnalysis
+}
+
+const createBaseLedger = async (input: {
+  readonly adapters: PrdOrchestratorLiveAdapters
+  readonly blockedChildIssueNumbers: readonly number[]
+  readonly branchName: string
+  readonly childTasks: readonly ParsedChildTask[]
+  readonly completedChildIssueNumbers: readonly number[]
+}): Promise<readonly ChildTaskProgress[]> => {
+  const completed = new Set(input.completedChildIssueNumbers)
+  const blocked = new Set(input.blockedChildIssueNumbers)
+  const childCommitReferences =
+    (await input.adapters.git.getChildCommitReferences?.(input.branchName)) ?? []
+  const commitHashesByChildIssueNumber = new Map(
+    childCommitReferences.map((reference) => [
+      reference.childIssueNumber,
+      reference.commitHash.slice(0, 7),
+    ]),
+  )
+
+  return input.childTasks.map((childTask) => {
+    if (completed.has(childTask.issueNumber)) {
+      const shortCommitHash = commitHashesByChildIssueNumber.get(childTask.issueNumber)
+
+      return {
+        codeRabbitStatus: 'passed',
+        issueNumber: childTask.issueNumber,
+        shortCommitHash,
+        status: 'complete',
+        verificationStatus:
+          shortCommitHash === undefined
+            ? 'recorded in child commit'
+            : `recorded in commit ${shortCommitHash}`,
+      }
+    }
+
+    if (blocked.has(childTask.issueNumber)) {
+      return {
+        codeRabbitStatus: 'not run',
+        issueNumber: childTask.issueNumber,
+        status: 'blocked',
+        verificationStatus: 'blocked before commit',
+      }
+    }
+
+    return {
+      codeRabbitStatus: 'pending',
+      issueNumber: childTask.issueNumber,
+      status: 'pending',
+      verificationStatus: 'not run',
+    }
+  })
+}
+
+const updateLedgerForChildResult = (input: {
+  readonly childCommitHash: string
+  readonly codeRabbitStatus: string
+  readonly existingLedger: readonly ChildTaskProgress[]
+  readonly selectedChild: ParsedChildTask
+  readonly status: ChildTaskProgress['status']
+  readonly verificationEvidence: readonly string[]
+}): readonly ChildTaskProgress[] =>
+  input.existingLedger.map((entry) => {
+    if (entry.issueNumber !== input.selectedChild.issueNumber) {
+      return entry
+    }
+
+    if (input.status === 'blocked') {
+      return {
+        codeRabbitStatus: input.codeRabbitStatus,
+        issueNumber: input.selectedChild.issueNumber,
+        status: 'blocked',
+        verificationStatus: 'blocked before commit',
+      }
+    }
+
+    return {
+      codeRabbitStatus: input.codeRabbitStatus,
+      issueNumber: input.selectedChild.issueNumber,
+      shortCommitHash: input.childCommitHash.slice(0, 7),
+      status: 'complete',
+      verificationStatus: formatVerificationEvidence(input.verificationEvidence),
+    }
+  })
+
+const formatVerificationEvidence = (items: readonly string[]): string =>
+  items.length === 0 ? 'not run' : items.join('; ')
+
 const createPendingLedger = (
   childTasks: readonly ParsedChildTask[],
 ): readonly ChildTaskProgress[] =>
@@ -906,6 +1456,7 @@ const createRunStatus = (input: {
   readonly codeRabbitStatus: string
   readonly completedChildIssueNumbers: readonly number[]
   readonly currentChildIssueNumber: number | undefined
+  readonly lastCommand?: string
   readonly phase: string
   readonly pr: RemoteAutomationPr
   readonly prdIssueNumber: number
@@ -918,7 +1469,7 @@ const createRunStatus = (input: {
   completedChildren: input.completedChildIssueNumbers,
   currentChildIssueNumber: input.currentChildIssueNumber,
   heartbeatIso: new Date().toISOString(),
-  lastCommand: 'run --one-child',
+  lastCommand: input.lastCommand ?? 'run --one-child',
   phase: input.phase,
   prNumber: input.pr.prNumber,
   prUrl: input.pr.url,
@@ -967,6 +1518,15 @@ const renderOneChildSummary = (input: {
     `Draft PR: #${String(input.pr.prNumber)} ${input.pr.url}`,
     `Phase: ${input.status.phase}`,
     `Blockers: ${input.status.blockers.length === 0 ? 'none' : input.status.blockers.join('; ')}`,
+  ].join('\n')
+
+const renderFullRunCompletion = (status: RunStatus): string =>
+  [
+    `Completed PRD ${formatOptionalIssueReference(status.activePrdIssueNumber)}`,
+    `Draft PR: ${formatOptionalIssueReference(status.prNumber)} ${status.prUrl ?? ''}`.trim(),
+    `Completed children: ${status.completedChildren
+      .map((issueNumber) => formatOptionalIssueReference(issueNumber))
+      .join(', ')}`,
   ].join('\n')
 
 const renderCleanupPlan = (plan: CleanupPlan): string =>
@@ -1195,26 +1755,6 @@ const repairCodeRabbitFindingsUntilClean = async (input: {
     commitHash,
     result,
   }
-}
-
-const hasRunnableChildAfterBlocker = async (
-  adapters: PrdOrchestratorLiveAdapters,
-  blockedChildIssueNumbers: readonly number[],
-): Promise<boolean> => {
-  const issues = await adapters.github.listOpenIssues()
-  const selectedPrd = createDryRunPlan(issues).selectedPrd
-
-  if (selectedPrd === undefined) {
-    return false
-  }
-
-  const branchName = createPrdBranchName(selectedPrd.issueNumber, selectedPrd.title)
-  const completedChildIssueNumbers =
-    (await adapters.git.getCompletedChildIssueNumbers?.(branchName)) ?? []
-
-  return (
-    selectNextChild(selectedPrd, completedChildIssueNumbers, blockedChildIssueNumbers) !== undefined
-  )
 }
 
 const renderNonActionableFindingRecords = (
