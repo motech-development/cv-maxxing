@@ -72,6 +72,14 @@ export {
 } from './run-guardrails.js'
 
 export {
+  enforceWriteSurface,
+  planFailureRecovery,
+  planOneChildTransaction,
+  renderOneChildTransactionPlan,
+  selectVerificationCommands,
+} from './one-child-transaction.js'
+
+export {
   buildImpactAnalysisPrompt,
   buildSandcastleImpactAnalysisOptions,
   createCodexImpactAnalysisConfig,
@@ -109,6 +117,24 @@ export type {
   RunLockDecision,
   RunStatus,
 } from './run-guardrails.js'
+
+export type {
+  DraftPullRequestTransaction,
+  EnforceWriteSurfaceInput,
+  FailureRecoveryAction,
+  FailureRecoveryPlan,
+  HostApplicationPlan,
+  MainBranchStatus,
+  OneChildTransactionPlan,
+  OneChildTransactionStatus,
+  PlanFailureRecoveryInput,
+  PlanOneChildTransactionInput,
+  PushPlan,
+  RecoverableFailure,
+  WorkerRunPlan,
+  WriteSurfaceAction,
+  WriteSurfaceDecision,
+} from './one-child-transaction.js'
 
 export type {
   BuildSandcastleImpactAnalysisOptionsInput,
