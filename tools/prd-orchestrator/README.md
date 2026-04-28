@@ -20,7 +20,8 @@ Run state belongs outside tracked files under `.git/prd-orchestrator/runs/<run-i
 `plan` accepts GitHub issue JSON on stdin as either an array of issues or an object with an `issues` array:
 
 ```sh
-pnpm --filter @cv-maxxing/prd-orchestrator plan < issues.json
+pnpm --filter @cv-maxxing/prd-orchestrator build
+pnpm --filter @cv-maxxing/prd-orchestrator prd-orchestrator plan < issues.json
 ```
 
 Without stdin, `plan` reads open issues through `gh issue list` and prints the selected PRD, child task DAG, blockers, warnings, next executable tasks, and unavailable PRDs. It does not create branches, pull requests, commits, worktrees, or Sandcastle workers.
@@ -40,7 +41,7 @@ Without stdin, `plan` reads open issues through `gh issue list` and prints the s
 
 ```sh
 pnpm --filter @cv-maxxing/prd-orchestrator build
-pnpm --filter @cv-maxxing/prd-orchestrator exec prd-orchestrator run --one-child
+pnpm --filter @cv-maxxing/prd-orchestrator prd-orchestrator run --one-child
 ```
 
 ## Full PRD execution
@@ -58,7 +59,7 @@ The run stops when:
 
 ```sh
 pnpm --filter @cv-maxxing/prd-orchestrator build
-pnpm --filter @cv-maxxing/prd-orchestrator exec prd-orchestrator run
+pnpm --filter @cv-maxxing/prd-orchestrator prd-orchestrator run
 ```
 
 ## Resume, status, cleanup
@@ -68,6 +69,13 @@ pnpm --filter @cv-maxxing/prd-orchestrator exec prd-orchestrator run
 `status` prints the latest local run state.
 
 `cleanup` removes stale run and Sandcastle artifacts while preserving active run state and committed `.sandcastle` config.
+
+```sh
+pnpm --filter @cv-maxxing/prd-orchestrator build
+pnpm --filter @cv-maxxing/prd-orchestrator prd-orchestrator resume-pr 123
+pnpm --filter @cv-maxxing/prd-orchestrator prd-orchestrator status
+pnpm --filter @cv-maxxing/prd-orchestrator prd-orchestrator cleanup
+```
 
 ## Scheduler and guardrail foundation
 
