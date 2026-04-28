@@ -1,3 +1,5 @@
+import { setTimeout as sleep } from 'node:timers/promises'
+
 import {
   createChildCommitMessage,
   generateDraftPrBody,
@@ -41,6 +43,7 @@ import {
   validateAutomationPrOwnership,
   type ChildCommitReference,
   type CiStatus,
+  type GitHubActionsStatus,
   type ParentUserStoryAudit,
   type ResumePrFinding,
 } from './final-prd-flow.js'
@@ -49,7 +52,7 @@ import { groupRunnableTasksByImpactSurface } from './full-run-scheduler.js'
 export interface PrdOrchestratorLiveAdapters {
   readonly configuration?: PrdOrchestratorLiveConfiguration
   readonly ci: {
-    readonly pollChecks: (input: PollChecksInput) => Promise<CiStatus>
+    readonly pollChecks: (input: PollChecksInput) => Promise<GitHubActionsStatus>
   }
   readonly codeRabbit: {
     readonly reviewChild: (input: ReviewChildInput) => Promise<ReviewChildResult>
@@ -120,6 +123,8 @@ export interface AutomationArtifactStatus {
 }
 
 export interface PrdOrchestratorLiveConfiguration {
+  readonly ciPollingIntervalMs?: number
+  readonly ciPollingTimeoutMs?: number
   readonly codexEffort: string | undefined
   readonly codexModel: string | undefined
 }
@@ -255,6 +260,8 @@ const emptyImpactAnalysis = {
   sharedContracts: [],
   tests: [],
 } as const satisfies SandcastleImpactAnalysisResult
+const defaultCiPollingIntervalMs = 30 * 1000
+const defaultCiPollingTimeoutMs = 30 * 60 * 1000
 
 export const executeLivePlan = async (
   adapters: PrdOrchestratorLiveAdapters,
@@ -926,7 +933,8 @@ const executeLiveOneChildWithLock = async (
   await adapters.state.recordRunStatus(status)
 
   return {
-    exitCode: cleanReview.result.findings.length === 0 ? 0 : 1,
+    exitCode:
+      cleanReview.result.findings.length === 0 && finalizationResult.blockers.length === 0 ? 0 : 1,
     stderr: '',
     stdout: `${renderOneChildSummary({
       childIssueNumber: selectedChild.issueNumber,
@@ -1140,7 +1148,8 @@ const executePreparedChildWithLock = async (input: {
   await input.adapters.state.recordRunStatus(status)
 
   return {
-    exitCode: cleanReview.result.findings.length === 0 ? 0 : 1,
+    exitCode:
+      cleanReview.result.findings.length === 0 && finalizationResult.blockers.length === 0 ? 0 : 1,
     stderr: '',
     stdout: `${renderOneChildSummary({
       childIssueNumber: input.selectedChild.issueNumber,
@@ -1934,10 +1943,23 @@ const finalizePrdIfReady = async (input: {
   readonly ciStatus: CiStatus
   readonly phase: string
 }> => {
-  const ciStatus = await input.adapters.ci.pollChecks({
-    branchName: input.branchName,
-    prNumber: input.draftPr.prNumber,
-  })
+  const ciResult = await pollFinalCiUntilTerminal(input)
+  const ciStatus = ciResult.status
+
+  if (ciStatus !== 'passed') {
+    await postCiBlockerComment({
+      blockers: ciResult.blockers,
+      prNumber: input.draftPr.prNumber,
+      postPrComment: input.adapters.github.postPrComment,
+    })
+
+    return {
+      blockers: ciResult.blockers,
+      ciStatus,
+      phase: 'blocked',
+    }
+  }
+
   const mergeInstructions = generateMergeInstructions({
     childTasks: input.selectedPrd.childTasks,
     parentPrdIssueNumber: input.selectedPrd.issueNumber,
@@ -1990,6 +2012,95 @@ const finalizePrdIfReady = async (input: {
     phase: 'ready-for-review',
   }
 }
+
+const pollFinalCiUntilTerminal = async (input: {
+  readonly adapters: PrdOrchestratorLiveAdapters
+  readonly branchName: string
+  readonly completedChildren: readonly number[]
+  readonly draftPr: RemoteAutomationPr
+  readonly selectedPrd: SelectedPrdPlan
+}): Promise<GitHubActionsStatus> => {
+  const intervalMs = input.adapters.configuration?.ciPollingIntervalMs ?? defaultCiPollingIntervalMs
+  const timeoutMs = input.adapters.configuration?.ciPollingTimeoutMs ?? defaultCiPollingTimeoutMs
+  const maxAttempts = Math.max(1, Math.ceil(timeoutMs / Math.max(intervalMs, 1)) + 1)
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    const ciResult = await readFinalCiStatus(input)
+
+    if (ciResult.status !== 'pending') {
+      return ciResult
+    }
+
+    await input.adapters.state.recordRunStatus(
+      createRunStatus({
+        blockers: [],
+        branchName: input.branchName,
+        ciStatus: 'pending',
+        codeRabbitStatus: 'passed',
+        completedChildIssueNumbers: input.completedChildren,
+        currentChildIssueNumber: undefined,
+        lastCommand: createCiPollingCommandDescription(input.branchName),
+        phase: 'waiting-for-ci',
+        pr: input.draftPr,
+        prdIssueNumber: input.selectedPrd.issueNumber,
+      }),
+    )
+
+    if (attempt === maxAttempts) {
+      return {
+        blockers: ['GitHub Actions did not reach a terminal status before the polling timeout.'],
+        status: 'timed-out',
+      }
+    }
+
+    if (intervalMs > 0) {
+      await sleep(intervalMs)
+    }
+  }
+
+  return {
+    blockers: ['GitHub Actions did not reach a terminal status before the polling timeout.'],
+    status: 'timed-out',
+  }
+}
+
+const readFinalCiStatus = async (input: {
+  readonly adapters: PrdOrchestratorLiveAdapters
+  readonly branchName: string
+  readonly draftPr: RemoteAutomationPr
+}): Promise<GitHubActionsStatus> => {
+  try {
+    return await input.adapters.ci.pollChecks({
+      branchName: input.branchName,
+      prNumber: input.draftPr.prNumber,
+    })
+  } catch (error) {
+    return {
+      blockers: [`GitHub Actions polling blocked: ${formatErrorMessage(error)}`],
+      status: 'blocked',
+    }
+  }
+}
+
+const postCiBlockerComment = async (input: {
+  readonly blockers: readonly string[]
+  readonly postPrComment: PrdOrchestratorLiveAdapters['github']['postPrComment']
+  readonly prNumber: number
+}): Promise<void> => {
+  const body = [
+    '## PRD Orchestrator CI Blocker',
+    '',
+    ...input.blockers.map((blocker) => `- ${blocker}`),
+  ].join('\n')
+
+  await input.postPrComment(input.prNumber, body)
+}
+
+const createCiPollingCommandDescription = (branchName: string): string =>
+  `gh run list --branch ${branchName} --json name,status,conclusion --limit 20`
+
+const formatErrorMessage = (error: unknown): string =>
+  error instanceof Error ? error.message : String(error)
 
 const resolveWriteSurfaceBeforeApply = async (input: {
   readonly adapters: PrdOrchestratorLiveAdapters

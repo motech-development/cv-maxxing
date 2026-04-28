@@ -5,6 +5,7 @@ import { createDefaultPrdOrchestratorLiveAdapters } from '../default-live-adapte
 import type {
   ChildCommitReference,
   CodeRabbitFinding,
+  GitHubActionsStatus,
   GitHubIssue,
   PrdOrchestratorLiveAdapters,
   ResumePrFinding,
@@ -324,6 +325,147 @@ describe('PRD orchestrator CLI', () => {
     expect(adapters.events.filter((event) => event === 'coderabbit:review')).toHaveLength(2)
     expect(adapters.events).toContain('github:mark-ready-for-review')
     expect(adapters.events).toContain('lock:release')
+  })
+
+  it('waits for pending final CI to pass before posting the final audit and marking ready', async () => {
+    const adapters = createLiveAdapters({
+      ciPollingResults: [
+        {
+          blockers: [],
+          status: 'pending',
+        },
+        {
+          blockers: [],
+          status: 'passed',
+        },
+      ],
+      issues: multiChildIssueObjects,
+    })
+    const result = await runPrdOrchestratorCliAsync({
+      adapters,
+      arguments_: ['run'],
+      stdin: '',
+    })
+
+    expect(result.exitCode).toBe(0)
+    expect(adapters.events.filter((event) => event === 'ci:poll-checks')).toHaveLength(2)
+    expect(adapters.recordedStatuses).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          ciStatus: 'pending',
+          phase: 'waiting-for-ci',
+        }),
+        expect.objectContaining({
+          ciStatus: 'passed',
+          phase: 'ready-for-review',
+        }),
+      ]),
+    )
+    expect(adapters.events.indexOf('github:mark-ready-for-review')).toBeGreaterThan(
+      adapters.events.lastIndexOf('ci:poll-checks'),
+    )
+  })
+
+  it('records failed final CI blockers in run state and the draft PR without marking ready', async () => {
+    const adapters = createLiveAdapters({
+      ciPollingResults: [
+        {
+          blockers: [],
+          status: 'pending',
+        },
+        {
+          blockers: ['GitHub Actions run desktop macos-15 failed with conclusion failure'],
+          status: 'failed',
+        },
+      ],
+      issues: multiChildIssueObjects,
+    })
+    const result = await runPrdOrchestratorCliAsync({
+      adapters,
+      arguments_: ['run'],
+      stdin: '',
+    })
+
+    expect(result.exitCode).toBe(1)
+    expect(adapters.events).not.toContain('github:mark-ready-for-review')
+    expect(adapters.postedComments.at(-1)).toContain('## PRD Orchestrator CI Blocker')
+    expect(adapters.postedComments.at(-1)).toContain(
+      'GitHub Actions run desktop macos-15 failed with conclusion failure',
+    )
+    expect(adapters.recordedStatuses.at(-1)).toMatchObject({
+      blockers: ['GitHub Actions run desktop macos-15 failed with conclusion failure'],
+      ciStatus: 'failed',
+      phase: 'blocked',
+    })
+  })
+
+  it('stops final CI polling at timeout or an external blocker', async () => {
+    const timeoutAdapters = createLiveAdapters({
+      ciPollingResults: [
+        {
+          blockers: [],
+          status: 'pending',
+        },
+        {
+          blockers: [],
+          status: 'pending',
+        },
+      ],
+      ciPollingTimeoutMs: 1,
+      issues: multiChildIssueObjects,
+    })
+    const blockerAdapters = createLiveAdapters({
+      ciPollingResults: [new Error('gh auth expired')],
+      issues: multiChildIssueObjects,
+    })
+
+    await expect(
+      runPrdOrchestratorCliAsync({
+        adapters: timeoutAdapters,
+        arguments_: ['run'],
+        stdin: '',
+      }),
+    ).resolves.toMatchObject({
+      exitCode: 1,
+    })
+    await expect(
+      runPrdOrchestratorCliAsync({
+        adapters: blockerAdapters,
+        arguments_: ['run'],
+        stdin: '',
+      }),
+    ).resolves.toMatchObject({
+      exitCode: 1,
+    })
+
+    expect(timeoutAdapters.recordedStatuses.at(-1)).toMatchObject({
+      blockers: ['GitHub Actions did not reach a terminal status before the polling timeout.'],
+      ciStatus: 'timed-out',
+      phase: 'blocked',
+    })
+    expect(timeoutAdapters.events).not.toContain('github:mark-ready-for-review')
+    expect(blockerAdapters.recordedStatuses.at(-1)).toMatchObject({
+      blockers: ['GitHub Actions polling blocked: gh auth expired'],
+      ciStatus: 'blocked',
+      phase: 'blocked',
+    })
+    expect(blockerAdapters.events).not.toContain('github:mark-ready-for-review')
+  })
+
+  it('does not poll CI after a child commit while sibling tasks remain incomplete', async () => {
+    const adapters = createLiveAdapters({
+      issues: multiChildIssueObjects,
+    })
+    const result = await runPrdOrchestratorCliAsync({
+      adapters,
+      arguments_: ['run', '--one-child'],
+      stdin: '',
+    })
+
+    expect(result.exitCode).toBe(0)
+    expect(adapters.completedChildIssueNumbers).toEqual([82])
+    expect(adapters.events).not.toContain('ci:poll-checks')
+    expect(adapters.events).not.toContain('github:mark-ready-for-review')
   })
 
   it('schedules all currently executable children as one parallel-safe live batch', async () => {
@@ -1011,6 +1153,8 @@ describe('PRD orchestrator CLI', () => {
 interface CreateLiveAdaptersOptions {
   readonly blockedImplementationChildIssueNumbers?: ReadonlySet<number>
   readonly childCommitReferences?: readonly ChildCommitReference[]
+  readonly ciPollingResults?: readonly (GitHubActionsStatus | Error)[]
+  readonly ciPollingTimeoutMs?: number
   readonly codeRabbitFindings?: readonly CodeRabbitFinding[]
   readonly codeRabbitFindingsBeforeClean?: number
   readonly impactAnalyses?: readonly Awaited<
@@ -1055,6 +1199,7 @@ const createLiveAdapters = (
   const updatedPrBodies: string[] = []
   const workerBranchNames: string[] = []
   let codeRabbitReviewCount = 0
+  let ciPollingCount = 0
   let impactAnalysisCount = 0
   let lastRecordedStatus:
     | Awaited<ReturnType<PrdOrchestratorLiveAdapters['state']['readRunStatus']>>
@@ -1067,8 +1212,19 @@ const createLiveAdapters = (
     ci: {
       pollChecks: () => {
         events.push('ci:poll-checks')
+        const result = options.ciPollingResults?.[ciPollingCount]
+        ciPollingCount += 1
 
-        return Promise.resolve('passed')
+        if (result instanceof Error) {
+          return Promise.reject(result)
+        }
+
+        return Promise.resolve(
+          result ?? {
+            blockers: [],
+            status: 'passed',
+          },
+        )
       },
     },
     amendedCommitMessages,
@@ -1098,6 +1254,12 @@ const createLiveAdapters = (
       },
     },
     events,
+    configuration: {
+      ciPollingIntervalMs: 0,
+      ciPollingTimeoutMs: options.ciPollingTimeoutMs ?? 1000,
+      codexEffort: undefined,
+      codexModel: undefined,
+    },
     updatedPrBodies,
     workerBranchNames,
     recordedStatuses,

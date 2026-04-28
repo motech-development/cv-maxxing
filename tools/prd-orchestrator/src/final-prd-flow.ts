@@ -4,7 +4,7 @@ import {
   type NonActionableFindingRecord,
 } from './coderabbit-review.js'
 
-export type CiStatus = 'failed' | 'passed' | 'pending'
+export type CiStatus = 'blocked' | 'failed' | 'passed' | 'pending' | 'timed-out'
 
 export interface AutomationPrOwnershipInput {
   readonly body: string
@@ -187,6 +187,13 @@ export const planGitHubActionsPolling = (
 export const interpretGitHubActionsStatus = (
   input: InterpretGitHubActionsStatusInput,
 ): GitHubActionsStatus => {
+  if (input.runs.length === 0) {
+    return {
+      blockers: [],
+      status: 'pending',
+    }
+  }
+
   const failedRuns = input.runs.filter(
     (run) => run.status === 'completed' && run.conclusion !== 'success',
   )
