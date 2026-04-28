@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 
-import { runPrdOrchestratorCli } from './cli.js'
+import { runPrdOrchestratorCliAsync } from './cli.js'
 
 const stdin = await readStdin()
-const result = runPrdOrchestratorCli({
+const result = await runPrdOrchestratorCliAsync({
   arguments_: process.argv.slice(2),
   stdin,
 })

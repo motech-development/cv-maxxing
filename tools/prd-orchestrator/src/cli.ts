@@ -12,10 +12,23 @@ import {
 import type { ChildTaskProgress } from './draft-pr-state.js'
 import type { RemoteAutomationPr } from './run-guardrails.js'
 import type { SandcastleImpactAnalysisResult } from './sandcastle-impact-analysis.js'
+import { createDefaultPrdOrchestratorLiveAdapters } from './default-live-adapters.js'
+import {
+  executeCleanup,
+  executeLiveOneChild,
+  executeLivePlan,
+  executeResumePr,
+  executeStatus,
+  type PrdOrchestratorLiveAdapters,
+} from './live-orchestrator.js'
 
 export interface PrdOrchestratorCliInput {
   readonly arguments_: readonly string[]
   readonly stdin: string
+}
+
+export interface PrdOrchestratorCliAsyncInput extends PrdOrchestratorCliInput {
+  readonly adapters?: PrdOrchestratorLiveAdapters
 }
 
 export interface PrdOrchestratorCliResult {
@@ -41,6 +54,52 @@ export const runPrdOrchestratorCli = (input: PrdOrchestratorCliInput): PrdOrches
       stderr: 'Unsupported command. Supported commands: `plan`, `run --one-child`.\n',
       stdout: '',
     }
+  }
+}
+
+export const runPrdOrchestratorCliAsync = async (
+  input: PrdOrchestratorCliAsyncInput,
+): Promise<PrdOrchestratorCliResult> => {
+  const [command, subcommand] = input.arguments_
+  const trimmedStdin = input.stdin.trim()
+
+  if (command === 'plan' && trimmedStdin.length > 0) {
+    return runPlanCommand(input.stdin)
+  }
+
+  if (command === 'run' && subcommand === '--one-child' && trimmedStdin.length > 0) {
+    return runOneChildCommand(input.stdin)
+  }
+
+  const adapters = input.adapters ?? createDefaultPrdOrchestratorLiveAdapters()
+
+  if (command === 'plan') {
+    return await executeLivePlan(adapters)
+  }
+
+  if (command === 'run' && subcommand === '--one-child') {
+    return await executeLiveOneChild(adapters)
+  }
+
+  if (command === 'resume-pr') {
+    const prNumber = parseCommandIssueNumber(subcommand, 'resume-pr')
+
+    return await executeResumePr(prNumber, adapters)
+  }
+
+  if (command === 'status') {
+    return await executeStatus(adapters)
+  }
+
+  if (command === 'cleanup') {
+    return await executeCleanup(adapters)
+  }
+
+  return {
+    exitCode: 1,
+    stderr:
+      'Unsupported command. Supported commands: `plan`, `run --one-child`, `resume-pr <number>`, `status`, `cleanup`.\n',
+    stdout: '',
   }
 }
 
@@ -273,6 +332,16 @@ const isChildTaskProgressStatus = (value: unknown): value is ChildTaskProgress['
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
+
+const parseCommandIssueNumber = (value: string | undefined, commandName: string): number => {
+  const parsedValue = Number.parseInt(value ?? '', 10)
+
+  if (!Number.isInteger(parsedValue) || parsedValue <= 0) {
+    throw new TypeError(`Expected ${commandName} to include a positive pull request number.`)
+  }
+
+  return parsedValue
+}
 
 export const createPlanFromIssueJson = (issueJson: string): DryRunPlan =>
   createDryRunPlan(parseIssueJson(issueJson))
