@@ -88,6 +88,31 @@ Human review and merge are required. The orchestrator must not merge this PR.`)
     expect(
       generateDraftPrBody({
         branchName: 'agent/prd-80-automate-prd-implementation',
+        childTasks: [
+          {
+            issueNumber: 81,
+            title: 'Parser | planning\nflow',
+          },
+        ],
+        ledger: [
+          {
+            codeRabbitStatus: 'needs | review',
+            issueNumber: 81,
+            shortCommitHash: 'abc1234',
+            status: 'complete',
+            verificationStatus: 'lint\npassed',
+          },
+        ],
+        parentPrdIssueNumber: 80,
+        prdTitle: 'PRD: Automate PRD implementation from GitHub child tasks',
+      }),
+    ).toContain(
+      '| #81 | Parser \\| planning flow | complete | `abc1234` | lint passed | needs \\| review |',
+    )
+
+    expect(
+      generateDraftPrBody({
+        branchName: 'agent/prd-80-automate-prd-implementation',
         childTasks,
         ledger: [
           {

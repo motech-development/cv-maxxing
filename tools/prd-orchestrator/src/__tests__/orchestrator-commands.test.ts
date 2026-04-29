@@ -70,23 +70,20 @@ describe('PRD orchestrator command scaffold', () => {
 
   it('documents only verified package-owned command examples', async () => {
     const readme = await readFileText('../../README.md')
+    const documentedCommands = [
+      ...readme.matchAll(
+        /^pnpm --filter @cv-maxxing\/prd-orchestrator exec prd-orchestrator .+$/gm,
+      ),
+    ].map((match) => match[0])
 
-    expect(readme).toContain(
-      'pnpm --filter @cv-maxxing/prd-orchestrator exec prd-orchestrator plan',
-    )
-    expect(readme).toContain(
+    expect(documentedCommands).toEqual([
+      'pnpm --filter @cv-maxxing/prd-orchestrator exec prd-orchestrator plan < issues.json',
       'pnpm --filter @cv-maxxing/prd-orchestrator exec prd-orchestrator run --one-child',
-    )
-    expect(readme).toContain('pnpm --filter @cv-maxxing/prd-orchestrator exec prd-orchestrator run')
-    expect(readme).toContain(
+      'pnpm --filter @cv-maxxing/prd-orchestrator exec prd-orchestrator run',
       'pnpm --filter @cv-maxxing/prd-orchestrator exec prd-orchestrator resume-pr 123',
-    )
-    expect(readme).toContain(
       'pnpm --filter @cv-maxxing/prd-orchestrator exec prd-orchestrator status',
-    )
-    expect(readme).toContain(
       'pnpm --filter @cv-maxxing/prd-orchestrator exec prd-orchestrator cleanup',
-    )
+    ])
   })
 })
 

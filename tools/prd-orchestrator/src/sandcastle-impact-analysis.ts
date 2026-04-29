@@ -121,7 +121,7 @@ export interface SandcastleImpactAnalysisResult {
   readonly tests: readonly string[]
 }
 
-const defaultCodexModel = 'gpt-5.5'
+export const defaultCodexModel = 'gpt-5.1-codex-max'
 const defaultCodexEffort = 'high'
 const codexModelEnvironmentName = 'CV_MAXXING_PRD_ORCHESTRATOR_CODEX_MODEL'
 const codexEffortEnvironmentName = 'CV_MAXXING_PRD_ORCHESTRATOR_CODEX_EFFORT'
@@ -377,15 +377,17 @@ const formatSiblingSummaries = (siblings: readonly SiblingTaskSummary[]): string
         .join('\n')
 
 const parseCodexEffort = (effort: string | undefined): CodexEffort => {
-  if (effort === undefined || effort.trim().length === 0) {
+  const normalizedEffort = effort?.trim()
+
+  if (normalizedEffort === undefined || normalizedEffort.length === 0) {
     return defaultCodexEffort
   }
 
-  if (safeCodexEfforts.has(effort as CodexEffort)) {
-    return effort as CodexEffort
+  if (safeCodexEfforts.has(normalizedEffort as CodexEffort)) {
+    return normalizedEffort as CodexEffort
   }
 
-  throw new Error(`Unsupported Codex effort ${effort}`)
+  throw new Error(`Unsupported Codex effort ${normalizedEffort}`)
 }
 
 const formatForbiddenCredentialEnvironmentViolations = (
@@ -414,10 +416,16 @@ const isForbiddenMount = (hostPath: string): boolean => {
     return false
   }
 
-  return forbiddenHomeCredentialPaths.some(
-    (forbiddenPath) =>
-      relativeHostPath === forbiddenPath || relativeHostPath.startsWith(`${forbiddenPath}/`),
-  )
+  const normalizedRelativeHostPath = relativeHostPath.replaceAll('\\', '/').toLowerCase()
+
+  return forbiddenHomeCredentialPaths.some((forbiddenPath) => {
+    const normalizedForbiddenPath = forbiddenPath.toLowerCase()
+
+    return (
+      normalizedRelativeHostPath === normalizedForbiddenPath ||
+      normalizedRelativeHostPath.startsWith(`${normalizedForbiddenPath}/`)
+    )
+  })
 }
 
 const resolveHomePath = (hostPath: string, homeDirectory: string): string => {

@@ -207,10 +207,7 @@ describe('CodeRabbit child review handling', () => {
     ).toMatchObject({
       action: 'blocked',
       blocker: 'CodeRabbit CLI exited with authentication failure.',
-      rerun: {
-        command: 'coderabbit review --agent',
-        until: 'clean-or-explicit-blocker',
-      },
+      rerun: undefined,
     })
   })
 })

@@ -10,6 +10,7 @@ import { docker } from '@ai-hero/sandcastle/sandboxes/docker'
 import {
   buildPencilWorkflowRequirementSection,
   createSandcastleImpactAnalysisRunOptions,
+  defaultCodexModel,
   parseImpactAnalysisResult,
   type SandcastleImpactAnalysisResult,
 } from './sandcastle-impact-analysis.js'
@@ -45,6 +46,7 @@ import {
   type RunImplementationInput,
   type RunImplementationResult,
   type ScanProhibitedCapabilitiesInput,
+  type UpsertPrCommentInput,
 } from './live-orchestrator.js'
 import type {
   CleanupArtifact,
@@ -354,7 +356,7 @@ const createGitHubAdapter = (
       })
     })
   },
-  upsertPrComment: async (input): Promise<void> => {
+  upsertPrComment: async (input: UpsertPrCommentInput): Promise<void> => {
     const commentId = await findIssueCommentIdByMarker(shell, input.prNumber, input.marker)
 
     if (commentId === undefined) {
@@ -670,7 +672,7 @@ const createSandcastleAdapter = (
       ...input.findings.map((finding) => `- ${finding.id}: ${finding.title}\n${finding.body}`),
     ].join('\n')
     const result = await run({
-      agent: codex(configuration.codexModel ?? 'gpt-5.5', {
+      agent: codex(configuration.codexModel ?? defaultCodexModel, {
         effort: parseCodexEffort(configuration.codexEffort),
         env: {},
       }),
@@ -714,7 +716,7 @@ const createSandcastleAdapter = (
       ...input.findings.map((finding) => `- ${finding.id}: ${finding.title}\n${finding.body}`),
     ].join('\n')
     const result = await run({
-      agent: codex(configuration.codexModel ?? 'gpt-5.5', {
+      agent: codex(configuration.codexModel ?? defaultCodexModel, {
         effort: parseCodexEffort(configuration.codexEffort),
         env: {},
       }),
@@ -756,7 +758,7 @@ const createSandcastleAdapter = (
       input.errorMessage,
     ].join('\n')
     const result = await run({
-      agent: codex(configuration.codexModel ?? 'gpt-5.5', {
+      agent: codex(configuration.codexModel ?? defaultCodexModel, {
         effort: parseCodexEffort(configuration.codexEffort),
         env: {},
       }),
@@ -814,7 +816,7 @@ const createSandcastleAdapter = (
   runImplementation: async (input: RunImplementationInput): Promise<RunImplementationResult> => {
     const prompt = await buildImplementationPrompt(cwd, input)
     const result = await run({
-      agent: codex(configuration.codexModel ?? 'gpt-5.5', {
+      agent: codex(configuration.codexModel ?? defaultCodexModel, {
         effort: parseCodexEffort(configuration.codexEffort),
         env: {},
       }),
@@ -2257,7 +2259,6 @@ const findProhibitedCapabilityMatches = async (
             '--extended-regexp',
             '--ignore-case',
             definition.pattern,
-            input.branchName,
             '--',
             ...input.changedFiles,
           ],

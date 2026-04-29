@@ -258,6 +258,22 @@ describe('PRD planning from GitHub Markdown', () => {
         },
       ]).selectedPrd?.blockers,
     ).toContain('#81 depends on unknown child issue #999')
+    expect(
+      createDryRunPlan([
+        {
+          body: parentPrdBody,
+          number: 80,
+          state: 'OPEN',
+          title: 'PRD: Automate PRD implementation',
+        },
+        {
+          body: childOneBody.replace('None - can start immediately.', 'Blocked by #999'),
+          number: 81,
+          state: 'OPEN',
+          title: 'Scaffold the PRD orchestrator workspace package',
+        },
+      ]).selectedPrd?.nextExecutableTasks,
+    ).toEqual([])
 
     expect(
       createDryRunPlan([

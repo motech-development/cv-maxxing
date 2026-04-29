@@ -171,7 +171,7 @@ export const planChildCodeRabbitReview = (
       nonActionableFindings,
       prReviewInspection,
       repairFindings,
-      rerun: createRerunPlan(),
+      rerun: undefined,
     }
   }
 

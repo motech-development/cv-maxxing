@@ -16,13 +16,23 @@ You are analyzing a PRD child task before implementation.
 
 ## Required Output
 
-Return a concise impact analysis with:
+Return only machine-parseable JSON with no surrounding Markdown or commentary.
 
-- expected write surfaces
-- design files, with `.pen` files identified as Pencil-required surfaces
-- shared files or contracts that make parallel execution risky
-- required quality gates
-- blockers that require human input
+The JSON object must match this exact parser contract:
+
+```json
+{
+  "expectedFiles": ["path/to/file.ts"],
+  "expectedModules": ["module-or-package-name"],
+  "designFiles": ["design/app.pen"],
+  "pencilRequiredDesignFiles": ["design/app.pen"],
+  "tests": ["path/to/test.ts"],
+  "sharedContracts": ["ContractName"],
+  "riskLevel": "low|medium|high"
+}
+```
+
+Use empty arrays for fields with no entries. Include `pencilRequiredDesignFiles` when `.pen` design source changes are required.
 
 When acceptance criteria require design source changes, inspect `.pen` requirements as a Pencil workflow requirement, not as ordinary text-file editing.
 

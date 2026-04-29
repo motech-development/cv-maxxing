@@ -97,10 +97,21 @@ describe('final PRD repair and audit flow', () => {
       }),
     ).toEqual({
       command:
-        'gh run list --branch agent/prd-80-automate-prd-implementation --json status,conclusion',
+        "gh run list --branch 'agent/prd-80-automate-prd-implementation' --json status,conclusion",
       reason: 'Full PRD implementation is pushed; poll CI before final audit.',
       shouldPoll: true,
     })
+
+    expect(
+      planGitHubActionsPolling({
+        allChildrenComplete: true,
+        branchName: "agent/prd-80-test'; echo unsafe",
+        prdBranchPushed: true,
+        prNumber: 12,
+      }).command,
+    ).toBe(
+      String.raw`gh run list --branch 'agent/prd-80-test'\''; echo unsafe' --json status,conclusion`,
+    )
   })
 
   it('interprets GitHub Actions status for success, pending, failure, and blockers', () => {
@@ -569,7 +580,9 @@ describe('final PRD repair and audit flow', () => {
 
     expect(
       evaluateFinalAuditEvidence({
-        architectureChecks: ['ARCHITECTURE.md §2 inspected: v1 has no telemetry.'],
+        architectureChecks: [
+          '[ARCHITECTURE.md](../../ARCHITECTURE.md) §2 inspected: v1 has no telemetry.',
+        ],
         prohibitedCapabilityResults: createProhibitedCapabilityScanResults({
           matches: [
             {

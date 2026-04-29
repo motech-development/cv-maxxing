@@ -22,6 +22,7 @@ import {
 } from './one-child-transaction.js'
 import {
   createDryRunPlan,
+  isOpenPrdIssue,
   renderDryRunPlan,
   type GitHubIssue,
   type ParsedChildTask,
@@ -1117,7 +1118,10 @@ const executeLiveOneChildWithLock = async (
     verificationEvidence,
     workerChangedFiles: verifiedWorkerResult.workerResult.changedFiles,
   })
-  const completedChildren = [...completedChildIssueNumbers, selectedChild.issueNumber]
+  const completedChildren =
+    cleanReview.result.findings.length === 0
+      ? [...completedChildIssueNumbers, selectedChild.issueNumber]
+      : completedChildIssueNumbers
   const allChildrenComplete = completedChildren.length === selectedPrd.childTasks.length
 
   await adapters.github.updatePrBody(draftPr.prNumber, finalPlan.prBodyAfterChildUpdate)
@@ -1347,7 +1351,10 @@ const executePreparedChildWithLock = async (input: {
     verificationCommands: selectVerificationCommands(verifiedWorkerResult.impactAnalysis),
     workerBranchName: input.workerBranchName,
   })
-  const completedChildren = [...input.completedChildIssueNumbers, input.selectedChild.issueNumber]
+  const completedChildren =
+    cleanReview.result.findings.length === 0
+      ? [...input.completedChildIssueNumbers, input.selectedChild.issueNumber]
+      : input.completedChildIssueNumbers
   const allChildrenComplete = completedChildren.length === input.selectedPrd.childTasks.length
   const finalLedger = updateLedgerForChildResult({
     childCommitHash: cleanReview.commitHash,
@@ -1463,9 +1470,16 @@ const executeResumePrWithLock = async (
   }
 
   const issues = await adapters.github.listOpenIssues()
-  const selectedPrd = createDryRunPlan(issues).selectedPrd
+  const selectedPrd = createDryRunPlanForPrdBranch(issues, pr.branchName)
 
-  if (selectedPrd !== undefined && selectedPrd.blockers.length > 0) {
+  if (selectedPrd === undefined) {
+    return await recordResumePrdLookupBlocker({
+      adapters,
+      pr,
+    })
+  }
+
+  if (selectedPrd.blockers.length > 0) {
     return await recordPreExecutionPlanningBlockers({
       adapters,
       lastCommand: 'resume-pr',
@@ -1560,7 +1574,7 @@ const executeResumePrWithLock = async (
         completedChildIssueNumbers: childCommits.map((commit) => commit.childIssueNumber),
         currentChildIssueNumber: repairGate.currentChildIssueNumber,
         pr,
-        prdIssueNumber: selectedPrd?.issueNumber ?? inferPrdIssueNumber(pr.branchName),
+        prdIssueNumber: selectedPrd.issueNumber,
       })
     }
 
@@ -1570,6 +1584,20 @@ const executeResumePrWithLock = async (
   }
 
   if (repairPlan.finalCleanupCommit !== undefined) {
+    if (adapters.git.commitFinalCleanup === undefined) {
+      return await recordResumeRepairBlockedProgress({
+        adapters,
+        blockers: [
+          'Resume repair cannot commit final cleanup changes because the git adapter does not support final cleanup commits.',
+        ],
+        codeRabbitStatus: 'not run',
+        completedChildIssueNumbers: childCommits.map((commit) => commit.childIssueNumber),
+        currentChildIssueNumber: undefined,
+        pr,
+        prdIssueNumber: selectedPrd.issueNumber,
+      })
+    }
+
     const findings = reviewFindings.filter((finding) =>
       repairPlan.finalCleanupCommit?.findingIds.includes(finding.id),
     )
@@ -1595,11 +1623,11 @@ const executeResumePrWithLock = async (
         completedChildIssueNumbers: childCommits.map((commit) => commit.childIssueNumber),
         currentChildIssueNumber: repairGate.currentChildIssueNumber,
         pr,
-        prdIssueNumber: selectedPrd?.issueNumber ?? inferPrdIssueNumber(pr.branchName),
+        prdIssueNumber: selectedPrd.issueNumber,
       })
     }
 
-    await adapters.git.commitFinalCleanup?.(repairPlan.finalCleanupCommit.message)
+    await adapters.git.commitFinalCleanup(repairPlan.finalCleanupCommit.message)
   }
 
   if (repairPlan.forcePush !== undefined) {
@@ -1608,25 +1636,23 @@ const executeResumePrWithLock = async (
 
   await adapters.state.recoverRunStatusFromPr(pr)
 
-  if (selectedPrd !== undefined) {
-    const completedChildren =
-      (await adapters.git.getCompletedChildIssueNumbers?.(pr.branchName)) ??
-      childCommits.map((commit) => commit.childIssueNumber)
+  const completedChildren =
+    (await adapters.git.getCompletedChildIssueNumbers?.(pr.branchName)) ??
+    childCommits.map((commit) => commit.childIssueNumber)
 
-    if (completedChildren.length === selectedPrd.childTasks.length) {
-      return await finalizeRecoveredPrdBranch({
-        adapters,
-        branchName: pr.branchName,
-        completedChildren,
-        draftPr: createRemoteAutomationPrFromDetails(
-          pr,
-          selectedPrd.issueNumber,
-          pr.isDraft || repairPlan.returnToDraft,
-        ),
-        lastCommand: 'resume-pr',
-        selectedPrd,
-      })
-    }
+  if (completedChildren.length === selectedPrd.childTasks.length) {
+    return await finalizeRecoveredPrdBranch({
+      adapters,
+      branchName: pr.branchName,
+      completedChildren,
+      draftPr: createRemoteAutomationPrFromDetails(
+        pr,
+        selectedPrd.issueNumber,
+        pr.isDraft || repairPlan.returnToDraft,
+      ),
+      lastCommand: 'resume-pr',
+      selectedPrd,
+    })
   }
 
   return await executeLiveRunWithLock(adapters)
@@ -1850,10 +1876,54 @@ const getFindingFilePaths = (findings: readonly ResumePrFinding[]): readonly str
   ),
 ]
 
+const createDryRunPlanForPrdBranch = (
+  issues: readonly GitHubIssue[],
+  branchName: string,
+): SelectedPrdPlan | undefined => {
+  const prdIssue = issues.find(
+    (issue) =>
+      isOpenPrdIssue(issue) && createPrdBranchName(issue.number, issue.title) === branchName,
+  )
+
+  if (prdIssue === undefined) {
+    return undefined
+  }
+
+  return createDryRunPlan([prdIssue, ...issues.filter((issue) => !isOpenPrdIssue(issue))])
+    .selectedPrd
+}
+
 const inferPrdIssueNumber = (branchName: string): number => {
   const issueNumber = Number.parseInt(/^agent\/prd-(\d+)-/.exec(branchName)?.[1] ?? '', 10)
 
   return Number.isInteger(issueNumber) ? issueNumber : 0
+}
+
+const recordResumePrdLookupBlocker = async (input: {
+  readonly adapters: PrdOrchestratorLiveAdapters
+  readonly pr: AutomationPrDetails
+}): Promise<LiveCommandResult> => {
+  const blocker = `Could not find the parent PRD for automation branch ${input.pr.branchName}.`
+
+  await input.adapters.state.recordRunStatus(
+    createRunStatus({
+      blockers: [blocker],
+      branchName: input.pr.branchName,
+      codeRabbitStatus: 'not run',
+      completedChildIssueNumbers: [],
+      currentChildIssueNumber: undefined,
+      lastCommand: 'resume-pr',
+      phase: 'blocked',
+      pr: createRemoteAutomationPrFromDetails(
+        input.pr,
+        inferPrdIssueNumber(input.pr.branchName),
+        input.pr.isDraft,
+      ),
+      prdIssueNumber: inferPrdIssueNumber(input.pr.branchName),
+    }),
+  )
+
+  return blockedResult(blocker)
 }
 
 const recordResumeRepairBlockedProgress = async (input: {
@@ -2531,64 +2601,94 @@ const repairCodeRabbitFindingsUntilClean = async (input: {
       }
     }
 
-    const workerResult = await input.adapters.sandcastle.repairReviewFindings({
-      childTask: input.selectedChild,
-      findings: actionableFindings,
-      impactAnalysis: input.impactAnalysis,
-      parentPrd: input.parentPrd,
-      parentPrdBody: input.parentPrdBody,
-      prdBranchName: input.branchName,
-      siblingSummaries: input.siblingSummaries,
-      workerBranchName: input.workerBranchName,
-    })
-    const writeSurface = await resolveWriteSurfaceBeforeApply({
-      adapters: input.adapters,
-      impactAnalysis: input.impactAnalysis,
-      parentPrd: input.parentPrd,
-      parentPrdBody: input.parentPrdBody,
-      selectedChild: input.selectedChild,
-      siblingSummaries: input.siblingSummaries,
-      workerChangedFiles: workerResult.changedFiles,
-    })
+    try {
+      const workerResult = await input.adapters.sandcastle.repairReviewFindings({
+        childTask: input.selectedChild,
+        findings: actionableFindings,
+        impactAnalysis: input.impactAnalysis,
+        parentPrd: input.parentPrd,
+        parentPrdBody: input.parentPrdBody,
+        prdBranchName: input.branchName,
+        siblingSummaries: input.siblingSummaries,
+        workerBranchName: input.workerBranchName,
+      })
+      const writeSurface = await resolveWriteSurfaceBeforeApply({
+        adapters: input.adapters,
+        impactAnalysis: input.impactAnalysis,
+        parentPrd: input.parentPrd,
+        parentPrdBody: input.parentPrdBody,
+        selectedChild: input.selectedChild,
+        siblingSummaries: input.siblingSummaries,
+        workerChangedFiles: workerResult.changedFiles,
+      })
 
-    if (writeSurface.blockers.length > 0) {
+      if (writeSurface.blockers.length > 0) {
+        return {
+          commitHash,
+          result: {
+            findings: writeSurface.blockers.map((blocker, index) => ({
+              body: blocker,
+              id: `write-surface-${String(index + 1)}`,
+              source: 'cli',
+              title: 'Unexpected write surface',
+            })),
+            status: 'findings',
+          },
+        }
+      }
+
+      await input.adapters.git.applyWorkerDiff({
+        prdBranchName: input.branchName,
+        workerBranchName: workerResult.workerBranchName,
+      })
+      await input.adapters.verification.runCommands(
+        selectVerificationCommands(writeSurface.impactAnalysis),
+      )
+
+      const commit = await input.adapters.git.amendChildCommit(input.curatedCommitMessage)
+
+      commitHash = commit.hash
+
+      await input.adapters.git.pushPrdBranch({
+        branchName: input.branchName,
+        mode: 'force-with-lease',
+      })
+
+      result = await input.adapters.codeRabbit.reviewChild({
+        branchName: input.branchName,
+        childCommitHash: commitHash,
+        childIssueNumber: input.selectedChild.issueNumber,
+        prNumber: input.draftPr.prNumber,
+      })
+    } catch (error) {
+      const cleanupBlockers = await restorePrdBranchToCleanStateBeforeBlocker({
+        adapters: input.adapters,
+        branchName: input.branchName,
+      })
+
       return {
         commitHash,
         result: {
-          findings: writeSurface.blockers.map((blocker, index) => ({
-            body: blocker,
-            id: `write-surface-${String(index + 1)}`,
-            source: 'cli',
-            title: 'Unexpected write surface',
-          })),
+          findings: [
+            {
+              body: `CodeRabbit repair failed for #${String(
+                input.selectedChild.issueNumber,
+              )}. Error evidence: ${formatConciseErrorEvidence(formatErrorMessage(error))}`,
+              id: 'coderabbit-repair-error',
+              source: 'cli',
+              title: 'CodeRabbit repair failed',
+            },
+            ...cleanupBlockers.map((blocker, index) => ({
+              body: blocker,
+              id: `coderabbit-repair-cleanup-${String(index + 1)}`,
+              source: 'cli' as const,
+              title: 'PRD branch cleanup failed',
+            })),
+          ],
           status: 'findings',
         },
       }
     }
-
-    await input.adapters.git.applyWorkerDiff({
-      prdBranchName: input.branchName,
-      workerBranchName: workerResult.workerBranchName,
-    })
-    await input.adapters.verification.runCommands(
-      selectVerificationCommands(writeSurface.impactAnalysis),
-    )
-
-    const commit = await input.adapters.git.amendChildCommit(input.curatedCommitMessage)
-
-    commitHash = commit.hash
-
-    await input.adapters.git.pushPrdBranch({
-      branchName: input.branchName,
-      mode: 'force-with-lease',
-    })
-
-    result = await input.adapters.codeRabbit.reviewChild({
-      branchName: input.branchName,
-      childCommitHash: commitHash,
-      childIssueNumber: input.selectedChild.issueNumber,
-      prNumber: input.draftPr.prNumber,
-    })
   }
 
   return {
@@ -3060,9 +3160,9 @@ const parseChildVerificationEvidence = (
 }
 
 const createFinalArchitectureChecks = (parentPrdIssueNumber: number): readonly string[] => [
-  'ARCHITECTURE.md §2 inspected: v1 still has no telemetry, remote config, automatic update checks, runtime font CDN calls, or non-PDF exports.',
-  'ARCHITECTURE.md §4 inspected: product remains Electron-first and local-first with no required web backend introduced.',
-  'ARCHITECTURE.md §6 inspected: UI constraints remain Tailwind/no MUI and no Redux.',
+  '[ARCHITECTURE.md](../../../ARCHITECTURE.md) §2 inspected: v1 still has no telemetry, remote config, automatic update checks, runtime font CDN calls, or non-PDF exports.',
+  '[ARCHITECTURE.md](../../../ARCHITECTURE.md) §4 inspected: product remains Electron-first and local-first with no required web backend introduced.',
+  '[ARCHITECTURE.md](../../../ARCHITECTURE.md) §6 inspected: UI constraints remain Tailwind/no MUI and no Redux.',
   `PRD #${String(
     parentPrdIssueNumber,
   )} Out of Scope inspected: no automatic merge, manual issue closure, sandbox GitHub mutation, non-Codex provider support, non-Docker provider support, published sandbox branches, arbitrary-repo generalization, human-review replacement, or Electron product runtime behavior was added.`,
