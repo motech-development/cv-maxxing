@@ -311,6 +311,40 @@ const createGitHubAdapter = (
       })
     })
   },
+  upsertPrComment: async (input): Promise<void> => {
+    const commentId = await findIssueCommentIdByMarker(shell, input.prNumber, input.marker)
+
+    if (commentId === undefined) {
+      await withTemporaryFile('prd-pr-comment-', input.body, async (bodyFilePath) => {
+        await shell({
+          args: ['pr', 'comment', String(input.prNumber), '--body-file', bodyFilePath],
+          command: 'gh',
+        })
+      })
+
+      return
+    }
+
+    await withTemporaryJsonFile(
+      'prd-pr-comment-update-',
+      {
+        body: input.body,
+      },
+      async (bodyFilePath) => {
+        await shell({
+          args: [
+            'api',
+            `repos/{owner}/{repo}/issues/comments/${String(commentId)}`,
+            '--method',
+            'PATCH',
+            '--input',
+            bodyFilePath,
+          ],
+          command: 'gh',
+        })
+      },
+    )
+  },
 })
 
 const createGitAdapter = (
@@ -1524,6 +1558,32 @@ const withTemporaryFile = async <Result>(
   }
 }
 
+const withTemporaryJsonFile = async <Result>(
+  prefix: string,
+  content: Record<string, unknown>,
+  useFile: (filePath: string) => Promise<Result>,
+): Promise<Result> => {
+  return await withTemporaryFile(prefix, JSON.stringify(content), useFile)
+}
+
+const findIssueCommentIdByMarker = async (
+  shell: DefaultLiveAdapterShellRunner,
+  prNumber: number,
+  marker: string,
+): Promise<number | undefined> => {
+  const result = await shell({
+    args: [
+      'api',
+      `repos/{owner}/{repo}/issues/${String(prNumber)}/comments`,
+      '--paginate',
+      '--slurp',
+    ],
+    command: 'gh',
+  })
+
+  return parseIssueComments(result.stdout).find((comment) => comment.body.includes(marker))?.id
+}
+
 const createWorkerBranchName = (input: RunImpactAnalysisInput): string =>
   `agent/prd-${String(input.parentPrd.issueNumber)}-child-${String(
     input.childTask.issueNumber,
@@ -1602,6 +1662,36 @@ const parseInlineReviewComments = (content: string): readonly unknown[] => {
   }
 
   return parsedContent
+}
+
+const parseIssueComments = (
+  content: string,
+): readonly {
+  readonly body: string
+  readonly id: number
+}[] => {
+  const parsedContent = parseJsonArray(content)
+  const commentValues = parsedContent.every((item) => Array.isArray(item))
+    ? parsedContent.flatMap((item) => item as readonly unknown[])
+    : parsedContent
+
+  return commentValues.flatMap((comment) => {
+    if (!isRecord(comment)) {
+      return []
+    }
+
+    const body = parseOptionalStringField(comment, 'body')
+    const id = parseOptionalNumberField(comment, 'id')
+
+    return body === undefined || id === undefined
+      ? []
+      : [
+          {
+            body,
+            id,
+          },
+        ]
+  })
 }
 
 const parseCodeRabbitReviewFinding = (
