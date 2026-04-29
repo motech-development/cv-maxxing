@@ -15,6 +15,7 @@ import {
 } from './sandcastle-impact-analysis.js'
 import {
   interpretGitHubActionsStatus,
+  validateAutomationPrOwnership,
   type ChildCommitReference,
   type GitHubActionsStatus,
   type ResumePrFinding,
@@ -45,6 +46,7 @@ import type {
   CleanupArtifact,
   CleanupPlan,
   RemoteAutomationPr,
+  RemoteAutomationPrOwnership,
   RunStatus,
 } from './run-guardrails.js'
 import { createRepoRunLockPath, evaluatePreflight } from './run-guardrails.js'
@@ -62,6 +64,14 @@ export interface DefaultLiveAdapterShellCommandInput {
 export interface DefaultLiveAdapterShellCommandResult {
   readonly stderr: string
   readonly stdout: string
+}
+
+interface OpenPullRequestSummary {
+  readonly body: string
+  readonly branchName: string
+  readonly isDraft: boolean
+  readonly prNumber: number
+  readonly url: string
 }
 
 export type DefaultLiveAdapterShellRunner = (
@@ -237,6 +247,23 @@ const createGitHubAdapter = (
       prdIssueNumber,
       url: parseStringField(pullRequest, 'url'),
     }
+  },
+  getOpenAutomationPrOwnership: async (): Promise<RemoteAutomationPrOwnership> => {
+    const result = await shell({
+      args: [
+        'pr',
+        'list',
+        '--state',
+        'open',
+        '--json',
+        'number,url,headRefName,body,isDraft',
+        '--limit',
+        '100',
+      ],
+      command: 'gh',
+    })
+
+    return parseRemoteAutomationPrOwnership(parseJsonArray(result.stdout))
   },
   getPr: async (prNumber: number): Promise<AutomationPrDetails> => {
     const result = await shell({
@@ -1834,6 +1861,83 @@ const parseRunStatus = (value: unknown): RunStatus => {
     prNumber: parseOptionalNumberField(value, 'prNumber'),
     prUrl: parseOptionalStringField(value, 'prUrl'),
   }
+}
+
+const parseRemoteAutomationPrOwnership = (
+  values: readonly unknown[],
+): RemoteAutomationPrOwnership => {
+  return values
+    .map((value) => parseOpenPullRequestSummary(value))
+    .filter((pullRequest) => isAutomationPrCandidate(pullRequest))
+    .reduce<RemoteAutomationPrOwnership>(
+      (ownership, pullRequest) => {
+        const validation = validateAutomationPrOwnership({
+          body: pullRequest.body,
+          branchName: pullRequest.branchName,
+          prNumber: pullRequest.prNumber,
+        })
+        const prdIssueNumber = parsePrdIssueNumberFromAutomationBranch(pullRequest.branchName)
+
+        if (!validation.valid || prdIssueNumber === undefined) {
+          return {
+            blockers: [
+              ...ownership.blockers,
+              ...validation.blockers,
+              ...(prdIssueNumber === undefined && validation.valid
+                ? [
+                    `PR #${String(
+                      pullRequest.prNumber,
+                    )} branch ${pullRequest.branchName} is not an orchestrator PRD branch`,
+                  ]
+                : []),
+            ],
+            remoteAutomationPrs: ownership.remoteAutomationPrs,
+          }
+        }
+
+        return {
+          blockers: ownership.blockers,
+          remoteAutomationPrs: [
+            ...ownership.remoteAutomationPrs,
+            {
+              branchName: pullRequest.branchName,
+              isDraft: pullRequest.isDraft,
+              prNumber: pullRequest.prNumber,
+              prdIssueNumber,
+              url: pullRequest.url,
+            },
+          ],
+        }
+      },
+      {
+        blockers: [],
+        remoteAutomationPrs: [],
+      },
+    )
+}
+
+const parseOpenPullRequestSummary = (value: unknown): OpenPullRequestSummary => {
+  if (!isRecord(value)) {
+    throw new TypeError('Expected each pull request to be an object.')
+  }
+
+  return {
+    body: parseStringField(value, 'body'),
+    branchName: parseStringField(value, 'headRefName'),
+    isDraft: parseBooleanField(value, 'isDraft'),
+    prNumber: parseNumberField(value, 'number'),
+    url: parseStringField(value, 'url'),
+  }
+}
+
+const isAutomationPrCandidate = (pullRequest: OpenPullRequestSummary): boolean =>
+  pullRequest.branchName.startsWith('agent/prd-') ||
+  pullRequest.body.includes('Managed by `@cv-maxxing/prd-orchestrator`.')
+
+const parsePrdIssueNumberFromAutomationBranch = (branchName: string): number | undefined => {
+  const issueNumber = Number.parseInt(/^agent\/prd-(\d+)-/.exec(branchName)?.[1] ?? '', 10)
+
+  return Number.isInteger(issueNumber) ? issueNumber : undefined
 }
 
 const parseJsonRecord = (content: string): Record<string, unknown> => {

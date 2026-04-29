@@ -10,6 +10,7 @@ import {
   formatRunStatus,
   type CleanupPlan,
   type RemoteAutomationPr,
+  type RemoteAutomationPrOwnership,
   type RunStatus,
 } from './run-guardrails.js'
 import {
@@ -78,6 +79,7 @@ export interface PrdOrchestratorLiveAdapters {
       prdIssueNumber: number,
       branchName: string,
     ) => Promise<RemoteAutomationPr | undefined>
+    readonly getOpenAutomationPrOwnership: () => Promise<RemoteAutomationPrOwnership>
     readonly getReviewFindings?: (prNumber: number) => Promise<readonly ResumePrFinding[]>
     readonly getPr: (prNumber: number) => Promise<AutomationPrDetails>
     readonly getCurrentPr: () => Promise<AutomationPrDetails | undefined>
@@ -240,6 +242,16 @@ type VerificationRepairResult =
       readonly workerResult: RunImplementationResult
     }
 
+interface LiveRunStartupContext {
+  readonly issues: readonly GitHubIssue[]
+  readonly remoteAutomationPr: RemoteAutomationPr | undefined
+}
+
+interface LiveRunStartupCheck {
+  readonly blockers: readonly string[]
+  readonly context: LiveRunStartupContext
+}
+
 export interface PollChecksInput {
   readonly branchName: string
   readonly prNumber: number
@@ -331,6 +343,55 @@ export const executeLivePlan = async (
   }
 }
 
+const checkLiveRunStartupOwnership = async (
+  adapters: PrdOrchestratorLiveAdapters,
+  command: 'run' | 'run --one-child',
+): Promise<LiveRunStartupCheck> => {
+  const issues = await adapters.github.listOpenIssues()
+  const selectedPrd = createDryRunPlan(issues).selectedPrd
+  const ownership = await adapters.github.getOpenAutomationPrOwnership()
+  const remoteAutomationPr =
+    selectedPrd === undefined
+      ? undefined
+      : ownership.remoteAutomationPrs.find((pr) => pr.prdIssueNumber === selectedPrd.issueNumber)
+  const blockers = [
+    ...ownership.blockers,
+    ...formatDifferentRemoteAutomationPrBlockers({
+      command,
+      remoteAutomationPrs: ownership.remoteAutomationPrs,
+      selectedPrdIssueNumber: selectedPrd?.issueNumber,
+    }),
+  ]
+
+  return {
+    blockers,
+    context: {
+      issues,
+      remoteAutomationPr,
+    },
+  }
+}
+
+const formatDifferentRemoteAutomationPrBlockers = (input: {
+  readonly command: 'run' | 'run --one-child'
+  readonly remoteAutomationPrs: readonly RemoteAutomationPr[]
+  readonly selectedPrdIssueNumber: number | undefined
+}): readonly string[] =>
+  input.remoteAutomationPrs
+    .filter((pr) => pr.prdIssueNumber !== input.selectedPrdIssueNumber)
+    .map((pr) => {
+      const selectedPrdReference =
+        input.selectedPrdIssueNumber === undefined
+          ? 'no eligible selected PRD'
+          : `selected PRD #${String(input.selectedPrdIssueNumber)}`
+
+      return `Remote automation PR #${String(pr.prNumber)} is active for PRD #${String(
+        pr.prdIssueNumber,
+      )}; ${input.command} cannot mutate ${selectedPrdReference}. Use resume-pr #${String(
+        pr.prNumber,
+      )} or close that automation PR before starting another PRD.`
+    })
+
 export const executeLiveOneChild = async (
   adapters: PrdOrchestratorLiveAdapters,
 ): Promise<LiveCommandResult> => {
@@ -340,6 +401,12 @@ export const executeLiveOneChild = async (
     return blockedResult(preflight.blockers.join('\n'))
   }
 
+  const startup = await checkLiveRunStartupOwnership(adapters, 'run --one-child')
+
+  if (startup.blockers.length > 0) {
+    return blockedResult(startup.blockers.join('\n'))
+  }
+
   const lock = await adapters.state.acquireRunLock()
 
   if (!lock.ready) {
@@ -347,7 +414,9 @@ export const executeLiveOneChild = async (
   }
 
   try {
-    return await executeLiveOneChildWithLock(adapters)
+    return await executeLiveOneChildWithLock(adapters, {
+      startupContext: startup.context,
+    })
   } finally {
     await adapters.state.releaseRunLock()
   }
@@ -362,6 +431,12 @@ export const executeLiveRun = async (
     return blockedResult(preflight.blockers.join('\n'))
   }
 
+  const startup = await checkLiveRunStartupOwnership(adapters, 'run')
+
+  if (startup.blockers.length > 0) {
+    return blockedResult(startup.blockers.join('\n'))
+  }
+
   const lock = await adapters.state.acquireRunLock()
 
   if (!lock.ready) {
@@ -369,7 +444,7 @@ export const executeLiveRun = async (
   }
 
   try {
-    return await executeLiveRunWithLock(adapters)
+    return await executeLiveRunWithLock(adapters, startup.context)
   } finally {
     await adapters.state.releaseRunLock()
   }
@@ -377,8 +452,9 @@ export const executeLiveRun = async (
 
 const executeLiveRunWithLock = async (
   adapters: PrdOrchestratorLiveAdapters,
+  startupContext?: LiveRunStartupContext,
 ): Promise<LiveCommandResult> => {
-  const issues = await adapters.github.listOpenIssues()
+  const issues = startupContext?.issues ?? (await adapters.github.listOpenIssues())
   const dryRunPlan = createDryRunPlan(issues)
   const selectedPrd = dryRunPlan.selectedPrd
 
@@ -417,10 +493,13 @@ const executeLiveRunWithLock = async (
     return blockedResult('run must start from clean, up-to-date main.')
   }
 
-  const remoteAutomationPr = await adapters.github.findAutomationPr(
-    selectedPrd.issueNumber,
-    branchSeedPlan.prdBranchName,
-  )
+  const remoteAutomationPr =
+    startupContext === undefined
+      ? await adapters.github.findAutomationPr(
+          selectedPrd.issueNumber,
+          branchSeedPlan.prdBranchName,
+        )
+      : startupContext.remoteAutomationPr
   const existingPrRewriteBlocker = getExistingRunRewriteBlocker(remoteAutomationPr, 'run')
 
   if (existingPrRewriteBlocker !== undefined) {
@@ -694,9 +773,10 @@ const executeLiveOneChildWithLock = async (
   input: {
     readonly blockedChildIssueNumbers?: readonly number[]
     readonly lastCommand?: string
+    readonly startupContext?: LiveRunStartupContext
   } = {},
 ): Promise<LiveCommandResult> => {
-  const issues = await adapters.github.listOpenIssues()
+  const issues = input.startupContext?.issues ?? (await adapters.github.listOpenIssues())
   const dryRunPlan = createDryRunPlan(issues)
   const selectedPrd = dryRunPlan.selectedPrd
 
@@ -747,10 +827,13 @@ const executeLiveOneChildWithLock = async (
     return blockedResult('No unblocked child task is available.')
   }
 
-  const remoteAutomationPr = await adapters.github.findAutomationPr(
-    selectedPrd.issueNumber,
-    branchSeedPlan.prdBranchName,
-  )
+  const remoteAutomationPr =
+    input.startupContext === undefined
+      ? await adapters.github.findAutomationPr(
+          selectedPrd.issueNumber,
+          branchSeedPlan.prdBranchName,
+        )
+      : input.startupContext.remoteAutomationPr
   const existingPrRewriteBlocker = getExistingRunRewriteBlocker(
     remoteAutomationPr,
     'run --one-child',
@@ -1493,8 +1576,13 @@ export const executeStatus = async (
   const status = await adapters.state.readRunStatus()
   const currentPr = await adapters.github.getCurrentPr()
   const artifactStatus = await adapters.state.readArtifactStatus?.()
+  const remoteOwnership = await adapters.github.getOpenAutomationPrOwnership()
   const prLine =
     currentPr === undefined ? '' : `Current PR: #${String(currentPr.prNumber)} ${currentPr.url}\n`
+  const remoteOwnershipLines =
+    artifactStatus?.lockStatus === 'no active lock'
+      ? `${formatRemoteAutomationOwnership(remoteOwnership)}\n`
+      : ''
   const artifactLines =
     artifactStatus === undefined
       ? ''
@@ -1506,9 +1594,9 @@ export const executeStatus = async (
         ].join('\n')
 
   return {
-    exitCode: status.blockers.length === 0 ? 0 : 1,
+    exitCode: status.blockers.length === 0 && remoteOwnership.blockers.length === 0 ? 0 : 1,
     stderr: '',
-    stdout: `${formatRunStatus(status)}\n${artifactLines}${prLine}`,
+    stdout: `${formatRunStatus(status)}\n${artifactLines}${remoteOwnershipLines}${prLine}`,
   }
 }
 
@@ -1522,6 +1610,26 @@ export const executeCleanup = async (
     stderr: '',
     stdout: `${renderCleanupPlan(plan)}\n`,
   }
+}
+
+const formatRemoteAutomationOwnership = (ownership: RemoteAutomationPrOwnership): string => {
+  const blockerLine =
+    ownership.blockers.length === 0
+      ? undefined
+      : `Remote automation blockers: ${ownership.blockers.join('; ')}`
+  const ownershipLine =
+    ownership.remoteAutomationPrs.length === 0
+      ? 'Remote automation PRs: none'
+      : `Remote automation PRs: ${ownership.remoteAutomationPrs
+          .map(
+            (pr) =>
+              `#${String(pr.prNumber)} for PRD #${String(pr.prdIssueNumber)} on ${pr.branchName}`,
+          )
+          .join('; ')}`
+
+  return [ownershipLine, blockerLine]
+    .filter((line): line is string => line !== undefined)
+    .join('\n')
 }
 
 const selectNextChild = (

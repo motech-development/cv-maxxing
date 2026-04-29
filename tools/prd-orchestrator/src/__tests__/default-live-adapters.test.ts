@@ -84,6 +84,39 @@ describe('default live adapters', () => {
     ])
   })
 
+  it('scans open PRs for valid remote automation ownership', async () => {
+    const shell = createRecordingShell()
+    const adapters = createDefaultPrdOrchestratorLiveAdapters('/repo', undefined, shell.run)
+
+    await expect(adapters.github.getOpenAutomationPrOwnership()).resolves.toEqual({
+      blockers: [],
+      remoteAutomationPrs: [
+        {
+          branchName: 'agent/prd-80-test',
+          isDraft: true,
+          prNumber: 123,
+          prdIssueNumber: 80,
+          url: 'https://github.com/motech-development/cv-maxxing/pull/123',
+        },
+      ],
+    })
+    expect(shell.commands.map((command) => formatCommand(command))).toEqual([
+      'gh pr list --state open --json number,url,headRefName,body,isDraft --limit 100',
+    ])
+  })
+
+  it('reports malformed remote automation PR body as an ownership blocker', async () => {
+    const shell = createRecordingShell({
+      malformedAutomationPrBody: true,
+    })
+    const adapters = createDefaultPrdOrchestratorLiveAdapters('/repo', undefined, shell.run)
+
+    await expect(adapters.github.getOpenAutomationPrOwnership()).resolves.toEqual({
+      blockers: ['PR #123 body is missing the orchestrator Automation section'],
+      remoteAutomationPrs: [],
+    })
+  })
+
   it('removes temporary body files after shell commands consume them', async () => {
     const shell = createRecordingShell()
     const adapters = createDefaultPrdOrchestratorLiveAdapters('/repo', undefined, shell.run)
@@ -213,6 +246,7 @@ describe('default live adapters', () => {
 const createRecordingShell = (
   input: {
     readonly failingCommands?: ReadonlySet<string>
+    readonly malformedAutomationPrBody?: boolean
   } = {},
 ): {
   readonly commands: DefaultLiveAdapterShellCommandInput[]
@@ -231,13 +265,18 @@ const createRecordingShell = (
 
       return Promise.resolve({
         stderr: '',
-        stdout: responseForCommand(command),
+        stdout: responseForCommand(command, input),
       })
     },
   }
 }
 
-const responseForCommand = (command: DefaultLiveAdapterShellCommandInput): string => {
+const responseForCommand = (
+  command: DefaultLiveAdapterShellCommandInput,
+  input: {
+    readonly malformedAutomationPrBody?: boolean
+  },
+): string => {
   const formattedCommand = formatCommand(command)
 
   if (formattedCommand.startsWith('gh issue list')) {
@@ -254,7 +293,10 @@ const responseForCommand = (command: DefaultLiveAdapterShellCommandInput): strin
   if (formattedCommand.startsWith('gh pr list')) {
     return JSON.stringify([
       {
-        body: '## Automation\n\nManaged by `@cv-maxxing/prd-orchestrator`.',
+        body:
+          input.malformedAutomationPrBody === true
+            ? '## Summary\n\nMissing owner contract.'
+            : '## Automation\n\nManaged by `@cv-maxxing/prd-orchestrator`.',
         headRefName: 'agent/prd-80-test',
         isDraft: true,
         number: 123,
