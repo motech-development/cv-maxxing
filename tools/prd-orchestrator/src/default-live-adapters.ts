@@ -612,6 +612,30 @@ const createGitAdapter = (
         command: 'git',
       })
     },
+    restorePrdBranchToCleanState: async (input): Promise<void> => {
+      await shell({
+        args: ['checkout', input.branchName],
+        command: 'git',
+      })
+      await shell({
+        args: ['reset', '--hard', 'HEAD'],
+        command: 'git',
+      })
+      await shell({
+        args: ['clean', '-fd'],
+        command: 'git',
+      })
+      const status = await shell({
+        args: ['status', '--porcelain'],
+        command: 'git',
+      })
+
+      if (status.stdout.trim().length > 0) {
+        throw new Error(
+          `PRD branch ${input.branchName} remained dirty after restore:\n${status.stdout}`,
+        )
+      }
+    },
   }
 }
 
