@@ -1608,6 +1608,240 @@ describe('PRD orchestrator CLI', () => {
     )
   })
 
+  it('checks mapped resume repair output, verifies it, and reruns CodeRabbit before amending', async () => {
+    const adapters = createLiveAdapters({
+      initialCompletedChildIssueNumbers: [82],
+      resumePrFindings: [
+        {
+          body: 'Fix the child commit.',
+          childIssueNumber: 82,
+          id: 'resume-child-finding',
+          source: 'github-pr-review',
+          title: 'Child issue regression',
+        },
+      ],
+    })
+    const result = await runPrdOrchestratorCliAsync({
+      adapters,
+      arguments_: ['resume-pr', '123'],
+      stdin: '',
+    })
+
+    expect(result.exitCode).toBe(0)
+    expect(adapters.events.indexOf('sandcastle:repair-resume-findings')).toBeLessThan(
+      adapters.events.indexOf('git:apply-worker-diff'),
+    )
+    expect(adapters.events.indexOf('git:apply-worker-diff')).toBeLessThan(
+      adapters.events.indexOf('verification:run'),
+    )
+    expect(adapters.events.indexOf('verification:run')).toBeLessThan(
+      adapters.events.indexOf('coderabbit:review'),
+    )
+    expect(adapters.events.indexOf('coderabbit:review')).toBeLessThan(
+      adapters.events.indexOf('git:amend-child-commit'),
+    )
+    expect(adapters.events.indexOf('git:amend-child-commit')).toBeLessThan(
+      adapters.events.indexOf('git:push-prd-branch'),
+    )
+  })
+
+  it('checks and verifies final cleanup resume repair output before creating cleanup commits', async () => {
+    const adapters = createLiveAdapters({
+      initialCompletedChildIssueNumbers: [82],
+      resumePrFindings: [
+        {
+          body: 'Tighten final audit wording.',
+          filePath: 'tools/prd-orchestrator/src/final-prd-flow.ts',
+          id: 'resume-final-finding',
+          source: 'github-check',
+          title: 'Final cleanup',
+        },
+      ],
+      resumeRepairChangedFiles: ['tools/prd-orchestrator/src/final-prd-flow.ts'],
+    })
+    const result = await runPrdOrchestratorCliAsync({
+      adapters,
+      arguments_: ['resume-pr', '123'],
+      stdin: '',
+    })
+
+    expect(result.exitCode).toBe(0)
+    expect(adapters.events).not.toContain('git:amend-child-commit')
+    expect(adapters.events.indexOf('git:apply-worker-diff')).toBeLessThan(
+      adapters.events.indexOf('verification:run'),
+    )
+    expect(adapters.events.indexOf('verification:run')).toBeLessThan(
+      adapters.events.indexOf('coderabbit:review'),
+    )
+    expect(adapters.events.indexOf('coderabbit:review')).toBeLessThan(
+      adapters.events.indexOf('git:commit-final-cleanup'),
+    )
+    expect(adapters.events.indexOf('git:commit-final-cleanup')).toBeLessThan(
+      adapters.events.indexOf('git:push-prd-branch'),
+    )
+  })
+
+  it('records a resume repair blocker and avoids commits or push when verification fails', async () => {
+    const adapters = createLiveAdapters({
+      initialCompletedChildIssueNumbers: [82],
+      resumePrFindings: [
+        {
+          body: 'Fix the child commit.',
+          childIssueNumber: 82,
+          id: 'resume-child-finding',
+          source: 'github-pr-review',
+          title: 'Child issue regression',
+        },
+      ],
+      verificationFailureMessage: 'pnpm lint failed\nresume repair lint error',
+      verificationFailuresBeforeClean: 1,
+    })
+    const result = await runPrdOrchestratorCliAsync({
+      adapters,
+      arguments_: ['resume-pr', '123'],
+      stdin: '',
+    })
+
+    expect(result.exitCode).toBe(1)
+    expect(result.stderr).toContain('Resume repair verification failed')
+    expect(adapters.events).toContain('github:post-pr-comment')
+    expect(adapters.events).toContain('state:record-run-status')
+    expect(adapters.events).not.toContain('git:amend-child-commit')
+    expect(adapters.events).not.toContain('git:commit-final-cleanup')
+    expect(adapters.events).not.toContain('git:push-prd-branch')
+    expect(adapters.recordedStatuses.at(-1)?.blockers.at(0)).toContain(
+      'Resume repair verification failed',
+    )
+  })
+
+  it('records a resume repair blocker when the repair worker fails', async () => {
+    const adapters = createLiveAdapters({
+      initialCompletedChildIssueNumbers: [82],
+      resumePrFindings: [
+        {
+          body: 'Fix the child commit.',
+          childIssueNumber: 82,
+          id: 'resume-child-finding',
+          source: 'github-pr-review',
+          title: 'Child issue regression',
+        },
+      ],
+      resumeRepairError: new Error('Sandcastle worker crashed'),
+    })
+    const result = await runPrdOrchestratorCliAsync({
+      adapters,
+      arguments_: ['resume-pr', '123'],
+      stdin: '',
+    })
+
+    expect(result.exitCode).toBe(1)
+    expect(result.stderr).toContain('Resume repair Sandcastle worker failed')
+    expect(adapters.events).toContain('git:restore-prd-branch')
+    expect(adapters.events).toContain('github:post-pr-comment')
+    expect(adapters.events).toContain('state:record-run-status')
+    expect(adapters.events).not.toContain('git:apply-worker-diff')
+    expect(adapters.events).not.toContain('git:amend-child-commit')
+    expect(adapters.events).not.toContain('git:push-prd-branch')
+  })
+
+  it('records a resume repair blocker and avoids push when CodeRabbit cannot become clean', async () => {
+    const adapters = createLiveAdapters({
+      codeRabbitFindings: [
+        {
+          body: 'Still broken after repair.',
+          id: 'persistent-resume-finding',
+          source: 'github-pr-review',
+          title: 'Persistent resume finding',
+        },
+      ],
+      initialCompletedChildIssueNumbers: [82],
+      resumePrFindings: [
+        {
+          body: 'Fix the child commit.',
+          childIssueNumber: 82,
+          id: 'resume-child-finding',
+          source: 'github-pr-review',
+          title: 'Child issue regression',
+        },
+      ],
+    })
+    const result = await runPrdOrchestratorCliAsync({
+      adapters,
+      arguments_: ['resume-pr', '123'],
+      stdin: '',
+    })
+
+    expect(result.exitCode).toBe(1)
+    expect(result.stderr).toContain('Resume repair CodeRabbit rerun still has actionable findings')
+    expect(
+      adapters.events.filter((event) => event === 'sandcastle:repair-resume-findings'),
+    ).toHaveLength(2)
+    expect(adapters.events).toContain('github:post-pr-comment')
+    expect(adapters.events).toContain('state:record-run-status')
+    expect(adapters.events).not.toContain('git:amend-child-commit')
+    expect(adapters.events).not.toContain('git:push-prd-branch')
+  })
+
+  it('records a resume repair blocker when the CodeRabbit rerun fails', async () => {
+    const adapters = createLiveAdapters({
+      codeRabbitReviewError: new Error('CodeRabbit authentication failed'),
+      initialCompletedChildIssueNumbers: [82],
+      resumePrFindings: [
+        {
+          body: 'Fix the child commit.',
+          childIssueNumber: 82,
+          id: 'resume-child-finding',
+          source: 'github-pr-review',
+          title: 'Child issue regression',
+        },
+      ],
+    })
+    const result = await runPrdOrchestratorCliAsync({
+      adapters,
+      arguments_: ['resume-pr', '123'],
+      stdin: '',
+    })
+
+    expect(result.exitCode).toBe(1)
+    expect(result.stderr).toContain('Resume repair CodeRabbit rerun failed')
+    expect(adapters.events).toContain('git:restore-prd-branch')
+    expect(adapters.events).toContain('github:post-pr-comment')
+    expect(adapters.events).toContain('state:record-run-status')
+    expect(adapters.events).not.toContain('git:amend-child-commit')
+    expect(adapters.events).not.toContain('git:push-prd-branch')
+  })
+
+  it('blocks mapped resume repair output outside the child write surface before applying it', async () => {
+    const adapters = createLiveAdapters({
+      initialCompletedChildIssueNumbers: [82],
+      resumePrFindings: [
+        {
+          body: 'Fix the child commit.',
+          childIssueNumber: 82,
+          id: 'resume-child-finding',
+          source: 'github-pr-review',
+          title: 'Child issue regression',
+        },
+      ],
+      resumeRepairChangedFiles: ['tools/prd-orchestrator/src/unexpected.ts'],
+    })
+    const result = await runPrdOrchestratorCliAsync({
+      adapters,
+      arguments_: ['resume-pr', '123'],
+      stdin: '',
+    })
+
+    expect(result.exitCode).toBe(1)
+    expect(result.stderr).toContain(
+      'Resume repair output touched files outside the child write surface',
+    )
+    expect(adapters.events).not.toContain('git:apply-worker-diff')
+    expect(adapters.events).not.toContain('verification:run')
+    expect(adapters.events).not.toContain('coderabbit:review')
+    expect(adapters.events).not.toContain('git:amend-child-commit')
+    expect(adapters.events).not.toContain('git:push-prd-branch')
+  })
+
   it('maps resume PR review findings by changed file before amending child commits', async () => {
     const adapters = createLiveAdapters({
       childCommitReferences: [
@@ -1626,6 +1860,7 @@ describe('PRD orchestrator CLI', () => {
           title: 'File-scoped regression',
         },
       ],
+      resumeRepairChangedFiles: ['tools/prd-orchestrator/src/default-live-adapters.ts'],
     })
     const result = await runPrdOrchestratorCliAsync({
       adapters,
@@ -1764,6 +1999,7 @@ interface CreateLiveAdaptersOptions {
   readonly ciPollingTimeoutMs?: number
   readonly codeRabbitFindings?: readonly CodeRabbitFinding[]
   readonly codeRabbitFindingsBeforeClean?: number
+  readonly codeRabbitReviewError?: Error
   readonly automationPr?: RemoteAutomationPr
   readonly existingFinalAuditComment?: string
   readonly getPrError?: Error
@@ -1777,6 +2013,8 @@ interface CreateLiveAdaptersOptions {
   readonly preflightResult?: LivePreflightResult
   readonly recoveredRunStatusPhase?: string
   readonly remoteAutomationBlockers?: readonly string[]
+  readonly resumeRepairChangedFiles?: readonly string[]
+  readonly resumeRepairError?: Error
   readonly repairVerificationChangedFiles?: readonly string[]
   readonly resumePrFindings?: readonly ResumePrFinding[]
   readonly runLockResult?: LiveRunLockResult
@@ -1856,6 +2094,11 @@ const createLiveAdapters = (
       reviewChild: () => {
         events.push('coderabbit:review')
         codeRabbitReviewCount += 1
+
+        if (options.codeRabbitReviewError !== undefined) {
+          return Promise.reject(options.codeRabbitReviewError)
+        }
+
         const findings =
           options.codeRabbitFindings ??
           (codeRabbitReviewCount <= (options.codeRabbitFindingsBeforeClean ?? 0)
@@ -1944,7 +2187,7 @@ const createLiveAdapters = (
         return Promise.resolve(
           (completedChildIssueNumbers.length === 0 ? [82] : completedChildIssueNumbers).map(
             (childIssueNumber) => ({
-              changedFiles: [],
+              changedFiles: ['tools/prd-orchestrator/src/cli.ts'],
               childIssueNumber,
               commitHash: `abc${String(childIssueNumber)}3456789`,
             }),
@@ -2084,8 +2327,12 @@ const createLiveAdapters = (
       repairResumeFindings: () => {
         events.push('sandcastle:repair-resume-findings')
 
+        if (options.resumeRepairError !== undefined) {
+          return Promise.reject(options.resumeRepairError)
+        }
+
         return Promise.resolve({
-          changedFiles: ['tools/prd-orchestrator/src/cli.ts'],
+          changedFiles: options.resumeRepairChangedFiles ?? ['tools/prd-orchestrator/src/cli.ts'],
           stdout: 'repaired resume findings',
           workerBranchName:
             'agent/prd-80-child-82-build-prd-and-child-task-planning-from-github-markdown',
