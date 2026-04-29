@@ -142,7 +142,9 @@ export const planOneChildTransaction = (
 ): OneChildTransactionPlan => {
   const dryRunPlan = createDryRunPlan(input.issues)
   const selectedPrd = dryRunPlan.selectedPrd
-  const selectedChild = selectedPrd === undefined ? undefined : selectNextChild(selectedPrd, input)
+  const completedChildIssueNumbers = getCompletedChildIssueNumbers(input)
+  const selectedChild =
+    selectedPrd === undefined ? undefined : selectNextChild(selectedPrd, completedChildIssueNumbers)
   const prdBranchName =
     selectedPrd === undefined
       ? 'agent/prd-unavailable'
@@ -238,6 +240,7 @@ export const enforceWriteSurface = (input: EnforceWriteSurfaceInput): WriteSurfa
   const expectedFiles = new Set([
     ...input.impactAnalysis.expectedFiles,
     ...input.impactAnalysis.designFiles,
+    ...getPencilRequiredDesignFiles(input.impactAnalysis),
     ...input.impactAnalysis.sharedContracts,
     ...input.impactAnalysis.tests,
   ])
@@ -283,7 +286,7 @@ export const selectVerificationCommands = (
   impactAnalysis: SandcastleImpactAnalysisResult,
 ): readonly string[] => [
   'pnpm lint',
-  ...selectAffectedPackageTypechecks(),
+  ...selectAffectedPackageTypechecks(impactAnalysis),
   ...selectDesignVerificationCommands(impactAnalysis),
   ...selectTargetedTestCommands(impactAnalysis),
 ]
@@ -324,9 +327,9 @@ export const renderOneChildTransactionPlan = (plan: OneChildTransactionPlan): st
 
 const selectNextChild = (
   selectedPrd: SelectedPrdPlan,
-  input: Pick<PlanOneChildTransactionInput, 'completedChildIssueNumbers'>,
+  completedChildIssueNumbers: readonly number[],
 ): ParsedChildTask | undefined => {
-  const completed = new Set(input.completedChildIssueNumbers)
+  const completed = new Set(completedChildIssueNumbers)
   const childTasksByIssueNumber = new Map(
     selectedPrd.childTasks.map((childTask) => [childTask.issueNumber, childTask]),
   )
@@ -338,6 +341,16 @@ const selectNextChild = (
     ? undefined
     : childTasksByIssueNumber.get(executableIssueNumber)
 }
+
+const getCompletedChildIssueNumbers = (
+  input: Pick<PlanOneChildTransactionInput, 'completedChildIssueNumbers' | 'existingLedger'>,
+): readonly number[] =>
+  uniqueNumbers([
+    ...input.completedChildIssueNumbers,
+    ...input.existingLedger
+      .filter((entry) => entry.status === 'complete')
+      .map((entry) => entry.issueNumber),
+  ])
 
 const createDraftPullRequestPlan = (input: {
   readonly body: string
@@ -429,32 +442,31 @@ const createUpdatedLedger = (input: {
   })
 }
 
-const selectAffectedPackageTypechecks = (): readonly string[] => {
-  return [
-    'pnpm --filter @cv-maxxing/desktop typecheck',
-    'pnpm --filter @cv-maxxing/prd-orchestrator typecheck',
-  ]
-}
+const selectAffectedPackageTypechecks = (
+  impactAnalysis: SandcastleImpactAnalysisResult,
+): readonly string[] =>
+  selectAffectedPackageNames(impactAnalysis).map((packageName) =>
+    formatPackageScriptCommand(packageName, 'typecheck'),
+  )
 
 const selectTargetedTestCommands = (
   impactAnalysis: SandcastleImpactAnalysisResult,
 ): readonly string[] => {
-  if (
-    impactAnalysis.tests.length > 0 &&
-    impactAnalysis.expectedModules.some(
-      (moduleName) =>
-        moduleName === '@cv-maxxing/prd-orchestrator' ||
-        moduleName.startsWith('@cv-maxxing/prd-orchestrator/'),
-    )
-  ) {
-    return [
-      `pnpm --filter @cv-maxxing/prd-orchestrator test:unit -- ${impactAnalysis.tests
-        .map((testPath) => shellQuote(testPath))
-        .join(' ')}`,
-    ]
+  if (impactAnalysis.tests.length === 0) {
+    return []
   }
 
-  return []
+  const packageNames = selectAffectedPackageNames(impactAnalysis)
+  const testPathArguments = impactAnalysis.tests.map((testPath) => shellQuote(testPath)).join(' ')
+
+  if (packageNames.length === 0) {
+    return ['pnpm --filter @cv-maxxing/prd-orchestrator test:unit']
+  }
+
+  return packageNames.map(
+    (packageName) =>
+      `${formatPackageScriptCommand(packageName, selectPackageTestScript(packageName))} -- ${testPathArguments}`,
+  )
 }
 
 const selectDesignVerificationCommands = (
@@ -465,6 +477,38 @@ const selectDesignVerificationCommands = (
     : []
 
 const shellQuote = (value: string): string => `'${value.replaceAll("'", String.raw`'\''`)}'`
+
+const selectAffectedPackageNames = (
+  impactAnalysis: SandcastleImpactAnalysisResult,
+): readonly string[] =>
+  uniqueStrings(
+    impactAnalysis.expectedModules.flatMap((moduleName) => parsePackageName(moduleName)),
+  )
+
+const parsePackageName = (moduleName: string): readonly string[] => {
+  const parts = moduleName.split('/').filter((part) => part.length > 0)
+
+  if (moduleName.startsWith('@') && parts.length >= 2) {
+    const scope = parts[0] ?? ''
+    const packageName = parts[1] ?? ''
+
+    return [`${scope}/${packageName}`]
+  }
+
+  return parts.length === 0 ? [] : [parts[0] ?? '']
+}
+
+const selectPackageTestScript = (packageName: string): string =>
+  packageName === '@cv-maxxing/desktop' || packageName === '@cv-maxxing/prd-orchestrator'
+    ? 'test:unit'
+    : 'test'
+
+const formatPackageScriptCommand = (packageName: string, scriptName: string): string =>
+  `pnpm --filter ${packageName} ${scriptName}`
+
+const uniqueNumbers = (items: readonly number[]): readonly number[] => [...new Set(items)]
+
+const uniqueStrings = (items: readonly string[]): readonly string[] => [...new Set(items)]
 
 const isCleanUpToDateMain = (status: MainBranchStatus): boolean =>
   status.currentBranch === 'main' && status.clean && status.upToDate

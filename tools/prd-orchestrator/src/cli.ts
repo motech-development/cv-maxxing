@@ -60,7 +60,14 @@ export const runPrdOrchestratorCli = (input: PrdOrchestratorCliInput): PrdOrches
 export const runPrdOrchestratorCliAsync = async (
   input: PrdOrchestratorCliAsyncInput,
 ): Promise<PrdOrchestratorCliResult> => {
-  const parsedArguments = parseLiveCliArguments(input.arguments_)
+  let parsedArguments: ParsedLiveCliArguments
+
+  try {
+    parsedArguments = parseLiveCliArguments(input.arguments_)
+  } catch (error) {
+    return formatCliValidationError(error)
+  }
+
   const [command, subcommand] = parsedArguments.arguments_
   const trimmedStdin = input.stdin.trim()
 
@@ -130,24 +137,24 @@ const parseLiveCliArguments = (arguments_: readonly string[]): ParsedLiveCliArgu
     const argument = arguments_[index]
 
     if (argument === '--model') {
-      codexModel = arguments_[index + 1]
+      codexModel = parseFlagValue(arguments_[index + 1], '--model')
       index += 1
       continue
     }
 
     if (argument === '--effort') {
-      codexEffort = arguments_[index + 1]
+      codexEffort = parseFlagValue(arguments_[index + 1], '--effort')
       index += 1
       continue
     }
 
     if (argument?.startsWith('--model=') === true) {
-      codexModel = argument.slice('--model='.length)
+      codexModel = parseFlagValue(argument.slice('--model='.length), '--model')
       continue
     }
 
     if (argument?.startsWith('--effort=') === true) {
-      codexEffort = argument.slice('--effort='.length)
+      codexEffort = parseFlagValue(argument.slice('--effort='.length), '--effort')
       continue
     }
 
@@ -163,6 +170,14 @@ const parseLiveCliArguments = (arguments_: readonly string[]): ParsedLiveCliArgu
       codexModel,
     },
   }
+}
+
+const parseFlagValue = (value: string | undefined, flagName: '--effort' | '--model'): string => {
+  if (value === undefined || value.trim().length === 0 || value.startsWith('-')) {
+    throw new TypeError(`Expected ${flagName} to include a value.`)
+  }
+
+  return value.trim()
 }
 
 const runPlanCommand = (stdin: string): PrdOrchestratorCliResult => {

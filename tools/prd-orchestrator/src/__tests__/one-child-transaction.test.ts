@@ -289,6 +289,39 @@ describe('one-child transaction planning', () => {
     })
   })
 
+  it('selects the next child using completed state recovered from the existing ledger', () => {
+    const plan = planOneChildTransaction({
+      childCommitHash: 'abc123456789',
+      codeRabbitStatus: 'passed',
+      completedChildIssueNumbers: [],
+      dependencyChangeJustification: undefined,
+      existingLedger: [
+        {
+          codeRabbitStatus: 'passed',
+          issueNumber: 85,
+          shortCommitHash: 'def4567',
+          status: 'complete',
+          verificationStatus: 'recorded in commit def4567',
+        },
+      ],
+      impactAnalysis,
+      issues,
+      mainBranchStatus: {
+        clean: true,
+        currentBranch: 'main',
+        upToDate: true,
+      },
+      remoteAutomationPr: undefined,
+      verificationEvidence: ['pnpm lint'],
+      workerChangedFiles: ['tools/prd-orchestrator/src/one-child-transaction.ts'],
+    })
+
+    expect(plan.selectedChild?.issueNumber).toBe(86)
+    expect(plan.prBodyAfterChildUpdate).toContain(
+      '| #85 | Wire Sandcastle Docker impact analysis with Codex | complete | `def4567` | recorded in commit def4567 | passed |',
+    )
+  })
+
   it('enforces impact-analysis write surfaces with design and dependency exceptions', () => {
     expect(
       enforceWriteSurface({
@@ -325,6 +358,25 @@ describe('one-child transaction planning', () => {
     })
   })
 
+  it('allows Pencil-required design files in the write surface', () => {
+    expect(
+      enforceWriteSurface({
+        changedFiles: ['design/cv.pen'],
+        dependencyChangeJustification: undefined,
+        impactAnalysis: {
+          ...impactAnalysis,
+          designFiles: [],
+          expectedFiles: [],
+          pencilRequiredDesignFiles: ['design/cv.pen'],
+        },
+      }),
+    ).toMatchObject({
+      action: 'accept',
+      allowedFiles: ['design/cv.pen'],
+      unexpectedFiles: [],
+    })
+  })
+
   it('allows changed files declared as shared contract surfaces', () => {
     expect(
       enforceWriteSurface({
@@ -346,7 +398,6 @@ describe('one-child transaction planning', () => {
   it('selects host verification commands from affected modules and targeted tests', () => {
     expect(selectVerificationCommands(impactAnalysis)).toEqual([
       'pnpm lint',
-      'pnpm --filter @cv-maxxing/desktop typecheck',
       'pnpm --filter @cv-maxxing/prd-orchestrator typecheck',
       'pnpm --filter @cv-maxxing/desktop test:visual',
       "pnpm --filter @cv-maxxing/prd-orchestrator test:unit -- 'tools/prd-orchestrator/src/__tests__/one-child-transaction.test.ts'",
@@ -400,6 +451,44 @@ describe('one-child transaction planning', () => {
     ).toContain(
       String.raw`pnpm --filter @cv-maxxing/prd-orchestrator test:unit -- 'tools/prd-orchestrator/src/__tests__/quoted path'\''s test.ts'`,
     )
+    expect(
+      selectVerificationCommands({
+        designFiles: [],
+        expectedFiles: ['apps/desktop/src/renderer/App.tsx'],
+        expectedModules: ['@cv-maxxing/desktop/renderer'],
+        riskLevel: 'low',
+        sharedContracts: [],
+        tests: ['apps/desktop/src/renderer/__tests__/App.test.tsx'],
+      }),
+    ).toEqual([
+      'pnpm lint',
+      'pnpm --filter @cv-maxxing/desktop typecheck',
+      "pnpm --filter @cv-maxxing/desktop test:unit -- 'apps/desktop/src/renderer/__tests__/App.test.tsx'",
+    ])
+    expect(
+      selectVerificationCommands({
+        designFiles: [],
+        expectedFiles: ['packages/shared/src/index.ts'],
+        expectedModules: ['@cv-maxxing/shared'],
+        riskLevel: 'low',
+        sharedContracts: [],
+        tests: ['packages/shared/src/index.test.ts'],
+      }),
+    ).toEqual([
+      'pnpm lint',
+      'pnpm --filter @cv-maxxing/shared typecheck',
+      "pnpm --filter @cv-maxxing/shared test -- 'packages/shared/src/index.test.ts'",
+    ])
+    expect(
+      selectVerificationCommands({
+        designFiles: [],
+        expectedFiles: ['scripts/check.ts'],
+        expectedModules: [],
+        riskLevel: 'low',
+        sharedContracts: [],
+        tests: ['scripts/check.test.ts'],
+      }),
+    ).toContain('pnpm --filter @cv-maxxing/prd-orchestrator test:unit')
   })
 
   it('blocks commits when changed .pen files lack Pencil verification evidence', () => {
