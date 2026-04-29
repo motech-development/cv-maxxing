@@ -213,7 +213,7 @@ export interface RepairReviewFindingsInput extends RunImplementationInput {
 
 export interface RepairResumeFindingsInput {
   readonly branchName: string
-  readonly findings: readonly ResumePrFinding[]
+  readonly findings: readonly CodeRabbitFinding[]
   readonly prNumber: number
   readonly targetCommitHash?: string
   readonly workerBranchName: string
@@ -247,6 +247,18 @@ type VerificationRepairResult =
       readonly impactAnalysis: SandcastleImpactAnalysisResult
       readonly status: 'blocked'
       readonly workerResult: RunImplementationResult
+    }
+
+type ResumeRepairGateResult =
+  | {
+      readonly status: 'clean'
+      readonly workerResult: RunImplementationResult
+    }
+  | {
+      readonly blockers: readonly string[]
+      readonly codeRabbitStatus: string
+      readonly currentChildIssueNumber: number | undefined
+      readonly status: 'blocked'
     }
 
 interface LiveRunStartupContext {
@@ -289,6 +301,11 @@ const emptyImpactAnalysis = {
 const defaultCiPollingIntervalMs = 30 * 1000
 const defaultCiPollingTimeoutMs = 30 * 60 * 1000
 const finalPrdAcceptanceAuditMarker = '## Final PRD Acceptance Audit'
+const resumeRepairVerificationCommands = [
+  'pnpm lint',
+  'pnpm --filter @cv-maxxing/prd-orchestrator typecheck',
+  'pnpm --filter @cv-maxxing/prd-orchestrator test:unit',
+] as const
 
 const createNonDraftRewriteBlocker = (input: {
   readonly branchName: string
@@ -1499,24 +1516,40 @@ const executeResumePrWithLock = async (
 
   for (const amendPlan of repairPlan.amendChildCommits) {
     const findings = reviewFindings.filter((finding) => amendPlan.findingIds.includes(finding.id))
+    const childCommit = childCommits.find(
+      (commit) =>
+        commit.childIssueNumber === amendPlan.childIssueNumber &&
+        commit.commitHash === amendPlan.commitHash,
+    )
 
     await adapters.git.checkoutChildCommit?.({
       branchName: pr.branchName,
       childIssueNumber: amendPlan.childIssueNumber,
       commitHash: amendPlan.commitHash,
     })
-    const workerResult = await adapters.sandcastle.repairResumeFindings?.({
+    const repairGate = await runResumeRepairGateUntilClean({
+      adapters,
       branchName: pr.branchName,
+      codeRabbitChildIssueNumber: amendPlan.childIssueNumber,
+      codeRabbitCommitHash: amendPlan.commitHash,
+      currentChildIssueNumber: amendPlan.childIssueNumber,
+      expectedFiles: childCommit?.changedFiles ?? getFindingFilePaths(findings),
       findings,
       prNumber,
+      targetLabel: 'child',
       targetCommitHash: amendPlan.commitHash,
       workerBranchName: `${pr.branchName}-resume-${String(amendPlan.childIssueNumber)}`,
     })
 
-    if (workerResult !== undefined) {
-      await adapters.git.applyWorkerDiff({
-        prdBranchName: pr.branchName,
-        workerBranchName: workerResult.workerBranchName,
+    if (repairGate.status === 'blocked') {
+      return await recordResumeRepairBlockedProgress({
+        adapters,
+        blockers: repairGate.blockers,
+        codeRabbitStatus: repairGate.codeRabbitStatus,
+        completedChildIssueNumbers: childCommits.map((commit) => commit.childIssueNumber),
+        currentChildIssueNumber: repairGate.currentChildIssueNumber,
+        pr,
+        prdIssueNumber: selectedPrd?.issueNumber ?? inferPrdIssueNumber(pr.branchName),
       })
     }
 
@@ -1530,17 +1563,28 @@ const executeResumePrWithLock = async (
       repairPlan.finalCleanupCommit?.findingIds.includes(finding.id),
     )
 
-    const workerResult = await adapters.sandcastle.repairResumeFindings?.({
+    const repairGate = await runResumeRepairGateUntilClean({
+      adapters,
       branchName: pr.branchName,
+      codeRabbitChildIssueNumber: 0,
+      codeRabbitCommitHash: 'final-cleanup',
+      currentChildIssueNumber: undefined,
+      expectedFiles: getFindingFilePaths(findings),
       findings,
       prNumber,
+      targetLabel: 'final cleanup',
       workerBranchName: `${pr.branchName}-resume-final-cleanup`,
     })
 
-    if (workerResult !== undefined) {
-      await adapters.git.applyWorkerDiff({
-        prdBranchName: pr.branchName,
-        workerBranchName: workerResult.workerBranchName,
+    if (repairGate.status === 'blocked') {
+      return await recordResumeRepairBlockedProgress({
+        adapters,
+        blockers: repairGate.blockers,
+        codeRabbitStatus: repairGate.codeRabbitStatus,
+        completedChildIssueNumbers: childCommits.map((commit) => commit.childIssueNumber),
+        currentChildIssueNumber: repairGate.currentChildIssueNumber,
+        pr,
+        prdIssueNumber: selectedPrd?.issueNumber ?? inferPrdIssueNumber(pr.branchName),
       })
     }
 
@@ -1575,6 +1619,271 @@ const executeResumePrWithLock = async (
   }
 
   return await executeLiveRunWithLock(adapters)
+}
+
+const runResumeRepairGateUntilClean = async (input: {
+  readonly adapters: PrdOrchestratorLiveAdapters
+  readonly branchName: string
+  readonly codeRabbitChildIssueNumber: number
+  readonly codeRabbitCommitHash: string
+  readonly currentChildIssueNumber: number | undefined
+  readonly expectedFiles: readonly string[]
+  readonly findings: readonly CodeRabbitFinding[]
+  readonly prNumber: number
+  readonly targetCommitHash?: string
+  readonly targetLabel: 'child' | 'final cleanup'
+  readonly workerBranchName: string
+}): Promise<ResumeRepairGateResult> => {
+  const repairResumeFindings = input.adapters.sandcastle.repairResumeFindings
+
+  if (repairResumeFindings === undefined) {
+    return {
+      blockers: ['Resume repair requires a Sandcastle resume repair adapter.'],
+      codeRabbitStatus: 'not run',
+      currentChildIssueNumber: input.currentChildIssueNumber,
+      status: 'blocked',
+    }
+  }
+
+  let findings = input.findings
+  const seenFindingFingerprints = new Set<string>()
+
+  for (;;) {
+    let workerResult: RunImplementationResult
+
+    try {
+      workerResult = await repairResumeFindings({
+        branchName: input.branchName,
+        findings,
+        prNumber: input.prNumber,
+        targetCommitHash: input.targetCommitHash,
+        workerBranchName: input.workerBranchName,
+      })
+    } catch (error) {
+      return {
+        blockers: [
+          `Resume repair Sandcastle worker failed. Error evidence: ${formatConciseErrorEvidence(
+            formatErrorMessage(error),
+          )}`,
+          ...(await restorePrdBranchToCleanStateBeforeBlocker({
+            adapters: input.adapters,
+            branchName: input.branchName,
+          })),
+        ],
+        codeRabbitStatus: 'not run',
+        currentChildIssueNumber: input.currentChildIssueNumber,
+        status: 'blocked',
+      }
+    }
+
+    const writeSurfaceBlockers = validateResumeRepairWriteSurface({
+      changedFiles: workerResult.changedFiles,
+      expectedFiles: input.expectedFiles,
+      targetLabel: input.targetLabel,
+    })
+
+    if (writeSurfaceBlockers.length > 0) {
+      return {
+        blockers: writeSurfaceBlockers,
+        codeRabbitStatus: 'not run',
+        currentChildIssueNumber: input.currentChildIssueNumber,
+        status: 'blocked',
+      }
+    }
+
+    try {
+      await input.adapters.git.applyWorkerDiff({
+        prdBranchName: input.branchName,
+        workerBranchName: workerResult.workerBranchName,
+      })
+    } catch (error) {
+      return {
+        blockers: [
+          `Resume repair failed to apply worker diff from ${workerResult.workerBranchName}. Error evidence: ${formatConciseErrorEvidence(
+            formatErrorMessage(error),
+          )}`,
+          ...(await restorePrdBranchToCleanStateBeforeBlocker({
+            adapters: input.adapters,
+            branchName: input.branchName,
+          })),
+        ],
+        codeRabbitStatus: 'not run',
+        currentChildIssueNumber: input.currentChildIssueNumber,
+        status: 'blocked',
+      }
+    }
+
+    try {
+      await input.adapters.verification.runCommands(resumeRepairVerificationCommands)
+    } catch (error) {
+      return {
+        blockers: [
+          `Resume repair verification failed. Failing verification command: ${formatFailingVerificationCommand(
+            resumeRepairVerificationCommands,
+          )}. Error evidence: ${formatConciseErrorEvidence(formatErrorMessage(error))}`,
+          ...(await restorePrdBranchToCleanStateBeforeBlocker({
+            adapters: input.adapters,
+            branchName: input.branchName,
+          })),
+        ],
+        codeRabbitStatus: 'not run',
+        currentChildIssueNumber: input.currentChildIssueNumber,
+        status: 'blocked',
+      }
+    }
+
+    let codeRabbitResult: ReviewChildResult
+
+    try {
+      codeRabbitResult = await input.adapters.codeRabbit.reviewChild({
+        branchName: input.branchName,
+        childCommitHash: input.codeRabbitCommitHash,
+        childIssueNumber: input.codeRabbitChildIssueNumber,
+        prNumber: input.prNumber,
+      })
+    } catch (error) {
+      return {
+        blockers: [
+          `Resume repair CodeRabbit rerun failed. Error evidence: ${formatConciseErrorEvidence(
+            formatErrorMessage(error),
+          )}`,
+          ...(await restorePrdBranchToCleanStateBeforeBlocker({
+            adapters: input.adapters,
+            branchName: input.branchName,
+          })),
+        ],
+        codeRabbitStatus: 'failed',
+        currentChildIssueNumber: input.currentChildIssueNumber,
+        status: 'blocked',
+      }
+    }
+
+    const classifications = codeRabbitResult.findings.map((finding) =>
+      classifyCodeRabbitFinding(finding),
+    )
+    const nonActionableRecords = classifications.flatMap((classification) =>
+      classification.kind === 'non-actionable'
+        ? [recordNonActionableFinding(classification.finding)]
+        : [],
+    )
+    const actionableFindings = classifications.flatMap((classification) =>
+      classification.kind === 'actionable' ? [classification.finding] : [],
+    )
+
+    if (nonActionableRecords.length > 0) {
+      await input.adapters.github.postPrComment(
+        input.prNumber,
+        renderNonActionableFindingRecords(nonActionableRecords),
+      )
+    }
+
+    if (actionableFindings.length === 0) {
+      return {
+        status: 'clean',
+        workerResult,
+      }
+    }
+
+    const fingerprint = actionableFindings.map((finding) => finding.id).join('|')
+
+    if (seenFindingFingerprints.has(fingerprint)) {
+      return {
+        blockers: [
+          `Resume repair CodeRabbit rerun still has actionable findings: ${actionableFindings
+            .map((finding) => finding.title)
+            .join('; ')}`,
+          ...(await restorePrdBranchToCleanStateBeforeBlocker({
+            adapters: input.adapters,
+            branchName: input.branchName,
+          })),
+        ],
+        codeRabbitStatus: codeRabbitResult.status,
+        currentChildIssueNumber: input.currentChildIssueNumber,
+        status: 'blocked',
+      }
+    }
+
+    seenFindingFingerprints.add(fingerprint)
+    findings = actionableFindings
+  }
+}
+
+const validateResumeRepairWriteSurface = (input: {
+  readonly changedFiles: readonly string[]
+  readonly expectedFiles: readonly string[]
+  readonly targetLabel: 'child' | 'final cleanup'
+}): readonly string[] => {
+  if (input.expectedFiles.length === 0) {
+    return []
+  }
+
+  const expectedFiles = new Set(input.expectedFiles)
+  const unexpectedFiles = input.changedFiles.filter(
+    (changedFile) => !expectedFiles.has(changedFile),
+  )
+
+  if (unexpectedFiles.length === 0) {
+    return []
+  }
+
+  return [
+    `Resume repair output touched files outside the ${input.targetLabel} write surface: ${unexpectedFiles.join(
+      ', ',
+    )}. Expected files: ${input.expectedFiles.join(', ')}.`,
+  ]
+}
+
+const getFindingFilePaths = (findings: readonly ResumePrFinding[]): readonly string[] => [
+  ...new Set(
+    findings.flatMap((finding) => (finding.filePath === undefined ? [] : [finding.filePath])),
+  ),
+]
+
+const inferPrdIssueNumber = (branchName: string): number => {
+  const issueNumber = Number.parseInt(/^agent\/prd-(\d+)-/.exec(branchName)?.[1] ?? '', 10)
+
+  return Number.isInteger(issueNumber) ? issueNumber : 0
+}
+
+const recordResumeRepairBlockedProgress = async (input: {
+  readonly adapters: PrdOrchestratorLiveAdapters
+  readonly blockers: readonly string[]
+  readonly codeRabbitStatus: string
+  readonly completedChildIssueNumbers: readonly number[]
+  readonly currentChildIssueNumber: number | undefined
+  readonly pr: AutomationPrDetails
+  readonly prdIssueNumber: number
+}): Promise<LiveCommandResult> => {
+  const remotePr = createRemoteAutomationPrFromDetails(
+    input.pr,
+    input.prdIssueNumber,
+    input.pr.isDraft,
+  )
+  const status = createRunStatus({
+    blockers: input.blockers,
+    branchName: input.pr.branchName,
+    codeRabbitStatus: input.codeRabbitStatus,
+    completedChildIssueNumbers: input.completedChildIssueNumbers,
+    currentChildIssueNumber: input.currentChildIssueNumber,
+    lastCommand: 'resume-pr',
+    phase: 'blocked',
+    pr: remotePr,
+    prdIssueNumber: input.prdIssueNumber,
+  })
+  const blockerBody = [
+    '## PRD Orchestrator Blocker',
+    '',
+    ...input.blockers.map((blocker) => `- ${blocker}`),
+  ].join('\n')
+
+  await input.adapters.github.postPrComment(input.pr.prNumber, blockerBody)
+  await input.adapters.state.recordRunStatus(status)
+
+  return {
+    exitCode: 1,
+    stderr: `${input.blockers.join('\n')}\n`,
+    stdout: '',
+  }
 }
 
 export const executeStatus = async (
