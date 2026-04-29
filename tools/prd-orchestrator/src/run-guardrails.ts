@@ -40,6 +40,11 @@ export interface RemoteAutomationPr {
   readonly url: string
 }
 
+export interface RemoteAutomationPrOwnership {
+  readonly blockers: readonly string[]
+  readonly remoteAutomationPrs: readonly RemoteAutomationPr[]
+}
+
 export type RunLockAction = 'acquire' | 'block' | 'recover-stale-lock' | 'resume-remote'
 
 export interface EvaluateRunLockInput {

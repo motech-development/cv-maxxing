@@ -680,11 +680,11 @@ describe('PRD orchestrator CLI', () => {
     expect(result.stdout).toContain('Draft PR: #123')
     expect(adapters.events).toEqual([
       'preflight:run',
-      'lock:acquire',
       'github:list-open-issues',
+      'github:scan-automation-prs',
+      'lock:acquire',
       'git:get-main-branch-status',
       'git:get-completed-children',
-      'github:find-automation-pr',
       'git:prepare-prd-branch',
       'github:create-draft-pr',
       'sandcastle:impact-analysis',
@@ -705,6 +705,150 @@ describe('PRD orchestrator CLI', () => {
     ])
   })
 
+  it('allows run --one-child startup when no remote automation PR exists', async () => {
+    const adapters = createLiveAdapters({
+      openAutomationPrs: [],
+    })
+    const result = await runPrdOrchestratorCliAsync({
+      adapters,
+      arguments_: ['run', '--one-child'],
+      stdin: '',
+    })
+
+    expect(result.exitCode).toBe(0)
+    expect(adapters.events.indexOf('github:scan-automation-prs')).toBeLessThan(
+      adapters.events.indexOf('lock:acquire'),
+    )
+    expect(adapters.events).toContain('git:push-prd-branch')
+  })
+
+  it('allows run --one-child startup for the selected PRD automation PR', async () => {
+    const adapters = createLiveAdapters({
+      automationPr: {
+        branchName: 'agent/prd-80-automate-prd-implementation',
+        isDraft: true,
+        prNumber: 123,
+        prdIssueNumber: 80,
+        url: 'https://github.com/motech-development/cv-maxxing/pull/123',
+      },
+      openAutomationPrs: [
+        {
+          branchName: 'agent/prd-80-automate-prd-implementation',
+          isDraft: true,
+          prNumber: 123,
+          prdIssueNumber: 80,
+          url: 'https://github.com/motech-development/cv-maxxing/pull/123',
+        },
+      ],
+    })
+    const result = await runPrdOrchestratorCliAsync({
+      adapters,
+      arguments_: ['run', '--one-child'],
+      stdin: '',
+    })
+
+    expect(result.exitCode).toBe(0)
+    expect(adapters.events).toContain('git:push-prd-branch')
+  })
+
+  it('recovers completed child state from branch history after lock acquisition', async () => {
+    const adapters = createLiveAdapters({
+      initialCompletedChildIssueNumbers: [82],
+      issues: multiChildIssueObjects,
+      runLockResult: {
+        blockers: [],
+        lockId: 'recovered-stale-lock',
+        ready: true,
+      },
+    })
+    const result = await runPrdOrchestratorCliAsync({
+      adapters,
+      arguments_: ['run', '--one-child'],
+      stdin: '',
+    })
+
+    expect(result.exitCode).toBe(0)
+    expect(result.stdout).toContain('Completed child #83')
+    expect(adapters.events).toContain('git:get-completed-children')
+  })
+
+  it('blocks run --one-child before lock or mutation when a different PRD automation PR is active', async () => {
+    const adapters = createLiveAdapters({
+      openAutomationPrs: [
+        {
+          branchName: 'agent/prd-91-other-prd',
+          isDraft: true,
+          prNumber: 456,
+          prdIssueNumber: 91,
+          url: 'https://github.com/motech-development/cv-maxxing/pull/456',
+        },
+      ],
+    })
+    const result = await runPrdOrchestratorCliAsync({
+      adapters,
+      arguments_: ['run', '--one-child'],
+      stdin: '',
+    })
+
+    expect(result.exitCode).toBe(1)
+    expect(result.stderr).toContain('Remote automation PR #456 is active for PRD #91')
+    expect(adapters.events).toEqual([
+      'preflight:run',
+      'github:list-open-issues',
+      'github:scan-automation-prs',
+    ])
+  })
+
+  it('blocks full run before lock or mutation when a different PRD automation PR is active', async () => {
+    const adapters = createLiveAdapters({
+      issues: multiChildIssueObjects,
+      openAutomationPrs: [
+        {
+          branchName: 'agent/prd-91-other-prd',
+          isDraft: true,
+          prNumber: 456,
+          prdIssueNumber: 91,
+          url: 'https://github.com/motech-development/cv-maxxing/pull/456',
+        },
+      ],
+    })
+    const result = await runPrdOrchestratorCliAsync({
+      adapters,
+      arguments_: ['run'],
+      stdin: '',
+    })
+
+    expect(result.exitCode).toBe(1)
+    expect(result.stderr).toContain('Remote automation PR #456 is active for PRD #91')
+    expect(adapters.events).toEqual([
+      'preflight:run',
+      'github:list-open-issues',
+      'github:scan-automation-prs',
+    ])
+  })
+
+  it('blocks startup on malformed remote automation PR body before lock or mutation', async () => {
+    const adapters = createLiveAdapters({
+      remoteAutomationBlockers: ['PR #456 body is missing the orchestrator Automation section'],
+    })
+    const result = await runPrdOrchestratorCliAsync({
+      adapters,
+      arguments_: ['run', '--one-child'],
+      stdin: '',
+    })
+
+    expect(result).toEqual({
+      exitCode: 1,
+      stderr: 'PR #456 body is missing the orchestrator Automation section\n',
+      stdout: '',
+    })
+    expect(adapters.events).toEqual([
+      'preflight:run',
+      'github:list-open-issues',
+      'github:scan-automation-prs',
+    ])
+  })
+
   it.each(blockedPlanningCases)(
     'blocks run --one-child before live mutations for $name',
     async ({ blockers, issues }) => {
@@ -722,8 +866,9 @@ describe('PRD orchestrator CLI', () => {
       expect(result.stdout).toBe('')
       expect(adapters.events).toEqual([
         'preflight:run',
-        'lock:acquire',
         'github:list-open-issues',
+        'github:scan-automation-prs',
+        'lock:acquire',
         'state:record-run-status',
         'lock:release',
       ])
@@ -754,8 +899,9 @@ describe('PRD orchestrator CLI', () => {
     expect(result.stderr).toBe(`${blockers.join('\n')}\n`)
     expect(adapters.events).toEqual([
       'preflight:run',
-      'lock:acquire',
       'github:list-open-issues',
+      'github:scan-automation-prs',
+      'lock:acquire',
       'state:record-run-status',
       'lock:release',
     ])
@@ -851,11 +997,11 @@ describe('PRD orchestrator CLI', () => {
     expect(result.stderr).toContain('run --one-child will not amend commits or force-push')
     expect(adapters.events).toEqual([
       'preflight:run',
-      'lock:acquire',
       'github:list-open-issues',
+      'github:scan-automation-prs',
+      'lock:acquire',
       'git:get-main-branch-status',
       'git:get-completed-children',
-      'github:find-automation-pr',
       'lock:release',
     ])
   })
@@ -903,10 +1049,10 @@ describe('PRD orchestrator CLI', () => {
     expect(result.stderr).toContain('run will not amend commits or force-push')
     expect(adapters.events).toEqual([
       'preflight:run',
-      'lock:acquire',
       'github:list-open-issues',
+      'github:scan-automation-prs',
+      'lock:acquire',
       'git:get-main-branch-status',
-      'github:find-automation-pr',
       'lock:release',
     ])
   })
@@ -1476,9 +1622,40 @@ describe('PRD orchestrator CLI', () => {
 
     expect(adapters.events).toContain('github:get-pr')
     expect(adapters.events).toContain('github:get-current-pr')
+    expect(adapters.events).toContain('github:scan-automation-prs')
     expect(adapters.events).toContain('state:read-run-status')
     expect(adapters.events).toContain('state:read-artifact-status')
     expect(adapters.events).toContain('state:cleanup')
+  })
+
+  it('reports remote automation PR ownership in status when no local lock is active', async () => {
+    const adapters = createLiveAdapters({
+      openAutomationPrs: [
+        {
+          branchName: 'agent/prd-91-other-prd',
+          isDraft: true,
+          prNumber: 456,
+          prdIssueNumber: 91,
+          url: 'https://github.com/motech-development/cv-maxxing/pull/456',
+        },
+      ],
+    })
+    const result = await runPrdOrchestratorCliAsync({
+      adapters,
+      arguments_: ['status'],
+      stdin: '',
+    })
+
+    expect(result.exitCode).toBe(0)
+    expect(result.stdout).toContain(
+      'Remote automation PRs: #456 for PRD #91 on agent/prd-91-other-prd',
+    )
+    expect(adapters.events).toEqual([
+      'state:read-run-status',
+      'github:get-current-pr',
+      'state:read-artifact-status',
+      'github:scan-automation-prs',
+    ])
   })
 
   it('passes CLI model and effort flags to the default live adapter factory', () => {
@@ -1510,8 +1687,10 @@ interface CreateLiveAdaptersOptions {
   readonly initialCompletedChildIssueNumbers?: readonly number[]
   readonly issues?: readonly GitHubIssue[]
   readonly omitCheckoutChildCommit?: boolean
+  readonly openAutomationPrs?: readonly RemoteAutomationPr[]
   readonly preflightResult?: LivePreflightResult
   readonly recoveredRunStatusPhase?: string
+  readonly remoteAutomationBlockers?: readonly string[]
   readonly resumePrFindings?: readonly ResumePrFinding[]
   readonly runLockResult?: LiveRunLockResult
   readonly verificationFailureCountsByChildIssueNumber?: ReadonlyMap<number, number>
@@ -1724,6 +1903,16 @@ const createLiveAdapters = (
         events.push('github:find-automation-pr')
 
         return Promise.resolve(options.automationPr)
+      },
+      getOpenAutomationPrOwnership: () => {
+        events.push('github:scan-automation-prs')
+
+        return Promise.resolve({
+          blockers: options.remoteAutomationBlockers ?? [],
+          remoteAutomationPrs:
+            options.openAutomationPrs ??
+            (options.automationPr === undefined ? [] : [options.automationPr]),
+        })
       },
       getPr: () => {
         events.push('github:get-pr')

@@ -160,6 +160,7 @@ export type {
   PreflightInput,
   PreflightResult,
   RemoteAutomationPr,
+  RemoteAutomationPrOwnership,
   RunLock,
   RunLockAction,
   RunLockDecision,
