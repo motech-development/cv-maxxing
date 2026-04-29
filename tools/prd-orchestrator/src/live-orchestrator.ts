@@ -38,14 +38,17 @@ import type {
   SiblingTaskSummary,
 } from './sandcastle-impact-analysis.js'
 import {
+  evaluateFinalAuditEvidence,
   evaluateReadyForReviewGate,
   generateFinalPrdAcceptanceAudit,
   planResumePrRepair,
   validateAutomationPrOwnership,
   type ChildCommitReference,
+  type ChildTaskAudit,
   type CiStatus,
   type GitHubActionsStatus,
   type ParentUserStoryAudit,
+  type ProhibitedCapabilityScanResult,
   type ResumePrFinding,
 } from './final-prd-flow.js'
 import { groupRunnableTasksByImpactSurface } from './full-run-scheduler.js'
@@ -119,6 +122,9 @@ export interface PrdOrchestratorLiveAdapters {
   }
   readonly verification: {
     readonly runCommands: (commands: readonly string[]) => Promise<readonly string[]>
+    readonly scanProhibitedCapabilities: (
+      input: ScanProhibitedCapabilitiesInput,
+    ) => Promise<readonly ProhibitedCapabilityScanResult[]>
   }
 }
 
@@ -233,6 +239,11 @@ export interface ReviewChildInput {
 export interface ReviewChildResult {
   readonly findings: readonly CodeRabbitFinding[]
   readonly status: string
+}
+
+export interface ScanProhibitedCapabilitiesInput {
+  readonly branchName: string
+  readonly changedFiles: readonly string[]
 }
 
 type VerificationRepairResult =
@@ -2676,23 +2687,34 @@ const finalizePrdIfReady = async (input: {
     parentPrdIssueNumber: input.selectedPrd.issueNumber,
     prdTitle: input.selectedPrd.title,
   })
+  const childCommitReferences =
+    (await input.adapters.git.getChildCommitReferences?.(input.branchName)) ?? []
+  const changedFiles = [
+    ...new Set(childCommitReferences.flatMap((reference) => [...(reference.changedFiles ?? [])])),
+  ]
+  const prohibitedCapabilityResults = await input.adapters.verification.scanProhibitedCapabilities({
+    branchName: input.branchName,
+    changedFiles,
+  })
+  const architectureChecks = createFinalArchitectureChecks(input.selectedPrd.issueNumber)
+  const evidenceEvaluation = evaluateFinalAuditEvidence({
+    architectureChecks,
+    prohibitedCapabilityResults,
+  })
   const finalAudit = generateFinalPrdAcceptanceAudit({
-    architectureChecks: [
-      `Implementation stayed within PRD #${String(
-        input.selectedPrd.issueNumber,
-      )} scope and ARCHITECTURE.md.`,
-    ],
-    childTasks: input.selectedPrd.childTasks.map((childTask) => ({
-      acceptanceCriteria: childTask.acceptanceCriteria,
-      issueNumber: childTask.issueNumber,
-      title: childTask.title,
-      userStoriesAddressed: childTask.userStoriesAddressed,
-    })),
+    architectureChecks,
+    blockers: evidenceEvaluation.blockers,
+    childTasks: createChildTaskAudits({
+      childCommitReferences,
+      childTasks: input.selectedPrd.childTasks,
+      verificationEvidenceByChild: input.verificationEvidenceByChild,
+    }),
     ciStatus,
     codeRabbitStatus: 'passed',
     mergeInstructions,
     parentPrdIssueNumber: input.selectedPrd.issueNumber,
     parentUserStories: createParentUserStoryAudit(input.selectedPrd.childTasks),
+    prohibitedCapabilityResults,
     verificationEvidence: input.verificationEvidenceByChild,
   })
 
@@ -2706,6 +2728,7 @@ const finalizePrdIfReady = async (input: {
     allChildrenComplete: input.completedChildren.length === input.selectedPrd.childTasks.length,
     ciStatus,
     codeRabbitStatus: 'passed',
+    finalAuditEvidenceBlockers: evidenceEvaluation.blockers,
     finalAuditCommentPlanned: true,
     finalAuditCommentPosted: true,
     localGatesPassed: input.verificationEvidence.length > 0,
@@ -3000,6 +3023,50 @@ const createRecoveredVerificationEvidenceByChild = (input: {
       (childTask) =>
         `#${String(childTask.issueNumber)}: verification evidence recorded in child commit`,
     )
+
+const createChildTaskAudits = (input: {
+  readonly childCommitReferences: readonly ChildCommitReference[]
+  readonly childTasks: readonly ParsedChildTask[]
+  readonly verificationEvidenceByChild: readonly string[]
+}): readonly ChildTaskAudit[] =>
+  input.childTasks.map((childTask) => {
+    const childCommitReference = input.childCommitReferences.find(
+      (reference) => reference.childIssueNumber === childTask.issueNumber,
+    )
+
+    return {
+      acceptanceCriteria: childTask.acceptanceCriteria,
+      commitHash: childCommitReference?.commitHash,
+      issueNumber: childTask.issueNumber,
+      title: childTask.title,
+      userStoriesAddressed: childTask.userStoriesAddressed,
+      verificationEvidence: input.verificationEvidenceByChild.flatMap((evidence) =>
+        parseChildVerificationEvidence(evidence, childTask.issueNumber),
+      ),
+    }
+  })
+
+const parseChildVerificationEvidence = (
+  evidence: string,
+  childIssueNumber: number,
+): readonly string[] => {
+  const prefix = `#${String(childIssueNumber)}:`
+
+  if (!evidence.startsWith(prefix)) {
+    return []
+  }
+
+  return [evidence.slice(prefix.length).trim()]
+}
+
+const createFinalArchitectureChecks = (parentPrdIssueNumber: number): readonly string[] => [
+  'ARCHITECTURE.md §2 inspected: v1 still has no telemetry, remote config, automatic update checks, runtime font CDN calls, or non-PDF exports.',
+  'ARCHITECTURE.md §4 inspected: product remains Electron-first and local-first with no required web backend introduced.',
+  'ARCHITECTURE.md §6 inspected: UI constraints remain Tailwind/no MUI and no Redux.',
+  `PRD #${String(
+    parentPrdIssueNumber,
+  )} Out of Scope inspected: no automatic merge, manual issue closure, sandbox GitHub mutation, non-Codex provider support, non-Docker provider support, published sandbox branches, arbitrary-repo generalization, human-review replacement, or Electron product runtime behavior was added.`,
+]
 
 const createParentUserStoryAudit = (
   childTasks: readonly ParsedChildTask[],

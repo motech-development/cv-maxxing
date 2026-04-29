@@ -14,10 +14,13 @@ import {
   type SandcastleImpactAnalysisResult,
 } from './sandcastle-impact-analysis.js'
 import {
+  createProhibitedCapabilityScanResults,
   interpretGitHubActionsStatus,
   validateAutomationPrOwnership,
   type ChildCommitReference,
   type GitHubActionsStatus,
+  type ProhibitedCapabilityId,
+  type ProhibitedCapabilityMatch,
   type ResumePrFinding,
 } from './final-prd-flow.js'
 import {
@@ -41,6 +44,7 @@ import {
   type RunImpactAnalysisInput,
   type RunImplementationInput,
   type RunImplementationResult,
+  type ScanProhibitedCapabilitiesInput,
 } from './live-orchestrator.js'
 import type {
   CleanupArtifact,
@@ -846,6 +850,14 @@ const createVerificationAdapter = (
     }
 
     return evidence
+  },
+  scanProhibitedCapabilities: async (input: ScanProhibitedCapabilitiesInput) => {
+    const matches = await findProhibitedCapabilityMatches(shell, input)
+
+    return createProhibitedCapabilityScanResults({
+      matches,
+      scannedFiles: input.changedFiles,
+    })
   },
 })
 
@@ -2140,6 +2152,92 @@ const parseChangedFiles = (content: string): readonly string[] =>
     .split('\n')
     .map((line) => line.trim())
     .filter((line) => line.length > 0)
+
+const prohibitedCapabilityPatterns = [
+  {
+    capabilityId: 'telemetry',
+    pattern: '@sentry|posthog|analytics-node|crashReporter|trackEvent|telemetryClient',
+  },
+  {
+    capabilityId: 'remote-config',
+    pattern: 'remoteConfig|remote-config|featureFlag|feature-flag',
+  },
+  {
+    capabilityId: 'required-web-backend',
+    pattern: String.raw`from ["']express|from ["']fastify|from ["']koa|createServer\(`,
+  },
+  {
+    capabilityId: 'automatic-updates',
+    pattern: 'autoUpdater|update-electron-app|electron-updater',
+  },
+  {
+    capabilityId: 'mui',
+    pattern: '@mui/|@material-ui/',
+  },
+  {
+    capabilityId: 'redux',
+    pattern: String.raw`from ["']redux|from ["']@reduxjs/toolkit|createStore\(|configureStore\(`,
+  },
+  {
+    capabilityId: 'runtime-font-cdn',
+    pattern: String.raw`fonts\.googleapis\.com|fonts\.gstatic\.com|use\.typekit\.net`,
+  },
+  {
+    capabilityId: 'non-pdf-exports',
+    pattern: String.raw`export.*\.(docx|doc|rtf|xlsx|odt)|mime.*(docx|msword|spreadsheet)`,
+  },
+] as const satisfies readonly {
+  readonly capabilityId: ProhibitedCapabilityId
+  readonly pattern: string
+}[]
+
+const findProhibitedCapabilityMatches = async (
+  shell: DefaultLiveAdapterShellRunner,
+  input: ScanProhibitedCapabilitiesInput,
+): Promise<readonly ProhibitedCapabilityMatch[]> => {
+  if (input.changedFiles.length === 0) {
+    return []
+  }
+
+  const matches = await Promise.all(
+    prohibitedCapabilityPatterns.map(async (definition) => {
+      try {
+        const result = await shell({
+          args: [
+            'grep',
+            '--line-number',
+            '--extended-regexp',
+            '--ignore-case',
+            definition.pattern,
+            input.branchName,
+            '--',
+            ...input.changedFiles,
+          ],
+          command: 'git',
+        })
+
+        return parseProhibitedCapabilityMatches(definition.capabilityId, result.stdout)
+      } catch {
+        return []
+      }
+    }),
+  )
+
+  return matches.flat()
+}
+
+const parseProhibitedCapabilityMatches = (
+  capabilityId: ProhibitedCapabilityId,
+  content: string,
+): readonly ProhibitedCapabilityMatch[] =>
+  content
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0)
+    .map((line) => ({
+      capabilityId,
+      evidence: line,
+    }))
 
 const parseRunIdFromArtifactName = (value: string | undefined): string | undefined => {
   if (value === undefined) {

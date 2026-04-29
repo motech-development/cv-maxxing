@@ -102,19 +102,61 @@ export interface ParentUserStoryAudit {
 
 export interface ChildTaskAudit {
   readonly acceptanceCriteria: readonly string[]
+  readonly commitHash?: string
   readonly issueNumber: number
   readonly title: string
   readonly userStoriesAddressed: readonly number[]
+  readonly verificationEvidence?: readonly string[]
+}
+
+export type ProhibitedCapabilityId =
+  | 'automatic-updates'
+  | 'mui'
+  | 'non-pdf-exports'
+  | 'redux'
+  | 'remote-config'
+  | 'required-web-backend'
+  | 'runtime-font-cdn'
+  | 'telemetry'
+
+export type ProhibitedCapabilityScanStatus = 'absent' | 'inconclusive' | 'present'
+
+export interface ProhibitedCapabilityMatch {
+  readonly capabilityId: ProhibitedCapabilityId
+  readonly evidence: string
+}
+
+export interface ProhibitedCapabilityScanResult {
+  readonly capabilityId: ProhibitedCapabilityId
+  readonly evidence: string
+  readonly label: string
+  readonly status: ProhibitedCapabilityScanStatus
+}
+
+export interface CreateProhibitedCapabilityScanResultsInput {
+  readonly matches: readonly ProhibitedCapabilityMatch[]
+  readonly scannedFiles: readonly string[]
+}
+
+export interface EvaluateFinalAuditEvidenceInput {
+  readonly architectureChecks: readonly string[]
+  readonly prohibitedCapabilityResults: readonly ProhibitedCapabilityScanResult[]
+}
+
+export interface FinalAuditEvidenceEvaluation {
+  readonly blockers: readonly string[]
 }
 
 export interface GenerateFinalPrdAcceptanceAuditInput {
   readonly architectureChecks: readonly string[]
+  readonly blockers?: readonly string[]
   readonly childTasks: readonly ChildTaskAudit[]
   readonly ciStatus: CiStatus
   readonly codeRabbitStatus: string
   readonly mergeInstructions: string
   readonly parentPrdIssueNumber: number
   readonly parentUserStories: readonly ParentUserStoryAudit[]
+  readonly prohibitedCapabilityResults?: readonly ProhibitedCapabilityScanResult[]
   readonly verificationEvidence: readonly string[]
 }
 
@@ -122,6 +164,7 @@ export interface EvaluateReadyForReviewGateInput {
   readonly allChildrenComplete: boolean
   readonly ciStatus: CiStatus
   readonly codeRabbitStatus: string
+  readonly finalAuditEvidenceBlockers?: readonly string[]
   readonly finalAuditCommentPlanned: boolean
   readonly finalAuditCommentPosted: boolean
   readonly localGatesPassed: boolean
@@ -135,6 +178,43 @@ export interface ReadyForReviewGate {
 const orchestratorBranchPrefix = 'agent/prd-'
 const automationOwnerLine = 'Managed by `@cv-maxxing/prd-orchestrator`.'
 const finalCleanupCommitMessage = 'chore: address final PRD review findings'
+const prohibitedCapabilityDefinitions = [
+  {
+    capabilityId: 'telemetry',
+    label: 'Telemetry',
+  },
+  {
+    capabilityId: 'remote-config',
+    label: 'Remote config',
+  },
+  {
+    capabilityId: 'required-web-backend',
+    label: 'Required web backend',
+  },
+  {
+    capabilityId: 'automatic-updates',
+    label: 'Automatic updates',
+  },
+  {
+    capabilityId: 'mui',
+    label: 'MUI',
+  },
+  {
+    capabilityId: 'redux',
+    label: 'Redux',
+  },
+  {
+    capabilityId: 'runtime-font-cdn',
+    label: 'Runtime font CDN calls',
+  },
+  {
+    capabilityId: 'non-pdf-exports',
+    label: 'Non-PDF exports',
+  },
+] as const satisfies readonly {
+  readonly capabilityId: ProhibitedCapabilityId
+  readonly label: string
+}[]
 
 export const validateAutomationPrOwnership = (
   input: AutomationPrOwnershipInput,
@@ -312,11 +392,11 @@ export const generateFinalPrdAcceptanceAudit = (
     '',
     `Parent PRD: #${String(input.parentPrdIssueNumber)}`,
     '',
+    '### Audit Blockers',
+    ...formatBulletList(input.blockers ?? []),
+    '',
     '### User Story Coverage',
-    ...input.parentUserStories.map(
-      (story) =>
-        `- User story ${String(story.storyNumber)}: ${formatIssueReferences(story.issueNumbers)}`,
-    ),
+    ...formatParentUserStoryCoverage(input),
     '',
     '### Child Acceptance Criteria',
     ...formatChildAcceptanceCriteria(input.childTasks),
@@ -326,6 +406,9 @@ export const generateFinalPrdAcceptanceAudit = (
     '',
     '### Architecture And Out-of-Scope Checks',
     ...formatBulletList(input.architectureChecks),
+    '',
+    '### Prohibited Capability Scan',
+    ...formatProhibitedCapabilityResults(input.prohibitedCapabilityResults ?? []),
     '',
     '### Review And CI',
     `CodeRabbit: ${input.codeRabbitStatus}`,
@@ -345,6 +428,7 @@ export const evaluateReadyForReviewGate = (
       ? []
       : [`CodeRabbit status is ${input.codeRabbitStatus}`]),
     ...(input.ciStatus === 'passed' ? [] : [`GitHub Actions status is ${input.ciStatus}`]),
+    ...(input.finalAuditEvidenceBlockers ?? []),
     ...(input.finalAuditCommentPlanned ? [] : ['final PRD acceptance audit is not planned']),
     ...(input.finalAuditCommentPosted ? [] : ['final PRD acceptance audit has not been posted']),
   ]
@@ -352,6 +436,88 @@ export const evaluateReadyForReviewGate = (
   return {
     blockers,
     ready: blockers.length === 0,
+  }
+}
+
+export const createProhibitedCapabilityScanResults = (
+  input: CreateProhibitedCapabilityScanResultsInput,
+): readonly ProhibitedCapabilityScanResult[] =>
+  prohibitedCapabilityDefinitions.map((definition) => {
+    const capabilityMatches = input.matches.filter(
+      (match) => match.capabilityId === definition.capabilityId,
+    )
+
+    if (capabilityMatches.length > 0) {
+      return {
+        capabilityId: definition.capabilityId,
+        evidence: capabilityMatches.map((match) => match.evidence).join('; '),
+        label: definition.label,
+        status: 'present',
+      }
+    }
+
+    if (input.scannedFiles.length === 0) {
+      return {
+        capabilityId: definition.capabilityId,
+        evidence: 'No changed files were available for prohibited-capability scanning.',
+        label: definition.label,
+        status: 'inconclusive',
+      }
+    }
+
+    return {
+      capabilityId: definition.capabilityId,
+      evidence: `Scanned ${String(input.scannedFiles.length)} changed file(s); no ${definition.label.toLowerCase()} indicators found.`,
+      label: definition.label,
+      status: 'absent',
+    }
+  })
+
+export const evaluateFinalAuditEvidence = (
+  input: EvaluateFinalAuditEvidenceInput,
+): FinalAuditEvidenceEvaluation => {
+  const architectureEvidenceCitesSource = input.architectureChecks.some((check) =>
+    /\bARCHITECTURE\.md\b|\bPRD\s+#\d+\b|\bOut of Scope\b/i.test(check),
+  )
+  const expectedCapabilityIds = new Set(
+    prohibitedCapabilityDefinitions.map((definition) => definition.capabilityId),
+  )
+  const resultCapabilityIds = new Set(
+    input.prohibitedCapabilityResults.map((result) => result.capabilityId),
+  )
+  const missingCapabilityLabels = prohibitedCapabilityDefinitions
+    .filter((definition) => !resultCapabilityIds.has(definition.capabilityId))
+    .map((definition) => definition.label)
+  const prohibitedCapabilityBlockers = input.prohibitedCapabilityResults.flatMap((result) => {
+    if (!expectedCapabilityIds.has(result.capabilityId)) {
+      return []
+    }
+
+    if (result.status === 'present') {
+      return [`Prohibited capability scan found ${result.label} evidence: ${result.evidence}`]
+    }
+
+    if (result.status === 'inconclusive') {
+      return [`Prohibited capability scan for ${result.label} is inconclusive.`]
+    }
+
+    return []
+  })
+  const missingCapabilityBlockers =
+    missingCapabilityLabels.length === 0
+      ? []
+      : [`Prohibited capability scan did not include: ${missingCapabilityLabels.join(', ')}.`]
+
+  return {
+    blockers: [
+      ...(architectureEvidenceCitesSource
+        ? []
+        : [
+            'Architecture evidence must cite ARCHITECTURE.md decisions or PRD out-of-scope constraints.',
+          ]),
+      ...missingCapabilityBlockers,
+      ...prohibitedCapabilityBlockers,
+    ],
   }
 }
 
@@ -477,17 +643,60 @@ const commitHashesMatch = (
   findingCommitHash !== undefined &&
   (childCommitHash.startsWith(findingCommitHash) || findingCommitHash.startsWith(childCommitHash))
 
+const formatParentUserStoryCoverage = (
+  input: GenerateFinalPrdAcceptanceAuditInput,
+): readonly string[] =>
+  input.parentUserStories.map((story) => {
+    const childEvidence = story.issueNumbers
+      .map((issueNumber) =>
+        input.childTasks.find((childTask) => childTask.issueNumber === issueNumber),
+      )
+      .map((childTask, index) =>
+        childTask === undefined
+          ? formatIssueReference(story.issueNumbers[index] ?? 0)
+          : formatChildEvidenceReference(childTask),
+      )
+      .join(', ')
+
+    return `- User story ${String(story.storyNumber)}: ${childEvidence}`
+  })
+
 const formatChildAcceptanceCriteria = (childTasks: readonly ChildTaskAudit[]): readonly string[] =>
-  childTasks.flatMap((childTask) => [
-    `- #${String(childTask.issueNumber)} ${childTask.title}`,
-    ...childTask.acceptanceCriteria.map((criterion) => `  - ${criterion}`),
-  ])
+  childTasks.flatMap((childTask) => {
+    const commitReference = formatCommitHash(childTask.commitHash)
+    const verificationEvidence = formatInlineEvidence(childTask.verificationEvidence ?? [])
+
+    return [
+      `- #${String(childTask.issueNumber)} ${childTask.title} (commit ${commitReference})`,
+      ...childTask.acceptanceCriteria.map(
+        (criterion) =>
+          `  - ${criterion} Evidence: commit ${commitReference}; ${verificationEvidence}`,
+      ),
+    ]
+  })
+
+const formatProhibitedCapabilityResults = (
+  results: readonly ProhibitedCapabilityScanResult[],
+): readonly string[] =>
+  results.length === 0
+    ? ['- No prohibited-capability scan was recorded.']
+    : results.map((result) => `- ${result.label}: ${result.status} - ${result.evidence}`)
 
 const formatBulletList = (items: readonly string[]): readonly string[] =>
   items.length === 0 ? ['- None recorded.'] : items.map((item) => `- ${item}`)
 
-const formatIssueReferences = (issueNumbers: readonly number[]): string =>
-  issueNumbers.map((issueNumber) => `#${String(issueNumber)}`).join(', ')
+const formatIssueReference = (issueNumber: number): string => `#${String(issueNumber)}`
+
+const formatChildEvidenceReference = (childTask: ChildTaskAudit): string =>
+  `${formatIssueReference(childTask.issueNumber)} (${formatCommitHash(
+    childTask.commitHash,
+  )}; ${formatInlineEvidence(childTask.verificationEvidence ?? [])})`
+
+const formatCommitHash = (commitHash: string | undefined): string =>
+  commitHash === undefined ? 'missing' : `\`${commitHash.slice(0, 7)}\``
+
+const formatInlineEvidence = (evidence: readonly string[]): string =>
+  evidence.length === 0 ? 'verification evidence missing' : evidence.join('; ')
 
 const findChildCommitTargetBlockers = (input: PlanResumePrRepairInput): readonly string[] =>
   input.findings.flatMap((finding) => {

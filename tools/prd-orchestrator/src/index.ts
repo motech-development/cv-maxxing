@@ -107,6 +107,8 @@ export {
 } from './coderabbit-review.js'
 
 export {
+  createProhibitedCapabilityScanResults,
+  evaluateFinalAuditEvidence,
   evaluateReadyForReviewGate,
   generateFinalPrdAcceptanceAudit,
   interpretGitHubActionsStatus,
@@ -186,7 +188,10 @@ export type {
   ChildCommitReference,
   ChildTaskAudit,
   CiStatus,
+  CreateProhibitedCapabilityScanResultsInput,
+  EvaluateFinalAuditEvidenceInput,
   EvaluateReadyForReviewGateInput,
+  FinalAuditEvidenceEvaluation,
   GenerateFinalPrdAcceptanceAuditInput,
   GitHubActionsPollingPlan,
   GitHubActionsRun,
@@ -195,6 +200,10 @@ export type {
   ParentUserStoryAudit,
   PlanGitHubActionsPollingInput,
   PlanResumePrRepairInput,
+  ProhibitedCapabilityId,
+  ProhibitedCapabilityMatch,
+  ProhibitedCapabilityScanResult,
+  ProhibitedCapabilityScanStatus,
   ReadyForReviewGate,
   ResumePrFinalCleanupFinding,
   ResumePrFinding,
@@ -231,6 +240,7 @@ export type {
   RunImpactAnalysisInput,
   RunImplementationInput,
   RunImplementationResult,
+  ScanProhibitedCapabilitiesInput,
   UpsertPrCommentInput,
 } from './live-orchestrator.js'
 
