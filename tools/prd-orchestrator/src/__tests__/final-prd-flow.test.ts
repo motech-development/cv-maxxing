@@ -359,6 +359,51 @@ describe('final PRD repair and audit flow', () => {
     })
   })
 
+  it('carries ambiguous commit-hash PR findings as final cleanup instead of amending a child', () => {
+    expect(
+      planResumePrRepair({
+        childCommits: [
+          {
+            childIssueNumber: 81,
+            commitHash: 'abc123456789',
+          },
+          {
+            childIssueNumber: 88,
+            commitHash: 'abc123999999',
+          },
+        ],
+        findings: [
+          {
+            body: 'The abbreviated commit hash matches more than one child commit.',
+            commitHash: 'abc123',
+            id: 'ambiguous-commit-finding',
+            source: 'github-pr-review',
+            title: 'Ambiguous commit finding',
+          },
+        ],
+        ownership: {
+          body: automationPrBody,
+          branchName: 'agent/prd-80-automate-prd-implementation',
+          prNumber: 12,
+        },
+        prIsDraft: true,
+      }),
+    ).toMatchObject({
+      action: 'repair',
+      amendChildCommits: [],
+      finalCleanupCommit: {
+        findingIds: ['ambiguous-commit-finding'],
+        rationales: [
+          {
+            findingId: 'ambiguous-commit-finding',
+            rationale: 'Commit abc123 matched multiple child commits: #81, #88.',
+            source: 'github-pr-review',
+          },
+        ],
+      },
+    })
+  })
+
   it('records non-actionable PR findings with rationale instead of repairing them', () => {
     expect(
       planResumePrRepair({

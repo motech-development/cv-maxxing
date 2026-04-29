@@ -238,11 +238,10 @@ Closes #83`)
       }),
     ).toEqual([
       {
-        codeRabbitStatus: 'passed',
+        codeRabbitStatus: 'pending',
         issueNumber: 81,
-        shortCommitHash: 'abc1234',
-        status: 'complete',
-        verificationStatus: 'recorded in commit abc1234',
+        status: 'pending',
+        verificationStatus: 'not run',
       },
       {
         codeRabbitStatus: 'pending',
@@ -256,6 +255,73 @@ Closes #83`)
         issueNumber: 83,
         status: 'blocked',
         verificationStatus: 'external blocker recorded',
+      },
+    ])
+  })
+
+  it('resets stale completed ledger entries when commit history no longer closes the child issue', () => {
+    expect(
+      reconcileDraftPrStateFromCommits({
+        childTasks,
+        commits: [],
+        existingLedger: [
+          {
+            codeRabbitStatus: 'passed',
+            issueNumber: 81,
+            shortCommitHash: 'abc1234',
+            status: 'complete',
+            verificationStatus: 'recorded in commit abc1234',
+          },
+          {
+            codeRabbitStatus: 'pending',
+            issueNumber: 82,
+            status: 'blocked',
+            verificationStatus: 'external blocker recorded',
+          },
+        ],
+      }),
+    ).toEqual([
+      {
+        codeRabbitStatus: 'pending',
+        issueNumber: 81,
+        status: 'pending',
+        verificationStatus: 'not run',
+      },
+      {
+        codeRabbitStatus: 'pending',
+        issueNumber: 82,
+        status: 'blocked',
+        verificationStatus: 'external blocker recorded',
+      },
+    ])
+  })
+
+  it('only treats footer-style body lines as child-closing commit evidence', () => {
+    expect(
+      reconcileDraftPrStateFromCommits({
+        childTasks,
+        commits: [
+          {
+            body: 'Acceptance evidence mentions Closes #81 in prose.\n\nCloses #82',
+            hash: 'def4567890',
+            subject: 'feat: build PRD planning core and Closes #81',
+          },
+        ],
+        existingLedger: [],
+      }),
+    ).toEqual([
+      {
+        codeRabbitStatus: 'pending',
+        issueNumber: 81,
+        status: 'pending',
+        verificationStatus: 'not run',
+      },
+      {
+        codeRabbitStatus: 'pending',
+        issueNumber: 82,
+        shortCommitHash: 'def4567',
+        status: 'complete',
+        verificationStatus: 'recorded in commit def4567',
       },
     ])
   })

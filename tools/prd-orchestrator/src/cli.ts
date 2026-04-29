@@ -260,7 +260,7 @@ const parseGitHubIssue = (value: unknown): GitHubIssue => {
 
   if (
     typeof value.body !== 'string' ||
-    typeof value.number !== 'number' ||
+    !isPositiveInteger(value.number) ||
     typeof value.state !== 'string' ||
     typeof value.title !== 'string'
   ) {
@@ -324,8 +324,8 @@ const parseOptionalRemoteAutomationPr = (value: unknown): RemoteAutomationPr | u
     !isRecord(value) ||
     typeof value.branchName !== 'string' ||
     typeof value.isDraft !== 'boolean' ||
-    typeof value.prNumber !== 'number' ||
-    typeof value.prdIssueNumber !== 'number' ||
+    !isPositiveInteger(value.prNumber) ||
+    !isPositiveInteger(value.prdIssueNumber) ||
     typeof value.url !== 'string'
   ) {
     throw new TypeError(
@@ -351,7 +351,7 @@ const parseChildTaskProgressArray = (value: unknown): readonly ChildTaskProgress
     if (
       !isRecord(entry) ||
       typeof entry.codeRabbitStatus !== 'string' ||
-      typeof entry.issueNumber !== 'number' ||
+      !isPositiveInteger(entry.issueNumber) ||
       !isChildTaskProgressStatus(entry.status) ||
       typeof entry.verificationStatus !== 'string'
     ) {
@@ -388,7 +388,7 @@ const parseNumberArray = (value: unknown, fieldName: string): readonly number[] 
   }
 
   return value.map((item) => {
-    if (typeof item !== 'number') {
+    if (!isPositiveInteger(item)) {
       throw new TypeError(`Expected ${fieldName} to be a number array.`)
     }
 
@@ -406,6 +406,9 @@ const parseRequiredString = (value: unknown, fieldName: string): string => {
 
 const parseOptionalString = (value: unknown): string | undefined =>
   typeof value === 'string' ? value : undefined
+
+const isPositiveInteger = (value: unknown): value is number =>
+  typeof value === 'number' && Number.isInteger(value) && value > 0
 
 const parseRiskLevel = (value: unknown): SandcastleImpactAnalysisResult['riskLevel'] => {
   if (value === 'high' || value === 'low' || value === 'medium') {

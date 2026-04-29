@@ -147,15 +147,16 @@ export const planOneChildTransaction = (
     selectedPrd === undefined
       ? 'agent/prd-unavailable'
       : createPrdBranchName(selectedPrd.issueNumber, selectedPrd.title)
+  const resolvedPrdBranchName = input.remoteAutomationPr?.branchName ?? prdBranchName
   const childTasks = selectedPrd?.childTasks ?? []
   const prBodyBeforeChildUpdate = createDraftPrBody({
-    branchName: prdBranchName,
+    branchName: resolvedPrdBranchName,
     ledger: input.existingLedger,
     selectedPrd,
   })
   const draftPullRequest = createDraftPullRequestPlan({
     body: prBodyBeforeChildUpdate,
-    branchName: prdBranchName,
+    branchName: resolvedPrdBranchName,
     remoteAutomationPr: input.remoteAutomationPr,
     selectedPrd,
   })
@@ -190,7 +191,7 @@ export const planOneChildTransaction = (
           verificationEvidence: input.verificationEvidence,
         })
   const prBodyAfterChildUpdate = createDraftPrBody({
-    branchName: prdBranchName,
+    branchName: resolvedPrdBranchName,
     ledger: createUpdatedLedger({
       childCommitHash: input.childCommitHash,
       childTasks,
@@ -208,14 +209,14 @@ export const planOneChildTransaction = (
     commitMessage,
     draftPullRequest,
     hostApplication: {
-      applyWorkerDiffOnBranch: prdBranchName,
+      applyWorkerDiffOnBranch: resolvedPrdBranchName,
       startsFromCleanUpToDateMain: mainBranchReady,
     },
     pencilVerificationDecision,
     prBodyAfterChildUpdate,
-    prdBranchName,
+    prdBranchName: resolvedPrdBranchName,
     push: {
-      branchName: prdBranchName,
+      branchName: resolvedPrdBranchName,
       mode: 'force-with-lease',
     },
     selectedChild,
