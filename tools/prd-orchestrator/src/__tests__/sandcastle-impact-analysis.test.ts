@@ -1,3 +1,5 @@
+import { homedir } from 'node:os'
+
 import type { SandboxProvider } from '@ai-hero/sandcastle'
 import { describe, expect, it } from 'vitest'
 
@@ -231,6 +233,8 @@ describe('Sandcastle impact analysis adapter planning', () => {
   })
 
   it('rejects broad home, GitHub token, and SSH key mounts or worker env credentials', () => {
+    const absoluteSshKeyPath = `${homedir()}/.ssh/id_rsa`
+
     expect(
       validateCredentialIsolation({
         agentEnv: {},
@@ -267,6 +271,31 @@ describe('Sandcastle impact analysis adapter planning', () => {
       violations: [
         'agent env contains forbidden credential key GITHUB_TOKEN',
         'mount ~/.ssh/id_rsa is forbidden because it may expose credentials',
+      ],
+    })
+
+    expect(
+      validateCredentialIsolation({
+        agentEnv: {},
+        mounts: [
+          {
+            hostPath: '~',
+            readonly: true,
+            sandboxPath: '/home/agent',
+          },
+          {
+            hostPath: absoluteSshKeyPath,
+            readonly: true,
+            sandboxPath: '/home/agent/.ssh/id_rsa',
+          },
+        ],
+        sandboxEnv: {},
+      }),
+    ).toEqual({
+      safe: false,
+      violations: [
+        'mount ~ is forbidden because it may expose credentials',
+        `mount ${absoluteSshKeyPath} is forbidden because it may expose credentials`,
       ],
     })
   })

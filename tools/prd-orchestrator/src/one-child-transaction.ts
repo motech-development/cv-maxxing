@@ -439,7 +439,11 @@ const selectTargetedTestCommands = (
 ): readonly string[] => {
   if (
     impactAnalysis.tests.length > 0 &&
-    impactAnalysis.expectedModules.includes('@cv-maxxing/prd-orchestrator')
+    impactAnalysis.expectedModules.some(
+      (moduleName) =>
+        moduleName === '@cv-maxxing/prd-orchestrator' ||
+        moduleName.startsWith('@cv-maxxing/prd-orchestrator/'),
+    )
   ) {
     return [
       `pnpm --filter @cv-maxxing/prd-orchestrator test:unit -- ${impactAnalysis.tests.join(' ')}`,

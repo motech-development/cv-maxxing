@@ -62,7 +62,7 @@ export interface DefaultLiveAdapterShellCommandInput {
   readonly command: string
   readonly cwd?: string
   readonly stdin?: string
-  readonly timeoutMs?: number
+  readonly timeoutMs?: number | 'none'
 }
 
 export interface DefaultLiveAdapterShellCommandResult {
@@ -128,10 +128,13 @@ const createShellRunner =
         cwd: input.cwd ?? defaultCwd,
         stdio: ['pipe', 'pipe', 'pipe'],
       })
-      const timeout = setTimeout(() => {
-        child.kill('SIGTERM')
-        reject(new Error(`Command timed out: ${input.command} ${input.args.join(' ')}`))
-      }, input.timeoutMs ?? defaultTimeoutMs)
+      const timeout =
+        input.timeoutMs === 'none'
+          ? undefined
+          : setTimeout(() => {
+              child.kill('SIGTERM')
+              reject(new Error(`Command timed out: ${input.command} ${input.args.join(' ')}`))
+            }, input.timeoutMs ?? defaultTimeoutMs)
       const stdoutChunks: Buffer[] = []
       const stderrChunks: Buffer[] = []
 
@@ -142,11 +145,11 @@ const createShellRunner =
         stderrChunks.push(chunk)
       })
       child.on('error', (error) => {
-        clearTimeout(timeout)
+        clearCommandTimeout(timeout)
         reject(error)
       })
       child.on('close', (exitCode) => {
-        clearTimeout(timeout)
+        clearCommandTimeout(timeout)
 
         const stdout = Buffer.concat(stdoutChunks).toString('utf8')
         const stderr = Buffer.concat(stderrChunks).toString('utf8')
@@ -178,6 +181,12 @@ const createShellRunner =
       child.stdin.end()
     })
   }
+
+const clearCommandTimeout = (timeout: ReturnType<typeof setTimeout> | undefined): void => {
+  if (timeout !== undefined) {
+    clearTimeout(timeout)
+  }
+}
 
 const createGitHubAdapter = (
   shell: DefaultLiveAdapterShellRunner,
@@ -872,7 +881,7 @@ const createCodeRabbitAdapter = (
     await shell({
       args: ['review', '--agent'],
       command: 'coderabbit',
-      timeoutMs: 60 * 60 * 1000,
+      timeoutMs: 'none',
     })
     const findings = await getCodeRabbitPrFindings(shell, input.prNumber)
 
@@ -929,7 +938,7 @@ const createCiAdapter = (
         '--branch',
         input.branchName,
         '--json',
-        'name,status,conclusion',
+        'name,status,conclusion,workflowDatabaseId,startedAt',
         '--limit',
         '20',
       ],
@@ -938,7 +947,9 @@ const createCiAdapter = (
     })
 
     return interpretGitHubActionsStatus({
-      runs: parseJsonArray(result.stdout).map((runValue) => parseGitHubActionsRun(runValue)),
+      runs: selectLatestRunsByWorkflow(
+        parseJsonArray(result.stdout).map((runValue) => parseGitHubActionsRun(runValue)),
+      ),
     })
   },
 })
@@ -1691,7 +1702,9 @@ const parseGitHubActionsRun = (
 ): {
   readonly conclusion: string | undefined
   readonly name: string
+  readonly startedAt: string | undefined
   readonly status: string
+  readonly workflowDatabaseId: number | undefined
 } => {
   if (!isRecord(value)) {
     throw new TypeError('Expected GitHub Actions run JSON object.')
@@ -1700,8 +1713,43 @@ const parseGitHubActionsRun = (
   return {
     conclusion: parseOptionalStringField(value, 'conclusion'),
     name: parseStringField(value, 'name'),
+    startedAt: parseOptionalStringField(value, 'startedAt'),
     status: parseStringField(value, 'status'),
+    workflowDatabaseId: parseOptionalNumberField(value, 'workflowDatabaseId'),
   }
+}
+
+const selectLatestRunsByWorkflow = (
+  runs: readonly ReturnType<typeof parseGitHubActionsRun>[],
+): readonly ReturnType<typeof parseGitHubActionsRun>[] => {
+  const latestRunsByWorkflow = new Map<string, ReturnType<typeof parseGitHubActionsRun>>()
+
+  for (const run of runs) {
+    const workflowKey =
+      run.workflowDatabaseId === undefined ? run.name : String(run.workflowDatabaseId)
+    const currentRun = latestRunsByWorkflow.get(workflowKey)
+
+    if (currentRun === undefined || compareRunStart(run, currentRun) > 0) {
+      latestRunsByWorkflow.set(workflowKey, run)
+    }
+  }
+
+  return [...latestRunsByWorkflow.values()]
+}
+
+const compareRunStart = (
+  left: ReturnType<typeof parseGitHubActionsRun>,
+  right: ReturnType<typeof parseGitHubActionsRun>,
+): number => parseRunTimestamp(left.startedAt) - parseRunTimestamp(right.startedAt)
+
+const parseRunTimestamp = (startedAt: string | undefined): number => {
+  if (startedAt === undefined) {
+    return 0
+  }
+
+  const timestamp = Date.parse(startedAt)
+
+  return Number.isFinite(timestamp) ? timestamp : 0
 }
 
 const parseCodeRabbitFindings = (

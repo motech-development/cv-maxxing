@@ -1,3 +1,6 @@
+import { homedir } from 'node:os'
+import path from 'node:path'
+
 import { codex } from '@ai-hero/sandcastle'
 import type { BranchStrategy, RunOptions } from '@ai-hero/sandcastle'
 import { docker } from '@ai-hero/sandcastle/sandboxes/docker'
@@ -125,7 +128,7 @@ const codexEffortEnvironmentName = 'CV_MAXXING_PRD_ORCHESTRATOR_CODEX_EFFORT'
 const safeCodexEfforts = new Set<CodexEffort>(['high', 'low', 'medium', 'xhigh'])
 const forbiddenCredentialKeyPattern =
   /(?:^|_)(?:GITHUB_TOKEN|GH_TOKEN|SSH_AUTH_SOCK|GIT_ASKPASS)(?:$|_)/i
-const forbiddenMounts = ['~', '~/', '~/.ssh', '~/.config/gh', '~/.git-credentials'] as const
+const forbiddenHomeCredentialPaths = ['.ssh', '.config/gh', '.git-credentials'] as const
 
 export const createCodexImpactAnalysisConfig = (
   input: CodexImpactAnalysisConfigInput,
@@ -393,14 +396,41 @@ const formatForbiddenCredentialEnvironmentViolations = (
     .filter((key) => forbiddenCredentialKeyPattern.test(key))
     .map((key) => `${label} contains forbidden credential key ${key}`)
 
-const isForbiddenMount = (hostPath: string): boolean =>
-  forbiddenMounts.some(
-    (forbiddenMount) =>
-      hostPath === forbiddenMount ||
-      (forbiddenMount !== '~' &&
-        forbiddenMount !== '~/' &&
-        hostPath.startsWith(`${forbiddenMount}/`)),
+const isForbiddenMount = (hostPath: string): boolean => {
+  const homeDirectory = path.normalize(homedir())
+  const resolvedHostPath = resolveHomePath(hostPath, homeDirectory)
+
+  if (resolvedHostPath === homeDirectory) {
+    return true
+  }
+
+  const relativeHostPath = path.relative(homeDirectory, resolvedHostPath)
+  const insideHome =
+    relativeHostPath.length > 0 &&
+    !relativeHostPath.startsWith('..') &&
+    !path.isAbsolute(relativeHostPath)
+
+  if (!insideHome) {
+    return false
+  }
+
+  return forbiddenHomeCredentialPaths.some(
+    (forbiddenPath) =>
+      relativeHostPath === forbiddenPath || relativeHostPath.startsWith(`${forbiddenPath}/`),
   )
+}
+
+const resolveHomePath = (hostPath: string, homeDirectory: string): string => {
+  if (hostPath === '~' || hostPath === '~/') {
+    return homeDirectory
+  }
+
+  if (hostPath.startsWith('~/')) {
+    return path.normalize(path.join(homeDirectory, hostPath.slice(2)))
+  }
+
+  return path.normalize(hostPath)
+}
 
 const toSandcastleBranchStrategy = (
   strategy: SandcastleImpactAnalysisOptions['branchStrategy'],

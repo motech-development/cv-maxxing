@@ -121,6 +121,16 @@ describe('final PRD repair and audit flow', () => {
             name: 'desktop macos-15',
             status: 'completed',
           },
+          {
+            conclusion: 'neutral',
+            name: 'optional audit',
+            status: 'completed',
+          },
+          {
+            conclusion: 'skipped',
+            name: 'conditional package',
+            status: 'completed',
+          },
         ],
       }),
     ).toEqual({

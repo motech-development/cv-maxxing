@@ -304,6 +304,19 @@ describe('one-child transaction planning', () => {
         tests: [],
       }),
     ).toContain('pnpm --filter @cv-maxxing/desktop test:visual')
+
+    expect(
+      selectVerificationCommands({
+        designFiles: [],
+        expectedFiles: ['tools/prd-orchestrator/src/planning.ts'],
+        expectedModules: ['@cv-maxxing/prd-orchestrator/planning'],
+        riskLevel: 'low',
+        sharedContracts: [],
+        tests: ['tools/prd-orchestrator/src/__tests__/planning.test.ts'],
+      }),
+    ).toContain(
+      'pnpm --filter @cv-maxxing/prd-orchestrator test:unit -- tools/prd-orchestrator/src/__tests__/planning.test.ts',
+    )
   })
 
   it('blocks commits when changed .pen files lack Pencil verification evidence', () => {
