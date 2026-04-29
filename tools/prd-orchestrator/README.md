@@ -21,7 +21,7 @@ Run state belongs outside tracked files under `.git/prd-orchestrator/runs/<run-i
 
 ```sh
 pnpm --filter @cv-maxxing/prd-orchestrator build
-pnpm --filter @cv-maxxing/prd-orchestrator prd-orchestrator plan < issues.json
+pnpm --filter @cv-maxxing/prd-orchestrator exec prd-orchestrator plan < issues.json
 ```
 
 Without stdin, `plan` reads open issues through `gh issue list` and prints the selected PRD, child task DAG, blockers, warnings, next executable tasks, and unavailable PRDs. It does not create branches, pull requests, commits, worktrees, or Sandcastle workers.
@@ -41,7 +41,7 @@ Without stdin, `plan` reads open issues through `gh issue list` and prints the s
 
 ```sh
 pnpm --filter @cv-maxxing/prd-orchestrator build
-pnpm --filter @cv-maxxing/prd-orchestrator prd-orchestrator run --one-child
+pnpm --filter @cv-maxxing/prd-orchestrator exec prd-orchestrator run --one-child
 ```
 
 ## Full PRD execution
@@ -59,7 +59,7 @@ The run stops when:
 
 ```sh
 pnpm --filter @cv-maxxing/prd-orchestrator build
-pnpm --filter @cv-maxxing/prd-orchestrator prd-orchestrator run
+pnpm --filter @cv-maxxing/prd-orchestrator exec prd-orchestrator run
 ```
 
 ## Resume, status, cleanup
@@ -72,9 +72,9 @@ pnpm --filter @cv-maxxing/prd-orchestrator prd-orchestrator run
 
 ```sh
 pnpm --filter @cv-maxxing/prd-orchestrator build
-pnpm --filter @cv-maxxing/prd-orchestrator prd-orchestrator resume-pr 123
-pnpm --filter @cv-maxxing/prd-orchestrator prd-orchestrator status
-pnpm --filter @cv-maxxing/prd-orchestrator prd-orchestrator cleanup
+pnpm --filter @cv-maxxing/prd-orchestrator exec prd-orchestrator resume-pr 123
+pnpm --filter @cv-maxxing/prd-orchestrator exec prd-orchestrator status
+pnpm --filter @cv-maxxing/prd-orchestrator exec prd-orchestrator cleanup
 ```
 
 ## Scheduler and guardrail foundation
