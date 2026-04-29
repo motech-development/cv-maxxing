@@ -39,7 +39,7 @@ describe('default live adapters', () => {
       'gh issue list --state open --limit 200 --json number,title,body,state',
       'gh pr create --draft --base main --head agent/prd-80-test --title feat: test --body-file <tmp>',
       'gh pr list --state open --head agent/prd-80-test --json number,url,headRefName,body,isDraft --limit 1',
-      'gh run list --branch agent/prd-80-test --json name,status,conclusion --limit 20',
+      'gh run list --branch agent/prd-80-test --json name,status,conclusion,workflowDatabaseId,startedAt --limit 20',
       'node --version',
       'pnpm --version',
       'git --version',
@@ -66,6 +66,23 @@ describe('default live adapters', () => {
     await expect(adapters.state.runPreflight()).resolves.toEqual({
       blockers: ['GitHub read/write capability'],
       ready: false,
+    })
+  })
+
+  it('normalizes GitHub Actions status to the latest run for each workflow', async () => {
+    const shell = createRecordingShell({
+      historicalWorkflowRuns: true,
+    })
+    const adapters = createDefaultPrdOrchestratorLiveAdapters('/repo', undefined, shell.run)
+
+    await expect(
+      adapters.ci.pollChecks({
+        branchName: 'agent/prd-80-test',
+        prNumber: 123,
+      }),
+    ).resolves.toEqual({
+      blockers: [],
+      status: 'passed',
     })
   })
 
@@ -187,6 +204,10 @@ describe('default live adapters', () => {
     expect(shell.commands.map((command) => formatCommand(command))).toContain(
       'gh api repos/{owner}/{repo}/pulls/123/comments --paginate --slurp',
     )
+    expect(
+      shell.commands.find((command) => formatCommand(command) === 'coderabbit review --agent')
+        ?.timeoutMs,
+    ).toBe('none')
   })
 
   it('checks out the exact child commit before amending and rebases the PR branch onto the amended commit', async () => {
@@ -262,6 +283,7 @@ describe('default live adapters', () => {
 const createRecordingShell = (
   input: {
     readonly failingCommands?: ReadonlySet<string>
+    readonly historicalWorkflowRuns?: boolean
     readonly malformedAutomationPrBody?: boolean
   } = {},
 ): {
@@ -290,6 +312,7 @@ const createRecordingShell = (
 const responseForCommand = (
   command: DefaultLiveAdapterShellCommandInput,
   input: {
+    readonly historicalWorkflowRuns?: boolean
     readonly malformedAutomationPrBody?: boolean
   },
 ): string => {
@@ -322,6 +345,32 @@ const responseForCommand = (
   }
 
   if (formattedCommand.startsWith('gh run list')) {
+    if (input.historicalWorkflowRuns === true) {
+      return JSON.stringify([
+        {
+          conclusion: 'failure',
+          name: 'unit',
+          startedAt: '2026-04-28T10:00:00Z',
+          status: 'completed',
+          workflowDatabaseId: 1,
+        },
+        {
+          conclusion: 'success',
+          name: 'unit',
+          startedAt: '2026-04-28T11:00:00Z',
+          status: 'completed',
+          workflowDatabaseId: 1,
+        },
+        {
+          conclusion: 'neutral',
+          name: 'lint',
+          startedAt: '2026-04-28T11:05:00Z',
+          status: 'completed',
+          workflowDatabaseId: 2,
+        },
+      ])
+    }
+
     return JSON.stringify([
       {
         conclusion: 'success',

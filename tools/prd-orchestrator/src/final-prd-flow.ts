@@ -275,7 +275,7 @@ export const interpretGitHubActionsStatus = (
   }
 
   const failedRuns = input.runs.filter(
-    (run) => run.status === 'completed' && run.conclusion !== 'success',
+    (run) => run.status === 'completed' && !isPassingGitHubActionsConclusion(run.conclusion),
   )
 
   if (failedRuns.length > 0) {
@@ -300,6 +300,9 @@ export const interpretGitHubActionsStatus = (
     status: 'passed',
   }
 }
+
+const isPassingGitHubActionsConclusion = (conclusion: string | undefined): boolean =>
+  conclusion === 'success' || conclusion === 'neutral' || conclusion === 'skipped'
 
 export const planResumePrRepair = (input: PlanResumePrRepairInput): ResumePrRepairPlan => {
   const ownership = validateAutomationPrOwnership(input.ownership)
