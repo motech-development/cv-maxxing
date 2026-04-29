@@ -43,10 +43,22 @@ export const runPrdOrchestratorCli = (input: PrdOrchestratorCliInput): PrdOrches
   const [command, subcommand] = input.arguments_
 
   if (command === 'plan') {
+    const trailingArgumentsError = validateTrailingArguments(input.arguments_, 1, 'plan')
+
+    if (trailingArgumentsError !== undefined) {
+      return trailingArgumentsError
+    }
+
     return runCliValidation(() => runPlanCommand(input.stdin))
   }
 
   if (command === 'run' && subcommand === '--one-child') {
+    const trailingArgumentsError = validateTrailingArguments(input.arguments_, 2, 'run --one-child')
+
+    if (trailingArgumentsError !== undefined) {
+      return trailingArgumentsError
+    }
+
     return runCliValidation(() => runOneChildCommand(input.stdin))
   }
 
@@ -70,6 +82,11 @@ export const runPrdOrchestratorCliAsync = async (
 
   const [command, subcommand] = parsedArguments.arguments_
   const trimmedStdin = input.stdin.trim()
+  const trailingArgumentsError = validateLiveCommandTrailingArguments(parsedArguments.arguments_)
+
+  if (trailingArgumentsError !== undefined) {
+    return trailingArgumentsError
+  }
 
   if (command === 'plan' && trimmedStdin.length > 0) {
     return runCliValidation(() => runPlanCommand(input.stdin))
@@ -179,6 +196,47 @@ const parseFlagValue = (value: string | undefined, flagName: '--effort' | '--mod
 
   return value.trim()
 }
+
+const validateLiveCommandTrailingArguments = (
+  arguments_: readonly string[],
+): PrdOrchestratorCliResult | undefined => {
+  const [command, subcommand] = arguments_
+
+  if (command === 'plan') {
+    return validateTrailingArguments(arguments_, 1, 'plan')
+  }
+
+  if (command === 'run' && subcommand === '--one-child') {
+    return validateTrailingArguments(arguments_, 2, 'run --one-child')
+  }
+
+  if (command === 'run') {
+    return validateTrailingArguments(arguments_, 1, 'run')
+  }
+
+  if (command === 'resume-pr') {
+    return validateTrailingArguments(arguments_, 2, 'resume-pr')
+  }
+
+  if (command === 'status') {
+    return validateTrailingArguments(arguments_, 1, 'status')
+  }
+
+  if (command === 'cleanup') {
+    return validateTrailingArguments(arguments_, 1, 'cleanup')
+  }
+
+  return undefined
+}
+
+const validateTrailingArguments = (
+  arguments_: readonly string[],
+  allowedLength: number,
+  commandName: string,
+): PrdOrchestratorCliResult | undefined =>
+  arguments_.length <= allowedLength
+    ? undefined
+    : formatCliValidationError(new TypeError(`Unexpected trailing arguments for ${commandName}.`))
 
 const runPlanCommand = (stdin: string): PrdOrchestratorCliResult => {
   const issues = parseIssueJson(stdin)

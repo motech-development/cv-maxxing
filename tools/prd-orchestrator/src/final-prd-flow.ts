@@ -175,7 +175,7 @@ export interface ReadyForReviewGate {
   readonly ready: boolean
 }
 
-const orchestratorBranchPrefix = 'agent/prd-'
+const orchestratorBranchPattern = /^agent\/prd-\d+-[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/
 const automationOwnerLine = 'Managed by `@cv-maxxing/prd-orchestrator`.'
 const finalCleanupCommitMessage = 'chore: address final PRD review findings'
 const prohibitedCapabilityDefinitions = [
@@ -219,8 +219,9 @@ const prohibitedCapabilityDefinitions = [
 export const validateAutomationPrOwnership = (
   input: AutomationPrOwnershipInput,
 ): AutomationPrOwnership => {
+  const draftBranchLine = `Draft branch \`${input.branchName}\``
   const blockers = [
-    ...(input.branchName.startsWith(orchestratorBranchPrefix)
+    ...(orchestratorBranchPattern.test(input.branchName)
       ? []
       : [
           `PR #${String(input.prNumber)} branch ${
@@ -230,6 +231,11 @@ export const validateAutomationPrOwnership = (
     ...(input.body.includes('## Automation') && input.body.includes(automationOwnerLine)
       ? []
       : [`PR #${String(input.prNumber)} body is missing the orchestrator Automation section`]),
+    ...(input.body.includes(draftBranchLine)
+      ? []
+      : [
+          `PR #${String(input.prNumber)} body does not declare draft branch \`${input.branchName}\``,
+        ]),
   ]
 
   return {
@@ -258,7 +264,7 @@ export const planGitHubActionsPolling = (
   }
 
   return {
-    command: `gh run list --branch ${shellQuote(input.branchName)} --json status,conclusion`,
+    command: `gh run list --branch ${shellQuote(input.branchName)} --json status,conclusion,name`,
     reason: 'Full PRD implementation is pushed; poll CI before final audit.',
     shouldPoll: true,
   }
@@ -544,7 +550,10 @@ const mapFindingsToChildCommits = (input: {
         finding,
       })
 
-      return mapping.childIssueNumber === childCommit.childIssueNumber ? [finding.id] : []
+      return mapping.childIssueNumber === childCommit.childIssueNumber &&
+        mapping.commitHash === childCommit.commitHash
+        ? [finding.id]
+        : []
     })
 
     if (findingIds.length === 0) {
@@ -565,11 +574,17 @@ const mapFindingToChildCommit = (input: {
   readonly childCommits: readonly ChildCommitReference[]
   readonly finding: ResumePrFinding
 }): {
+  readonly commitHash: string | undefined
   readonly childIssueNumber: number | undefined
 } => {
   if (input.finding.childIssueNumber !== undefined) {
+    const matchingCommit = input.childCommits.find(
+      (childCommit) => childCommit.childIssueNumber === input.finding.childIssueNumber,
+    )
+
     return {
-      childIssueNumber: input.finding.childIssueNumber,
+      childIssueNumber: matchingCommit?.childIssueNumber,
+      commitHash: matchingCommit?.commitHash,
     }
   }
 
@@ -580,6 +595,7 @@ const mapFindingToChildCommit = (input: {
   if (matchingCommits.length === 1) {
     return {
       childIssueNumber: matchingCommits[0]?.childIssueNumber,
+      commitHash: matchingCommits[0]?.commitHash,
     }
   }
 
@@ -591,12 +607,14 @@ const mapFindingToChildCommit = (input: {
     if (matchingFileCommits.length === 1) {
       return {
         childIssueNumber: matchingFileCommits[0]?.childIssueNumber,
+        commitHash: matchingFileCommits[0]?.commitHash,
       }
     }
   }
 
   return {
     childIssueNumber: undefined,
+    commitHash: undefined,
   }
 }
 

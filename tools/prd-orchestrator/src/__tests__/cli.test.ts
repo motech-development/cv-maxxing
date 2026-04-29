@@ -344,6 +344,52 @@ describe('PRD orchestrator CLI', () => {
     })
   })
 
+  it('rejects trailing positional arguments before dispatching commands', async () => {
+    expect(
+      runPrdOrchestratorCli({
+        arguments_: ['plan', 'extra'],
+        stdin: issueJson,
+      }),
+    ).toEqual({
+      exitCode: 1,
+      stderr: 'Unexpected trailing arguments for plan.\n',
+      stdout: '',
+    })
+
+    expect(
+      runPrdOrchestratorCli({
+        arguments_: ['run', '--one-child', 'extra'],
+        stdin: issueJson,
+      }),
+    ).toEqual({
+      exitCode: 1,
+      stderr: 'Unexpected trailing arguments for run --one-child.\n',
+      stdout: '',
+    })
+
+    await expect(
+      runPrdOrchestratorCliAsync({
+        arguments_: ['status', 'extra'],
+        stdin: '',
+      }),
+    ).resolves.toEqual({
+      exitCode: 1,
+      stderr: 'Unexpected trailing arguments for status.\n',
+      stdout: '',
+    })
+
+    await expect(
+      runPrdOrchestratorCliAsync({
+        arguments_: ['resume-pr', '12', 'extra'],
+        stdin: '',
+      }),
+    ).resolves.toEqual({
+      exitCode: 1,
+      stderr: 'Unexpected trailing arguments for resume-pr.\n',
+      stdout: '',
+    })
+  })
+
   it('reports malformed issue JSON with a controlled parser error', () => {
     const result = runPrdOrchestratorCli({
       arguments_: ['plan'],
@@ -2712,9 +2758,11 @@ const createLiveAdapters = (
           return Promise.reject(options.getPrError)
         }
 
+        const branchName = options.prBranchName ?? 'agent/prd-80-automate-prd-implementation'
+
         return Promise.resolve({
-          body: '## Automation\n\nManaged by `@cv-maxxing/prd-orchestrator`.',
-          branchName: options.prBranchName ?? 'agent/prd-80-automate-prd-implementation',
+          body: `## Automation\n\nManaged by \`@cv-maxxing/prd-orchestrator\`.\n\nDraft branch \`${branchName}\` is automation-owned and may be force-pushed while this PR remains draft.`,
+          branchName,
           isDraft: prIsDraft,
           prNumber: 123,
           url: 'https://github.com/motech-development/cv-maxxing/pull/123',
@@ -2735,7 +2783,7 @@ const createLiveAdapters = (
         events.push('github:get-current-pr')
 
         return Promise.resolve({
-          body: '## Automation\n\nManaged by `@cv-maxxing/prd-orchestrator`.',
+          body: '## Automation\n\nManaged by `@cv-maxxing/prd-orchestrator`.\n\nDraft branch `agent/prd-80-automate-prd-implementation` is automation-owned and may be force-pushed while this PR remains draft.',
           branchName: 'agent/prd-80-automate-prd-implementation',
           isDraft: true,
           prNumber: 123,

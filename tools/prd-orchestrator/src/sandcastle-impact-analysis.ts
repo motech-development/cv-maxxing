@@ -18,7 +18,7 @@ export interface CodexImpactAnalysisConfigInput {
 
 export interface CodexImpactAnalysisConfig {
   readonly effort: CodexEffort
-  readonly env: Record<string, string>
+  readonly env: Record<string, string | undefined>
   readonly model: string
   readonly provider: 'codex'
 }
@@ -84,7 +84,7 @@ export interface SandcastleImpactAnalysisOptions {
   readonly maxIterations: 1
   readonly prompt: string
   readonly sandbox: {
-    readonly env: Record<string, string>
+    readonly env: Record<string, string | undefined>
     readonly mounts: readonly DockerCacheMount[]
     readonly provider: 'docker'
   }
@@ -121,20 +121,26 @@ export interface SandcastleImpactAnalysisResult {
   readonly tests: readonly string[]
 }
 
-export const defaultCodexModel = 'gpt-5.1-codex-max'
+export const defaultCodexModel = 'gpt-5.5'
 const defaultCodexEffort = 'high'
 const codexModelEnvironmentName = 'CV_MAXXING_PRD_ORCHESTRATOR_CODEX_MODEL'
 const codexEffortEnvironmentName = 'CV_MAXXING_PRD_ORCHESTRATOR_CODEX_EFFORT'
 const safeCodexEfforts = new Set<CodexEffort>(['high', 'low', 'medium', 'xhigh'])
 const forbiddenCredentialKeyPattern =
   /(?:^|_)(?:GITHUB_TOKEN|GH_TOKEN|SSH_AUTH_SOCK|GIT_ASKPASS)(?:$|_)/i
+const knownCredentialEnvironmentKeys = [
+  'GIT_ASKPASS',
+  'GITHUB_TOKEN',
+  'GH_TOKEN',
+  'SSH_AUTH_SOCK',
+] as const
 const forbiddenHomeCredentialPaths = ['.ssh', '.config/gh', '.git-credentials'] as const
 
 export const createCodexImpactAnalysisConfig = (
   input: CodexImpactAnalysisConfigInput,
 ): CodexImpactAnalysisConfig => ({
   effort: parseCodexEffort(input.cliEffort ?? input.env[codexEffortEnvironmentName]),
-  env: {},
+  env: createCredentialStrippingEnvironment(input.env),
   model: input.cliModel ?? input.env[codexModelEnvironmentName] ?? defaultCodexModel,
   provider: 'codex',
 })
@@ -171,7 +177,7 @@ export const buildSandcastleImpactAnalysisOptions = (
     env: input.env,
   })
   const sandbox = {
-    env: {},
+    env: createCredentialStrippingEnvironment(input.env),
     mounts: detectDependencyCacheMounts(input.cacheInputs),
     provider: 'docker',
   } as const
@@ -211,13 +217,13 @@ export const createSandcastleImpactAnalysisRunOptions = (
   return {
     agent: createAgentProvider(options.agent.model, {
       effort: options.agent.effort,
-      env: options.agent.env,
+      env: toProviderEnvironment(options.agent.env),
     }),
     branchStrategy: toSandcastleBranchStrategy(options.branchStrategy),
     maxIterations: options.maxIterations,
     prompt: options.prompt,
     sandbox: createSandboxProvider({
-      env: options.sandbox.env,
+      env: toProviderEnvironment(options.sandbox.env),
       mounts: options.sandbox.mounts,
     }),
   }
@@ -293,7 +299,9 @@ export const buildPencilWorkflowRequirementSection = (
       ', ',
     )}.`,
     '- Save the active Pencil/VS Code editor before reporting completion.',
-    '- Report explicit Pencil screenshot evidence or saved persistence evidence from disk/git diff.',
+    `- Capture Pencil screenshot evidence for these \`.pen\` design sources: ${pencilRequiredDesignFiles.join(
+      ', ',
+    )}.`,
   ].join('\n')
 }
 
@@ -398,9 +406,27 @@ const formatForbiddenCredentialEnvironmentViolations = (
   label: string,
   env: Record<string, string | undefined>,
 ): readonly string[] =>
-  Object.keys(env)
-    .filter((key) => forbiddenCredentialKeyPattern.test(key))
-    .map((key) => `${label} contains forbidden credential key ${key}`)
+  Object.entries(env)
+    .filter(([key, value]) => value !== undefined && forbiddenCredentialKeyPattern.test(key))
+    .map(([key]) => `${label} contains forbidden credential key ${key}`)
+
+const createCredentialStrippingEnvironment = (
+  env: Record<string, string | undefined>,
+): Record<string, string | undefined> => {
+  const inheritedCredentialEnvironment = Object.fromEntries(
+    Object.keys(env)
+      .filter((key) => forbiddenCredentialKeyPattern.test(key))
+      .map((key) => [key, undefined]),
+  )
+  const knownCredentialEnvironment = Object.fromEntries(
+    knownCredentialEnvironmentKeys.map((key) => [key, undefined]),
+  )
+
+  return {
+    ...knownCredentialEnvironment,
+    ...inheritedCredentialEnvironment,
+  }
+}
 
 const isForbiddenMount = (hostPath: string): boolean => {
   const homeDirectory = path.normalize(homedir())
@@ -450,6 +476,9 @@ const toSandcastleBranchStrategy = (
   branch: strategy.branch,
   type: strategy.type,
 })
+
+const toProviderEnvironment = (env: Record<string, string | undefined>): Record<string, string> =>
+  env as Record<string, string>
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)

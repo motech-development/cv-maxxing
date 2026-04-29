@@ -28,6 +28,21 @@ describe('PRD draft pull-request state', () => {
     ).toBe('feat: automate PRD implementation from GitHub child tasks')
   })
 
+  it('bounds generated Conventional Commit subjects for long PRD and child titles', () => {
+    const longPrdTitle =
+      'PRD: Implement an intentionally long orchestration title that would otherwise exceed commitlint subject line length and block automation commits'
+    const childMessage = createChildCommitMessage({
+      acceptanceEvidence: ['Acceptance evidence recorded.'],
+      childIssueNumber: 83,
+      childTitle:
+        'Implement an intentionally long child title that would otherwise exceed commitlint subject line length and block automation commits',
+      verificationEvidence: ['pnpm lint'],
+    })
+
+    expect(generatePrdConventionalCommitTitle(longPrdTitle).length).toBeLessThanOrEqual(100)
+    expect(childMessage.split('\n').at(0)?.length).toBeLessThanOrEqual(100)
+  })
+
   it('generates merge instructions with the PRD title and all closing footers', () => {
     expect(
       generateMergeInstructions({
@@ -161,9 +176,12 @@ Closes #83`)
   })
 
   it('wraps generated child commit evidence lines within commitlint limits', () => {
+    const longToken =
+      'https://example.com/really-long-path-that-has-no-natural-wrapping-point-and-would-otherwise-break-commitlint-body-line-length-checks'
     const message = createChildCommitMessage({
       acceptanceEvidence: [
         'This acceptance criterion contains enough detail to otherwise exceed the commit body line-length limit and should be wrapped before commit time.',
+        longToken,
       ],
       childIssueNumber: 83,
       childTitle: 'Generate PRD draft PR state, ledger, and merge instructions',

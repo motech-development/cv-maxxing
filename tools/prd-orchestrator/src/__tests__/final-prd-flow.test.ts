@@ -58,6 +58,37 @@ describe('final PRD repair and audit flow', () => {
       blockers: [
         'PR #12 branch feature/manual-work is not an orchestrator PRD branch',
         'PR #12 body is missing the orchestrator Automation section',
+        'PR #12 body does not declare draft branch `feature/manual-work`',
+      ],
+      valid: false,
+    })
+
+    expect(
+      validateAutomationPrOwnership({
+        body: automationPrBody,
+        branchName: 'agent/prd-foo',
+        prNumber: 12,
+      }),
+    ).toEqual({
+      blockers: [
+        'PR #12 branch agent/prd-foo is not an orchestrator PRD branch',
+        'PR #12 body does not declare draft branch `agent/prd-foo`',
+      ],
+      valid: false,
+    })
+
+    expect(
+      validateAutomationPrOwnership({
+        body: automationPrBody.replace(
+          'agent/prd-80-automate-prd-implementation',
+          'agent/prd-81-other-prd',
+        ),
+        branchName: 'agent/prd-80-automate-prd-implementation',
+        prNumber: 12,
+      }),
+    ).toEqual({
+      blockers: [
+        'PR #12 body does not declare draft branch `agent/prd-80-automate-prd-implementation`',
       ],
       valid: false,
     })
@@ -97,7 +128,7 @@ describe('final PRD repair and audit flow', () => {
       }),
     ).toEqual({
       command:
-        "gh run list --branch 'agent/prd-80-automate-prd-implementation' --json status,conclusion",
+        "gh run list --branch 'agent/prd-80-automate-prd-implementation' --json status,conclusion,name",
       reason: 'Full PRD implementation is pushed; poll CI before final audit.',
       shouldPoll: true,
     })
@@ -110,7 +141,7 @@ describe('final PRD repair and audit flow', () => {
         prNumber: 12,
       }).command,
     ).toBe(
-      String.raw`gh run list --branch 'agent/prd-80-test'\''; echo unsafe' --json status,conclusion`,
+      String.raw`gh run list --branch 'agent/prd-80-test'\''; echo unsafe' --json status,conclusion,name`,
     )
   })
 
@@ -298,6 +329,48 @@ describe('final PRD repair and audit flow', () => {
       ],
       finalCleanupCommit: undefined,
       returnToDraft: false,
+    })
+  })
+
+  it('maps PR findings to the exact matching child commit hash', () => {
+    expect(
+      planResumePrRepair({
+        childCommits: [
+          {
+            changedFiles: ['tools/prd-orchestrator/src/old.ts'],
+            childIssueNumber: 81,
+            commitHash: 'abc123456789',
+          },
+          {
+            changedFiles: ['tools/prd-orchestrator/src/final-prd-flow.ts'],
+            childIssueNumber: 81,
+            commitHash: 'def123456789',
+          },
+        ],
+        findings: [
+          {
+            body: 'The review comment was left on the second recovered child commit.',
+            commitHash: 'def123456789',
+            id: 'finding-by-commit',
+            source: 'github-pr-review',
+            title: 'Commit-scoped finding',
+          },
+        ],
+        ownership: {
+          body: automationPrBody,
+          branchName: 'agent/prd-80-automate-prd-implementation',
+          prNumber: 12,
+        },
+        prIsDraft: true,
+      }),
+    ).toMatchObject({
+      amendChildCommits: [
+        {
+          childIssueNumber: 81,
+          commitHash: 'def123456789',
+          findingIds: ['finding-by-commit'],
+        },
+      ],
     })
   })
 

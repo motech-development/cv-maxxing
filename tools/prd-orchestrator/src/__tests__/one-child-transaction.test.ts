@@ -469,7 +469,7 @@ describe('one-child transaction planning', () => {
       selectVerificationCommands({
         designFiles: [],
         expectedFiles: ['packages/shared/src/index.ts'],
-        expectedModules: ['@cv-maxxing/shared'],
+        expectedModules: ['@cv-maxxing/shared; touch /tmp/pwned'],
         riskLevel: 'low',
         sharedContracts: [],
         tests: ['packages/shared/src/index.test.ts'],

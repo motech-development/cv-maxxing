@@ -55,8 +55,13 @@ describe('Sandcastle impact analysis adapter planning', () => {
       }),
     ).toEqual({
       effort: 'high',
-      env: {},
-      model: 'gpt-5.1-codex-max',
+      env: {
+        GIT_ASKPASS: undefined,
+        GITHUB_TOKEN: undefined,
+        GH_TOKEN: undefined,
+        SSH_AUTH_SOCK: undefined,
+      },
+      model: 'gpt-5.5',
       provider: 'codex',
     })
 
@@ -148,8 +153,13 @@ describe('Sandcastle impact analysis adapter planning', () => {
     }).toEqual({
       agent: {
         effort: 'high',
-        env: {},
-        model: 'gpt-5.1-codex-max',
+        env: {
+          GIT_ASKPASS: undefined,
+          GITHUB_TOKEN: undefined,
+          GH_TOKEN: undefined,
+          SSH_AUTH_SOCK: undefined,
+        },
+        model: 'gpt-5.5',
         provider: 'codex',
       },
       branchStrategy: {
@@ -160,7 +170,12 @@ describe('Sandcastle impact analysis adapter planning', () => {
       maxIterations: 1,
       prompt: '<checked separately>',
       sandbox: {
-        env: {},
+        env: {
+          GIT_ASKPASS: undefined,
+          GITHUB_TOKEN: undefined,
+          GH_TOKEN: undefined,
+          SSH_AUTH_SOCK: undefined,
+        },
         mounts: [
           {
             hostPath: '~/.local/share/pnpm/store',
@@ -262,7 +277,9 @@ describe('Sandcastle impact analysis adapter planning', () => {
         sharedContracts: [],
         tests: [],
       }),
-    ).toContain('Inspect and edit these `.pen` design sources with Pencil: design/app.pen')
+    ).toContain(
+      'Capture Pencil screenshot evidence for these `.pen` design sources: design/app.pen',
+    )
     expect(
       buildPencilWorkflowRequirementSection({
         designFiles: ['design/cv.html'],
@@ -299,6 +316,7 @@ describe('Sandcastle impact analysis adapter planning', () => {
       validateCredentialIsolation({
         agentEnv: {
           GITHUB_TOKEN: 'ghp_secret',
+          GH_TOKEN: undefined,
         },
         mounts: [
           {
@@ -346,6 +364,33 @@ describe('Sandcastle impact analysis adapter planning', () => {
         'mount ~ is forbidden because it may expose credentials',
         `mount ${absoluteSshKeyPath} is forbidden because it may expose credentials`,
       ],
+    })
+  })
+
+  it('explicitly strips inherited credential variables from Sandcastle environments', () => {
+    const options = buildSandcastleImpactAnalysisOptions({
+      ...workerInput,
+      cacheInputs: {
+        packageManager: 'pnpm',
+      },
+      cliOverrides: {},
+      env: {
+        GITHUB_TOKEN: 'ghp_secret',
+        GH_TOKEN: 'ghp_secret',
+        SSH_AUTH_SOCK: '/tmp/ssh-agent.sock',
+      },
+      sandboxBranchName: 'agent/prd-80-child-85-impact',
+    })
+
+    expect(options.agent.env).toMatchObject({
+      GITHUB_TOKEN: undefined,
+      GH_TOKEN: undefined,
+      SSH_AUTH_SOCK: undefined,
+    })
+    expect(options.sandbox.env).toMatchObject({
+      GITHUB_TOKEN: undefined,
+      GH_TOKEN: undefined,
+      SSH_AUTH_SOCK: undefined,
     })
   })
 
