@@ -44,9 +44,11 @@ export interface ReconcileDraftPrStateInput {
 }
 
 const orchestratorPackageName = '@cv-maxxing/prd-orchestrator'
+const commitSubjectPrefix = 'feat: '
+const maxCommitSubjectLength = 100
 
 export const generatePrdConventionalCommitTitle = (prdTitle: string): string =>
-  `feat: ${normaliseCommitSubject(stripPrdPrefix(prdTitle))}`
+  formatFeatureCommitSubject(stripPrdPrefix(prdTitle))
 
 export const generateMergeInstructions = (input: GenerateMergeInstructionsInput): string => {
   const title = generatePrdConventionalCommitTitle(input.prdTitle)
@@ -95,7 +97,7 @@ export const generateDraftPrBody = (input: GenerateDraftPrBodyInput): string =>
 
 export const createChildCommitMessage = (input: CreateChildCommitMessageInput): string =>
   [
-    `feat: ${normaliseCommitSubject(input.childTitle)}`,
+    formatFeatureCommitSubject(input.childTitle),
     '',
     'Acceptance evidence:',
     ...formatEvidenceLines(input.acceptanceEvidence),
@@ -196,7 +198,7 @@ const formatWrappedBullet = (value: string): readonly string[] => {
 }
 
 const wrapText = (value: string, maxLength: number): readonly string[] => {
-  const words = value.split(' ')
+  const words = value.split(' ').flatMap((word) => splitLongWord(word, maxLength))
 
   return words.reduce<string[]>((lines, word) => {
     const currentLine = lines.at(-1)
@@ -211,6 +213,20 @@ const wrapText = (value: string, maxLength: number): readonly string[] => {
 
     return [...lines, word]
   }, [])
+}
+
+const splitLongWord = (word: string, maxLength: number): readonly string[] => {
+  if (word.length <= maxLength) {
+    return [word]
+  }
+
+  const chunks: string[] = []
+
+  for (let index = 0; index < word.length; index += maxLength) {
+    chunks.push(word.slice(index, index + maxLength))
+  }
+
+  return chunks
 }
 
 const formatMarkdownTableCell = (value: string): string =>
@@ -234,6 +250,19 @@ const normaliseCommitSubject = (subject: string): string => {
   }
 
   return `${trimmedSubject.charAt(0).toLowerCase()}${trimmedSubject.slice(1)}`
+}
+
+const formatFeatureCommitSubject = (subject: string): string =>
+  `${commitSubjectPrefix}${truncateCommitSubject(normaliseCommitSubject(subject))}`
+
+const truncateCommitSubject = (subject: string): string => {
+  const maxSubjectBodyLength = maxCommitSubjectLength - commitSubjectPrefix.length
+
+  if (subject.length <= maxSubjectBodyLength) {
+    return subject
+  }
+
+  return subject.slice(0, maxSubjectBodyLength).trimEnd()
 }
 
 const formatIssueReference = (issueNumber: number): string => `#${String(issueNumber)}`

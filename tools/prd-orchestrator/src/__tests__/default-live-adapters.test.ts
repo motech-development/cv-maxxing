@@ -129,7 +129,10 @@ describe('default live adapters', () => {
     const adapters = createDefaultPrdOrchestratorLiveAdapters('/repo', undefined, shell.run)
 
     await expect(adapters.github.getOpenAutomationPrOwnership()).resolves.toEqual({
-      blockers: ['PR #123 body is missing the orchestrator Automation section'],
+      blockers: [
+        'PR #123 body is missing the orchestrator Automation section',
+        'PR #123 body does not declare draft branch `agent/prd-80-test`',
+      ],
       remoteAutomationPrs: [],
     })
   })
@@ -352,7 +355,7 @@ const responseForCommand = (
         body:
           input.malformedAutomationPrBody === true
             ? '## Summary\n\nMissing owner contract.'
-            : '## Automation\n\nManaged by `@cv-maxxing/prd-orchestrator`.',
+            : '## Automation\n\nManaged by `@cv-maxxing/prd-orchestrator`.\n\nDraft branch `agent/prd-80-test` is automation-owned and may be force-pushed while this PR remains draft.',
         headRefName: 'agent/prd-80-test',
         isDraft: true,
         number: 123,

@@ -486,16 +486,19 @@ const selectAffectedPackageNames = (
   )
 
 const parsePackageName = (moduleName: string): readonly string[] => {
-  const parts = moduleName.split('/').filter((part) => part.length > 0)
+  const scopedPackageMatch = /^(@cv-maxxing\/[a-z0-9][a-z0-9-]*)\b/.exec(moduleName)
 
-  if (moduleName.startsWith('@') && parts.length >= 2) {
-    const scope = parts[0] ?? ''
-    const packageName = parts[1] ?? ''
-
-    return [`${scope}/${packageName}`]
+  if (scopedPackageMatch?.[1] !== undefined) {
+    return [scopedPackageMatch[1]]
   }
 
-  return parts.length === 0 ? [] : [parts[0] ?? '']
+  const packageMatch = /^([a-z0-9][a-z0-9-]*)\b/.exec(moduleName)
+
+  if (packageMatch?.[1] !== undefined) {
+    return [packageMatch[1]]
+  }
+
+  return []
 }
 
 const selectPackageTestScript = (packageName: string): string =>
