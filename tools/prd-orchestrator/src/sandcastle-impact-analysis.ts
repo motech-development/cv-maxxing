@@ -150,12 +150,14 @@ export const validateSandcastleBranchStrategy = (
     throw new Error('Sandcastle merge-to-head strategy is not allowed for worker runs')
   }
 
-  if (strategy.branch.trim().length === 0) {
+  const normalizedBranch = strategy.branch.trim()
+
+  if (normalizedBranch.length === 0) {
     throw new Error('Sandcastle worker runs require an explicit local branch')
   }
 
   return {
-    branch: strategy.branch,
+    branch: normalizedBranch,
     type: 'branch',
   }
 }
@@ -227,6 +229,7 @@ export const buildImpactAnalysisPrompt = (input: ImpactAnalysisPromptInput): str
     '',
     'Do not implement code. Do not mutate GitHub. Do not request or use GitHub tokens, SSH keys, or remote push credentials.',
     'Treat `.pen` design files as Pencil-required surfaces. When acceptance criteria require design source changes, list `.pen` files in both `designFiles` and `pencilRequiredDesignFiles`.',
+    'For `sharedContracts`, return repository file paths, not symbolic contract names.',
     '',
     `Parent PRD issue: #${String(input.prdIssueNumber)}`,
     `Assigned child issue: #${String(input.childIssueNumber)}`,
@@ -260,7 +263,7 @@ export const buildImpactAnalysisPrompt = (input: ImpactAnalysisPromptInput): str
       '  "designFiles": ["design/app.pen"],',
       '  "pencilRequiredDesignFiles": ["design/app.pen"],',
       '  "tests": ["path/to/test.ts"],',
-      '  "sharedContracts": ["ContractName"],',
+      '  "sharedContracts": ["tools/prd-orchestrator/src/index.ts"],',
       '  "riskLevel": "low|medium|high"',
       '}',
     ].join('\n'),

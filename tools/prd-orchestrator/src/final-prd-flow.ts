@@ -573,13 +573,13 @@ const mapFindingToChildCommit = (input: {
     }
   }
 
-  const matchingCommit = input.childCommits.find((childCommit) =>
+  const matchingCommits = input.childCommits.filter((childCommit) =>
     commitHashesMatch(childCommit.commitHash, input.finding.commitHash),
   )
 
-  if (matchingCommit !== undefined) {
+  if (matchingCommits.length === 1) {
     return {
-      childIssueNumber: matchingCommit.childIssueNumber,
+      childIssueNumber: matchingCommits[0]?.childIssueNumber,
     }
   }
 
@@ -630,6 +630,16 @@ const createFinalCleanupRationale = (input: {
   }
 
   if (input.finding.commitHash !== undefined) {
+    const matchingCommits = input.childCommits.filter((childCommit) =>
+      commitHashesMatch(childCommit.commitHash, input.finding.commitHash),
+    )
+
+    if (matchingCommits.length > 1) {
+      return `Commit ${input.finding.commitHash} matched multiple child commits: ${matchingCommits
+        .map((childCommit) => `#${String(childCommit.childIssueNumber)}`)
+        .join(', ')}.`
+    }
+
     return `Commit ${input.finding.commitHash} did not match a known child commit.`
   }
 

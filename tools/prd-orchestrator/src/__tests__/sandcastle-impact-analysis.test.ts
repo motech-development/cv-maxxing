@@ -95,6 +95,18 @@ describe('Sandcastle impact analysis adapter planning', () => {
     })
   })
 
+  it('normalizes local Sandcastle branch names before returning safe branch strategy', () => {
+    expect(
+      validateSandcastleBranchStrategy({
+        branch: ' agent/prd-80-child-85-impact ',
+        type: 'branch',
+      }),
+    ).toEqual({
+      branch: 'agent/prd-80-child-85-impact',
+      type: 'branch',
+    })
+  })
+
   it('constructs Docker/Codex Sandcastle options behind an adapter boundary', () => {
     const sandboxProvider: SandboxProvider = {
       create: () => Promise.reject(new Error('sandbox provider stub should not create a sandbox')),
@@ -189,7 +201,10 @@ describe('Sandcastle impact analysis adapter planning', () => {
   })
 
   it('keeps the Sandcastle prompt file aligned with the parser JSON contract', async () => {
-    const prompt = await readFile('../../.sandcastle/prompts/impact-analysis.md', 'utf8')
+    const prompt = await readFile(
+      new URL('../../../../.sandcastle/prompts/impact-analysis.md', import.meta.url),
+      'utf8',
+    )
 
     expect(prompt).toContain('Return only machine-parseable JSON')
     expect(prompt).toContain('"expectedFiles"')
@@ -207,6 +222,10 @@ describe('Sandcastle impact analysis adapter planning', () => {
 
     expect(prompt).toContain('Treat `.pen` design files as Pencil-required surfaces.')
     expect(prompt).toContain('"pencilRequiredDesignFiles": ["design/app.pen"]')
+    expect(prompt).toContain(
+      'For `sharedContracts`, return repository file paths, not symbolic contract names.',
+    )
+    expect(prompt).toContain('"sharedContracts": ["tools/prd-orchestrator/src/index.ts"]')
     expect(
       getPencilRequiredDesignFiles({
         designFiles: ['design/app.pen', 'design/cv.html'],

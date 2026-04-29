@@ -123,14 +123,16 @@ export const reconcileDraftPrStateFromCommits = (
     const completedCommit = completedCommitsByIssueNumber.get(childTask.issueNumber)
 
     if (completedCommit === undefined) {
-      return (
-        existingEntry ?? {
-          codeRabbitStatus: 'pending',
-          issueNumber: childTask.issueNumber,
-          status: 'pending',
-          verificationStatus: 'not run',
-        }
-      )
+      if (existingEntry !== undefined && existingEntry.status !== 'complete') {
+        return existingEntry
+      }
+
+      return {
+        codeRabbitStatus: 'pending',
+        issueNumber: childTask.issueNumber,
+        status: 'pending',
+        verificationStatus: 'not run',
+      }
     }
 
     const shortCommitHash = shortenCommitHash(completedCommit.hash)
@@ -186,9 +188,9 @@ const formatMarkdownTableCell = (value: string): string =>
     .trim()
 
 const parseClosedIssueNumbers = (commit: BranchCommit): readonly number[] =>
-  [...`${commit.subject}\n${commit.body}`.matchAll(/Closes\s+#(\d+)/gi)]
+  [...commit.body.matchAll(/^\s*Closes\s+#(\d+)\s*$/gim)]
     .map((match) => Number.parseInt(match[1] ?? '', 10))
-    .filter((issueNumber) => Number.isInteger(issueNumber))
+    .filter((issueNumber) => Number.isInteger(issueNumber) && issueNumber > 0)
 
 const stripPrdPrefix = (prdTitle: string): string => prdTitle.replace(/^PRD:\s*/i, '')
 

@@ -249,6 +249,46 @@ describe('one-child transaction planning', () => {
     })
   })
 
+  it('uses the remote automation branch as the single PRD branch when resuming', () => {
+    const plan = planOneChildTransaction({
+      childCommitHash: 'abc123456789',
+      codeRabbitStatus: 'passed',
+      completedChildIssueNumbers: [85],
+      dependencyChangeJustification: undefined,
+      existingLedger: [],
+      impactAnalysis,
+      issues,
+      mainBranchStatus: {
+        clean: true,
+        currentBranch: 'main',
+        upToDate: true,
+      },
+      remoteAutomationPr: {
+        branchName: 'agent/prd-80-resumed-from-github',
+        isDraft: true,
+        prNumber: 12,
+        prdIssueNumber: 80,
+        url: 'https://github.com/motech-development/cv-maxxing/pull/12',
+      },
+      verificationEvidence: ['pnpm lint'],
+      workerChangedFiles: ['tools/prd-orchestrator/src/one-child-transaction.ts'],
+    })
+
+    expect(plan.prdBranchName).toBe('agent/prd-80-resumed-from-github')
+    expect(plan.draftPullRequest).toMatchObject({
+      action: 'resume',
+      branchName: 'agent/prd-80-resumed-from-github',
+    })
+    expect(plan.hostApplication.applyWorkerDiffOnBranch).toBe('agent/prd-80-resumed-from-github')
+    expect(plan.prBodyAfterChildUpdate).toContain(
+      'Draft branch `agent/prd-80-resumed-from-github` is automation-owned',
+    )
+    expect(plan.push).toEqual({
+      branchName: 'agent/prd-80-resumed-from-github',
+      mode: 'force-with-lease',
+    })
+  })
+
   it('enforces impact-analysis write surfaces with design and dependency exceptions', () => {
     expect(
       enforceWriteSurface({

@@ -366,6 +366,155 @@ describe('PRD orchestrator CLI', () => {
     expect(result.stdout).toBe('')
   })
 
+  it('rejects fractional and non-positive issue identifiers from CLI JSON', () => {
+    const fractionalIssueResult = runPrdOrchestratorCli({
+      arguments_: ['plan'],
+      stdin: JSON.stringify([
+        {
+          ...issueObjects[0],
+          number: 80.5,
+        },
+        issueObjects[1],
+      ]),
+    })
+
+    expect(fractionalIssueResult.exitCode).toBe(1)
+    expect(fractionalIssueResult.stderr).toBe(
+      'Expected each GitHub issue to include body, number, state, and title.\n',
+    )
+    expect(fractionalIssueResult.stdout).toBe('')
+
+    const completedChildResult = runPrdOrchestratorCli({
+      arguments_: ['run', '--one-child'],
+      stdin: JSON.stringify({
+        issues: issueObjects,
+        transaction: {
+          childCommitHash: 'abc123456789',
+          codeRabbitStatus: 'passed',
+          completedChildIssueNumbers: [82.5],
+          existingLedger: [],
+          impactAnalysis: {
+            designFiles: [],
+            expectedFiles: ['tools/prd-orchestrator/src/cli.ts'],
+            expectedModules: ['@cv-maxxing/prd-orchestrator'],
+            riskLevel: 'low',
+            sharedContracts: [],
+            tests: [],
+          },
+          mainBranchStatus: {
+            clean: true,
+            currentBranch: 'main',
+            upToDate: true,
+          },
+          remoteAutomationPr: {
+            branchName: 'agent/prd-80-existing',
+            isDraft: true,
+            prNumber: 12,
+            prdIssueNumber: 80,
+            url: 'https://github.com/motech-development/cv-maxxing/pull/12',
+          },
+          verificationEvidence: ['pnpm lint'],
+          workerChangedFiles: ['tools/prd-orchestrator/src/cli.ts'],
+        },
+      }),
+    })
+
+    expect(completedChildResult.exitCode).toBe(1)
+    expect(completedChildResult.stderr).toBe(
+      'Expected completedChildIssueNumbers to be a number array.\n',
+    )
+    expect(completedChildResult.stdout).toBe('')
+
+    const ledgerResult = runPrdOrchestratorCli({
+      arguments_: ['run', '--one-child'],
+      stdin: JSON.stringify({
+        issues: issueObjects,
+        transaction: {
+          childCommitHash: 'abc123456789',
+          codeRabbitStatus: 'passed',
+          completedChildIssueNumbers: [],
+          existingLedger: [
+            {
+              codeRabbitStatus: 'pending',
+              issueNumber: 0,
+              status: 'pending',
+              verificationStatus: 'not run',
+            },
+          ],
+          impactAnalysis: {
+            designFiles: [],
+            expectedFiles: ['tools/prd-orchestrator/src/cli.ts'],
+            expectedModules: ['@cv-maxxing/prd-orchestrator'],
+            riskLevel: 'low',
+            sharedContracts: [],
+            tests: [],
+          },
+          mainBranchStatus: {
+            clean: true,
+            currentBranch: 'main',
+            upToDate: true,
+          },
+          remoteAutomationPr: {
+            branchName: 'agent/prd-80-existing',
+            isDraft: true,
+            prNumber: 12,
+            prdIssueNumber: 80,
+            url: 'https://github.com/motech-development/cv-maxxing/pull/12',
+          },
+          verificationEvidence: ['pnpm lint'],
+          workerChangedFiles: ['tools/prd-orchestrator/src/cli.ts'],
+        },
+      }),
+    })
+
+    expect(ledgerResult.exitCode).toBe(1)
+    expect(ledgerResult.stderr).toBe(
+      'Expected existingLedger entries to contain child progress fields.\n',
+    )
+    expect(ledgerResult.stdout).toBe('')
+
+    const remotePrResult = runPrdOrchestratorCli({
+      arguments_: ['run', '--one-child'],
+      stdin: JSON.stringify({
+        issues: issueObjects,
+        transaction: {
+          childCommitHash: 'abc123456789',
+          codeRabbitStatus: 'passed',
+          completedChildIssueNumbers: [],
+          existingLedger: [],
+          impactAnalysis: {
+            designFiles: [],
+            expectedFiles: ['tools/prd-orchestrator/src/cli.ts'],
+            expectedModules: ['@cv-maxxing/prd-orchestrator'],
+            riskLevel: 'low',
+            sharedContracts: [],
+            tests: [],
+          },
+          mainBranchStatus: {
+            clean: true,
+            currentBranch: 'main',
+            upToDate: true,
+          },
+          remoteAutomationPr: {
+            branchName: 'agent/prd-80-existing',
+            isDraft: true,
+            prNumber: 12.25,
+            prdIssueNumber: 80,
+            url: 'https://github.com/motech-development/cv-maxxing/pull/12',
+          },
+          verificationEvidence: ['pnpm lint'],
+          workerChangedFiles: ['tools/prd-orchestrator/src/cli.ts'],
+        },
+      }),
+    })
+
+    expect(remotePrResult.exitCode).toBe(1)
+    expect(remotePrResult.stderr).toBe(
+      'Expected remoteAutomationPr to include branchName, isDraft, prNumber, prdIssueNumber, and url.\n',
+    )
+    expect(remotePrResult.stdout).toBe('')
+  })
+
   it('returns controlled async parser errors for malformed stdin and resume-pr numbers', async () => {
     const malformedJsonResult = await runPrdOrchestratorCliAsync({
       arguments_: ['plan'],
@@ -825,6 +974,45 @@ describe('PRD orchestrator CLI', () => {
     expect(result.exitCode).toBe(0)
     expect(result.stdout).toContain('Completed child #83')
     expect(adapters.events).toContain('git:get-completed-children')
+    expect(adapters.updatedPrBodies.at(-1)).toContain(
+      '| #82 | Build PRD and child-task planning from GitHub Markdown | complete |',
+    )
+    expect(adapters.updatedPrBodies.at(-1)).toContain(
+      '| #83 | Generate PRD draft PR state, ledger, and merge instructions | complete |',
+    )
+  })
+
+  it('preserves recovered completed children when a later one-child run blocks before commit', async () => {
+    const adapters = createLiveAdapters({
+      impactAnalyses: [
+        {
+          designFiles: ['design/app.pen'],
+          expectedFiles: [],
+          expectedModules: ['@cv-maxxing/prd-orchestrator'],
+          riskLevel: 'medium',
+          sharedContracts: [],
+          tests: ['tools/prd-orchestrator/src/__tests__/cli.test.ts'],
+        },
+      ],
+      initialCompletedChildIssueNumbers: [82],
+      issues: multiChildIssueObjects,
+      workerChangedFiles: ['design/app.pen'],
+    })
+    const result = await runPrdOrchestratorCliAsync({
+      adapters,
+      arguments_: ['run', '--one-child'],
+      stdin: '',
+    })
+    const latestPrBody = adapters.updatedPrBodies.at(-1) ?? ''
+
+    expect(result.exitCode).toBe(1)
+    expect(result.stderr).toContain('Pencil verification evidence missing')
+    expect(latestPrBody).toContain(
+      '| #82 | Build PRD and child-task planning from GitHub Markdown | complete |',
+    )
+    expect(latestPrBody).toContain(
+      '| #83 | Generate PRD draft PR state, ledger, and merge instructions | blocked |',
+    )
   })
 
   it('blocks run --one-child before lock or mutation when a different PRD automation PR is active', async () => {

@@ -892,7 +892,12 @@ const executeLiveOneChildWithLock = async (
       body: generateDraftPrBody({
         branchName: branchSeedPlan.prdBranchName,
         childTasks: selectedPrd.childTasks,
-        ledger: createPendingLedger(selectedPrd.childTasks),
+        ledger: await createRunLedger({
+          adapters,
+          branchName: branchSeedPlan.prdBranchName,
+          childTasks: selectedPrd.childTasks,
+          completedChildIssueNumbers,
+        }),
         parentPrdIssueNumber: selectedPrd.issueNumber,
         prdTitle: selectedPrd.title,
       }),
@@ -951,7 +956,13 @@ const executeLiveOneChildWithLock = async (
       body: generateDraftPrBody({
         branchName: branchSeedPlan.prdBranchName,
         childTasks: selectedPrd.childTasks,
-        ledger: createBlockedLedger(selectedPrd.childTasks, selectedChild.issueNumber),
+        ledger: await createRunLedger({
+          adapters,
+          blockedChildIssueNumber: selectedChild.issueNumber,
+          branchName: branchSeedPlan.prdBranchName,
+          childTasks: selectedPrd.childTasks,
+          completedChildIssueNumbers,
+        }),
         parentPrdIssueNumber: selectedPrd.issueNumber,
         prdTitle: selectedPrd.title,
       }),
@@ -1005,7 +1016,12 @@ const executeLiveOneChildWithLock = async (
       childTask: selectedChild,
       impactAnalysis: verifiedWorkerResult.impactAnalysis,
     }),
-    existingLedger: createPendingLedger(selectedPrd.childTasks),
+    existingLedger: await createRunLedger({
+      adapters,
+      branchName: branchSeedPlan.prdBranchName,
+      childTasks: selectedPrd.childTasks,
+      completedChildIssueNumbers,
+    }),
     impactAnalysis: verifiedWorkerResult.impactAnalysis,
     issues,
     mainBranchStatus,
@@ -1110,7 +1126,12 @@ const executeLiveOneChildWithLock = async (
       childTask: selectedChild,
       impactAnalysis: verifiedWorkerResult.impactAnalysis,
     }),
-    existingLedger: createPendingLedger(selectedPrd.childTasks),
+    existingLedger: await createRunLedger({
+      adapters,
+      branchName: branchSeedPlan.prdBranchName,
+      childTasks: selectedPrd.childTasks,
+      completedChildIssueNumbers,
+    }),
     impactAnalysis: verifiedWorkerResult.impactAnalysis,
     issues,
     mainBranchStatus,
@@ -2233,6 +2254,31 @@ const createBlockedLedger = (
     verificationStatus:
       childTask.issueNumber === blockedChildIssueNumber ? 'blocked before commit' : 'not run',
   }))
+
+const createRunLedger = async (input: {
+  readonly adapters: PrdOrchestratorLiveAdapters
+  readonly blockedChildIssueNumber?: number
+  readonly branchName: string
+  readonly childTasks: readonly ParsedChildTask[]
+  readonly completedChildIssueNumbers: readonly number[]
+}): Promise<readonly ChildTaskProgress[]> => {
+  if (input.completedChildIssueNumbers.length === 0) {
+    if (input.blockedChildIssueNumber !== undefined) {
+      return createBlockedLedger(input.childTasks, input.blockedChildIssueNumber)
+    }
+
+    return createPendingLedger(input.childTasks)
+  }
+
+  return await createBaseLedger({
+    adapters: input.adapters,
+    blockedChildIssueNumbers:
+      input.blockedChildIssueNumber === undefined ? [] : [input.blockedChildIssueNumber],
+    branchName: input.branchName,
+    childTasks: input.childTasks,
+    completedChildIssueNumbers: input.completedChildIssueNumbers,
+  })
+}
 
 const createWorkerBranchName = (
   selectedPrd: SelectedPrdPlan,
