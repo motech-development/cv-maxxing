@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  createProhibitedCapabilityScanResults,
+  evaluateFinalAuditEvidence,
   evaluateReadyForReviewGate,
   generateFinalPrdAcceptanceAudit,
   interpretGitHubActionsStatus,
@@ -453,8 +455,20 @@ describe('final PRD repair and audit flow', () => {
 
   it('generates a final PRD acceptance audit as a separate PR comment', () => {
     const audit = generateFinalPrdAcceptanceAudit({
-      architectureChecks: ['No telemetry added.', 'No required web backend added.'],
-      childTasks,
+      architectureChecks: [
+        'ARCHITECTURE.md §2 inspected: no telemetry, remote config, automatic update checks, runtime font CDN calls, or non-PDF exports added.',
+        'PRD #80 Out of Scope inspected: no required web backend added.',
+      ],
+      blockers: [],
+      childTasks: childTasks.map((childTask) => ({
+        ...childTask,
+        commitHash: childTask.issueNumber === 81 ? 'abc123456789' : 'def123456789',
+        verificationEvidence: [
+          childTask.issueNumber === 81
+            ? 'pnpm --filter @cv-maxxing/prd-orchestrator typecheck'
+            : 'pnpm --filter @cv-maxxing/prd-orchestrator test:unit',
+        ],
+      })),
       ciStatus: 'passed',
       codeRabbitStatus: 'passed',
       mergeInstructions: 'Squash with title `feat: automate PRD implementation`.',
@@ -469,19 +483,98 @@ describe('final PRD repair and audit flow', () => {
           storyNumber: 37,
         },
       ],
-      verificationEvidence: ['pnpm lint', 'pnpm --filter @cv-maxxing/prd-orchestrator test:unit'],
+      prohibitedCapabilityResults: createProhibitedCapabilityScanResults({
+        matches: [],
+        scannedFiles: [
+          'tools/prd-orchestrator/src/final-prd-flow.ts',
+          'tools/prd-orchestrator/src/__tests__/final-prd-flow.test.ts',
+        ],
+      }),
+      verificationEvidence: ['pnpm lint'],
     })
 
     expect(audit).toContain('## Final PRD Acceptance Audit')
     expect(audit).toContain('Parent PRD: #80')
-    expect(audit).toContain('- User story 37: #88')
-    expect(audit).toContain('- #88 Add automation PR repair and final PRD audit flow')
-    expect(audit).toContain('  - Final audit comment is generated.')
+    expect(audit).toContain(
+      '- User story 37: #88 (`def1234`; pnpm --filter @cv-maxxing/prd-orchestrator test:unit)',
+    )
+    expect(audit).toContain(
+      '- #88 Add automation PR repair and final PRD audit flow (commit `def1234`)',
+    )
+    expect(audit).toContain(
+      '  - Final audit comment is generated. Evidence: commit `def1234`; pnpm --filter @cv-maxxing/prd-orchestrator test:unit',
+    )
     expect(audit).toContain('- pnpm lint')
-    expect(audit).toContain('- No required web backend added.')
+    expect(audit).toContain('ARCHITECTURE.md §2 inspected')
+    expect(audit).toContain('- Telemetry: absent')
+    expect(audit).toContain('- Non-PDF exports: absent')
     expect(audit).toContain('CodeRabbit: passed')
     expect(audit).toContain('GitHub Actions: passed')
     expect(audit).toContain('Squash with title `feat: automate PRD implementation`.')
+  })
+
+  it('reports prohibited-capability scan results and flags detected capabilities', () => {
+    expect(
+      createProhibitedCapabilityScanResults({
+        matches: [
+          {
+            capabilityId: 'redux',
+            evidence: 'apps/desktop/src/state.ts: import { createStore } from "redux"',
+          },
+        ],
+        scannedFiles: ['apps/desktop/src/state.ts'],
+      }),
+    ).toContainEqual({
+      capabilityId: 'redux',
+      evidence: 'apps/desktop/src/state.ts: import { createStore } from "redux"',
+      label: 'Redux',
+      status: 'present',
+    })
+  })
+
+  it('blocks final audit evidence when architecture citations or prohibited scans are missing', () => {
+    const inconclusiveScan = createProhibitedCapabilityScanResults({
+      matches: [],
+      scannedFiles: [],
+    })
+
+    expect(
+      evaluateFinalAuditEvidence({
+        architectureChecks: ['No prohibited capabilities added.'],
+        prohibitedCapabilityResults: inconclusiveScan,
+      }),
+    ).toEqual({
+      blockers: [
+        'Architecture evidence must cite ARCHITECTURE.md decisions or PRD out-of-scope constraints.',
+        'Prohibited capability scan for Telemetry is inconclusive.',
+        'Prohibited capability scan for Remote config is inconclusive.',
+        'Prohibited capability scan for Required web backend is inconclusive.',
+        'Prohibited capability scan for Automatic updates is inconclusive.',
+        'Prohibited capability scan for MUI is inconclusive.',
+        'Prohibited capability scan for Redux is inconclusive.',
+        'Prohibited capability scan for Runtime font CDN calls is inconclusive.',
+        'Prohibited capability scan for Non-PDF exports is inconclusive.',
+      ],
+    })
+
+    expect(
+      evaluateFinalAuditEvidence({
+        architectureChecks: ['ARCHITECTURE.md §2 inspected: v1 has no telemetry.'],
+        prohibitedCapabilityResults: createProhibitedCapabilityScanResults({
+          matches: [
+            {
+              capabilityId: 'telemetry',
+              evidence: 'apps/desktop/src/telemetry.ts',
+            },
+          ],
+          scannedFiles: ['apps/desktop/src/telemetry.ts'],
+        }),
+      }),
+    ).toEqual({
+      blockers: [
+        'Prohibited capability scan found Telemetry evidence: apps/desktop/src/telemetry.ts',
+      ],
+    })
   })
 
   it('marks ready for review only after every final gate passes', () => {
@@ -490,6 +583,7 @@ describe('final PRD repair and audit flow', () => {
         allChildrenComplete: true,
         ciStatus: 'passed',
         codeRabbitStatus: 'passed',
+        finalAuditEvidenceBlockers: [],
         finalAuditCommentPlanned: true,
         finalAuditCommentPosted: true,
         localGatesPassed: true,
@@ -504,6 +598,9 @@ describe('final PRD repair and audit flow', () => {
         allChildrenComplete: false,
         ciStatus: 'pending',
         codeRabbitStatus: 'passed',
+        finalAuditEvidenceBlockers: [
+          'Architecture evidence is missing a citation to ARCHITECTURE.md or PRD out-of-scope constraints.',
+        ],
         finalAuditCommentPlanned: true,
         finalAuditCommentPosted: false,
         localGatesPassed: true,
@@ -512,6 +609,7 @@ describe('final PRD repair and audit flow', () => {
       blockers: [
         'not all child tasks are complete',
         'GitHub Actions status is pending',
+        'Architecture evidence is missing a citation to ARCHITECTURE.md or PRD out-of-scope constraints.',
         'final PRD acceptance audit has not been posted',
       ],
       ready: false,

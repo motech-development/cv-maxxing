@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest'
 import { runPrdOrchestratorCli, runPrdOrchestratorCliAsync } from '../cli.js'
 import { readCliStdin } from '../cli-stdin.js'
 import { createDefaultPrdOrchestratorLiveAdapters } from '../default-live-adapters.js'
+import { createProhibitedCapabilityScanResults } from '../final-prd-flow.js'
 import type {
   ChildCommitReference,
   CodeRabbitFinding,
@@ -13,6 +14,7 @@ import type {
   LivePreflightResult,
   LiveRunLockResult,
   PrdOrchestratorLiveAdapters,
+  ProhibitedCapabilityMatch,
   ResumePrFinding,
 } from '../index.js'
 import type { RemoteAutomationPr, RunStatus } from '../run-guardrails.js'
@@ -697,6 +699,8 @@ describe('PRD orchestrator CLI', () => {
       'coderabbit:review',
       'github:update-pr-body',
       'ci:poll-checks',
+      'git:get-child-commit-references',
+      'verification:scan-prohibited-capabilities',
       'github:upsert-pr-comment',
       'github:create-final-audit-comment',
       'github:mark-ready-for-review',
@@ -1454,6 +1458,45 @@ describe('PRD orchestrator CLI', () => {
     expect(adapters.events).not.toContain('github:create-final-audit-comment')
     expect(adapters.upsertedComments).toHaveLength(1)
     expect(adapters.upsertedComments.at(0)).toContain('## Final PRD Acceptance Audit')
+    expect(adapters.upsertedComments.at(0)).toContain(
+      '- #82 Build PRD and child-task planning from GitHub Markdown (commit `abc8234`)',
+    )
+    expect(adapters.upsertedComments.at(0)).toContain(
+      'Draft PR state is generated. Evidence: commit `abc8334`; verification evidence recorded in child commit',
+    )
+    expect(adapters.upsertedComments.at(0)).toContain('ARCHITECTURE.md §2 inspected')
+    expect(adapters.upsertedComments.at(0)).toContain('- Telemetry: absent')
+    expect(adapters.upsertedComments.at(0)).toContain('- Non-PDF exports: absent')
+  })
+
+  it('blocks ready-for-review when final audit evidence finds prohibited capabilities', async () => {
+    const adapters = createLiveAdapters({
+      initialCompletedChildIssueNumbers: [82, 83],
+      issues: multiChildIssueObjects,
+      prohibitedCapabilityMatches: [
+        {
+          capabilityId: 'redux',
+          evidence: 'apps/desktop/src/state.ts: import { createStore } from "redux"',
+        },
+      ],
+      recoveredRunStatusPhase: 'complete',
+    })
+    const result = await runPrdOrchestratorCliAsync({
+      adapters,
+      arguments_: ['resume-pr', '123'],
+      stdin: '',
+    })
+
+    expect(result.exitCode).toBe(1)
+    expect(adapters.events).toContain('verification:scan-prohibited-capabilities')
+    expect(adapters.events).toContain('github:upsert-pr-comment')
+    expect(adapters.events).not.toContain('github:mark-ready-for-review')
+    expect(result.stderr).toContain(
+      'Prohibited capability scan found Redux evidence: apps/desktop/src/state.ts: import { createStore } from "redux"',
+    )
+    expect(adapters.recordedStatuses.at(-1)?.blockers).toContain(
+      'Prohibited capability scan found Redux evidence: apps/desktop/src/state.ts: import { createStore } from "redux"',
+    )
   })
 
   it('blocks resume-pr preflight before reading or mutating PR state', async () => {
@@ -2011,6 +2054,7 @@ interface CreateLiveAdaptersOptions {
   readonly omitCheckoutChildCommit?: boolean
   readonly openAutomationPrs?: readonly RemoteAutomationPr[]
   readonly preflightResult?: LivePreflightResult
+  readonly prohibitedCapabilityMatches?: readonly ProhibitedCapabilityMatch[]
   readonly recoveredRunStatusPhase?: string
   readonly remoteAutomationBlockers?: readonly string[]
   readonly resumeRepairChangedFiles?: readonly string[]
@@ -2526,6 +2570,16 @@ const createLiveAdapters = (
           'pnpm lint',
           'pnpm --filter @cv-maxxing/prd-orchestrator typecheck',
         ])
+      },
+      scanProhibitedCapabilities: (input) => {
+        events.push('verification:scan-prohibited-capabilities')
+
+        return Promise.resolve(
+          createProhibitedCapabilityScanResults({
+            matches: options.prohibitedCapabilityMatches ?? [],
+            scannedFiles: input.changedFiles,
+          }),
+        )
       },
     },
     postedComments,
