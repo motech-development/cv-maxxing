@@ -184,6 +184,37 @@ describe('one-child transaction planning', () => {
     expect(plan.workerRun?.branchName.length).toBeLessThanOrEqual(102)
   })
 
+  it('uses a safe fallback for generated branch slugs when titles have no alphanumeric text', () => {
+    const punctuationOnlyIssues = issues.map((issue) =>
+      issue.number === 80 || issue.number === 86
+        ? {
+            ...issue,
+            title: issue.number === 80 ? 'PRD: !!!' : '...',
+          }
+        : issue,
+    )
+    const plan = planOneChildTransaction({
+      childCommitHash: 'abc123456789',
+      codeRabbitStatus: 'passed',
+      completedChildIssueNumbers: [85],
+      dependencyChangeJustification: undefined,
+      existingLedger: [],
+      impactAnalysis,
+      issues: punctuationOnlyIssues,
+      mainBranchStatus: {
+        clean: true,
+        currentBranch: 'main',
+        upToDate: true,
+      },
+      remoteAutomationPr: undefined,
+      verificationEvidence: ['pnpm lint'],
+      workerChangedFiles: ['tools/prd-orchestrator/src/one-child-transaction.ts'],
+    })
+
+    expect(plan.prdBranchName).toBe('agent/prd-80-untitled')
+    expect(plan.workerRun?.branchName).toBe('agent/prd-80-child-86-untitled')
+  })
+
   it('resumes an existing automation draft PR instead of planning a second PR', () => {
     const plan = planOneChildTransaction({
       childCommitHash: 'abc123456789',

@@ -1,4 +1,4 @@
-import { mkdtemp, mkdir, writeFile } from 'node:fs/promises'
+import { mkdtemp, mkdir, stat, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { tmpdir } from 'node:os'
 
@@ -66,6 +66,27 @@ describe('default live adapters', () => {
     await expect(adapters.state.runPreflight()).resolves.toEqual({
       blockers: ['GitHub read/write capability'],
       ready: false,
+    })
+  })
+
+  it('removes temporary body files after shell commands consume them', async () => {
+    const shell = createRecordingShell()
+    const adapters = createDefaultPrdOrchestratorLiveAdapters('/repo', undefined, shell.run)
+
+    await adapters.github.createDraftPr({
+      body: 'Temporary PR body',
+      branchName: 'agent/prd-80-test',
+      prdIssueNumber: 80,
+      title: 'feat: test',
+    })
+
+    const bodyFilePath = shell.commands
+      .flatMap((command) => command.args)
+      .find((argument) => argument.endsWith('/content.txt'))
+
+    expect(bodyFilePath).toBeDefined()
+    await expect(stat(path.dirname(bodyFilePath ?? ''))).rejects.toMatchObject({
+      code: 'ENOENT',
     })
   })
 

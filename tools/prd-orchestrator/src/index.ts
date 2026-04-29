@@ -215,6 +215,8 @@ export type {
   CheckoutChildCommitInput,
   CreateDraftPrInput,
   LiveCommandResult,
+  LivePreflightResult,
+  LiveRunLockResult,
   PrdOrchestratorLiveAdapters,
   PreparePrdBranchInput,
   PushPrdBranchInput,

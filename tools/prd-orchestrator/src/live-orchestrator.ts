@@ -1163,6 +1163,29 @@ export const executeResumePr = async (
   prNumber: number,
   adapters: PrdOrchestratorLiveAdapters,
 ): Promise<LiveCommandResult> => {
+  const preflight = await adapters.state.runPreflight()
+
+  if (!preflight.ready) {
+    return blockedResult(preflight.blockers.join('\n'))
+  }
+
+  const lock = await adapters.state.acquireRunLock()
+
+  if (!lock.ready) {
+    return blockedResult(lock.blockers.join('\n'))
+  }
+
+  try {
+    return await executeResumePrWithLock(prNumber, adapters)
+  } finally {
+    await adapters.state.releaseRunLock()
+  }
+}
+
+const executeResumePrWithLock = async (
+  prNumber: number,
+  adapters: PrdOrchestratorLiveAdapters,
+): Promise<LiveCommandResult> => {
   const pr = await adapters.github.getPr(prNumber)
   const ownership = validateAutomationPrOwnership({
     body: pr.body,
@@ -1286,7 +1309,7 @@ export const executeResumePr = async (
 
   await adapters.state.recoverRunStatusFromPr(pr)
 
-  return await executeLiveRun(adapters)
+  return await executeLiveRunWithLock(adapters)
 }
 
 export const executeStatus = async (
