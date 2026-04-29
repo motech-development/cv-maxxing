@@ -11,7 +11,10 @@ import {
   type SelectedPrdPlan,
 } from './planning.js'
 import type { RemoteAutomationPr } from './run-guardrails.js'
-import type { SandcastleImpactAnalysisResult } from './sandcastle-impact-analysis.js'
+import {
+  getPencilRequiredDesignFiles,
+  type SandcastleImpactAnalysisResult,
+} from './sandcastle-impact-analysis.js'
 
 export type OneChildTransactionStatus = 'blocked' | 'ready-to-commit'
 
@@ -74,6 +77,7 @@ export interface OneChildTransactionPlan {
   readonly commitMessage: string
   readonly draftPullRequest: DraftPullRequestTransaction
   readonly hostApplication: HostApplicationPlan
+  readonly pencilVerificationDecision: PencilVerificationDecision
   readonly prBodyAfterChildUpdate: string
   readonly prdBranchName: string
   readonly push: PushPlan
@@ -97,6 +101,18 @@ export interface WriteSurfaceDecision {
   readonly allowedFiles: readonly string[]
   readonly dependencyChanges: readonly string[]
   readonly unexpectedFiles: readonly string[]
+}
+
+export interface ValidatePencilVerificationEvidenceInput {
+  readonly changedFiles: readonly string[]
+  readonly impactAnalysis: SandcastleImpactAnalysisResult
+  readonly verificationEvidence: readonly string[]
+}
+
+export interface PencilVerificationDecision {
+  readonly missingEvidenceFiles: readonly string[]
+  readonly requiredFiles: readonly string[]
+  readonly satisfied: boolean
 }
 
 export type RecoverableFailure =
@@ -148,6 +164,11 @@ export const planOneChildTransaction = (
     dependencyChangeJustification: input.dependencyChangeJustification,
     impactAnalysis: input.impactAnalysis,
   })
+  const pencilVerificationDecision = validatePencilVerificationEvidence({
+    changedFiles: input.workerChangedFiles,
+    impactAnalysis: input.impactAnalysis,
+    verificationEvidence: input.verificationEvidence,
+  })
   const mainBranchReady = isCleanUpToDateMain(input.mainBranchStatus)
   const blockers = [
     ...(selectedPrd === undefined ? ['No eligible PRD with child tasks is available'] : []),
@@ -155,6 +176,7 @@ export const planOneChildTransaction = (
     ...(selectedChild === undefined ? ['No unblocked child task is available'] : []),
     ...(mainBranchReady ? [] : ['run --one-child must start from clean, up-to-date main']),
     ...formatWriteSurfaceBlockers(writeSurfaceDecision),
+    ...formatPencilVerificationBlockers(pencilVerificationDecision),
   ]
   const status: OneChildTransactionStatus = blockers.length === 0 ? 'ready-to-commit' : 'blocked'
   const verificationCommands = selectVerificationCommands(input.impactAnalysis)
@@ -189,6 +211,7 @@ export const planOneChildTransaction = (
       applyWorkerDiffOnBranch: prdBranchName,
       startsFromCleanUpToDateMain: mainBranchReady,
     },
+    pencilVerificationDecision,
     prBodyAfterChildUpdate,
     prdBranchName,
     push: {
@@ -233,6 +256,24 @@ export const enforceWriteSurface = (input: EnforceWriteSurfaceInput): WriteSurfa
     allowedFiles,
     dependencyChanges,
     unexpectedFiles,
+  }
+}
+
+export const validatePencilVerificationEvidence = (
+  input: ValidatePencilVerificationEvidenceInput,
+): PencilVerificationDecision => {
+  const requiredFiles = getPencilRequiredDesignFiles(input.impactAnalysis)
+  const changedRequiredFiles = requiredFiles.filter((filePath) =>
+    input.changedFiles.includes(filePath),
+  )
+  const missingEvidenceFiles = hasPencilVerificationEvidence(input.verificationEvidence)
+    ? []
+    : changedRequiredFiles
+
+  return {
+    missingEvidenceFiles,
+    requiredFiles,
+    satisfied: missingEvidenceFiles.length === 0,
   }
 }
 
@@ -424,6 +465,31 @@ const formatWriteSurfaceBlockers = (decision: WriteSurfaceDecision): readonly st
           ', ',
         )}`,
       ]
+
+const formatPencilVerificationBlockers = (
+  decision: PencilVerificationDecision,
+): readonly string[] =>
+  decision.missingEvidenceFiles.length === 0
+    ? []
+    : [
+        `Pencil verification evidence missing for .pen design changes: ${decision.missingEvidenceFiles.join(
+          ', ',
+        )}. Provide Pencil screenshot evidence or saved persistence evidence before committing.`,
+      ]
+
+const hasPencilVerificationEvidence = (verificationEvidence: readonly string[]): boolean =>
+  verificationEvidence.some((evidence) => {
+    const normalizedEvidence = evidence.toLowerCase()
+
+    return (
+      normalizedEvidence.includes('pencil') &&
+      (normalizedEvidence.includes('screenshot') ||
+        normalizedEvidence.includes('persistence') ||
+        normalizedEvidence.includes('saved') ||
+        normalizedEvidence.includes('disk') ||
+        normalizedEvidence.includes('git diff'))
+    )
+  })
 
 const createPrdBranchName = (issueNumber: number, title: string): string =>
   `${prdBranchPrefix}-${String(issueNumber)}-${slugify(stripPrdPrefix(title))}`

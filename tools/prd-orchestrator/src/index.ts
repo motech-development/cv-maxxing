@@ -96,6 +96,7 @@ export {
   planOneChildTransaction,
   renderOneChildTransactionPlan,
   selectVerificationCommands,
+  validatePencilVerificationEvidence,
 } from './one-child-transaction.js'
 
 export {
@@ -122,9 +123,11 @@ export {
 
 export {
   buildImpactAnalysisPrompt,
+  buildPencilWorkflowRequirementSection,
   buildSandcastleImpactAnalysisOptions,
   createCodexImpactAnalysisConfig,
   createSandcastleImpactAnalysisRunOptions,
+  getPencilRequiredDesignFiles,
   parseImpactAnalysisResult,
   validateCredentialIsolation,
   validateSandcastleBranchStrategy,
@@ -238,10 +241,12 @@ export type {
   MainBranchStatus,
   OneChildTransactionPlan,
   OneChildTransactionStatus,
+  PencilVerificationDecision,
   PlanFailureRecoveryInput,
   PlanOneChildTransactionInput,
   PushPlan,
   RecoverableFailure,
+  ValidatePencilVerificationEvidenceInput,
   WorkerRunPlan,
   WriteSurfaceAction,
   WriteSurfaceDecision,

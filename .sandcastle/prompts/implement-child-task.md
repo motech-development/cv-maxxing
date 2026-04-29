@@ -18,10 +18,16 @@ You are implementing one PRD child task inside an isolated Sandcastle worker.
 
 {{EXPECTED_WRITE_SURFACES}}
 
+## Pencil Workflow Requirements
+
+{{PENCIL_WORKFLOW_REQUIREMENTS}}
+
 ## Instructions
 
 - Stay within the assigned child task scope.
 - Follow the repository `AGENTS.md` and package-local conventions.
+- Use Pencil for `.pen` design inspection/editing when the Pencil workflow requirements say it is required.
+- Include explicit Pencil screenshot evidence or saved persistence evidence when `.pen` files changed.
 - Do not mutate GitHub state.
 - Do not manually close issues.
 - Keep worker branches local.
