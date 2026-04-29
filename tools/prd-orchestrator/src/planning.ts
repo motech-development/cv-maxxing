@@ -332,14 +332,12 @@ const validateDependencies = (childTasks: readonly ParsedChildTask[]): Dependenc
       ),
   )
   const validDependencies = childTasks.map((childTask) => ({
-    dependencies: childTask.blockedBy
-      .filter((dependency) => childIssueNumbers.has(dependency))
-      .toSorted(compareNumbers),
+    dependencies: childTask.blockedBy.toSorted(compareNumbers),
     issueNumber: childTask.issueNumber,
   }))
   const orderedDag = topologicallySort(validDependencies)
   const cycleBlockers =
-    orderedDag.length === validDependencies.length
+    unknownDependencyBlockers.length > 0 || orderedDag.length === validDependencies.length
       ? []
       : ['Child task dependencies contain a cycle']
 

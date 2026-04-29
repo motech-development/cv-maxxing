@@ -43,19 +43,17 @@ export const runPrdOrchestratorCli = (input: PrdOrchestratorCliInput): PrdOrches
   const [command, subcommand] = input.arguments_
 
   if (command === 'plan') {
-    return runPlanCommand(input.stdin)
+    return runCliValidation(() => runPlanCommand(input.stdin))
   }
 
   if (command === 'run' && subcommand === '--one-child') {
-    return runOneChildCommand(input.stdin)
+    return runCliValidation(() => runOneChildCommand(input.stdin))
   }
 
-  {
-    return {
-      exitCode: 1,
-      stderr: 'Unsupported command. Supported commands: `plan`, `run --one-child`.\n',
-      stdout: '',
-    }
+  return {
+    exitCode: 1,
+    stderr: 'Unsupported command. Supported commands: `plan`, `run --one-child`.\n',
+    stdout: '',
   }
 }
 
@@ -67,11 +65,11 @@ export const runPrdOrchestratorCliAsync = async (
   const trimmedStdin = input.stdin.trim()
 
   if (command === 'plan' && trimmedStdin.length > 0) {
-    return runPlanCommand(input.stdin)
+    return runCliValidation(() => runPlanCommand(input.stdin))
   }
 
   if (command === 'run' && subcommand === '--one-child' && trimmedStdin.length > 0) {
-    return runOneChildCommand(input.stdin)
+    return runCliValidation(() => runOneChildCommand(input.stdin))
   }
 
   const adapters =
@@ -91,7 +89,13 @@ export const runPrdOrchestratorCliAsync = async (
   }
 
   if (command === 'resume-pr') {
-    const prNumber = parseCommandIssueNumber(subcommand, 'resume-pr')
+    let prNumber: number
+
+    try {
+      prNumber = parseCommandIssueNumber(subcommand, 'resume-pr')
+    } catch (error) {
+      return formatCliValidationError(error)
+    }
 
     return await executeResumePr(prNumber, adapters)
   }
@@ -297,6 +301,14 @@ const parseImpactAnalysis = (value: unknown): SandcastleImpactAnalysisResult => 
     designFiles: parseStringArray(value.designFiles, 'impactAnalysis.designFiles'),
     expectedFiles: parseStringArray(value.expectedFiles, 'impactAnalysis.expectedFiles'),
     expectedModules: parseStringArray(value.expectedModules, 'impactAnalysis.expectedModules'),
+    ...(value.pencilRequiredDesignFiles === undefined
+      ? {}
+      : {
+          pencilRequiredDesignFiles: parseStringArray(
+            value.pencilRequiredDesignFiles,
+            'impactAnalysis.pencilRequiredDesignFiles',
+          ),
+        }),
     riskLevel: parseRiskLevel(value.riskLevel),
     sharedContracts: parseStringArray(value.sharedContracts, 'impactAnalysis.sharedContracts'),
     tests: parseStringArray(value.tests, 'impactAnalysis.tests'),
@@ -410,13 +422,37 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
 
 const parseCommandIssueNumber = (value: string | undefined, commandName: string): number => {
-  const parsedValue = Number.parseInt(value ?? '', 10)
+  if (value === undefined || !/^[1-9]\d*$/.test(value)) {
+    throw new TypeError(`Expected ${commandName} to include a positive pull request number.`)
+  }
+
+  const parsedValue = Number.parseInt(value, 10)
 
   if (!Number.isInteger(parsedValue) || parsedValue <= 0) {
     throw new TypeError(`Expected ${commandName} to include a positive pull request number.`)
   }
 
   return parsedValue
+}
+
+const runCliValidation = (operation: () => PrdOrchestratorCliResult): PrdOrchestratorCliResult => {
+  try {
+    return operation()
+  } catch (error) {
+    return formatCliValidationError(error)
+  }
+}
+
+const formatCliValidationError = (error: unknown): PrdOrchestratorCliResult => {
+  if (error instanceof TypeError) {
+    return {
+      exitCode: 1,
+      stderr: `${error.message}\n`,
+      stdout: '',
+    }
+  }
+
+  throw error
 }
 
 export const createPlanFromIssueJson = (issueJson: string): DryRunPlan =>

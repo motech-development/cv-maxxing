@@ -2,7 +2,7 @@
 
 `@cv-maxxing/prd-orchestrator` is the repo-level automation package for running PRD implementation work from GitHub child tasks.
 
-The v1 lifecycle has two execution depths:
+The v1 lifecycle has six commands:
 
 1. `plan` inspects the first eligible PRD and prints a dry-run execution plan.
 2. `run --one-child` proves one child task from selection through draft PR update.

@@ -156,12 +156,14 @@ const renderProgressLedger = (input: GenerateDraftPrBodyInput): string => {
     }
 
     return [
-      formatIssueReference(childTask.issueNumber),
-      childTask.title,
-      ledgerEntry.status,
-      ledgerEntry.shortCommitHash === undefined ? '-' : `\`${ledgerEntry.shortCommitHash}\``,
-      ledgerEntry.verificationStatus,
-      ledgerEntry.codeRabbitStatus,
+      formatMarkdownTableCell(formatIssueReference(childTask.issueNumber)),
+      formatMarkdownTableCell(childTask.title),
+      formatMarkdownTableCell(ledgerEntry.status),
+      formatMarkdownTableCell(
+        ledgerEntry.shortCommitHash === undefined ? '-' : `\`${ledgerEntry.shortCommitHash}\``,
+      ),
+      formatMarkdownTableCell(ledgerEntry.verificationStatus),
+      formatMarkdownTableCell(ledgerEntry.codeRabbitStatus),
     ]
   })
 
@@ -176,6 +178,12 @@ const renderProgressLedger = (input: GenerateDraftPrBodyInput): string => {
 
 const formatEvidenceLines = (evidence: readonly string[]): readonly string[] =>
   evidence.length === 0 ? ['- Not recorded.'] : evidence.map((entry) => `- ${entry}`)
+
+const formatMarkdownTableCell = (value: string): string =>
+  value
+    .replaceAll('|', String.raw`\|`)
+    .replaceAll(/\s+/g, ' ')
+    .trim()
 
 const parseClosedIssueNumbers = (commit: BranchCommit): readonly number[] =>
   [...`${commit.subject}\n${commit.body}`.matchAll(/Closes\s+#(\d+)/gi)]

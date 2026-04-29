@@ -294,6 +294,43 @@ describe('PRD orchestrator CLI', () => {
     expect(result.stdout).toContain('Write surface: accept')
   })
 
+  it('preserves Pencil-required design files from run --one-child impact analysis JSON', () => {
+    const result = runPrdOrchestratorCli({
+      arguments_: ['run', '--one-child'],
+      stdin: JSON.stringify({
+        issues: issueObjects,
+        transaction: {
+          childCommitHash: 'abc123456789',
+          codeRabbitStatus: 'passed',
+          completedChildIssueNumbers: [],
+          existingLedger: [],
+          impactAnalysis: {
+            designFiles: [],
+            expectedFiles: ['design/cv.pen'],
+            expectedModules: ['@cv-maxxing/prd-orchestrator'],
+            pencilRequiredDesignFiles: ['design/cv.pen'],
+            riskLevel: 'low',
+            sharedContracts: [],
+            tests: [],
+          },
+          mainBranchStatus: {
+            clean: true,
+            currentBranch: 'main',
+            upToDate: true,
+          },
+          verificationEvidence: ['pnpm lint'],
+          workerChangedFiles: ['design/cv.pen'],
+        },
+      }),
+    })
+
+    expect(result.exitCode).toBe(1)
+    expect(result.stderr).toBe('')
+    expect(result.stdout).toContain(
+      'Pencil verification evidence missing for .pen design changes: design/cv.pen.',
+    )
+  })
+
   it('rejects unsupported commands without mutating state', () => {
     expect(
       runPrdOrchestratorCli({
@@ -308,33 +345,47 @@ describe('PRD orchestrator CLI', () => {
   })
 
   it('reports malformed issue JSON with a controlled parser error', () => {
-    expect(() =>
-      runPrdOrchestratorCli({
-        arguments_: ['plan'],
-        stdin: '{',
-      }),
-    ).toThrow(TypeError)
-    expect(() =>
-      runPrdOrchestratorCli({
-        arguments_: ['plan'],
-        stdin: '{',
-      }),
-    ).toThrow('Invalid JSON input:')
+    const result = runPrdOrchestratorCli({
+      arguments_: ['plan'],
+      stdin: '{',
+    })
+
+    expect(result.exitCode).toBe(1)
+    expect(result.stderr).toContain('Invalid JSON input:')
+    expect(result.stdout).toBe('')
   })
 
   it('reports malformed run --one-child JSON with a controlled parser error', () => {
-    expect(() =>
-      runPrdOrchestratorCli({
-        arguments_: ['run', '--one-child'],
-        stdin: '{',
+    const result = runPrdOrchestratorCli({
+      arguments_: ['run', '--one-child'],
+      stdin: '{',
+    })
+
+    expect(result.exitCode).toBe(1)
+    expect(result.stderr).toContain('Invalid JSON input:')
+    expect(result.stdout).toBe('')
+  })
+
+  it('returns controlled async parser errors for malformed stdin and resume-pr numbers', async () => {
+    const malformedJsonResult = await runPrdOrchestratorCliAsync({
+      arguments_: ['plan'],
+      stdin: '{',
+    })
+
+    expect(malformedJsonResult.exitCode).toBe(1)
+    expect(malformedJsonResult.stderr).toContain('Invalid JSON input:')
+    expect(malformedJsonResult.stdout).toBe('')
+
+    await expect(
+      runPrdOrchestratorCliAsync({
+        arguments_: ['resume-pr', '12abc'],
+        stdin: '',
       }),
-    ).toThrow(TypeError)
-    expect(() =>
-      runPrdOrchestratorCli({
-        arguments_: ['run', '--one-child'],
-        stdin: '{',
-      }),
-    ).toThrow('Invalid JSON input:')
+    ).resolves.toEqual({
+      exitCode: 1,
+      stderr: 'Expected resume-pr to include a positive pull request number.\n',
+      stdout: '',
+    })
   })
 
   it('runs every child task in dependency order for the full live run command', async () => {
@@ -957,6 +1008,78 @@ describe('PRD orchestrator CLI', () => {
     })
   })
 
+  it('resumes the PRD matching the automation PR branch instead of the first dry-run PRD', async () => {
+    const unrelatedPrdIssue = {
+      body: `## User Stories
+
+1. As a maintainer, I want unrelated work.
+`,
+      number: 70,
+      state: 'OPEN',
+      title: 'PRD: Earlier unrelated work',
+    } as const
+    const blockedUnrelatedChildIssue = {
+      body: `## Parent PRD
+
+#70
+
+## What to build
+
+Unrelated work.
+
+## Acceptance criteria
+
+## Blocked by
+
+None - can start immediately.
+
+## User stories addressed
+
+- User story 1
+`,
+      number: 71,
+      state: 'OPEN',
+      title: 'Blocked unrelated child',
+    } as const
+    const adapters = createLiveAdapters({
+      initialCompletedChildIssueNumbers: [82],
+      issues: [unrelatedPrdIssue, blockedUnrelatedChildIssue, ...issueObjects],
+    })
+    const result = await runPrdOrchestratorCliAsync({
+      adapters,
+      arguments_: ['resume-pr', '123'],
+      stdin: '',
+    })
+
+    expect(result.exitCode).toBe(0)
+    expect(result.stderr).toBe('')
+    expect(adapters.recordedStatuses.at(-1)).toMatchObject({
+      activePrdIssueNumber: 80,
+      phase: 'ready-for-review',
+    })
+  })
+
+  it('blocks resume-pr when the automation PR branch no longer matches an open PRD', async () => {
+    const adapters = createLiveAdapters({
+      prBranchName: 'agent/prd-999-missing-prd',
+    })
+    const result = await runPrdOrchestratorCliAsync({
+      adapters,
+      arguments_: ['resume-pr', '123'],
+      stdin: '',
+    })
+
+    expect(result.exitCode).toBe(1)
+    expect(result.stderr).toBe(
+      'Could not find the parent PRD for automation branch agent/prd-999-missing-prd.\n',
+    )
+    expect(adapters.recordedStatuses.at(-1)).toMatchObject({
+      activePrdIssueNumber: 999,
+      blockers: ['Could not find the parent PRD for automation branch agent/prd-999-missing-prd.'],
+      phase: 'blocked',
+    })
+  })
+
   it('repairs CodeRabbit findings by amending the child commit and rerunning review', async () => {
     const adapters = createLiveAdapters({
       codeRabbitFindingsBeforeClean: 1,
@@ -978,6 +1101,51 @@ describe('PRD orchestrator CLI', () => {
     expect(adapters.amendedCommitMessages.at(0)).toContain('Verification evidence:')
     expect(adapters.amendedCommitMessages.at(0)).toContain('Closes #82')
     expect(adapters.events.filter((event) => event === 'coderabbit:review')).toHaveLength(2)
+  })
+
+  it('does not mark a child complete while CodeRabbit findings remain', async () => {
+    const adapters = createLiveAdapters({
+      codeRabbitFindings: [
+        {
+          body: 'Still broken after repair.',
+          id: 'persistent-child-finding',
+          source: 'github-pr-review',
+          title: 'Persistent child finding',
+        },
+      ],
+    })
+    const result = await runPrdOrchestratorCliAsync({
+      adapters,
+      arguments_: ['run', '--one-child'],
+      stdin: '',
+    })
+
+    expect(result.exitCode).toBe(1)
+    expect(adapters.recordedStatuses.at(-1)).toMatchObject({
+      blockers: ['Persistent child finding'],
+      completedChildren: [],
+      phase: 'blocked',
+    })
+  })
+
+  it('records a blocked child review when repair orchestration throws', async () => {
+    const adapters = createLiveAdapters({
+      codeRabbitFindingsBeforeClean: 1,
+      repairReviewError: new Error('repair worker unavailable'),
+    })
+    const result = await runPrdOrchestratorCliAsync({
+      adapters,
+      arguments_: ['run', '--one-child'],
+      stdin: '',
+    })
+
+    expect(result.exitCode).toBe(1)
+    expect(adapters.events).toContain('git:restore-prd-branch')
+    expect(adapters.recordedStatuses.at(-1)).toMatchObject({
+      blockers: ['CodeRabbit repair failed'],
+      completedChildren: [],
+      phase: 'blocked',
+    })
   })
 
   it('refuses run --one-child rewrites when the existing automation PR is ready for review', async () => {
@@ -1464,7 +1632,7 @@ describe('PRD orchestrator CLI', () => {
     expect(adapters.upsertedComments.at(0)).toContain(
       'Draft PR state is generated. Evidence: commit `abc8334`; verification evidence recorded in child commit',
     )
-    expect(adapters.upsertedComments.at(0)).toContain('ARCHITECTURE.md §2 inspected')
+    expect(adapters.upsertedComments.at(0)).toContain('[ARCHITECTURE.md]')
     expect(adapters.upsertedComments.at(0)).toContain('- Telemetry: absent')
     expect(adapters.upsertedComments.at(0)).toContain('- Non-PDF exports: absent')
   })
@@ -1612,6 +1780,30 @@ describe('PRD orchestrator CLI', () => {
       adapters.events.indexOf('github:convert-pr-to-draft'),
     )
     expect(adapters.amendedCommitMessages.at(0)).toContain('Closes #82')
+  })
+
+  it('blocks final cleanup resume repair when the git adapter cannot commit cleanup', async () => {
+    const adapters = createLiveAdapters({
+      omitCommitFinalCleanup: true,
+      resumePrFindings: [
+        {
+          body: 'Fix the final audit text.',
+          id: 'resume-final-finding',
+          source: 'github-pr-review',
+          title: 'Final cleanup',
+        },
+      ],
+    })
+    const result = await runPrdOrchestratorCliAsync({
+      adapters,
+      arguments_: ['resume-pr', '123'],
+      stdin: '',
+    })
+
+    expect(result.exitCode).toBe(1)
+    expect(result.stderr).toContain('Resume repair cannot commit final cleanup changes')
+    expect(adapters.events).not.toContain('git:commit-final-cleanup')
+    expect(adapters.events).not.toContain('git:push-prd-branch')
   })
 
   it('targets the mapped child commit before applying resume repair output', async () => {
@@ -2024,12 +2216,12 @@ describe('PRD orchestrator CLI', () => {
   it('passes CLI model and effort flags to the default live adapter factory', () => {
     const adapters = createDefaultPrdOrchestratorLiveAdapters('/repo', {
       codexEffort: 'xhigh',
-      codexModel: 'gpt-5.5',
+      codexModel: 'gpt-5.1-codex-max',
     })
 
     expect(adapters.configuration).toEqual({
       codexEffort: 'xhigh',
-      codexModel: 'gpt-5.5',
+      codexModel: 'gpt-5.1-codex-max',
     })
   })
 })
@@ -2052,10 +2244,13 @@ interface CreateLiveAdaptersOptions {
   readonly initialCompletedChildIssueNumbers?: readonly number[]
   readonly issues?: readonly GitHubIssue[]
   readonly omitCheckoutChildCommit?: boolean
+  readonly omitCommitFinalCleanup?: boolean
   readonly openAutomationPrs?: readonly RemoteAutomationPr[]
   readonly preflightResult?: LivePreflightResult
+  readonly prBranchName?: string
   readonly prohibitedCapabilityMatches?: readonly ProhibitedCapabilityMatch[]
   readonly recoveredRunStatusPhase?: string
+  readonly repairReviewError?: Error
   readonly remoteAutomationBlockers?: readonly string[]
   readonly resumeRepairChangedFiles?: readonly string[]
   readonly resumeRepairError?: Error
@@ -2214,13 +2409,16 @@ const createLiveAdapters = (
 
               return Promise.resolve()
             },
-      commitFinalCleanup: () => {
-        events.push('git:commit-final-cleanup')
+      commitFinalCleanup:
+        options.omitCommitFinalCleanup === true
+          ? undefined
+          : () => {
+              events.push('git:commit-final-cleanup')
 
-        return Promise.resolve({
-          hash: 'fed789012345',
-        })
-      },
+              return Promise.resolve({
+                hash: 'fed789012345',
+              })
+            },
       getChildCommitReferences: () => {
         events.push('git:get-child-commit-references')
 
@@ -2304,7 +2502,7 @@ const createLiveAdapters = (
 
         return Promise.resolve({
           body: '## Automation\n\nManaged by `@cv-maxxing/prd-orchestrator`.',
-          branchName: 'agent/prd-80-automate-prd-implementation',
+          branchName: options.prBranchName ?? 'agent/prd-80-automate-prd-implementation',
           isDraft: prIsDraft,
           prNumber: 123,
           url: 'https://github.com/motech-development/cv-maxxing/pull/123',
@@ -2384,6 +2582,10 @@ const createLiveAdapters = (
       },
       repairReviewFindings: () => {
         events.push('sandcastle:repair-review')
+
+        if (options.repairReviewError !== undefined) {
+          return Promise.reject(options.repairReviewError)
+        }
 
         return Promise.resolve({
           changedFiles: ['tools/prd-orchestrator/src/cli.ts'],

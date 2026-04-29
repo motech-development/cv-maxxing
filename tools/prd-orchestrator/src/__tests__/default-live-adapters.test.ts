@@ -17,7 +17,7 @@ describe('default live adapters', () => {
       '/repo',
       {
         codexEffort: 'high',
-        codexModel: 'gpt-5.5',
+        codexModel: 'gpt-5.1-codex-max',
       },
       shell.run,
     )
@@ -208,6 +208,23 @@ describe('default live adapters', () => {
       shell.commands.find((command) => formatCommand(command) === 'coderabbit review --agent')
         ?.timeoutMs,
     ).toBe('none')
+  })
+
+  it('scans prohibited capabilities against the working tree files, not a branch ref', async () => {
+    const shell = createRecordingShell()
+    const adapters = createDefaultPrdOrchestratorLiveAdapters('/repo', undefined, shell.run)
+
+    await adapters.verification.scanProhibitedCapabilities({
+      branchName: 'agent/prd-80-test',
+      changedFiles: ['apps/desktop/src/main.ts'],
+    })
+
+    expect(shell.commands.map((command) => formatCommand(command))).toContain(
+      'git grep --line-number --extended-regexp --ignore-case @sentry|posthog|analytics-node|crashReporter|trackEvent|telemetryClient -- apps/desktop/src/main.ts',
+    )
+    expect(shell.commands.map((command) => command.args)).not.toContainEqual(
+      expect.arrayContaining(['agent/prd-80-test']),
+    )
   })
 
   it('checks out the exact child commit before amending and rebases the PR branch onto the amended commit', async () => {

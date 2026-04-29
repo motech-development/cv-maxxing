@@ -1,3 +1,4 @@
+import { readFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 
 import type { SandboxProvider } from '@ai-hero/sandcastle'
@@ -55,7 +56,7 @@ describe('Sandcastle impact analysis adapter planning', () => {
     ).toEqual({
       effort: 'high',
       env: {},
-      model: 'gpt-5.5',
+      model: 'gpt-5.1-codex-max',
       provider: 'codex',
     })
 
@@ -72,6 +73,14 @@ describe('Sandcastle impact analysis adapter planning', () => {
       effort: 'xhigh',
       model: 'gpt-5.4',
     })
+
+    expect(
+      createCodexImpactAnalysisConfig({
+        cliEffort: ' high ',
+        cliModel: undefined,
+        env: {},
+      }).effort,
+    ).toBe('high')
   })
 
   it('forbids Sandcastle head branch strategy and requires explicit local branches', () => {
@@ -128,7 +137,7 @@ describe('Sandcastle impact analysis adapter planning', () => {
       agent: {
         effort: 'high',
         env: {},
-        model: 'gpt-5.5',
+        model: 'gpt-5.1-codex-max',
         provider: 'codex',
       },
       branchStrategy: {
@@ -177,6 +186,20 @@ describe('Sandcastle impact analysis adapter planning', () => {
     expect(prompt).toContain(
       'Do not request or use GitHub tokens, SSH keys, or remote push credentials.',
     )
+  })
+
+  it('keeps the Sandcastle prompt file aligned with the parser JSON contract', async () => {
+    const prompt = await readFile('../../.sandcastle/prompts/impact-analysis.md', 'utf8')
+
+    expect(prompt).toContain('Return only machine-parseable JSON')
+    expect(prompt).toContain('"expectedFiles"')
+    expect(prompt).toContain('"expectedModules"')
+    expect(prompt).toContain('"designFiles"')
+    expect(prompt).toContain('"pencilRequiredDesignFiles"')
+    expect(prompt).toContain('"tests"')
+    expect(prompt).toContain('"sharedContracts"')
+    expect(prompt).toContain('"riskLevel"')
+    expect(prompt).not.toContain('"expected_write_surfaces"')
   })
 
   it('identifies .pen files as Pencil-required impact surfaces', () => {
@@ -263,6 +286,11 @@ describe('Sandcastle impact analysis adapter planning', () => {
             readonly: true,
             sandboxPath: '/home/agent/.ssh',
           },
+          {
+            hostPath: '~/.SSH/id_rsa',
+            readonly: true,
+            sandboxPath: '/home/agent/.ssh-upper',
+          },
         ],
         sandboxEnv: {},
       }),
@@ -271,6 +299,7 @@ describe('Sandcastle impact analysis adapter planning', () => {
       violations: [
         'agent env contains forbidden credential key GITHUB_TOKEN',
         'mount ~/.ssh/id_rsa is forbidden because it may expose credentials',
+        'mount ~/.SSH/id_rsa is forbidden because it may expose credentials',
       ],
     })
 

@@ -237,6 +237,7 @@ export const enforceWriteSurface = (input: EnforceWriteSurfaceInput): WriteSurfa
   const expectedFiles = new Set([
     ...input.impactAnalysis.expectedFiles,
     ...input.impactAnalysis.designFiles,
+    ...input.impactAnalysis.sharedContracts,
     ...input.impactAnalysis.tests,
   ])
   const dependencyChanges = input.changedFiles.filter((filePath) =>
@@ -282,7 +283,7 @@ export const selectVerificationCommands = (
 ): readonly string[] => [
   'pnpm lint',
   ...selectAffectedPackageTypechecks(),
-  ...selectDesignVerificationCommands(impactAnalysis.designFiles),
+  ...selectDesignVerificationCommands(impactAnalysis),
   ...selectTargetedTestCommands(impactAnalysis),
 ]
 
@@ -446,17 +447,23 @@ const selectTargetedTestCommands = (
     )
   ) {
     return [
-      `pnpm --filter @cv-maxxing/prd-orchestrator test:unit -- ${impactAnalysis.tests.join(' ')}`,
+      `pnpm --filter @cv-maxxing/prd-orchestrator test:unit -- ${impactAnalysis.tests
+        .map((testPath) => shellQuote(testPath))
+        .join(' ')}`,
     ]
   }
 
   return []
 }
 
-const selectDesignVerificationCommands = (designFiles: readonly string[]): readonly string[] =>
-  designFiles.some((filePath) => filePath.endsWith('.pen'))
+const selectDesignVerificationCommands = (
+  impactAnalysis: SandcastleImpactAnalysisResult,
+): readonly string[] =>
+  getPencilRequiredDesignFiles(impactAnalysis).length > 0
     ? ['pnpm --filter @cv-maxxing/desktop test:visual']
     : []
+
+const shellQuote = (value: string): string => `'${value.replaceAll("'", String.raw`'\''`)}'`
 
 const isCleanUpToDateMain = (status: MainBranchStatus): boolean =>
   status.currentBranch === 'main' && status.clean && status.upToDate

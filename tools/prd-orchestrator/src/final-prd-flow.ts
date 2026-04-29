@@ -258,7 +258,7 @@ export const planGitHubActionsPolling = (
   }
 
   return {
-    command: `gh run list --branch ${input.branchName} --json status,conclusion`,
+    command: `gh run list --branch ${shellQuote(input.branchName)} --json status,conclusion`,
     reason: 'Full PRD implementation is pushed; poll CI before final audit.',
     shouldPoll: true,
   }
@@ -480,7 +480,7 @@ export const evaluateFinalAuditEvidence = (
   input: EvaluateFinalAuditEvidenceInput,
 ): FinalAuditEvidenceEvaluation => {
   const architectureEvidenceCitesSource = input.architectureChecks.some((check) =>
-    /\bARCHITECTURE\.md\b|\bPRD\s+#\d+\b|\bOut of Scope\b/i.test(check),
+    architectureEvidenceCitationPattern.test(check),
   )
   const expectedCapabilityIds = new Set(
     prohibitedCapabilityDefinitions.map((definition) => definition.capabilityId),
@@ -523,6 +523,13 @@ export const evaluateFinalAuditEvidence = (
     ],
   }
 }
+
+const architectureEvidenceCitationPattern = new RegExp(
+  String.raw`\[ARCHITECTURE\.md\]\([^)]+\)|\bPRD\s+#\d+\s+Out of Scope\b`,
+  'i',
+)
+
+const shellQuote = (value: string): string => `'${value.replaceAll("'", String.raw`'\''`)}'`
 
 const mapFindingsToChildCommits = (input: {
   readonly childCommits: readonly ChildCommitReference[]

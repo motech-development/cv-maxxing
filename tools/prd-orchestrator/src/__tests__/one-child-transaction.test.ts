@@ -285,13 +285,31 @@ describe('one-child transaction planning', () => {
     })
   })
 
+  it('allows changed files declared as shared contract surfaces', () => {
+    expect(
+      enforceWriteSurface({
+        changedFiles: ['tools/prd-orchestrator/src/index.ts'],
+        dependencyChangeJustification: undefined,
+        impactAnalysis: {
+          ...impactAnalysis,
+          expectedFiles: [],
+          sharedContracts: ['tools/prd-orchestrator/src/index.ts'],
+        },
+      }),
+    ).toMatchObject({
+      action: 'accept',
+      allowedFiles: ['tools/prd-orchestrator/src/index.ts'],
+      unexpectedFiles: [],
+    })
+  })
+
   it('selects host verification commands from affected modules and targeted tests', () => {
     expect(selectVerificationCommands(impactAnalysis)).toEqual([
       'pnpm lint',
       'pnpm --filter @cv-maxxing/desktop typecheck',
       'pnpm --filter @cv-maxxing/prd-orchestrator typecheck',
       'pnpm --filter @cv-maxxing/desktop test:visual',
-      'pnpm --filter @cv-maxxing/prd-orchestrator test:unit -- tools/prd-orchestrator/src/__tests__/one-child-transaction.test.ts',
+      "pnpm --filter @cv-maxxing/prd-orchestrator test:unit -- 'tools/prd-orchestrator/src/__tests__/one-child-transaction.test.ts'",
     ])
 
     expect(
@@ -315,7 +333,32 @@ describe('one-child transaction planning', () => {
         tests: ['tools/prd-orchestrator/src/__tests__/planning.test.ts'],
       }),
     ).toContain(
-      'pnpm --filter @cv-maxxing/prd-orchestrator test:unit -- tools/prd-orchestrator/src/__tests__/planning.test.ts',
+      "pnpm --filter @cv-maxxing/prd-orchestrator test:unit -- 'tools/prd-orchestrator/src/__tests__/planning.test.ts'",
+    )
+
+    expect(
+      selectVerificationCommands({
+        designFiles: [],
+        expectedFiles: ['design/cv.pen'],
+        expectedModules: ['@cv-maxxing/prd-orchestrator'],
+        pencilRequiredDesignFiles: ['design/cv.pen'],
+        riskLevel: 'medium',
+        sharedContracts: [],
+        tests: ["tools/prd-orchestrator/src/__tests__/quoted path's test.ts"],
+      }),
+    ).toContain('pnpm --filter @cv-maxxing/desktop test:visual')
+    expect(
+      selectVerificationCommands({
+        designFiles: [],
+        expectedFiles: ['design/cv.pen'],
+        expectedModules: ['@cv-maxxing/prd-orchestrator'],
+        pencilRequiredDesignFiles: ['design/cv.pen'],
+        riskLevel: 'medium',
+        sharedContracts: [],
+        tests: ["tools/prd-orchestrator/src/__tests__/quoted path's test.ts"],
+      }),
+    ).toContain(
+      String.raw`pnpm --filter @cv-maxxing/prd-orchestrator test:unit -- 'tools/prd-orchestrator/src/__tests__/quoted path'\''s test.ts'`,
     )
   })
 
