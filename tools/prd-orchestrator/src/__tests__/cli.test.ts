@@ -1126,6 +1126,9 @@ describe('PRD orchestrator CLI', () => {
     expect(adapters.events.filter((event) => event === 'verification:run')).toHaveLength(2)
     expect(adapters.events).not.toContain('git:commit-child')
     expect(adapters.events).not.toContain('git:amend-child-commit')
+    expect(adapters.events.indexOf('git:restore-prd-branch')).toBeLessThan(
+      adapters.events.indexOf('github:update-pr-body'),
+    )
     expect(latestPrBody).toContain(
       '| #82 | Build PRD and child-task planning from GitHub Markdown | blocked |',
     )
@@ -1136,6 +1139,88 @@ describe('PRD orchestrator CLI', () => {
         'Verification repair exhausted for #82. Failing verification command: pnpm lint. Error evidence: pnpm lint failed',
       ],
       completedChildren: [],
+      currentChildIssueNumber: 82,
+      phase: 'blocked',
+    })
+  })
+
+  it('records failed worker diff application as a PR and run blocker after restoring clean state', async () => {
+    const adapters = createLiveAdapters({
+      applyWorkerDiffError: new Error('git merge --squash failed\nCONFLICT in cli.ts'),
+    })
+    const result = await runPrdOrchestratorCliAsync({
+      adapters,
+      arguments_: ['run', '--one-child'],
+      stdin: '',
+    })
+    const latestComment = adapters.postedComments.at(-1) ?? ''
+
+    expect(result.exitCode).toBe(1)
+    expect(adapters.events).toContain('git:apply-worker-diff')
+    expect(adapters.events).toContain('git:restore-prd-branch')
+    expect(adapters.events.indexOf('git:restore-prd-branch')).toBeLessThan(
+      adapters.events.indexOf('github:update-pr-body'),
+    )
+    expect(adapters.events).not.toContain('verification:run')
+    expect(adapters.events).not.toContain('git:commit-child')
+    expect(latestComment).toContain('Failed to apply worker diff for #82')
+    expect(latestComment).toContain('Operation: apply worker diff from')
+    expect(latestComment).toContain('Error evidence: git merge --squash failed')
+    expect(adapters.recordedStatuses.at(-1)).toMatchObject({
+      blockers: [
+        expect.stringContaining(
+          'Failed to apply worker diff for #82. Operation: apply worker diff',
+        ),
+      ],
+      currentChildIssueNumber: 82,
+      phase: 'blocked',
+    })
+  })
+
+  it('records repeated repair write-surface mismatches as blockers after restoring clean state', async () => {
+    const adapters = createLiveAdapters({
+      impactAnalyses: [
+        {
+          designFiles: [],
+          expectedFiles: ['tools/prd-orchestrator/src/cli.ts'],
+          expectedModules: ['@cv-maxxing/prd-orchestrator'],
+          riskLevel: 'low',
+          sharedContracts: [],
+          tests: ['tools/prd-orchestrator/src/__tests__/cli.test.ts'],
+        },
+        {
+          designFiles: [],
+          expectedFiles: ['tools/prd-orchestrator/src/cli.ts'],
+          expectedModules: ['@cv-maxxing/prd-orchestrator'],
+          riskLevel: 'low',
+          sharedContracts: [],
+          tests: ['tools/prd-orchestrator/src/__tests__/cli.test.ts'],
+        },
+      ],
+      repairVerificationChangedFiles: ['apps/desktop/src/main.ts'],
+      verificationFailuresBeforeClean: 1,
+      workerChangedFiles: ['tools/prd-orchestrator/src/cli.ts'],
+    })
+    const result = await runPrdOrchestratorCliAsync({
+      adapters,
+      arguments_: ['run', '--one-child'],
+      stdin: '',
+    })
+    const latestComment = adapters.postedComments.at(-1) ?? ''
+
+    expect(result.exitCode).toBe(1)
+    expect(adapters.events).toContain('sandcastle:repair-verification')
+    expect(adapters.events).toContain('git:restore-prd-branch')
+    expect(adapters.events).not.toContain('git:commit-child')
+    expect(latestComment).toContain(
+      'worker diff touched files outside impact-analysis write surface after re-analysis',
+    )
+    expect(adapters.recordedStatuses.at(-1)).toMatchObject({
+      blockers: [
+        expect.stringContaining(
+          'worker diff touched files outside impact-analysis write surface after re-analysis',
+        ),
+      ],
       currentChildIssueNumber: 82,
       phase: 'blocked',
     })
@@ -1672,6 +1757,7 @@ describe('PRD orchestrator CLI', () => {
 })
 
 interface CreateLiveAdaptersOptions {
+  readonly applyWorkerDiffError?: Error
   readonly blockedImplementationChildIssueNumbers?: ReadonlySet<number>
   readonly childCommitReferences?: readonly ChildCommitReference[]
   readonly ciPollingResults?: readonly (GitHubActionsStatus | Error)[]
@@ -1691,6 +1777,7 @@ interface CreateLiveAdaptersOptions {
   readonly preflightResult?: LivePreflightResult
   readonly recoveredRunStatusPhase?: string
   readonly remoteAutomationBlockers?: readonly string[]
+  readonly repairVerificationChangedFiles?: readonly string[]
   readonly resumePrFindings?: readonly ResumePrFinding[]
   readonly runLockResult?: LiveRunLockResult
   readonly verificationFailureCountsByChildIssueNumber?: ReadonlyMap<number, number>
@@ -1807,7 +1894,9 @@ const createLiveAdapters = (
           10,
         )
 
-        return Promise.resolve()
+        return options.applyWorkerDiffError === undefined
+          ? Promise.resolve()
+          : Promise.reject(options.applyWorkerDiffError)
       },
       commitChild: (message) => {
         events.push('git:commit-child')
@@ -1883,6 +1972,11 @@ const createLiveAdapters = (
       },
       pushPrdBranch: () => {
         events.push('git:push-prd-branch')
+
+        return Promise.resolve()
+      },
+      restorePrdBranchToCleanState: () => {
+        events.push('git:restore-prd-branch')
 
         return Promise.resolve()
       },
@@ -2011,7 +2105,9 @@ const createLiveAdapters = (
         events.push('sandcastle:repair-verification')
 
         return Promise.resolve({
-          changedFiles: ['tools/prd-orchestrator/src/cli.ts'],
+          changedFiles: options.repairVerificationChangedFiles ?? [
+            'tools/prd-orchestrator/src/cli.ts',
+          ],
           stdout: 'repaired verification',
           workerBranchName:
             'agent/prd-80-child-82-build-prd-and-child-task-planning-from-github-markdown',

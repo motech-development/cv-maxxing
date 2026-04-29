@@ -71,6 +71,9 @@ export interface PrdOrchestratorLiveAdapters {
     readonly getMainBranchStatus: () => Promise<MainBranchStatus>
     readonly preparePrdBranch: (input: PreparePrdBranchInput) => Promise<void>
     readonly pushPrdBranch: (input: PushPrdBranchInput) => Promise<void>
+    readonly restorePrdBranchToCleanState: (
+      input: RestorePrdBranchToCleanStateInput,
+    ) => Promise<void>
   }
   readonly github: {
     readonly createDraftPr: (input: CreateDraftPrInput) => Promise<RemoteAutomationPr>
@@ -177,6 +180,10 @@ export interface PushPrdBranchInput {
   readonly mode: 'force-with-lease'
 }
 
+export interface RestorePrdBranchToCleanStateInput {
+  readonly branchName: string
+}
+
 export interface ChildCommitResult {
   readonly hash: string
 }
@@ -236,7 +243,7 @@ type VerificationRepairResult =
       readonly workerResult: RunImplementationResult
     }
   | {
-      readonly blocker: string
+      readonly blockers: readonly string[]
       readonly impactAnalysis: SandcastleImpactAnalysisResult
       readonly status: 'blocked'
       readonly workerResult: RunImplementationResult
@@ -950,7 +957,7 @@ const executeLiveOneChildWithLock = async (
     return await recordVerificationRepairBlockedProgress({
       adapters,
       blockedChildIssueNumbers: [],
-      blocker: verifiedWorkerResult.blocker,
+      blockers: verifiedWorkerResult.blockers,
       branchName: branchSeedPlan.prdBranchName,
       completedChildIssueNumbers,
       draftPr,
@@ -1227,7 +1234,7 @@ const executePreparedChildWithLock = async (input: {
     return await recordVerificationRepairBlockedProgress({
       adapters: input.adapters,
       blockedChildIssueNumbers: input.blockedChildIssueNumbers,
-      blocker: verifiedWorkerResult.blocker,
+      blockers: verifiedWorkerResult.blockers,
       branchName: input.branchSeedPlan.prdBranchName,
       completedChildIssueNumbers: input.completedChildIssueNumbers,
       draftPr: input.draftPr,
@@ -1958,7 +1965,7 @@ const recordBlockedProgress = async (input: {
 const recordVerificationRepairBlockedProgress = async (input: {
   readonly adapters: PrdOrchestratorLiveAdapters
   readonly blockedChildIssueNumbers: readonly number[]
-  readonly blocker: string
+  readonly blockers: readonly string[]
   readonly branchName: string
   readonly completedChildIssueNumbers: readonly number[]
   readonly draftPr: RemoteAutomationPr
@@ -1967,7 +1974,7 @@ const recordVerificationRepairBlockedProgress = async (input: {
   readonly selectedPrd: SelectedPrdPlan
 }): Promise<LiveCommandResult> => {
   const status = createRunStatus({
-    blockers: [input.blocker],
+    blockers: input.blockers,
     branchName: input.branchName,
     codeRabbitStatus: 'not run',
     completedChildIssueNumbers: input.completedChildIssueNumbers,
@@ -2000,7 +2007,7 @@ const recordVerificationRepairBlockedProgress = async (input: {
 
   return {
     exitCode: 1,
-    stderr: `${input.blocker}\n`,
+    stderr: `${input.blockers.join('\n')}\n`,
     stdout: `${renderOneChildSummary({
       childIssueNumber: input.selectedChild.issueNumber,
       pr: input.draftPr,
@@ -2036,16 +2043,46 @@ const repairVerificationUntilClean = async (input: {
     })
 
     if (writeSurface.blockers.length > 0) {
-      throw new Error(writeSurface.blockers.join('\n'))
+      return {
+        blockers: [
+          ...writeSurface.blockers,
+          ...(await restorePrdBranchToCleanStateBeforeBlocker({
+            adapters: input.adapters,
+            branchName: input.prdBranchName,
+          })),
+        ],
+        impactAnalysis,
+        status: 'blocked',
+        workerResult,
+      }
     }
 
     impactAnalysis = writeSurface.impactAnalysis
     const verificationCommands = selectVerificationCommands(impactAnalysis)
 
-    await input.adapters.git.applyWorkerDiff({
-      prdBranchName: input.prdBranchName,
-      workerBranchName: workerResult.workerBranchName,
-    })
+    try {
+      await input.adapters.git.applyWorkerDiff({
+        prdBranchName: input.prdBranchName,
+        workerBranchName: workerResult.workerBranchName,
+      })
+    } catch (error) {
+      return {
+        blockers: [
+          createWorkerDiffApplicationBlocker({
+            errorMessage: formatErrorMessage(error),
+            selectedChild: input.selectedChild,
+            workerBranchName: workerResult.workerBranchName,
+          }),
+          ...(await restorePrdBranchToCleanStateBeforeBlocker({
+            adapters: input.adapters,
+            branchName: input.prdBranchName,
+          })),
+        ],
+        impactAnalysis,
+        status: 'blocked',
+        workerResult,
+      }
+    }
 
     try {
       return {
@@ -2059,11 +2096,17 @@ const repairVerificationUntilClean = async (input: {
 
       if (seenErrors.has(errorMessage)) {
         return {
-          blocker: createVerificationRepairBlocker({
-            errorMessage,
-            selectedChild: input.selectedChild,
-            verificationCommands,
-          }),
+          blockers: [
+            createVerificationRepairBlocker({
+              errorMessage,
+              selectedChild: input.selectedChild,
+              verificationCommands,
+            }),
+            ...(await restorePrdBranchToCleanStateBeforeBlocker({
+              adapters: input.adapters,
+              branchName: input.prdBranchName,
+            })),
+          ],
           impactAnalysis,
           status: 'blocked',
           workerResult,
@@ -2231,6 +2274,36 @@ const repairCodeRabbitFindingsUntilClean = async (input: {
   return {
     commitHash,
     result,
+  }
+}
+
+const createWorkerDiffApplicationBlocker = (input: {
+  readonly errorMessage: string
+  readonly selectedChild: ParsedChildTask
+  readonly workerBranchName: string
+}): string =>
+  `Failed to apply worker diff for #${String(
+    input.selectedChild.issueNumber,
+  )}. Operation: apply worker diff from ${input.workerBranchName}. Error evidence: ${formatConciseErrorEvidence(
+    input.errorMessage,
+  )}`
+
+const restorePrdBranchToCleanStateBeforeBlocker = async (input: {
+  readonly adapters: PrdOrchestratorLiveAdapters
+  readonly branchName: string
+}): Promise<readonly string[]> => {
+  try {
+    await input.adapters.git.restorePrdBranchToCleanState({
+      branchName: input.branchName,
+    })
+
+    return []
+  } catch (error) {
+    return [
+      `Failed to restore PRD branch ${input.branchName} to a clean pre-child state. Error evidence: ${formatConciseErrorEvidence(
+        formatErrorMessage(error),
+      )}`,
+    ]
   }
 }
 

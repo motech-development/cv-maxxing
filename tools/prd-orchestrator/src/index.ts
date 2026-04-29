@@ -227,6 +227,7 @@ export type {
   RepairResumeFindingsInput,
   ReviewChildInput,
   ReviewChildResult,
+  RestorePrdBranchToCleanStateInput,
   RunImpactAnalysisInput,
   RunImplementationInput,
   RunImplementationResult,

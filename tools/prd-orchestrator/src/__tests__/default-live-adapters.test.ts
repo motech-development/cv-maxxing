@@ -218,6 +218,22 @@ describe('default live adapters', () => {
     ])
   })
 
+  it('restores the automation branch worktree and index to a clean HEAD state', async () => {
+    const shell = createRecordingShell()
+    const adapters = createDefaultPrdOrchestratorLiveAdapters('/repo', undefined, shell.run)
+
+    await adapters.git.restorePrdBranchToCleanState({
+      branchName: 'agent/prd-80-test',
+    })
+
+    expect(shell.commands.map((command) => formatCommand(command))).toEqual([
+      'git checkout agent/prd-80-test',
+      'git reset --hard HEAD',
+      'git clean -fd',
+      'git status --porcelain',
+    ])
+  })
+
   it('re-acquires a stale repo lock atomically during recovery', async () => {
     const temporaryDirectory = await mkdtemp(path.join(tmpdir(), 'prd-orchestrator-lock-'))
     const lockDirectory = path.join(temporaryDirectory, '.git', 'prd-orchestrator')
