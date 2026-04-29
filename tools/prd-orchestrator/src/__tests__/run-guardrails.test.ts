@@ -130,6 +130,7 @@ describe('run guardrails', () => {
         processIdsAlive: [],
         remoteAutomationPr: {
           branchName: 'agent/prd-80-automate-prd-implementation',
+          isDraft: true,
           prNumber: 12,
           prdIssueNumber: 80,
           url: 'https://github.com/motech-development/cv-maxxing/pull/12',

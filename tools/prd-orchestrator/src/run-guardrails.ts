@@ -34,6 +34,7 @@ export interface RunLock {
 
 export interface RemoteAutomationPr {
   readonly branchName: string
+  readonly isDraft: boolean
   readonly prNumber: number
   readonly prdIssueNumber: number
   readonly url: string

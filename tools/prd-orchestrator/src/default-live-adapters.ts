@@ -192,6 +192,7 @@ const createGitHubAdapter = (
 
     return {
       branchName: pr.branchName,
+      isDraft: pr.isDraft,
       prNumber: pr.prNumber,
       prdIssueNumber: input.prdIssueNumber,
       url: pr.url,
@@ -216,7 +217,7 @@ const createGitHubAdapter = (
         '--head',
         branchName,
         '--json',
-        'number,url,headRefName,body',
+        'number,url,headRefName,body,isDraft',
         '--limit',
         '1',
       ],
@@ -231,6 +232,7 @@ const createGitHubAdapter = (
 
     return {
       branchName: parseStringField(pullRequest, 'headRefName'),
+      isDraft: parseBooleanField(pullRequest, 'isDraft'),
       prNumber: parseNumberField(pullRequest, 'number'),
       prdIssueNumber,
       url: parseStringField(pullRequest, 'url'),
