@@ -653,8 +653,33 @@ const createFinalCleanupCommitMessage = (
     finalCleanupCommitMessage,
     '',
     'Final cleanup rationale:',
-    ...findings.map((finding) => `- ${finding.findingId}: ${finding.rationale}`),
+    ...findings.flatMap((finding) =>
+      formatWrappedCommitBullet(`${finding.findingId}: ${finding.rationale}`),
+    ),
   ].join('\n')
+
+const formatWrappedCommitBullet = (value: string): readonly string[] =>
+  wrapText(value.replaceAll(/\s+/g, ' ').trim(), 98).map((line, index) =>
+    index === 0 ? `- ${line}` : `  ${line}`,
+  )
+
+const wrapText = (value: string, maxLength: number): readonly string[] => {
+  const words = value.split(' ')
+
+  return words.reduce<string[]>((lines, word) => {
+    const currentLine = lines.at(-1)
+
+    if (currentLine === undefined) {
+      return [word]
+    }
+
+    if (`${currentLine} ${word}`.length <= maxLength) {
+      return [...lines.slice(0, -1), `${currentLine} ${word}`]
+    }
+
+    return [...lines, word]
+  }, [])
+}
 
 const commitHashesMatch = (
   childCommitHash: string,

@@ -160,6 +160,26 @@ Verification evidence:
 Closes #83`)
   })
 
+  it('wraps generated child commit evidence lines within commitlint limits', () => {
+    const message = createChildCommitMessage({
+      acceptanceEvidence: [
+        'This acceptance criterion contains enough detail to otherwise exceed the commit body line-length limit and should be wrapped before commit time.',
+      ],
+      childIssueNumber: 83,
+      childTitle: 'Generate PRD draft PR state, ledger, and merge instructions',
+      verificationEvidence: [
+        'pnpm --filter @cv-maxxing/prd-orchestrator test:unit -- tools/prd-orchestrator/src/__tests__/draft-pr-state.test.ts tools/prd-orchestrator/src/__tests__/one-child-transaction.test.ts',
+        'first evidence line\nsecond evidence line with enough additional words to require wrapping inside the bullet formatter',
+      ],
+    })
+    const bodyLines = message.split('\n').slice(1)
+
+    expect(bodyLines.every((line) => line.length <= 100)).toBe(true)
+    expect(message).toContain(
+      '- first evidence line second evidence line with enough additional words to require',
+    )
+  })
+
   it('reconciles stale PR body ledger data from commits containing child closing footers', () => {
     expect(
       reconcileDraftPrStateFromCommits({

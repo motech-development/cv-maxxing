@@ -198,6 +198,7 @@ describe('Sandcastle impact analysis adapter planning', () => {
     expect(prompt).toContain(
       'Do not request or use GitHub tokens, SSH keys, or remote push credentials.',
     )
+    expect(prompt).toContain('Return only machine-parseable JSON. Do not wrap it in Markdown.')
   })
 
   it('keeps the Sandcastle prompt file aligned with the parser JSON contract', async () => {

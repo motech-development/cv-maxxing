@@ -404,6 +404,37 @@ describe('final PRD repair and audit flow', () => {
     })
   })
 
+  it('wraps final cleanup commit rationale lines within commitlint limits', () => {
+    const plan = planResumePrRepair({
+      childCommits: [],
+      findings: [
+        {
+          body: 'General PR summary finding.',
+          id: 'finding-with-an-especially-long-identifier-that-still-needs-wrapping',
+          filePath:
+            'tools/prd-orchestrator/src/final-prd-flow-with-a-long-generated-rationale-path.ts',
+          source: 'github-pr-review',
+          title: 'Summary finding',
+        },
+      ],
+      ownership: {
+        body: automationPrBody,
+        branchName: 'agent/prd-80-automate-prd-implementation',
+        prNumber: 12,
+      },
+      prIsDraft: true,
+    })
+    const normalizedMessage = plan.finalCleanupCommit?.message.replaceAll(/\s+/g, ' ') ?? ''
+
+    expect(plan.finalCleanupCommit?.message.split('\n').every((line) => line.length <= 100)).toBe(
+      true,
+    )
+    expect(normalizedMessage).toContain(
+      'File tools/prd-orchestrator/src/final-prd-flow-with-a-long-generated-rationale-path.ts',
+    )
+    expect(normalizedMessage).toContain('did not match any child commit changed files.')
+  })
+
   it('records non-actionable PR findings with rationale instead of repairing them', () => {
     expect(
       planResumePrRepair({

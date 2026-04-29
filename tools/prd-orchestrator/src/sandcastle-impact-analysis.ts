@@ -230,6 +230,7 @@ export const buildImpactAnalysisPrompt = (input: ImpactAnalysisPromptInput): str
     'Do not implement code. Do not mutate GitHub. Do not request or use GitHub tokens, SSH keys, or remote push credentials.',
     'Treat `.pen` design files as Pencil-required surfaces. When acceptance criteria require design source changes, list `.pen` files in both `designFiles` and `pencilRequiredDesignFiles`.',
     'For `sharedContracts`, return repository file paths, not symbolic contract names.',
+    'Return only machine-parseable JSON. Do not wrap it in Markdown.',
     '',
     `Parent PRD issue: #${String(input.prdIssueNumber)}`,
     `Assigned child issue: #${String(input.childIssueNumber)}`,

@@ -179,7 +179,39 @@ const renderProgressLedger = (input: GenerateDraftPrBodyInput): string => {
 }
 
 const formatEvidenceLines = (evidence: readonly string[]): readonly string[] =>
-  evidence.length === 0 ? ['- Not recorded.'] : evidence.map((entry) => `- ${entry}`)
+  evidence.length === 0
+    ? ['- Not recorded.']
+    : evidence.flatMap((entry) => formatWrappedBullet(entry))
+
+const formatWrappedBullet = (value: string): readonly string[] => {
+  const normalizedValue = value.replaceAll(/\s+/g, ' ').trim()
+
+  if (normalizedValue.length === 0) {
+    return ['- Not recorded.']
+  }
+
+  return wrapText(normalizedValue, 98).map((line, index) =>
+    index === 0 ? `- ${line}` : `  ${line}`,
+  )
+}
+
+const wrapText = (value: string, maxLength: number): readonly string[] => {
+  const words = value.split(' ')
+
+  return words.reduce<string[]>((lines, word) => {
+    const currentLine = lines.at(-1)
+
+    if (currentLine === undefined) {
+      return [word]
+    }
+
+    if (`${currentLine} ${word}`.length <= maxLength) {
+      return [...lines.slice(0, -1), `${currentLine} ${word}`]
+    }
+
+    return [...lines, word]
+  }, [])
+}
 
 const formatMarkdownTableCell = (value: string): string =>
   value

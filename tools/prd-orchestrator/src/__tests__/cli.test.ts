@@ -537,6 +537,30 @@ describe('PRD orchestrator CLI', () => {
     })
   })
 
+  it('rejects live CLI model and effort flags without real values', async () => {
+    await expect(
+      runPrdOrchestratorCliAsync({
+        arguments_: ['run', '--model', '--one-child'],
+        stdin: '',
+      }),
+    ).resolves.toEqual({
+      exitCode: 1,
+      stderr: 'Expected --model to include a value.\n',
+      stdout: '',
+    })
+
+    await expect(
+      runPrdOrchestratorCliAsync({
+        arguments_: ['run', '--effort='],
+        stdin: '',
+      }),
+    ).resolves.toEqual({
+      exitCode: 1,
+      stderr: 'Expected --effort to include a value.\n',
+      stdout: '',
+    })
+  })
+
   it('runs every child task in dependency order for the full live run command', async () => {
     const adapters = createLiveAdapters({
       issues: multiChildIssueObjects,
