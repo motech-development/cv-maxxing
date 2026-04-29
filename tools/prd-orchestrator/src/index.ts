@@ -226,6 +226,7 @@ export type {
   RunImpactAnalysisInput,
   RunImplementationInput,
   RunImplementationResult,
+  UpsertPrCommentInput,
 } from './live-orchestrator.js'
 
 export type {

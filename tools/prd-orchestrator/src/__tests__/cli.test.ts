@@ -426,6 +426,66 @@ describe('PRD orchestrator CLI', () => {
     })
   })
 
+  it('finalizes a full run recovered from all-complete branch commits', async () => {
+    const adapters = createLiveAdapters({
+      initialCompletedChildIssueNumbers: [82, 83],
+      issues: multiChildIssueObjects,
+      recoveredRunStatusPhase: 'complete',
+    })
+    const result = await runPrdOrchestratorCliAsync({
+      adapters,
+      arguments_: ['run'],
+      stdin: '',
+    })
+
+    expect(result.exitCode).toBe(0)
+    expect(result.stdout).toContain('Completed PRD #80')
+    expect(adapters.events).toContain('ci:poll-checks')
+    expect(adapters.events).toContain('github:upsert-pr-comment')
+    expect(adapters.events).toContain('github:mark-ready-for-review')
+    expect(adapters.events).not.toContain('sandcastle:implementation')
+    expect(adapters.updatedPrBodies.at(-1)).toContain(
+      '| #83 | Generate PRD draft PR state, ledger, and merge instructions | complete |',
+    )
+    expect(adapters.upsertedComments.at(-1)).toContain('## Final PRD Acceptance Audit')
+    expect(adapters.recordedStatuses.at(-1)).toMatchObject({
+      ciStatus: 'passed',
+      completedChildren: [82, 83],
+      phase: 'ready-for-review',
+    })
+  })
+
+  it('records recovered all-complete CI blockers without marking ready', async () => {
+    const adapters = createLiveAdapters({
+      ciPollingResults: [
+        {
+          blockers: ['GitHub Actions run desktop macos-15 failed with conclusion failure'],
+          status: 'failed',
+        },
+      ],
+      initialCompletedChildIssueNumbers: [82, 83],
+      issues: multiChildIssueObjects,
+      recoveredRunStatusPhase: 'complete',
+    })
+    const result = await runPrdOrchestratorCliAsync({
+      adapters,
+      arguments_: ['run'],
+      stdin: '',
+    })
+
+    expect(result.exitCode).toBe(1)
+    expect(adapters.events).toContain('ci:poll-checks')
+    expect(adapters.events).toContain('github:post-pr-comment')
+    expect(adapters.events).not.toContain('github:upsert-pr-comment')
+    expect(adapters.events).not.toContain('github:mark-ready-for-review')
+    expect(adapters.postedComments.at(-1)).toContain('## PRD Orchestrator CI Blocker')
+    expect(adapters.recordedStatuses.at(-1)).toMatchObject({
+      blockers: ['GitHub Actions run desktop macos-15 failed with conclusion failure'],
+      ciStatus: 'failed',
+      phase: 'blocked',
+    })
+  })
+
   it('stops final CI polling at timeout or an external blocker', async () => {
     const timeoutAdapters = createLiveAdapters({
       ciPollingResults: [
@@ -636,7 +696,8 @@ describe('PRD orchestrator CLI', () => {
       'coderabbit:review',
       'github:update-pr-body',
       'ci:poll-checks',
-      'github:post-pr-comment',
+      'github:upsert-pr-comment',
+      'github:create-final-audit-comment',
       'github:mark-ready-for-review',
       'state:record-run-status',
       'lock:release',
@@ -995,6 +1056,54 @@ describe('PRD orchestrator CLI', () => {
     )
   })
 
+  it('resumes an all-complete automation PR directly into finalization', async () => {
+    const adapters = createLiveAdapters({
+      initialCompletedChildIssueNumbers: [82, 83],
+      issues: multiChildIssueObjects,
+      recoveredRunStatusPhase: 'complete',
+    })
+    const result = await runPrdOrchestratorCliAsync({
+      adapters,
+      arguments_: ['resume-pr', '123'],
+      stdin: '',
+    })
+
+    expect(result.exitCode).toBe(0)
+    expect(adapters.events).toContain('state:recover-run-status')
+    expect(adapters.events).toContain('ci:poll-checks')
+    expect(adapters.events).toContain('github:upsert-pr-comment')
+    expect(adapters.events).toContain('github:mark-ready-for-review')
+    expect(adapters.events).not.toContain('git:get-main-branch-status')
+    expect(adapters.events).not.toContain('sandcastle:implementation')
+    expect(adapters.recordedStatuses.at(-1)).toMatchObject({
+      ciStatus: 'passed',
+      completedChildren: [82, 83],
+      lastCommand: 'resume-pr',
+      phase: 'ready-for-review',
+    })
+  })
+
+  it('updates the existing final audit comment when resuming an already finalized branch', async () => {
+    const adapters = createLiveAdapters({
+      existingFinalAuditComment: '## Final PRD Acceptance Audit\n\nStale audit.',
+      initialCompletedChildIssueNumbers: [82, 83],
+      issues: multiChildIssueObjects,
+      recoveredRunStatusPhase: 'complete',
+    })
+    const result = await runPrdOrchestratorCliAsync({
+      adapters,
+      arguments_: ['resume-pr', '123'],
+      stdin: '',
+    })
+
+    expect(result.exitCode).toBe(0)
+    expect(adapters.events).toContain('github:upsert-pr-comment')
+    expect(adapters.events).toContain('github:update-pr-comment')
+    expect(adapters.events).not.toContain('github:create-final-audit-comment')
+    expect(adapters.upsertedComments).toHaveLength(1)
+    expect(adapters.upsertedComments.at(0)).toContain('## Final PRD Acceptance Audit')
+  })
+
   it('blocks resume-pr preflight before reading or mutating PR state', async () => {
     const adapters = createLiveAdapters({
       preflightResult: {
@@ -1271,13 +1380,16 @@ interface CreateLiveAdaptersOptions {
   readonly ciPollingTimeoutMs?: number
   readonly codeRabbitFindings?: readonly CodeRabbitFinding[]
   readonly codeRabbitFindingsBeforeClean?: number
+  readonly existingFinalAuditComment?: string
   readonly getPrError?: Error
   readonly impactAnalyses?: readonly Awaited<
     ReturnType<PrdOrchestratorLiveAdapters['sandcastle']['runImpactAnalysis']>
   >[]
+  readonly initialCompletedChildIssueNumbers?: readonly number[]
   readonly issues?: readonly GitHubIssue[]
   readonly omitCheckoutChildCommit?: boolean
   readonly preflightResult?: LivePreflightResult
+  readonly recoveredRunStatusPhase?: string
   readonly resumePrFindings?: readonly ResumePrFinding[]
   readonly runLockResult?: LiveRunLockResult
   readonly verificationFailureCountsByChildIssueNumber?: ReadonlyMap<number, number>
@@ -1301,6 +1413,7 @@ const createLiveAdapters = (
   readonly postedComments: string[]
   readonly recordedStatuses: RunStatus[]
   readonly updatedPrBodies: string[]
+  readonly upsertedComments: string[]
   readonly workerBranchNames: string[]
 } => {
   const events: string[] = []
@@ -1312,8 +1425,11 @@ const createLiveAdapters = (
   }[] = []
   const recordedStatuses: RunStatus[] = []
   const postedComments: string[] = []
-  const completedChildIssueNumbers: number[] = []
+  const completedChildIssueNumbers: number[] = [
+    ...(options.initialCompletedChildIssueNumbers ?? []),
+  ]
   const updatedPrBodies: string[] = []
+  const upsertedComments: string[] = []
   const workerBranchNames: string[] = []
   let codeRabbitReviewCount = 0
   let ciPollingCount = 0
@@ -1378,6 +1494,7 @@ const createLiveAdapters = (
       codexModel: undefined,
     },
     updatedPrBodies,
+    upsertedComments,
     workerBranchNames,
     recordedStatuses,
     git: {
@@ -1543,6 +1660,18 @@ const createLiveAdapters = (
 
         return Promise.resolve()
       },
+      upsertPrComment: (input) => {
+        events.push('github:upsert-pr-comment')
+        upsertedComments.push(input.body)
+
+        if (options.existingFinalAuditComment === undefined) {
+          events.push('github:create-final-audit-comment')
+        } else {
+          events.push('github:update-pr-comment')
+        }
+
+        return Promise.resolve()
+      },
     },
     sandcastle: {
       repairResumeFindings: () => {
@@ -1656,7 +1785,8 @@ const createLiveAdapters = (
         const issues = options.issues ?? issueObjects
         const childIssueCount = issues.filter((issue) => issue.number !== 80).length
         const phase =
-          completedChildIssueNumbers.length >= childIssueCount ? 'ready-for-review' : 'complete'
+          options.recoveredRunStatusPhase ??
+          (completedChildIssueNumbers.length >= childIssueCount ? 'ready-for-review' : 'complete')
 
         return Promise.resolve({
           activePrdIssueNumber: 80,

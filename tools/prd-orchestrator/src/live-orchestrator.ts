@@ -85,6 +85,7 @@ export interface PrdOrchestratorLiveAdapters {
     readonly markReadyForReview: (prNumber: number) => Promise<void>
     readonly postPrComment: (prNumber: number, body: string) => Promise<void>
     readonly updatePrBody: (prNumber: number, body: string) => Promise<void>
+    readonly upsertPrComment: (input: UpsertPrCommentInput) => Promise<void>
   }
   readonly sandcastle: {
     readonly repairReviewFindings: (
@@ -252,6 +253,12 @@ export interface AutomationPrDetails {
   readonly url: string
 }
 
+export interface UpsertPrCommentInput {
+  readonly body: string
+  readonly marker: string
+  readonly prNumber: number
+}
+
 const emptyImpactAnalysis = {
   designFiles: [],
   expectedFiles: [],
@@ -262,6 +269,7 @@ const emptyImpactAnalysis = {
 } as const satisfies SandcastleImpactAnalysisResult
 const defaultCiPollingIntervalMs = 30 * 1000
 const defaultCiPollingTimeoutMs = 30 * 60 * 1000
+const finalPrdAcceptanceAuditMarker = '## Final PRD Acceptance Audit'
 
 export const executeLivePlan = async (
   adapters: PrdOrchestratorLiveAdapters,
@@ -421,6 +429,15 @@ const executeLiveRunWithLock = async (
             stdout: renderFullRunCompletion(status),
           }
         }
+
+        return await finalizeRecoveredPrdBranch({
+          adapters,
+          branchName: branchSeedPlan.prdBranchName,
+          completedChildren: completedChildIssueNumbers,
+          draftPr,
+          lastCommand: 'run',
+          selectedPrd,
+        })
       }
 
       if (blockedChildIssueNumbers.size > 0) {
@@ -1309,6 +1326,28 @@ const executeResumePrWithLock = async (
 
   await adapters.state.recoverRunStatusFromPr(pr)
 
+  if (selectedPrd !== undefined) {
+    const completedChildren =
+      (await adapters.git.getCompletedChildIssueNumbers?.(pr.branchName)) ??
+      childCommits.map((commit) => commit.childIssueNumber)
+
+    if (completedChildren.length === selectedPrd.childTasks.length) {
+      return await finalizeRecoveredPrdBranch({
+        adapters,
+        branchName: pr.branchName,
+        completedChildren,
+        draftPr: {
+          branchName: pr.branchName,
+          prNumber: pr.prNumber,
+          prdIssueNumber: selectedPrd.issueNumber,
+          url: pr.url,
+        },
+        lastCommand: 'resume-pr',
+        selectedPrd,
+      })
+    }
+  }
+
   return await executeLiveRunWithLock(adapters)
 }
 
@@ -2008,7 +2047,11 @@ const finalizePrdIfReady = async (input: {
     verificationEvidence: input.verificationEvidenceByChild,
   })
 
-  await input.adapters.github.postPrComment(input.draftPr.prNumber, finalAudit)
+  await input.adapters.github.upsertPrComment({
+    body: finalAudit,
+    marker: finalPrdAcceptanceAuditMarker,
+    prNumber: input.draftPr.prNumber,
+  })
 
   const readyGate = evaluateReadyForReviewGate({
     allChildrenComplete: input.completedChildren.length === input.selectedPrd.childTasks.length,
@@ -2033,6 +2076,67 @@ const finalizePrdIfReady = async (input: {
     blockers: [],
     ciStatus,
     phase: 'ready-for-review',
+  }
+}
+
+const finalizeRecoveredPrdBranch = async (input: {
+  readonly adapters: PrdOrchestratorLiveAdapters
+  readonly branchName: string
+  readonly completedChildren: readonly number[]
+  readonly draftPr: RemoteAutomationPr
+  readonly lastCommand: string
+  readonly selectedPrd: SelectedPrdPlan
+}): Promise<LiveCommandResult> => {
+  await input.adapters.github.updatePrBody(
+    input.draftPr.prNumber,
+    generateDraftPrBody({
+      branchName: input.branchName,
+      childTasks: input.selectedPrd.childTasks,
+      ledger: await createBaseLedger({
+        adapters: input.adapters,
+        blockedChildIssueNumbers: [],
+        branchName: input.branchName,
+        childTasks: input.selectedPrd.childTasks,
+        completedChildIssueNumbers: input.completedChildren,
+      }),
+      parentPrdIssueNumber: input.selectedPrd.issueNumber,
+      prdTitle: input.selectedPrd.title,
+    }),
+  )
+
+  const verificationEvidence = ['Recovered verification evidence from completed child commits.']
+  const finalizationResult = await finalizePrdIfReady({
+    adapters: input.adapters,
+    branchName: input.branchName,
+    completedChildren: input.completedChildren,
+    draftPr: input.draftPr,
+    selectedPrd: input.selectedPrd,
+    verificationEvidence,
+    verificationEvidenceByChild: createRecoveredVerificationEvidenceByChild({
+      childTasks: input.selectedPrd.childTasks,
+      completedChildren: input.completedChildren,
+    }),
+  })
+  const status = createRunStatus({
+    blockers: finalizationResult.blockers,
+    branchName: input.branchName,
+    ciStatus: finalizationResult.ciStatus,
+    codeRabbitStatus: 'passed',
+    completedChildIssueNumbers: input.completedChildren,
+    currentChildIssueNumber: undefined,
+    lastCommand: input.lastCommand,
+    phase: finalizationResult.phase,
+    pr: input.draftPr,
+    prdIssueNumber: input.selectedPrd.issueNumber,
+  })
+
+  await input.adapters.state.recordRunStatus(status)
+
+  return {
+    exitCode: finalizationResult.blockers.length === 0 ? 0 : 1,
+    stderr:
+      finalizationResult.blockers.length === 0 ? '' : `${finalizationResult.blockers.join('\n')}\n`,
+    stdout: finalizationResult.blockers.length === 0 ? `${renderFullRunCompletion(status)}\n` : '',
   }
 }
 
@@ -2235,6 +2339,17 @@ const createVerificationEvidenceByChild = (input: {
             (evidence) => `#${String(childTask.issueNumber)}: ${evidence}`,
           )
         : [`#${String(childTask.issueNumber)}: verification evidence recorded in child commit`],
+    )
+
+const createRecoveredVerificationEvidenceByChild = (input: {
+  readonly childTasks: readonly ParsedChildTask[]
+  readonly completedChildren: readonly number[]
+}): readonly string[] =>
+  input.childTasks
+    .filter((childTask) => input.completedChildren.includes(childTask.issueNumber))
+    .map(
+      (childTask) =>
+        `#${String(childTask.issueNumber)}: verification evidence recorded in child commit`,
     )
 
 const createParentUserStoryAudit = (
