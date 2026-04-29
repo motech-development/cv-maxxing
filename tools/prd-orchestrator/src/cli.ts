@@ -311,17 +311,19 @@ const parseOptionalRemoteAutomationPr = (value: unknown): RemoteAutomationPr | u
   if (
     !isRecord(value) ||
     typeof value.branchName !== 'string' ||
+    typeof value.isDraft !== 'boolean' ||
     typeof value.prNumber !== 'number' ||
     typeof value.prdIssueNumber !== 'number' ||
     typeof value.url !== 'string'
   ) {
     throw new TypeError(
-      'Expected remoteAutomationPr to include branchName, prNumber, prdIssueNumber, and url.',
+      'Expected remoteAutomationPr to include branchName, isDraft, prNumber, prdIssueNumber, and url.',
     )
   }
 
   return {
     branchName: value.branchName,
+    isDraft: value.isDraft,
     prNumber: value.prNumber,
     prdIssueNumber: value.prdIssueNumber,
     url: value.url,

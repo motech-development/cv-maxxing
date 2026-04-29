@@ -691,6 +691,7 @@ describe('PRD orchestrator CLI', () => {
       'sandcastle:implementation',
       'git:apply-worker-diff',
       'verification:run',
+      'github:get-pr',
       'git:commit-child',
       'git:push-prd-branch',
       'coderabbit:review',
@@ -827,6 +828,87 @@ describe('PRD orchestrator CLI', () => {
     expect(adapters.amendedCommitMessages.at(0)).toContain('Verification evidence:')
     expect(adapters.amendedCommitMessages.at(0)).toContain('Closes #82')
     expect(adapters.events.filter((event) => event === 'coderabbit:review')).toHaveLength(2)
+  })
+
+  it('refuses run --one-child rewrites when the existing automation PR is ready for review', async () => {
+    const adapters = createLiveAdapters({
+      automationPr: {
+        branchName: 'agent/prd-80-automate-prd-implementation',
+        isDraft: false,
+        prNumber: 123,
+        prdIssueNumber: 80,
+        url: 'https://github.com/motech-development/cv-maxxing/pull/123',
+      },
+    })
+    const result = await runPrdOrchestratorCliAsync({
+      adapters,
+      arguments_: ['run', '--one-child'],
+      stdin: '',
+    })
+
+    expect(result.exitCode).toBe(1)
+    expect(result.stderr).toContain('PR #123 is ready for review')
+    expect(result.stderr).toContain('run --one-child will not amend commits or force-push')
+    expect(adapters.events).toEqual([
+      'preflight:run',
+      'lock:acquire',
+      'github:list-open-issues',
+      'git:get-main-branch-status',
+      'git:get-completed-children',
+      'github:find-automation-pr',
+      'lock:release',
+    ])
+  })
+
+  it('allows run --one-child rewrites when the existing automation PR is still draft', async () => {
+    const adapters = createLiveAdapters({
+      automationPr: {
+        branchName: 'agent/prd-80-automate-prd-implementation',
+        isDraft: true,
+        prNumber: 123,
+        prdIssueNumber: 80,
+        url: 'https://github.com/motech-development/cv-maxxing/pull/123',
+      },
+    })
+    const result = await runPrdOrchestratorCliAsync({
+      adapters,
+      arguments_: ['run', '--one-child'],
+      stdin: '',
+    })
+
+    expect(result.exitCode).toBe(0)
+    expect(adapters.events).toContain('git:push-prd-branch')
+    expect(adapters.events).toContain('github:get-pr')
+  })
+
+  it('refuses full run rewrites when the existing automation PR is ready for review', async () => {
+    const adapters = createLiveAdapters({
+      automationPr: {
+        branchName: 'agent/prd-80-automate-prd-implementation',
+        isDraft: false,
+        prNumber: 123,
+        prdIssueNumber: 80,
+        url: 'https://github.com/motech-development/cv-maxxing/pull/123',
+      },
+      issues: multiChildIssueObjects,
+    })
+    const result = await runPrdOrchestratorCliAsync({
+      adapters,
+      arguments_: ['run'],
+      stdin: '',
+    })
+
+    expect(result.exitCode).toBe(1)
+    expect(result.stderr).toContain('PR #123 is ready for review')
+    expect(result.stderr).toContain('run will not amend commits or force-push')
+    expect(adapters.events).toEqual([
+      'preflight:run',
+      'lock:acquire',
+      'github:list-open-issues',
+      'git:get-main-branch-status',
+      'github:find-automation-pr',
+      'lock:release',
+    ])
   })
 
   it('records non-actionable CodeRabbit findings without sending them to repair workers', async () => {
@@ -1419,6 +1501,7 @@ interface CreateLiveAdaptersOptions {
   readonly ciPollingTimeoutMs?: number
   readonly codeRabbitFindings?: readonly CodeRabbitFinding[]
   readonly codeRabbitFindingsBeforeClean?: number
+  readonly automationPr?: RemoteAutomationPr
   readonly existingFinalAuditComment?: string
   readonly getPrError?: Error
   readonly impactAnalyses?: readonly Awaited<
@@ -1473,6 +1556,7 @@ const createLiveAdapters = (
   let codeRabbitReviewCount = 0
   let ciPollingCount = 0
   let impactAnalysisCount = 0
+  let prIsDraft = options.automationPr?.isDraft ?? options.resumePrFindings === undefined
   let lastRecordedStatus:
     | Awaited<ReturnType<PrdOrchestratorLiveAdapters['state']['readRunStatus']>>
     | undefined
@@ -1630,6 +1714,7 @@ const createLiveAdapters = (
 
         return Promise.resolve({
           branchName: 'agent/prd-80-automate-prd-implementation',
+          isDraft: true,
           prNumber: 123,
           prdIssueNumber: 80,
           url: 'https://github.com/motech-development/cv-maxxing/pull/123',
@@ -1637,9 +1722,8 @@ const createLiveAdapters = (
       },
       findAutomationPr: () => {
         events.push('github:find-automation-pr')
-        const automationPr = undefined as RemoteAutomationPr | undefined
 
-        return Promise.resolve(automationPr)
+        return Promise.resolve(options.automationPr)
       },
       getPr: () => {
         events.push('github:get-pr')
@@ -1651,13 +1735,14 @@ const createLiveAdapters = (
         return Promise.resolve({
           body: '## Automation\n\nManaged by `@cv-maxxing/prd-orchestrator`.',
           branchName: 'agent/prd-80-automate-prd-implementation',
-          isDraft: options.resumePrFindings === undefined,
+          isDraft: prIsDraft,
           prNumber: 123,
           url: 'https://github.com/motech-development/cv-maxxing/pull/123',
         })
       },
       convertPrToDraft: () => {
         events.push('github:convert-pr-to-draft')
+        prIsDraft = true
 
         return Promise.resolve()
       },

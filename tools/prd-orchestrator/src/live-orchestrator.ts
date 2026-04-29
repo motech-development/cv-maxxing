@@ -271,6 +271,53 @@ const defaultCiPollingIntervalMs = 30 * 1000
 const defaultCiPollingTimeoutMs = 30 * 60 * 1000
 const finalPrdAcceptanceAuditMarker = '## Final PRD Acceptance Audit'
 
+const createNonDraftRewriteBlocker = (input: {
+  readonly branchName: string
+  readonly command: string
+  readonly prNumber: number
+}): string =>
+  `PR #${String(input.prNumber)} is ready for review; ${input.command} will not amend commits or force-push branch ${input.branchName}. Use resume-pr ${String(input.prNumber)} only when actionable CI or review repair work requires a history rewrite.`
+
+const createRemoteAutomationPrFromDetails = (
+  pr: AutomationPrDetails,
+  prdIssueNumber: number,
+  isDraft: boolean = pr.isDraft,
+): RemoteAutomationPr => ({
+  branchName: pr.branchName,
+  isDraft,
+  prNumber: pr.prNumber,
+  prdIssueNumber,
+  url: pr.url,
+})
+
+const getExistingRunRewriteBlocker = (
+  pr: RemoteAutomationPr | undefined,
+  command: string,
+): string | undefined =>
+  pr === undefined || pr.isDraft
+    ? undefined
+    : createNonDraftRewriteBlocker({
+        branchName: pr.branchName,
+        command,
+        prNumber: pr.prNumber,
+      })
+
+const getFreshRewriteBlocker = async (input: {
+  readonly adapters: PrdOrchestratorLiveAdapters
+  readonly command: string
+  readonly pr: RemoteAutomationPr
+}): Promise<string | undefined> => {
+  const currentPr = await input.adapters.github.getPr(input.pr.prNumber)
+
+  return currentPr.isDraft
+    ? undefined
+    : createNonDraftRewriteBlocker({
+        branchName: currentPr.branchName,
+        command: input.command,
+        prNumber: currentPr.prNumber,
+      })
+}
+
 export const executeLivePlan = async (
   adapters: PrdOrchestratorLiveAdapters,
 ): Promise<LiveCommandResult> => {
@@ -374,6 +421,12 @@ const executeLiveRunWithLock = async (
     selectedPrd.issueNumber,
     branchSeedPlan.prdBranchName,
   )
+  const existingPrRewriteBlocker = getExistingRunRewriteBlocker(remoteAutomationPr, 'run')
+
+  if (existingPrRewriteBlocker !== undefined) {
+    return blockedResult(existingPrRewriteBlocker)
+  }
+
   const parentPrdBody = issues.find((issue) => issue.number === selectedPrd.issueNumber)?.body ?? ''
 
   await adapters.git.preparePrdBranch({
@@ -698,6 +751,15 @@ const executeLiveOneChildWithLock = async (
     selectedPrd.issueNumber,
     branchSeedPlan.prdBranchName,
   )
+  const existingPrRewriteBlocker = getExistingRunRewriteBlocker(
+    remoteAutomationPr,
+    'run --one-child',
+  )
+
+  if (existingPrRewriteBlocker !== undefined) {
+    return blockedResult(existingPrRewriteBlocker)
+  }
+
   const parentPrdBody = issues.find((issue) => issue.number === selectedPrd.issueNumber)?.body ?? ''
 
   await adapters.git.preparePrdBranch({
@@ -855,6 +917,38 @@ const executeLiveOneChildWithLock = async (
     return {
       exitCode: 1,
       stderr: `${commitReadyPlan.blockers.join('\n')}\n`,
+      stdout: `${renderOneChildSummary({
+        childIssueNumber: selectedChild.issueNumber,
+        pr: draftPr,
+        status,
+      })}\n`,
+    }
+  }
+
+  const rewriteBlocker = await getFreshRewriteBlocker({
+    adapters,
+    command: input.lastCommand ?? 'run --one-child',
+    pr: draftPr,
+  })
+
+  if (rewriteBlocker !== undefined) {
+    const status = createRunStatus({
+      blockers: [rewriteBlocker],
+      branchName: branchSeedPlan.prdBranchName,
+      codeRabbitStatus: 'not run',
+      completedChildIssueNumbers,
+      currentChildIssueNumber: selectedChild.issueNumber,
+      lastCommand: input.lastCommand ?? 'run --one-child',
+      phase: 'blocked',
+      pr: draftPr,
+      prdIssueNumber: selectedPrd.issueNumber,
+    })
+
+    await adapters.state.recordRunStatus(status)
+
+    return {
+      exitCode: 1,
+      stderr: `${rewriteBlocker}\n`,
       stdout: `${renderOneChildSummary({
         childIssueNumber: selectedChild.issueNumber,
         pr: draftPr,
@@ -1078,6 +1172,38 @@ const executePreparedChildWithLock = async (input: {
     branchName: input.branchSeedPlan.prdBranchName,
     mode: 'force-with-lease',
   } as const
+  const rewriteBlocker = await getFreshRewriteBlocker({
+    adapters: input.adapters,
+    command: input.lastCommand,
+    pr: input.draftPr,
+  })
+
+  if (rewriteBlocker !== undefined) {
+    const status = createRunStatus({
+      blockers: [rewriteBlocker],
+      branchName: input.branchSeedPlan.prdBranchName,
+      codeRabbitStatus: 'not run',
+      completedChildIssueNumbers: input.completedChildIssueNumbers,
+      currentChildIssueNumber: input.selectedChild.issueNumber,
+      lastCommand: input.lastCommand,
+      phase: 'blocked',
+      pr: input.draftPr,
+      prdIssueNumber: input.selectedPrd.issueNumber,
+    })
+
+    await input.adapters.state.recordRunStatus(status)
+
+    return {
+      exitCode: 1,
+      stderr: `${rewriteBlocker}\n`,
+      stdout: `${renderOneChildSummary({
+        childIssueNumber: input.selectedChild.issueNumber,
+        pr: input.draftPr,
+        status,
+      })}\n`,
+    }
+  }
+
   const commit = await input.adapters.git.commitChild(commitMessage)
 
   await input.adapters.git.pushPrdBranch(push)
@@ -1259,8 +1385,19 @@ const executeResumePrWithLock = async (
     }
   }
 
+  const convertPrToDraft = adapters.github.convertPrToDraft
+
   if (repairPlan.returnToDraft) {
-    await adapters.github.convertPrToDraft?.(prNumber)
+    if (convertPrToDraft === undefined) {
+      return {
+        exitCode: 1,
+        stderr:
+          'Resume repair requires returning the PR to draft before rewriting history, but the GitHub adapter does not support it.\n',
+        stdout: '',
+      }
+    }
+
+    await convertPrToDraft(prNumber)
   }
 
   if (repairPlan.nonActionableFindings.length > 0) {
@@ -1336,12 +1473,11 @@ const executeResumePrWithLock = async (
         adapters,
         branchName: pr.branchName,
         completedChildren,
-        draftPr: {
-          branchName: pr.branchName,
-          prNumber: pr.prNumber,
-          prdIssueNumber: selectedPrd.issueNumber,
-          url: pr.url,
-        },
+        draftPr: createRemoteAutomationPrFromDetails(
+          pr,
+          selectedPrd.issueNumber,
+          pr.isDraft || repairPlan.returnToDraft,
+        ),
         lastCommand: 'resume-pr',
         selectedPrd,
       })
@@ -1900,6 +2036,29 @@ const repairCodeRabbitFindingsUntilClean = async (input: {
     }
 
     seenFindingFingerprints.add(fingerprint)
+
+    const rewriteBlocker = await getFreshRewriteBlocker({
+      adapters: input.adapters,
+      command: 'CodeRabbit repair',
+      pr: input.draftPr,
+    })
+
+    if (rewriteBlocker !== undefined) {
+      return {
+        commitHash,
+        result: {
+          findings: [
+            {
+              body: rewriteBlocker,
+              id: 'non-draft-pr-rewrite-refused',
+              source: 'github-pr-review',
+              title: 'PR rewrite refused',
+            },
+          ],
+          status: 'findings',
+        },
+      }
+    }
 
     const workerResult = await input.adapters.sandcastle.repairReviewFindings({
       childTask: input.selectedChild,

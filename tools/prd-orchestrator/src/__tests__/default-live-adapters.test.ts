@@ -69,6 +69,21 @@ describe('default live adapters', () => {
     })
   })
 
+  it('loads existing automation PR draft state before live run rewrites', async () => {
+    const shell = createRecordingShell()
+    const adapters = createDefaultPrdOrchestratorLiveAdapters('/repo', undefined, shell.run)
+
+    await expect(adapters.github.findAutomationPr(80, 'agent/prd-80-test')).resolves.toMatchObject({
+      branchName: 'agent/prd-80-test',
+      isDraft: true,
+      prNumber: 123,
+      prdIssueNumber: 80,
+    })
+    expect(shell.commands.map((command) => formatCommand(command))).toEqual([
+      'gh pr list --state open --head agent/prd-80-test --json number,url,headRefName,body,isDraft --limit 1',
+    ])
+  })
+
   it('removes temporary body files after shell commands consume them', async () => {
     const shell = createRecordingShell()
     const adapters = createDefaultPrdOrchestratorLiveAdapters('/repo', undefined, shell.run)
