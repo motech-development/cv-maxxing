@@ -112,6 +112,7 @@ export interface SandcastleImpactAnalysisResult {
   readonly designFiles: readonly string[]
   readonly expectedFiles: readonly string[]
   readonly expectedModules: readonly string[]
+  readonly pencilRequiredDesignFiles?: readonly string[]
   readonly riskLevel: ImpactRiskLevel
   readonly sharedContracts: readonly string[]
   readonly tests: readonly string[]
@@ -222,6 +223,7 @@ export const buildImpactAnalysisPrompt = (input: ImpactAnalysisPromptInput): str
     'You are performing read-only impact analysis for one PRD child task.',
     '',
     'Do not implement code. Do not mutate GitHub. Do not request or use GitHub tokens, SSH keys, or remote push credentials.',
+    'Treat `.pen` design files as Pencil-required surfaces. When acceptance criteria require design source changes, list `.pen` files in both `designFiles` and `pencilRequiredDesignFiles`.',
     '',
     `Parent PRD issue: #${String(input.prdIssueNumber)}`,
     `Assigned child issue: #${String(input.childIssueNumber)}`,
@@ -253,12 +255,40 @@ export const buildImpactAnalysisPrompt = (input: ImpactAnalysisPromptInput): str
       '  "expectedFiles": ["path/to/file.ts"],',
       '  "expectedModules": ["module-or-package-name"],',
       '  "designFiles": ["design/app.pen"],',
+      '  "pencilRequiredDesignFiles": ["design/app.pen"],',
       '  "tests": ["path/to/test.ts"],',
       '  "sharedContracts": ["ContractName"],',
       '  "riskLevel": "low|medium|high"',
       '}',
     ].join('\n'),
   ].join('\n')
+
+export const getPencilRequiredDesignFiles = (
+  impactAnalysis: SandcastleImpactAnalysisResult,
+): readonly string[] =>
+  uniqueStrings([
+    ...impactAnalysis.designFiles.filter((filePath) => isPencilDesignFile(filePath)),
+    ...(impactAnalysis.pencilRequiredDesignFiles ?? []),
+  ]).filter((filePath) => isPencilDesignFile(filePath))
+
+export const buildPencilWorkflowRequirementSection = (
+  impactAnalysis: SandcastleImpactAnalysisResult,
+): string => {
+  const pencilRequiredDesignFiles = getPencilRequiredDesignFiles(impactAnalysis)
+
+  if (pencilRequiredDesignFiles.length === 0) {
+    return 'No Pencil workflow is required for this child task.'
+  }
+
+  return [
+    'Required Pencil workflow:',
+    `- Inspect and edit these \`.pen\` design sources with Pencil: ${pencilRequiredDesignFiles.join(
+      ', ',
+    )}.`,
+    '- Save the active Pencil/VS Code editor before reporting completion.',
+    '- Report explicit Pencil screenshot evidence or saved persistence evidence from disk/git diff.',
+  ].join('\n')
+}
 
 export const validateCredentialIsolation = (
   input: CredentialIsolationInput,
@@ -285,10 +315,21 @@ export const parseImpactAnalysisResult = (content: string): SandcastleImpactAnal
     throw new TypeError('Impact analysis result must be a JSON object')
   }
 
+  const designFiles = parseStringArray(parsedContent.designFiles, 'designFiles')
+  const pencilRequiredDesignFiles = parseOptionalStringArray(
+    parsedContent.pencilRequiredDesignFiles,
+    'pencilRequiredDesignFiles',
+  )
+
   return {
-    designFiles: parseStringArray(parsedContent.designFiles, 'designFiles'),
+    designFiles,
     expectedFiles: parseStringArray(parsedContent.expectedFiles, 'expectedFiles'),
     expectedModules: parseStringArray(parsedContent.expectedModules, 'expectedModules'),
+    ...(pencilRequiredDesignFiles === undefined
+      ? {}
+      : {
+          pencilRequiredDesignFiles,
+        }),
     riskLevel: parseRiskLevel(parsedContent.riskLevel),
     sharedContracts: parseStringArray(parsedContent.sharedContracts, 'sharedContracts'),
     tests: parseStringArray(parsedContent.tests, 'tests'),
@@ -379,6 +420,17 @@ const parseStringArray = (value: unknown, fieldName: string): readonly string[] 
   return value
 }
 
+const parseOptionalStringArray = (
+  value: unknown,
+  fieldName: string,
+): readonly string[] | undefined => {
+  if (value === undefined) {
+    return undefined
+  }
+
+  return parseStringArray(value, fieldName)
+}
+
 const isStringArray = (value: unknown): value is string[] =>
   Array.isArray(value) && value.every((item) => typeof item === 'string')
 
@@ -389,3 +441,7 @@ const parseRiskLevel = (value: unknown): ImpactRiskLevel => {
 
   throw new TypeError('Impact analysis field riskLevel must be low, medium, or high')
 }
+
+const isPencilDesignFile = (filePath: string): boolean => filePath.endsWith('.pen')
+
+const uniqueStrings = (items: readonly string[]): readonly string[] => [...new Set(items)]

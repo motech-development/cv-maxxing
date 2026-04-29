@@ -913,6 +913,45 @@ describe('PRD orchestrator CLI', () => {
     })
   })
 
+  it('records missing Pencil evidence as a PR and run blocker before committing .pen changes', async () => {
+    const adapters = createLiveAdapters({
+      impactAnalyses: [
+        {
+          designFiles: ['design/app.pen'],
+          expectedFiles: [],
+          expectedModules: ['@cv-maxxing/prd-orchestrator'],
+          riskLevel: 'medium',
+          sharedContracts: [],
+          tests: ['tools/prd-orchestrator/src/__tests__/cli.test.ts'],
+        },
+      ],
+      workerChangedFiles: ['design/app.pen'],
+    })
+    const result = await runPrdOrchestratorCliAsync({
+      adapters,
+      arguments_: ['run', '--one-child'],
+      stdin: '',
+    })
+    const latestPrBody = adapters.updatedPrBodies.at(-1) ?? ''
+
+    expect(result.exitCode).toBe(1)
+    expect(result.stderr).toContain('Pencil verification evidence missing')
+    expect(adapters.events).toContain('verification:run')
+    expect(adapters.events).toContain('github:update-pr-body')
+    expect(adapters.events).toContain('state:record-run-status')
+    expect(adapters.events).not.toContain('git:commit-child')
+    expect(latestPrBody).toContain(
+      '| #82 | Build PRD and child-task planning from GitHub Markdown | blocked |',
+    )
+    expect(adapters.recordedStatuses.at(-1)).toMatchObject({
+      blockers: [
+        'Pencil verification evidence missing for .pen design changes: design/app.pen. Provide Pencil screenshot evidence or saved persistence evidence before committing.',
+      ],
+      currentChildIssueNumber: 82,
+      phase: 'blocked',
+    })
+  })
+
   it('continues independent full-run children after verification repair is blocked', async () => {
     const adapters = createLiveAdapters({
       issues: independentMultiChildIssueObjects,

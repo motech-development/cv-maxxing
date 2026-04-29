@@ -3,9 +3,11 @@ import { describe, expect, it } from 'vitest'
 
 import {
   buildImpactAnalysisPrompt,
+  buildPencilWorkflowRequirementSection,
   buildSandcastleImpactAnalysisOptions,
   createCodexImpactAnalysisConfig,
   createSandcastleImpactAnalysisRunOptions,
+  getPencilRequiredDesignFiles,
   parseImpactAnalysisResult,
   validateCredentialIsolation,
   validateSandcastleBranchStrategy,
@@ -173,6 +175,59 @@ describe('Sandcastle impact analysis adapter planning', () => {
     expect(prompt).toContain(
       'Do not request or use GitHub tokens, SSH keys, or remote push credentials.',
     )
+  })
+
+  it('identifies .pen files as Pencil-required impact surfaces', () => {
+    const prompt = buildImpactAnalysisPrompt(workerInput)
+
+    expect(prompt).toContain('Treat `.pen` design files as Pencil-required surfaces.')
+    expect(prompt).toContain('"pencilRequiredDesignFiles": ["design/app.pen"]')
+    expect(
+      getPencilRequiredDesignFiles({
+        designFiles: ['design/app.pen', 'design/cv.html'],
+        expectedFiles: [],
+        expectedModules: [],
+        riskLevel: 'medium',
+        sharedContracts: [],
+        tests: [],
+      }),
+    ).toEqual(['design/app.pen'])
+    expect(
+      parseImpactAnalysisResult(`{
+        "expectedFiles": [],
+        "expectedModules": [],
+        "designFiles": ["design/app.pen"],
+        "pencilRequiredDesignFiles": ["design/app.pen"],
+        "tests": [],
+        "sharedContracts": [],
+        "riskLevel": "medium"
+      }`),
+    ).toMatchObject({
+      pencilRequiredDesignFiles: ['design/app.pen'],
+    })
+  })
+
+  it('builds Pencil workflow prompt text only when .pen changes are required', () => {
+    expect(
+      buildPencilWorkflowRequirementSection({
+        designFiles: ['design/app.pen'],
+        expectedFiles: [],
+        expectedModules: [],
+        riskLevel: 'medium',
+        sharedContracts: [],
+        tests: [],
+      }),
+    ).toContain('Inspect and edit these `.pen` design sources with Pencil: design/app.pen')
+    expect(
+      buildPencilWorkflowRequirementSection({
+        designFiles: ['design/cv.html'],
+        expectedFiles: [],
+        expectedModules: [],
+        riskLevel: 'low',
+        sharedContracts: [],
+        tests: [],
+      }),
+    ).toBe('No Pencil workflow is required for this child task.')
   })
 
   it('rejects broad home, GitHub token, and SSH key mounts or worker env credentials', () => {

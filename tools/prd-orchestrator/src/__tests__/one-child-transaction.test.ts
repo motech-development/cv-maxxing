@@ -6,6 +6,7 @@ import {
   planOneChildTransaction,
   renderOneChildTransactionPlan,
   selectVerificationCommands,
+  validatePencilVerificationEvidence,
 } from '../index.js'
 
 const parentPrdBody = `## Problem Statement
@@ -302,6 +303,86 @@ describe('one-child transaction planning', () => {
         tests: [],
       }),
     ).toContain('pnpm --filter @cv-maxxing/desktop test:visual')
+  })
+
+  it('blocks commits when changed .pen files lack Pencil verification evidence', () => {
+    const plan = planOneChildTransaction({
+      childCommitHash: undefined,
+      codeRabbitStatus: 'not run',
+      completedChildIssueNumbers: [85],
+      dependencyChangeJustification: undefined,
+      existingLedger: [],
+      impactAnalysis,
+      issues,
+      mainBranchStatus: {
+        clean: true,
+        currentBranch: 'main',
+        upToDate: true,
+      },
+      remoteAutomationPr: undefined,
+      verificationEvidence: ['pnpm lint', 'pnpm --filter @cv-maxxing/desktop test:visual'],
+      workerChangedFiles: ['design/app.pen'],
+    })
+
+    expect(plan.status).toBe('blocked')
+    expect(plan.blockers).toEqual([
+      'Pencil verification evidence missing for .pen design changes: design/app.pen. Provide Pencil screenshot evidence or saved persistence evidence before committing.',
+    ])
+    expect(plan.pencilVerificationDecision).toEqual({
+      missingEvidenceFiles: ['design/app.pen'],
+      requiredFiles: ['design/app.pen'],
+      satisfied: false,
+    })
+  })
+
+  it('accepts .pen changes when Pencil screenshot or persistence evidence is present', () => {
+    expect(
+      validatePencilVerificationEvidence({
+        changedFiles: ['design/app.pen'],
+        impactAnalysis,
+        verificationEvidence: ['Pencil screenshot captured for design/app.pen'],
+      }),
+    ).toEqual({
+      missingEvidenceFiles: [],
+      requiredFiles: ['design/app.pen'],
+      satisfied: true,
+    })
+    expect(
+      validatePencilVerificationEvidence({
+        changedFiles: ['design/app.pen'],
+        impactAnalysis,
+        verificationEvidence: ['Pencil persistence verified via git diff for design/app.pen'],
+      }),
+    ).toMatchObject({
+      satisfied: true,
+    })
+  })
+
+  it('does not force Pencil verification for non-design tasks', () => {
+    expect(
+      validatePencilVerificationEvidence({
+        changedFiles: ['tools/prd-orchestrator/src/one-child-transaction.ts'],
+        impactAnalysis,
+        verificationEvidence: ['pnpm lint'],
+      }),
+    ).toEqual({
+      missingEvidenceFiles: [],
+      requiredFiles: ['design/app.pen'],
+      satisfied: true,
+    })
+
+    expect(
+      validatePencilVerificationEvidence({
+        changedFiles: ['design/cv.html'],
+        impactAnalysis: {
+          ...impactAnalysis,
+          designFiles: ['design/cv.html'],
+        },
+        verificationEvidence: [],
+      }),
+    ).toMatchObject({
+      satisfied: true,
+    })
   })
 
   it('records blockers when clean up-to-date main or write-surface checks fail', () => {

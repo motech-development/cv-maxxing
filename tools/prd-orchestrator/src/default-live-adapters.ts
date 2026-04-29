@@ -8,6 +8,7 @@ import { codex, run } from '@ai-hero/sandcastle'
 import { docker } from '@ai-hero/sandcastle/sandboxes/docker'
 
 import {
+  buildPencilWorkflowRequirementSection,
   createSandcastleImpactAnalysisRunOptions,
   parseImpactAnalysisResult,
   type SandcastleImpactAnalysisResult,
@@ -1393,6 +1394,10 @@ const buildImplementationPrompt = async (
     .replace('{{CHILD_TASK}}', formatChildTaskForPrompt(input.childTask))
     .replace('{{SIBLING_SUMMARIES}}', JSON.stringify(input.siblingSummaries, null, 2))
     .replace('{{EXPECTED_WRITE_SURFACES}}', JSON.stringify(input.impactAnalysis, null, 2))
+    .replace(
+      '{{PENCIL_WORKFLOW_REQUIREMENTS}}',
+      buildPencilWorkflowRequirementSection(input.impactAnalysis),
+    )
 }
 
 const discoverCleanupArtifacts = async (
