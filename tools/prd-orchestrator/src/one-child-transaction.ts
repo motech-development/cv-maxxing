@@ -435,13 +435,16 @@ const createWorkerBranchName = (prdIssueNumber: number, childTask: ParsedChildTa
 
 const stripPrdPrefix = (title: string): string => title.replace(/^PRD:\s*/i, '')
 
-const slugify = (value: string): string =>
-  value
+const slugify = (value: string): string => {
+  const slug = value
     .trim()
     .toLowerCase()
     .replaceAll(/[^a-z0-9]+/g, '-')
     .slice(0, 80)
     .replaceAll(/^-+|-+$/g, '')
+
+  return slug.length === 0 ? 'untitled' : slug
+}
 
 const isDependencyChangeFile = (filePath: string): boolean => {
   if (dependencyChangeFiles.has(filePath)) {

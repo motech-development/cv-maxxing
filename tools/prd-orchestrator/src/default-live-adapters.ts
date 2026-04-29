@@ -168,26 +168,26 @@ const createGitHubAdapter = (
   shell: DefaultLiveAdapterShellRunner,
 ): PrdOrchestratorLiveAdapters['github'] => ({
   createDraftPr: async (input: CreateDraftPrInput): Promise<RemoteAutomationPr> => {
-    const bodyFilePath = await writeTemporaryFile('prd-pr-body-', input.body)
+    const pr = await withTemporaryFile('prd-pr-body-', input.body, async (bodyFilePath) => {
+      await shell({
+        args: [
+          'pr',
+          'create',
+          '--draft',
+          '--base',
+          'main',
+          '--head',
+          input.branchName,
+          '--title',
+          input.title,
+          '--body-file',
+          bodyFilePath,
+        ],
+        command: 'gh',
+      })
 
-    await shell({
-      args: [
-        'pr',
-        'create',
-        '--draft',
-        '--base',
-        'main',
-        '--head',
-        input.branchName,
-        '--title',
-        input.title,
-        '--body-file',
-        bodyFilePath,
-      ],
-      command: 'gh',
+      return await viewPullRequestByHead(shell, input.branchName)
     })
-
-    const pr = await viewPullRequestByHead(shell, input.branchName)
 
     return {
       branchName: pr.branchName,
@@ -296,19 +296,19 @@ const createGitHubAdapter = (
     })
   },
   postPrComment: async (prNumber: number, body: string): Promise<void> => {
-    const bodyFilePath = await writeTemporaryFile('prd-pr-comment-', body)
-
-    await shell({
-      args: ['pr', 'comment', String(prNumber), '--body-file', bodyFilePath],
-      command: 'gh',
+    await withTemporaryFile('prd-pr-comment-', body, async (bodyFilePath) => {
+      await shell({
+        args: ['pr', 'comment', String(prNumber), '--body-file', bodyFilePath],
+        command: 'gh',
+      })
     })
   },
   updatePrBody: async (prNumber: number, body: string): Promise<void> => {
-    const bodyFilePath = await writeTemporaryFile('prd-pr-body-', body)
-
-    await shell({
-      args: ['pr', 'edit', String(prNumber), '--body-file', bodyFilePath],
-      command: 'gh',
+    await withTemporaryFile('prd-pr-body-', body, async (bodyFilePath) => {
+      await shell({
+        args: ['pr', 'edit', String(prNumber), '--body-file', bodyFilePath],
+        command: 'gh',
+      })
     })
   },
 })
@@ -337,16 +337,17 @@ const createGitAdapter = (
       })
     },
     amendChildCommit: async (message: string): Promise<ChildCommitResult> => {
-      const messageFilePath = await writeTemporaryFile('prd-child-amend-', message)
       const childCommitTarget = pendingChildCommitTarget
 
       await shell({
         args: ['add', '--all'],
         command: 'git',
       })
-      await shell({
-        args: ['commit', '--amend', '-F', messageFilePath],
-        command: 'git',
+      await withTemporaryFile('prd-child-amend-', message, async (messageFilePath) => {
+        await shell({
+          args: ['commit', '--amend', '-F', messageFilePath],
+          command: 'git',
+        })
       })
 
       const result = await shell({
@@ -397,15 +398,15 @@ const createGitAdapter = (
       pendingChildCommitTarget = input
     },
     commitChild: async (message: string): Promise<ChildCommitResult> => {
-      const messageFilePath = await writeTemporaryFile('prd-child-commit-', message)
-
       await shell({
         args: ['add', '--all'],
         command: 'git',
       })
-      await shell({
-        args: ['commit', '-F', messageFilePath],
-        command: 'git',
+      await withTemporaryFile('prd-child-commit-', message, async (messageFilePath) => {
+        await shell({
+          args: ['commit', '-F', messageFilePath],
+          command: 'git',
+        })
       })
 
       const result = await shell({
@@ -418,15 +419,15 @@ const createGitAdapter = (
       }
     },
     commitFinalCleanup: async (message: string): Promise<ChildCommitResult> => {
-      const messageFilePath = await writeTemporaryFile('prd-final-cleanup-', message)
-
       await shell({
         args: ['add', '--all'],
         command: 'git',
       })
-      await shell({
-        args: ['commit', '-F', messageFilePath],
-        command: 'git',
+      await withTemporaryFile('prd-final-cleanup-', message, async (messageFilePath) => {
+        await shell({
+          args: ['commit', '-F', messageFilePath],
+          command: 'git',
+        })
       })
 
       const result = await shell({
@@ -1503,13 +1504,24 @@ const removeCleanupArtifact = async (
   })
 }
 
-const writeTemporaryFile = async (prefix: string, content: string): Promise<string> => {
+const withTemporaryFile = async <Result>(
+  prefix: string,
+  content: string,
+  useFile: (filePath: string) => Promise<Result>,
+): Promise<Result> => {
   const directory = await mkdtemp(path.join(tmpdir(), prefix))
   const filePath = path.join(directory, 'content.txt')
 
   await writeFile(filePath, content, 'utf8')
 
-  return filePath
+  try {
+    return await useFile(filePath)
+  } finally {
+    await rm(directory, {
+      force: true,
+      recursive: true,
+    })
+  }
 }
 
 const createWorkerBranchName = (input: RunImpactAnalysisInput): string =>
@@ -1920,12 +1932,15 @@ const parseCodexEffort = (value: string | undefined): 'high' | 'low' | 'medium' 
   return 'high'
 }
 
-const slugify = (value: string): string =>
-  value
+const slugify = (value: string): string => {
+  const slug = value
     .toLowerCase()
     .replaceAll(/[^a-z0-9]+/g, '-')
     .replaceAll(/^-+|-+$/g, '')
     .slice(0, 80)
+
+  return slug.length === 0 ? 'untitled' : slug
+}
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)

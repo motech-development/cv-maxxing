@@ -10,6 +10,8 @@ import type {
   CodeRabbitFinding,
   GitHubActionsStatus,
   GitHubIssue,
+  LivePreflightResult,
+  LiveRunLockResult,
   PrdOrchestratorLiveAdapters,
   ResumePrFinding,
 } from '../index.js'
@@ -726,9 +728,12 @@ describe('PRD orchestrator CLI', () => {
     expect(result.exitCode).toBe(1)
     expect(result.stderr).toBe(`${blockers.join('\n')}\n`)
     expect(adapters.events).toEqual([
+      'preflight:run',
+      'lock:acquire',
       'github:get-pr',
       'github:list-open-issues',
       'state:record-run-status',
+      'lock:release',
     ])
     expect(adapters.recordedStatuses.at(-1)).toMatchObject({
       blockers,
@@ -978,6 +983,80 @@ describe('PRD orchestrator CLI', () => {
     expect(adapters.events).toContain('github:get-pr')
     expect(adapters.events).toContain('state:recover-run-status')
     expect(adapters.events).toContain('github:list-open-issues')
+    expect(adapters.events).toContain('lock:release')
+    expect(adapters.events.indexOf('preflight:run')).toBeLessThan(
+      adapters.events.indexOf('github:get-pr'),
+    )
+    expect(adapters.events.indexOf('lock:acquire')).toBeLessThan(
+      adapters.events.indexOf('state:recover-run-status'),
+    )
+    expect(adapters.events.indexOf('lock:release')).toBeGreaterThan(
+      adapters.events.lastIndexOf('github:list-open-issues'),
+    )
+  })
+
+  it('blocks resume-pr preflight before reading or mutating PR state', async () => {
+    const adapters = createLiveAdapters({
+      preflightResult: {
+        blockers: ['Codex availability'],
+        ready: false,
+      },
+    })
+    const result = await runPrdOrchestratorCliAsync({
+      adapters,
+      arguments_: ['resume-pr', '123'],
+      stdin: '',
+    })
+
+    expect(result).toEqual({
+      exitCode: 1,
+      stderr: 'Codex availability\n',
+      stdout: '',
+    })
+    expect(adapters.events).toEqual(['preflight:run'])
+  })
+
+  it('blocks resume-pr on an active run lock before PR, branch, repair, or continuation work', async () => {
+    const adapters = createLiveAdapters({
+      runLockResult: {
+        blockers: ['Another PRD orchestrator run is already active.'],
+        lockId: undefined,
+        ready: false,
+      },
+    })
+    const result = await runPrdOrchestratorCliAsync({
+      adapters,
+      arguments_: ['resume-pr', '123'],
+      stdin: '',
+    })
+
+    expect(result).toEqual({
+      exitCode: 1,
+      stderr: 'Another PRD orchestrator run is already active.\n',
+      stdout: '',
+    })
+    expect(adapters.events).toEqual(['preflight:run', 'lock:acquire'])
+  })
+
+  it('releases the run lock when resume-pr throws after acquisition', async () => {
+    const adapters = createLiveAdapters({
+      getPrError: new Error('GitHub read failed'),
+    })
+
+    await expect(
+      runPrdOrchestratorCliAsync({
+        adapters,
+        arguments_: ['resume-pr', '123'],
+        stdin: '',
+      }),
+    ).rejects.toThrow('GitHub read failed')
+
+    expect(adapters.events).toEqual([
+      'preflight:run',
+      'lock:acquire',
+      'github:get-pr',
+      'lock:release',
+    ])
   })
 
   it('resumes by repairing PR findings before returning to the full live run', async () => {
@@ -1007,6 +1086,8 @@ describe('PRD orchestrator CLI', () => {
     expect(result.exitCode).toBe(0)
     expect(adapters.events).toEqual(
       expect.arrayContaining([
+        'preflight:run',
+        'lock:acquire',
         'github:get-pr',
         'github:convert-pr-to-draft',
         'git:checkout-child-commit',
@@ -1017,7 +1098,14 @@ describe('PRD orchestrator CLI', () => {
         'git:push-prd-branch',
         'state:recover-run-status',
         'github:list-open-issues',
+        'lock:release',
       ]),
+    )
+    expect(adapters.events.indexOf('preflight:run')).toBeLessThan(
+      adapters.events.indexOf('github:get-pr'),
+    )
+    expect(adapters.events.indexOf('lock:acquire')).toBeLessThan(
+      adapters.events.indexOf('github:convert-pr-to-draft'),
     )
     expect(adapters.amendedCommitMessages.at(0)).toContain('Closes #82')
   })
@@ -1119,6 +1207,7 @@ describe('PRD orchestrator CLI', () => {
     expect(result.stderr).toBe(
       'Resume repair cannot safely target child commits because the git adapter does not support targeted checkout.\n',
     )
+    expect(adapters.events).toContain('lock:release')
     expect(adapters.events).not.toContain('sandcastle:repair-resume-findings')
     expect(adapters.events).not.toContain('git:amend-child-commit')
     expect(adapters.events).not.toContain('git:push-prd-branch')
@@ -1182,12 +1271,15 @@ interface CreateLiveAdaptersOptions {
   readonly ciPollingTimeoutMs?: number
   readonly codeRabbitFindings?: readonly CodeRabbitFinding[]
   readonly codeRabbitFindingsBeforeClean?: number
+  readonly getPrError?: Error
   readonly impactAnalyses?: readonly Awaited<
     ReturnType<PrdOrchestratorLiveAdapters['sandcastle']['runImpactAnalysis']>
   >[]
   readonly issues?: readonly GitHubIssue[]
   readonly omitCheckoutChildCommit?: boolean
+  readonly preflightResult?: LivePreflightResult
   readonly resumePrFindings?: readonly ResumePrFinding[]
+  readonly runLockResult?: LiveRunLockResult
   readonly verificationFailureCountsByChildIssueNumber?: ReadonlyMap<number, number>
   readonly verificationFailuresBeforeClean?: number
   readonly verificationFailureMessage?: string
@@ -1396,6 +1488,10 @@ const createLiveAdapters = (
       getPr: () => {
         events.push('github:get-pr')
 
+        if (options.getPrError !== undefined) {
+          return Promise.reject(options.getPrError)
+        }
+
         return Promise.resolve({
           body: '## Automation\n\nManaged by `@cv-maxxing/prd-orchestrator`.',
           branchName: 'agent/prd-80-automate-prd-implementation',
@@ -1534,11 +1630,13 @@ const createLiveAdapters = (
       acquireRunLock: () => {
         events.push('lock:acquire')
 
-        return Promise.resolve({
-          blockers: [],
-          lockId: 'run-1',
-          ready: true,
-        })
+        return Promise.resolve(
+          options.runLockResult ?? {
+            blockers: [],
+            lockId: 'run-1',
+            ready: true,
+          },
+        )
       },
       cleanup: () => {
         events.push('state:cleanup')
@@ -1604,10 +1702,12 @@ const createLiveAdapters = (
       runPreflight: () => {
         events.push('preflight:run')
 
-        return Promise.resolve({
-          blockers: [],
-          ready: true,
-        })
+        return Promise.resolve(
+          options.preflightResult ?? {
+            blockers: [],
+            ready: true,
+          },
+        )
       },
     },
     verification: {
