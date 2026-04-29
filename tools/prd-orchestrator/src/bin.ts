@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 
 import { runPrdOrchestratorCliAsync } from './cli.js'
+import { readCliStdin } from './cli-stdin.js'
 
-const stdin = await readStdin()
+const stdin = await readCliStdin(process.stdin)
 const result = await runPrdOrchestratorCliAsync({
   arguments_: process.argv.slice(2),
   stdin,
@@ -17,20 +18,3 @@ if (result.stderr.length > 0) {
 }
 
 process.exitCode = result.exitCode
-
-function readStdin(): Promise<string> {
-  return new Promise((resolve, reject) => {
-    let content = ''
-
-    process.stdin.setEncoding('utf8')
-    process.stdin.on('data', (chunk: string) => {
-      content += chunk
-    })
-    process.stdin.on('end', () => {
-      resolve(content)
-    })
-    process.stdin.on('error', (error: Error) => {
-      reject(error)
-    })
-  })
-}

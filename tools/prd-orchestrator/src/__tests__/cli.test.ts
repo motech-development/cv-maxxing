@@ -1,6 +1,9 @@
+import { Readable } from 'node:stream'
+
 import { describe, expect, it } from 'vitest'
 
 import { runPrdOrchestratorCli, runPrdOrchestratorCliAsync } from '../cli.js'
+import { readCliStdin } from '../cli-stdin.js'
 import { createDefaultPrdOrchestratorLiveAdapters } from '../default-live-adapters.js'
 import type {
   ChildCommitReference,
@@ -214,6 +217,28 @@ const blockedPlanningCases = [
 ] as const
 
 describe('PRD orchestrator CLI', () => {
+  it('treats interactive terminal stdin as empty input instead of waiting for EOF', async () => {
+    const stdin = Readable.from([]) as Readable & {
+      readonly isTTY: true
+      setEncoding: (encoding: BufferEncoding) => void
+    }
+
+    Object.defineProperty(stdin, 'isTTY', {
+      value: true,
+    })
+
+    await expect(readCliStdin(stdin)).resolves.toBe('')
+  })
+
+  it('still reads piped stdin content for dry-run JSON previews', async () => {
+    const stdin = Readable.from([issueJson]) as Readable & {
+      readonly isTTY?: false
+      setEncoding: (encoding: BufferEncoding) => void
+    }
+
+    await expect(readCliStdin(stdin)).resolves.toBe(issueJson)
+  })
+
   it('prints a dry-run plan from issue JSON on stdin', () => {
     const result = runPrdOrchestratorCli({
       arguments_: ['plan'],
