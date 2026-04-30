@@ -11,6 +11,7 @@ export interface PreflightInput {
   readonly nodeAvailable: boolean
   readonly pnpmAvailable: boolean
   readonly sandcastleAvailable: boolean
+  readonly sandcastleDockerImageAvailable: boolean
 }
 
 export interface PreflightCheck {
@@ -137,6 +138,10 @@ export const evaluatePreflight = (input: PreflightInput): PreflightResult => {
     {
       name: 'Sandcastle availability',
       passed: input.sandcastleAvailable,
+    },
+    {
+      name: 'Sandcastle Docker image (run `pnpm exec sandcastle docker build-image`)',
+      passed: input.sandcastleDockerImageAvailable,
     },
     {
       name: 'CodeRabbit availability',

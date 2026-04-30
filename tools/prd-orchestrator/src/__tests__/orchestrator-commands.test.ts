@@ -46,6 +46,7 @@ describe('PRD orchestrator command scaffold', () => {
     const rootPackageManifest = await readRootPackageManifest()
     const packageManifest = await readPackageManifest()
 
+    expect(rootPackageManifest.devDependencies['@ai-hero/sandcastle']).toBe('^0.5.5')
     expect(rootPackageManifest.devDependencies['@cv-maxxing/prd-orchestrator']).toBe('workspace:*')
     expect(packageManifest.bin).toEqual({
       'prd-orchestrator': './dist/bin.js',
@@ -84,6 +85,13 @@ describe('PRD orchestrator command scaffold', () => {
       'pnpm --filter @cv-maxxing/prd-orchestrator exec prd-orchestrator status',
       'pnpm --filter @cv-maxxing/prd-orchestrator exec prd-orchestrator cleanup',
     ])
+  })
+
+  it('documents the Sandcastle Docker image setup prerequisite', async () => {
+    const readme = await readFileText('../../README.md')
+
+    expect(readme).toContain('pnpm exec sandcastle docker build-image')
+    expect(readme).toContain('sandcastle:cv-maxxing')
   })
 })
 

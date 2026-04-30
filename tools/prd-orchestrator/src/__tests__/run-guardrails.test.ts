@@ -22,6 +22,7 @@ const healthyPreflightInputs = {
   nodeAvailable: true,
   pnpmAvailable: true,
   sandcastleAvailable: true,
+  sandcastleDockerImageAvailable: true,
 } as const
 
 describe('run guardrails', () => {
@@ -51,6 +52,10 @@ describe('run guardrails', () => {
         },
         {
           name: 'Sandcastle availability',
+          passed: true,
+        },
+        {
+          name: 'Sandcastle Docker image (run `pnpm exec sandcastle docker build-image`)',
           passed: true,
         },
         {
@@ -86,8 +91,13 @@ describe('run guardrails', () => {
         ...healthyPreflightInputs,
         cleanWorkingTree: false,
         sandcastleAvailable: false,
+        sandcastleDockerImageAvailable: false,
       }).blockers,
-    ).toEqual(['clean working tree', 'Sandcastle availability'])
+    ).toEqual([
+      'clean working tree',
+      'Sandcastle availability',
+      'Sandcastle Docker image (run `pnpm exec sandcastle docker build-image`)',
+    ])
   })
 
   it('enforces one active PRD run per repo with local lock and remote PR detection', () => {

@@ -904,6 +904,17 @@ export const resolveHostShell = (env: Record<string, string | undefined> = proce
   return shell === undefined || shell.length === 0 ? 'sh' : shell
 }
 
+export const createDefaultSandcastleDockerImageName = (repoRoot: string): string => {
+  const directoryName =
+    repoRoot
+      .replaceAll(/[\\/]+$/g, '')
+      .split(/[\\/]/)
+      .at(-1) ?? 'local'
+  const sanitizedName = directoryName.toLowerCase().replaceAll(/[^a-z0-9_.-]/g, '-')
+
+  return `sandcastle:${sanitizedName.length === 0 ? 'local' : sanitizedName}`
+}
+
 const createVerificationAdapter = (
   shell: DefaultLiveAdapterShellRunner,
 ): PrdOrchestratorLiveAdapters['verification'] => ({
@@ -1189,6 +1200,7 @@ const createRunStateAdapter = (
         gitPushAvailable,
         ciPollingAvailable,
         dockerAvailable,
+        sandcastleDockerImageAvailable,
         sandcastleAvailable,
         codeRabbitAvailable,
         codexAvailable,
@@ -1225,6 +1237,11 @@ const createRunStateAdapter = (
           'status,conclusion',
         ]),
         commandSucceeds(shell, 'docker', ['ps', '--format', '{{.ID}}']),
+        commandSucceeds(shell, 'docker', [
+          'image',
+          'inspect',
+          createDefaultSandcastleDockerImageName(cwd),
+        ]),
         commandSucceeds(shell, 'pnpm', [
           '--filter',
           '@cv-maxxing/prd-orchestrator',
@@ -1257,6 +1274,7 @@ const createRunStateAdapter = (
         nodeAvailable,
         pnpmAvailable,
         sandcastleAvailable,
+        sandcastleDockerImageAvailable,
       })
 
       return {

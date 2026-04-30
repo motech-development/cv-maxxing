@@ -15,6 +15,19 @@ The orchestrator owns GitHub, git push, CodeRabbit, and CI polling credentials. 
 
 Run state belongs outside tracked files under `.git/prd-orchestrator/runs/<run-id>/`. Sandcastle runtime artifacts remain untracked under `.sandcastle/`.
 
+## Setup
+
+Live execution requires Docker, GitHub CLI, Codex CLI, CodeRabbit CLI, and a local Sandcastle
+Docker image for this repository. Build the image after changing `.sandcastle/Dockerfile` or
+before the first live run on a machine:
+
+```sh
+pnpm exec sandcastle docker build-image
+```
+
+The live preflight checks for the default Sandcastle image name derived from the repository
+directory, for example `sandcastle:cv-maxxing`.
+
 ## Dry-run planning
 
 `plan` accepts GitHub issue JSON on stdin as either an array of issues or an object with an `issues` array:

@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
   createDefaultPrdOrchestratorLiveAdapters,
+  createDefaultSandcastleDockerImageName,
   resolveHostShell,
   resolveRepositoryRoot,
   resolvePnpmStorePath,
@@ -48,6 +49,13 @@ describe('default live adapters', () => {
     expect(resolveHostShell({})).toBe('sh')
   })
 
+  it('derives the default Sandcastle Docker image name from the repository root', () => {
+    expect(createDefaultSandcastleDockerImageName('/repo/cv-maxxing')).toBe('sandcastle:cv-maxxing')
+    expect(createDefaultSandcastleDockerImageName('/repo/CV Maxxing/')).toBe(
+      'sandcastle:cv-maxxing',
+    )
+  })
+
   it('constructs GitHub, CI, and preflight commands without live mutations in tests', async () => {
     const shell = createRecordingShell()
     const adapters = createDefaultPrdOrchestratorLiveAdapters(
@@ -87,6 +95,7 @@ describe('default live adapters', () => {
       'git push --dry-run origin HEAD',
       'gh run list --limit 1 --json status,conclusion',
       'docker ps --format {{.ID}}',
+      'docker image inspect sandcastle:repo',
       'pnpm --filter @cv-maxxing/prd-orchestrator exec node --input-type=module --eval import("@ai-hero/sandcastle")',
       'coderabbit --version',
       'codex --version',
@@ -102,6 +111,18 @@ describe('default live adapters', () => {
 
     await expect(adapters.state.runPreflight()).resolves.toEqual({
       blockers: ['GitHub read/write capability'],
+      ready: false,
+    })
+  })
+
+  it('returns a preflight blocker when the Sandcastle Docker image is missing', async () => {
+    const shell = createRecordingShell({
+      failingCommands: new Set(['docker image inspect sandcastle:repo']),
+    })
+    const adapters = createDefaultPrdOrchestratorLiveAdapters('/repo', undefined, shell.run)
+
+    await expect(adapters.state.runPreflight()).resolves.toEqual({
+      blockers: ['Sandcastle Docker image (run `pnpm exec sandcastle docker build-image`)'],
       ready: false,
     })
   })
