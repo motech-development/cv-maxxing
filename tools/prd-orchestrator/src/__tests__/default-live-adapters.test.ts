@@ -6,7 +6,9 @@ import { describe, expect, it } from 'vitest'
 
 import {
   createDefaultPrdOrchestratorLiveAdapters,
+  resolveHostShell,
   resolveRepositoryRoot,
+  resolvePnpmStorePath,
   type DefaultLiveAdapterShellCommandInput,
   type DefaultLiveAdapterShellRunner,
   type RepositoryRootCommandRunner,
@@ -23,6 +25,27 @@ describe('default live adapters', () => {
     expect(resolveRepositoryRoot('/repo/tools/prd-orchestrator', runFailingRootCommand)).toBe(
       '/repo/tools/prd-orchestrator',
     )
+  })
+
+  it('reads the active pnpm store path for Sandcastle cache mounts', async () => {
+    const shell = createRecordingShell()
+
+    await expect(resolvePnpmStorePath(shell.run)).resolves.toBe('/repo/.pnpm-store/v10')
+    expect(shell.commands.map((command) => formatCommand(command))).toEqual(['pnpm store path'])
+  })
+
+  it('omits the Sandcastle pnpm cache mount when the store path is unavailable', async () => {
+    const shell = createRecordingShell({
+      failingCommands: new Set(['pnpm store path']),
+    })
+
+    await expect(resolvePnpmStorePath(shell.run)).resolves.toBeUndefined()
+  })
+
+  it('uses the configured host shell for verification commands', () => {
+    expect(resolveHostShell({ SHELL: '/usr/bin/fish' })).toBe('/usr/bin/fish')
+    expect(resolveHostShell({ SHELL: '  ' })).toBe('sh')
+    expect(resolveHostShell({})).toBe('sh')
   })
 
   it('constructs GitHub, CI, and preflight commands without live mutations in tests', async () => {
@@ -473,6 +496,10 @@ const responseForCommand = (
 
   if (formattedCommand === 'git rev-parse HEAD') {
     return 'amended123456789\n'
+  }
+
+  if (formattedCommand === 'pnpm store path') {
+    return '/repo/.pnpm-store/v10\n'
   }
 
   return ''

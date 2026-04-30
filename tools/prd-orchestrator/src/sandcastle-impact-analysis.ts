@@ -41,6 +41,7 @@ export interface SafeSandcastleBranchStrategy {
 }
 
 export interface DependencyCacheInputs {
+  readonly cachePath?: string
   readonly packageManager: 'npm' | 'pnpm' | 'yarn'
 }
 
@@ -352,10 +353,16 @@ export const parseImpactAnalysisResult = (content: string): SandcastleImpactAnal
 }
 
 const detectDependencyCacheMounts = (input: DependencyCacheInputs): readonly DockerCacheMount[] => {
+  const cachePath = input.cachePath?.trim()
+
+  if (cachePath === undefined || cachePath.length === 0) {
+    return []
+  }
+
   if (input.packageManager === 'pnpm') {
     return [
       {
-        hostPath: '~/.local/share/pnpm/store',
+        hostPath: cachePath,
         readonly: false,
         sandboxPath: '/home/agent/.local/share/pnpm/store',
       },
@@ -365,7 +372,7 @@ const detectDependencyCacheMounts = (input: DependencyCacheInputs): readonly Doc
   if (input.packageManager === 'npm') {
     return [
       {
-        hostPath: '~/.npm',
+        hostPath: cachePath,
         readonly: false,
         sandboxPath: '/home/agent/.npm',
       },
@@ -374,7 +381,7 @@ const detectDependencyCacheMounts = (input: DependencyCacheInputs): readonly Doc
 
   return [
     {
-      hostPath: '~/.cache/yarn',
+      hostPath: cachePath,
       readonly: false,
       sandboxPath: '/home/agent/.cache/yarn',
     },

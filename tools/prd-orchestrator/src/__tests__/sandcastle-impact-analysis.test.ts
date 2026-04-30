@@ -123,6 +123,7 @@ describe('Sandcastle impact analysis adapter planning', () => {
     const input = {
       ...workerInput,
       cacheInputs: {
+        cachePath: '/repo/.pnpm-store/v10',
         packageManager: 'pnpm',
       },
       cliOverrides: {},
@@ -153,7 +154,7 @@ describe('Sandcastle impact analysis adapter planning', () => {
           env: {},
           mounts: [
             {
-              hostPath: '~/.local/share/pnpm/store',
+              hostPath: '/repo/.pnpm-store/v10',
               readonly: false,
               sandboxPath: '/home/agent/.local/share/pnpm/store',
             },
@@ -195,7 +196,7 @@ describe('Sandcastle impact analysis adapter planning', () => {
         },
         mounts: [
           {
-            hostPath: '~/.local/share/pnpm/store',
+            hostPath: '/repo/.pnpm-store/v10',
             readonly: false,
             sandboxPath: '/home/agent/.local/share/pnpm/store',
           },
@@ -388,6 +389,7 @@ describe('Sandcastle impact analysis adapter planning', () => {
     const options = buildSandcastleImpactAnalysisOptions({
       ...workerInput,
       cacheInputs: {
+        cachePath: '/repo/.pnpm-store/v10',
         packageManager: 'pnpm',
       },
       cliOverrides: {},
@@ -409,6 +411,20 @@ describe('Sandcastle impact analysis adapter planning', () => {
       GH_TOKEN: undefined,
       SSH_AUTH_SOCK: undefined,
     })
+  })
+
+  it('omits dependency cache mounts when no dynamic package-manager cache path is available', () => {
+    const options = buildSandcastleImpactAnalysisOptions({
+      ...workerInput,
+      cacheInputs: {
+        packageManager: 'pnpm',
+      },
+      cliOverrides: {},
+      env: {},
+      sandboxBranchName: 'agent/prd-80-child-85-impact',
+    })
+
+    expect(options.sandbox.mounts).toEqual([])
   })
 
   it('parses impact-analysis JSON into expected write surfaces and risk level', () => {

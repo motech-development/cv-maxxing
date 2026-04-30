@@ -823,11 +823,13 @@ const createSandcastleAdapter = (
     input: RunImpactAnalysisInput,
   ): Promise<SandcastleImpactAnalysisResult> => {
     const promptInputs = await loadPromptInputs(cwd)
+    const pnpmStorePath = await resolvePnpmStorePath(shell)
     const result = await run({
       ...createSandcastleImpactAnalysisRunOptions({
         architectureDesignConstraints: promptInputs.architecture,
         assignedChildTaskBody: formatChildTaskForPrompt(input.childTask),
         cacheInputs: {
+          cachePath: pnpmStorePath,
           packageManager: 'pnpm',
         },
         childIssueNumber: input.childTask.issueNumber,
@@ -879,6 +881,29 @@ const createSandcastleAdapter = (
   },
 })
 
+export const resolvePnpmStorePath = async (
+  shell: DefaultLiveAdapterShellRunner,
+): Promise<string | undefined> => {
+  try {
+    const result = await shell({
+      args: ['store', 'path'],
+      command: 'pnpm',
+      timeoutMs: 60 * 1000,
+    })
+    const storePath = result.stdout.trim()
+
+    return storePath.length === 0 ? undefined : storePath
+  } catch {
+    return undefined
+  }
+}
+
+export const resolveHostShell = (env: Record<string, string | undefined> = process.env): string => {
+  const shell = env.SHELL?.trim()
+
+  return shell === undefined || shell.length === 0 ? 'sh' : shell
+}
+
 const createVerificationAdapter = (
   shell: DefaultLiveAdapterShellRunner,
 ): PrdOrchestratorLiveAdapters['verification'] => ({
@@ -888,7 +913,7 @@ const createVerificationAdapter = (
     for (const command of commands) {
       await shell({
         args: ['-lc', command],
-        command: '/bin/zsh',
+        command: resolveHostShell(),
         timeoutMs: 30 * 60 * 1000,
       })
       evidence.push(command)
