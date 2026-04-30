@@ -158,7 +158,9 @@ describe('Sandcastle impact analysis adapter planning', () => {
       },
       createSandboxProvider: (sandboxOptions) => {
         expect(sandboxOptions).toStrictEqual({
-          env: {},
+          env: {
+            npm_config_store_dir: '/home/agent/.pnpm-store/v10',
+          },
           mounts: [
             {
               hostPath: '/Users/tester/.codex/auth.json',
@@ -168,7 +170,7 @@ describe('Sandcastle impact analysis adapter planning', () => {
             {
               hostPath: '/repo/.pnpm-store/v10',
               readonly: false,
-              sandboxPath: '/home/agent/workspace/.pnpm-store/v10',
+              sandboxPath: '/home/agent/.pnpm-store/v10',
             },
           ],
         })
@@ -204,6 +206,7 @@ describe('Sandcastle impact analysis adapter planning', () => {
           GIT_ASKPASS: undefined,
           GITHUB_TOKEN: undefined,
           GH_TOKEN: undefined,
+          npm_config_store_dir: '/home/agent/.pnpm-store/v10',
           SSH_AUTH_SOCK: undefined,
         },
         mounts: [
@@ -215,7 +218,7 @@ describe('Sandcastle impact analysis adapter planning', () => {
           {
             hostPath: '/repo/.pnpm-store/v10',
             readonly: false,
-            sandboxPath: '/home/agent/workspace/.pnpm-store/v10',
+            sandboxPath: '/home/agent/.pnpm-store/v10',
           },
         ],
         provider: 'docker',

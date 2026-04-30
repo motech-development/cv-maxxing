@@ -179,7 +179,10 @@ export const buildSandcastleImpactAnalysisOptions = (
     env: input.env,
   })
   const sandbox = {
-    env: createCredentialStrippingEnvironment(input.env),
+    env: {
+      ...createCredentialStrippingEnvironment(input.env),
+      ...createDependencyCacheEnvironment(input.cacheInputs),
+    },
     mounts: [
       ...(input.codexCliCredentialMounts ?? []),
       ...detectDependencyCacheMounts(input.cacheInputs),
@@ -368,7 +371,7 @@ const detectDependencyCacheMounts = (input: DependencyCacheInputs): readonly Doc
       {
         hostPath: cachePath,
         readonly: false,
-        sandboxPath: '/home/agent/workspace/.pnpm-store/v10',
+        sandboxPath: '/home/agent/.pnpm-store/v10',
       },
     ]
   }
@@ -390,6 +393,20 @@ const detectDependencyCacheMounts = (input: DependencyCacheInputs): readonly Doc
       sandboxPath: '/home/agent/.cache/yarn',
     },
   ]
+}
+
+const createDependencyCacheEnvironment = (
+  input: DependencyCacheInputs,
+): Record<string, string | undefined> => {
+  const cachePath = input.cachePath?.trim()
+
+  if (cachePath === undefined || cachePath.length === 0 || input.packageManager !== 'pnpm') {
+    return {}
+  }
+
+  return {
+    npm_config_store_dir: '/home/agent/.pnpm-store/v10',
+  }
 }
 
 const formatSiblingSummaries = (siblings: readonly SiblingTaskSummary[]): string =>
