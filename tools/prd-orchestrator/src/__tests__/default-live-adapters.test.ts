@@ -335,6 +335,27 @@ describe('default live adapters', () => {
     ])
   })
 
+  it('applies preserved Sandcastle worktree changes when the worker branch has no commit', async () => {
+    const shell = createRecordingShell()
+    const adapters = createDefaultPrdOrchestratorLiveAdapters('/repo', undefined, shell.run)
+
+    await adapters.git.applyWorkerDiff({
+      prdBranchName: 'agent/prd-80-test',
+      workerBranchName: 'agent/prd-80-worker',
+      workerWorktreePath: '/repo/.sandcastle/worktrees/agent-prd-80-worker',
+    })
+
+    expect(shell.commands.map((command) => formatCommand(command))).toEqual([
+      'git checkout agent/prd-80-test',
+      'git -C /repo/.sandcastle/worktrees/agent-prd-80-worker add --all',
+      'git -C /repo/.sandcastle/worktrees/agent-prd-80-worker diff --cached --binary HEAD',
+      'git apply --index -',
+    ])
+    expect(shell.commands.at(-1)?.stdin).toBe(
+      'diff --git a/apps/desktop/src/main.ts b/apps/desktop/src/main.ts\n',
+    )
+  })
+
   it('restores the automation branch worktree and index to a clean HEAD state', async () => {
     const shell = createRecordingShell()
     const adapters = createDefaultPrdOrchestratorLiveAdapters('/repo', undefined, shell.run)
@@ -539,6 +560,13 @@ const responseForCommand = (
 
   if (formattedCommand === 'pnpm store path') {
     return '/repo/.pnpm-store/v10\n'
+  }
+
+  if (
+    formattedCommand ===
+    'git -C /repo/.sandcastle/worktrees/agent-prd-80-worker diff --cached --binary HEAD'
+  ) {
+    return 'diff --git a/apps/desktop/src/main.ts b/apps/desktop/src/main.ts\n'
   }
 
   return ''

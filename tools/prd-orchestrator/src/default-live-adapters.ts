@@ -444,6 +444,12 @@ const createGitAdapter = (
         )
       }
 
+      if (input.workerWorktreePath !== undefined) {
+        await applyPreservedWorkerWorktreeDiff(shell, input.workerWorktreePath)
+
+        return
+      }
+
       await shell({
         args: ['merge', '--squash', '--no-commit', input.workerBranchName],
         command: 'git',
@@ -724,15 +730,17 @@ const createSandcastleAdapter = (
         mounts: await resolveCodexCliCredentialMounts(),
       }),
     })
-    const changedFiles = await shell({
-      args: ['diff', '--name-only', `${input.prdBranchName}..${result.branch}`],
-      command: 'git',
+    const changedFiles = await getWorkerChangedFiles(shell, {
+      baseRef: input.prdBranchName,
+      workerBranchName: result.branch,
+      workerWorktreePath: result.preservedWorktreePath,
     })
 
     return {
-      changedFiles: parseChangedFiles(changedFiles.stdout),
+      changedFiles,
       stdout: result.stdout,
       workerBranchName: result.branch,
+      workerWorktreePath: result.preservedWorktreePath,
     }
   },
   repairResumeFindings: async (
@@ -768,19 +776,17 @@ const createSandcastleAdapter = (
         mounts: await resolveCodexCliCredentialMounts(),
       }),
     })
-    const changedFiles = await shell({
-      args: [
-        'diff',
-        '--name-only',
-        `${input.targetCommitHash ?? input.branchName}..${result.branch}`,
-      ],
-      command: 'git',
+    const changedFiles = await getWorkerChangedFiles(shell, {
+      baseRef: input.targetCommitHash ?? input.branchName,
+      workerBranchName: result.branch,
+      workerWorktreePath: result.preservedWorktreePath,
     })
 
     return {
-      changedFiles: parseChangedFiles(changedFiles.stdout),
+      changedFiles,
       stdout: result.stdout,
       workerBranchName: result.branch,
+      workerWorktreePath: result.preservedWorktreePath,
     }
   },
   repairVerificationFailure: async (
@@ -810,15 +816,17 @@ const createSandcastleAdapter = (
         mounts: await resolveCodexCliCredentialMounts(),
       }),
     })
-    const changedFiles = await shell({
-      args: ['diff', '--name-only', `${input.prdBranchName}..${result.branch}`],
-      command: 'git',
+    const changedFiles = await getWorkerChangedFiles(shell, {
+      baseRef: input.prdBranchName,
+      workerBranchName: result.branch,
+      workerWorktreePath: result.preservedWorktreePath,
     })
 
     return {
-      changedFiles: parseChangedFiles(changedFiles.stdout),
+      changedFiles,
       stdout: result.stdout,
       workerBranchName: result.branch,
+      workerWorktreePath: result.preservedWorktreePath,
     }
   },
   runImpactAnalysis: async (
@@ -872,18 +880,80 @@ const createSandcastleAdapter = (
         mounts: await resolveCodexCliCredentialMounts(),
       }),
     })
-    const changedFiles = await shell({
-      args: ['diff', '--name-only', `${input.prdBranchName}..${result.branch}`],
-      command: 'git',
+    const changedFiles = await getWorkerChangedFiles(shell, {
+      baseRef: input.prdBranchName,
+      workerBranchName: result.branch,
+      workerWorktreePath: result.preservedWorktreePath,
     })
 
     return {
-      changedFiles: parseChangedFiles(changedFiles.stdout),
+      changedFiles,
       stdout: result.stdout,
       workerBranchName: result.branch,
+      workerWorktreePath: result.preservedWorktreePath,
     }
   },
 })
+
+const applyPreservedWorkerWorktreeDiff = async (
+  shell: DefaultLiveAdapterShellRunner,
+  workerWorktreePath: string,
+): Promise<void> => {
+  await shell({
+    args: ['-C', workerWorktreePath, 'add', '--all'],
+    command: 'git',
+  })
+  const patch = await shell({
+    args: ['-C', workerWorktreePath, 'diff', '--cached', '--binary', 'HEAD'],
+    command: 'git',
+  })
+
+  if (patch.stdout.length === 0) {
+    return
+  }
+
+  await shell({
+    args: ['apply', '--index', '-'],
+    command: 'git',
+    stdin: patch.stdout,
+  })
+}
+
+const getWorkerChangedFiles = async (
+  shell: DefaultLiveAdapterShellRunner,
+  input: {
+    readonly baseRef: string
+    readonly workerBranchName: string
+    readonly workerWorktreePath?: string
+  },
+): Promise<readonly string[]> => {
+  if (input.workerWorktreePath === undefined) {
+    const changedFiles = await shell({
+      args: ['diff', '--name-only', `${input.baseRef}..${input.workerBranchName}`],
+      command: 'git',
+    })
+
+    return parseChangedFiles(changedFiles.stdout)
+  }
+
+  const [trackedChanges, untrackedChanges] = await Promise.all([
+    shell({
+      args: ['-C', input.workerWorktreePath, 'diff', '--name-only', 'HEAD'],
+      command: 'git',
+    }),
+    shell({
+      args: ['-C', input.workerWorktreePath, 'ls-files', '--others', '--exclude-standard'],
+      command: 'git',
+    }),
+  ])
+
+  return [
+    ...new Set([
+      ...parseChangedFiles(trackedChanges.stdout),
+      ...parseChangedFiles(untrackedChanges.stdout),
+    ]),
+  ]
+}
 
 export const resolvePnpmStorePath = async (
   shell: DefaultLiveAdapterShellRunner,

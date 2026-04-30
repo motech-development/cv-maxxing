@@ -180,6 +180,7 @@ export interface CheckoutChildCommitInput {
 export interface ApplyWorkerDiffInput {
   readonly prdBranchName: string
   readonly workerBranchName: string
+  readonly workerWorktreePath?: string
 }
 
 export interface PushPrdBranchInput {
@@ -212,6 +213,7 @@ export interface RunImplementationResult {
   readonly changedFiles: readonly string[]
   readonly stdout: string
   readonly workerBranchName: string
+  readonly workerWorktreePath?: string
 }
 
 export interface RepairReviewFindingsInput extends RunImplementationInput {
@@ -1811,6 +1813,7 @@ const runResumeRepairGateUntilClean = async (input: {
       await input.adapters.git.applyWorkerDiff({
         prdBranchName: input.branchName,
         workerBranchName: workerResult.workerBranchName,
+        workerWorktreePath: workerResult.workerWorktreePath,
       })
     } catch (error) {
       return {
@@ -2592,6 +2595,7 @@ const repairVerificationUntilClean = async (input: {
       await input.adapters.git.applyWorkerDiff({
         prdBranchName: input.prdBranchName,
         workerBranchName: workerResult.workerBranchName,
+        workerWorktreePath: workerResult.workerWorktreePath,
       })
     } catch (error) {
       return {
@@ -2778,6 +2782,7 @@ const repairCodeRabbitFindingsUntilClean = async (input: {
       await input.adapters.git.applyWorkerDiff({
         prdBranchName: input.branchName,
         workerBranchName: workerResult.workerBranchName,
+        workerWorktreePath: workerResult.workerWorktreePath,
       })
       await input.adapters.verification.runCommands(
         selectVerificationCommands(writeSurface.impactAnalysis),
