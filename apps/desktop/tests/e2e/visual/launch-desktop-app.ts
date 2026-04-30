@@ -9,6 +9,18 @@ import { createOriginalCvNormalizationFixtureOutput } from '../original-cv-norma
 
 const temporaryDirectories: string[] = []
 const defaultOriginalCvNormalizationOutput = createOriginalCvNormalizationFixtureOutput()
+const defaultVacancyNormalizationOutput = JSON.stringify({
+  kind: 'success',
+  normalizedVacancy: {
+    bodyText:
+      'Build reliable desktop tooling for technical users. Partner with design and infrastructure teams. Experience shipping workflow software.',
+    employer: 'Example Labs',
+    location: 'London, United Kingdom',
+    requirements: ['Experience shipping workflow software.'],
+    responsibilities: ['Build reliable desktop tooling for technical users.'],
+    title: 'Senior platform engineer',
+  },
+})
 
 export interface VisualTestPaths {
   appDataRoot: string
@@ -74,6 +86,9 @@ export async function launchDesktopApp(environment: NodeJS.ProcessEnv = {}) {
       CV_MAXXING_AI_WORKER_ORIGINAL_CV_NORMALIZATION_OUTPUT:
         environment.CV_MAXXING_AI_WORKER_ORIGINAL_CV_NORMALIZATION_OUTPUT ??
         defaultOriginalCvNormalizationOutput,
+      CV_MAXXING_AI_WORKER_VACANCY_NORMALIZATION_OUTPUT:
+        environment.CV_MAXXING_AI_WORKER_VACANCY_NORMALIZATION_OUTPUT ??
+        defaultVacancyNormalizationOutput,
       CV_MAXXING_MAIN_WINDOW_SHOW: environment.CV_MAXXING_MAIN_WINDOW_SHOW ?? 'false',
     }).filter((entry): entry is [string, string] => {
       return typeof entry[1] === 'string'
