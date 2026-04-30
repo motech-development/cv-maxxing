@@ -9,6 +9,7 @@ RUN corepack enable pnpm
 RUN npm install --global @openai/codex
 
 RUN usermod --home /home/agent --move-home --login agent node
+RUN chmod 0777 /home/agent
 
 USER agent
 

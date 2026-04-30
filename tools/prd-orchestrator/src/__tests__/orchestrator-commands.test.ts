@@ -93,6 +93,12 @@ describe('PRD orchestrator command scaffold', () => {
     expect(readme).toContain('pnpm exec sandcastle docker build-image')
     expect(readme).toContain('sandcastle:cv-maxxing')
   })
+
+  it('keeps the Sandcastle image home writable for host UID container runs', async () => {
+    const dockerfile = await readFileText('../../../../.sandcastle/Dockerfile')
+
+    expect(dockerfile).toContain('RUN chmod 0777 /home/agent')
+  })
 })
 
 const readPackageManifest = async (): Promise<PackageManifest> => {
