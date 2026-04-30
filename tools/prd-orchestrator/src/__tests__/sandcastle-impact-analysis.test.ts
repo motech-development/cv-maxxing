@@ -126,6 +126,13 @@ describe('Sandcastle impact analysis adapter planning', () => {
         cachePath: '/repo/.pnpm-store/v10',
         packageManager: 'pnpm',
       },
+      codexCliCredentialMounts: [
+        {
+          hostPath: '/Users/tester/.codex/auth.json',
+          readonly: true,
+          sandboxPath: '/home/agent/.codex/auth.json',
+        },
+      ],
       cliOverrides: {},
       env: {},
       sandboxBranchName: 'agent/prd-80-child-85-impact',
@@ -154,9 +161,14 @@ describe('Sandcastle impact analysis adapter planning', () => {
           env: {},
           mounts: [
             {
+              hostPath: '/Users/tester/.codex/auth.json',
+              readonly: true,
+              sandboxPath: '/home/agent/.codex/auth.json',
+            },
+            {
               hostPath: '/repo/.pnpm-store/v10',
               readonly: false,
-              sandboxPath: '/home/agent/.local/share/pnpm/store',
+              sandboxPath: '/home/agent/workspace/.pnpm-store/v10',
             },
           ],
         })
@@ -196,9 +208,14 @@ describe('Sandcastle impact analysis adapter planning', () => {
         },
         mounts: [
           {
+            hostPath: '/Users/tester/.codex/auth.json',
+            readonly: true,
+            sandboxPath: '/home/agent/.codex/auth.json',
+          },
+          {
             hostPath: '/repo/.pnpm-store/v10',
             readonly: false,
-            sandboxPath: '/home/agent/.local/share/pnpm/store',
+            sandboxPath: '/home/agent/workspace/.pnpm-store/v10',
           },
         ],
         provider: 'docker',

@@ -1,6 +1,6 @@
 import { execFileSync, spawn } from 'node:child_process'
 import { mkdtemp, mkdir, readdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
+import { homedir, tmpdir } from 'node:os'
 import path from 'node:path'
 import { setTimeout as sleep } from 'node:timers/promises'
 
@@ -12,6 +12,7 @@ import {
   createSandcastleImpactAnalysisRunOptions,
   defaultCodexModel,
   parseImpactAnalysisResult,
+  type DockerCacheMount,
   type SandcastleImpactAnalysisResult,
 } from './sandcastle-impact-analysis.js'
 import {
@@ -96,6 +97,7 @@ export type RepositoryRootCommandRunner = (
 ) => string
 
 const defaultTimeoutMs = 10 * 60 * 1000
+const codexCliCredentialFiles = ['.codex/auth.json', '.codex/config.toml'] as const
 const runStateRoot = '.git/prd-orchestrator/runs'
 const statusFileName = 'status.json'
 const lockFileName = 'lock.json'
@@ -719,7 +721,7 @@ const createSandcastleAdapter = (
       prompt,
       sandbox: docker({
         env: {},
-        mounts: [],
+        mounts: await resolveCodexCliCredentialMounts(),
       }),
     })
     const changedFiles = await shell({
@@ -763,7 +765,7 @@ const createSandcastleAdapter = (
       prompt,
       sandbox: docker({
         env: {},
-        mounts: [],
+        mounts: await resolveCodexCliCredentialMounts(),
       }),
     })
     const changedFiles = await shell({
@@ -805,7 +807,7 @@ const createSandcastleAdapter = (
       prompt,
       sandbox: docker({
         env: {},
-        mounts: [],
+        mounts: await resolveCodexCliCredentialMounts(),
       }),
     })
     const changedFiles = await shell({
@@ -824,6 +826,7 @@ const createSandcastleAdapter = (
   ): Promise<SandcastleImpactAnalysisResult> => {
     const promptInputs = await loadPromptInputs(cwd)
     const pnpmStorePath = await resolvePnpmStorePath(shell)
+    const codexCliCredentialMounts = await resolveCodexCliCredentialMounts()
     const result = await run({
       ...createSandcastleImpactAnalysisRunOptions({
         architectureDesignConstraints: promptInputs.architecture,
@@ -833,6 +836,7 @@ const createSandcastleAdapter = (
           packageManager: 'pnpm',
         },
         childIssueNumber: input.childTask.issueNumber,
+        codexCliCredentialMounts,
         cliOverrides: {
           effort: configuration.codexEffort,
           model: configuration.codexModel,
@@ -865,7 +869,7 @@ const createSandcastleAdapter = (
       prompt,
       sandbox: docker({
         env: {},
-        mounts: [],
+        mounts: await resolveCodexCliCredentialMounts(),
       }),
     })
     const changedFiles = await shell({
@@ -896,6 +900,41 @@ export const resolvePnpmStorePath = async (
   } catch {
     return undefined
   }
+}
+
+export const createCodexCliCredentialMounts = (
+  homeDirectory: string,
+  existingCredentialFiles: readonly string[],
+): readonly DockerCacheMount[] =>
+  codexCliCredentialFiles
+    .filter((credentialFile) => existingCredentialFiles.includes(credentialFile))
+    .map((credentialFile) => ({
+      hostPath: path.join(homeDirectory, credentialFile),
+      readonly: true,
+      sandboxPath: `/home/agent/${credentialFile}`,
+    }))
+
+const resolveCodexCliCredentialMounts = async (
+  homeDirectory = homedir(),
+): Promise<readonly DockerCacheMount[]> => {
+  const existingCredentialFiles = await Promise.all(
+    codexCliCredentialFiles.map(async (credentialFile) => {
+      try {
+        const credentialStat = await stat(path.join(homeDirectory, credentialFile))
+
+        return credentialStat.isFile() ? credentialFile : null
+      } catch {
+        return null
+      }
+    }),
+  )
+
+  return createCodexCliCredentialMounts(
+    homeDirectory,
+    existingCredentialFiles.filter(
+      (file): file is (typeof codexCliCredentialFiles)[number] => file !== null,
+    ),
+  )
 }
 
 export const resolveHostShell = (env: Record<string, string | undefined> = process.env): string => {

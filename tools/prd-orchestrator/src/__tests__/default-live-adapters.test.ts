@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os'
 import { describe, expect, it } from 'vitest'
 
 import {
+  createCodexCliCredentialMounts,
   createDefaultPrdOrchestratorLiveAdapters,
   createDefaultSandcastleDockerImageName,
   resolveHostShell,
@@ -54,6 +55,23 @@ describe('default live adapters', () => {
     expect(createDefaultSandcastleDockerImageName('/repo/CV Maxxing/')).toBe(
       'sandcastle:cv-maxxing',
     )
+  })
+
+  it('mounts only required Codex CLI credential files into Sandcastle workers', () => {
+    expect(
+      createCodexCliCredentialMounts('/Users/tester', ['.codex/auth.json', '.codex/config.toml']),
+    ).toEqual([
+      {
+        hostPath: '/Users/tester/.codex/auth.json',
+        readonly: true,
+        sandboxPath: '/home/agent/.codex/auth.json',
+      },
+      {
+        hostPath: '/Users/tester/.codex/config.toml',
+        readonly: true,
+        sandboxPath: '/home/agent/.codex/config.toml',
+      },
+    ])
   })
 
   it('constructs GitHub, CI, and preflight commands without live mutations in tests', async () => {

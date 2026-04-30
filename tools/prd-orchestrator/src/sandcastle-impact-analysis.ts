@@ -69,6 +69,7 @@ export interface ImpactAnalysisPromptInput {
 
 export interface BuildSandcastleImpactAnalysisOptionsInput extends ImpactAnalysisPromptInput {
   readonly cacheInputs: DependencyCacheInputs
+  readonly codexCliCredentialMounts?: readonly DockerCacheMount[]
   readonly cliOverrides: {
     readonly effort?: string
     readonly model?: string
@@ -179,7 +180,10 @@ export const buildSandcastleImpactAnalysisOptions = (
   })
   const sandbox = {
     env: createCredentialStrippingEnvironment(input.env),
-    mounts: detectDependencyCacheMounts(input.cacheInputs),
+    mounts: [
+      ...(input.codexCliCredentialMounts ?? []),
+      ...detectDependencyCacheMounts(input.cacheInputs),
+    ],
     provider: 'docker',
   } as const
   const credentialIsolation = validateCredentialIsolation({
@@ -364,7 +368,7 @@ const detectDependencyCacheMounts = (input: DependencyCacheInputs): readonly Doc
       {
         hostPath: cachePath,
         readonly: false,
-        sandboxPath: '/home/agent/.local/share/pnpm/store',
+        sandboxPath: '/home/agent/workspace/.pnpm-store/v10',
       },
     ]
   }

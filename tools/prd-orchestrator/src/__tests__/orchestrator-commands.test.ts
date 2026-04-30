@@ -97,6 +97,7 @@ describe('PRD orchestrator command scaffold', () => {
   it('keeps the Sandcastle image home writable for host UID container runs', async () => {
     const dockerfile = await readFileText('../../../../.sandcastle/Dockerfile')
 
+    expect(dockerfile).toContain('RUN mkdir -p /home/agent/.codex')
     expect(dockerfile).toContain('RUN chmod 0777 /home/agent')
   })
 })
