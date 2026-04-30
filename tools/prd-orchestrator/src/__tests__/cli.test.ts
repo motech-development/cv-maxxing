@@ -958,14 +958,13 @@ describe('PRD orchestrator CLI', () => {
       'git:get-main-branch-status',
       'git:get-completed-children',
       'git:prepare-prd-branch',
-      'github:create-draft-pr',
       'sandcastle:impact-analysis',
       'sandcastle:implementation',
       'git:apply-worker-diff',
       'verification:run',
-      'github:get-pr',
       'git:commit-child',
       'git:push-prd-branch',
+      'github:create-draft-pr',
       'coderabbit:review',
       'github:update-pr-body',
       'ci:poll-checks',
@@ -1537,7 +1536,7 @@ None - can start immediately.
     expect(adapters.events.filter((event) => event === 'verification:run')).toHaveLength(2)
   })
 
-  it('records repeated verification failures as a PR and run blocker without committing', async () => {
+  it('records repeated verification failures as a run blocker without committing', async () => {
     const adapters = createLiveAdapters({
       verificationFailuresBeforeClean: 2,
       verificationFailureMessage:
@@ -1548,8 +1547,6 @@ None - can start immediately.
       arguments_: ['run', '--one-child'],
       stdin: '',
     })
-    const latestPrBody = adapters.updatedPrBodies.at(-1) ?? ''
-    const latestComment = adapters.postedComments.at(-1) ?? ''
 
     expect(result.exitCode).toBe(1)
     expect(adapters.events).toContain('sandcastle:repair-verification')
@@ -1557,13 +1554,10 @@ None - can start immediately.
     expect(adapters.events).not.toContain('git:commit-child')
     expect(adapters.events).not.toContain('git:amend-child-commit')
     expect(adapters.events.indexOf('git:restore-prd-branch')).toBeLessThan(
-      adapters.events.indexOf('github:update-pr-body'),
+      adapters.events.indexOf('state:record-run-status'),
     )
-    expect(latestPrBody).toContain(
-      '| #82 | Build PRD and child-task planning from GitHub Markdown | blocked |',
-    )
-    expect(latestComment).toContain('Failing verification command: pnpm lint')
-    expect(latestComment).toContain('Error evidence: pnpm lint failed')
+    expect(adapters.events).not.toContain('github:update-pr-body')
+    expect(adapters.events).not.toContain('github:post-pr-comment')
     expect(adapters.recordedStatuses.at(-1)).toMatchObject({
       blockers: [
         'Verification repair exhausted for #82. Failing verification command: pnpm lint. Error evidence: pnpm lint failed',
@@ -1574,7 +1568,7 @@ None - can start immediately.
     })
   })
 
-  it('records failed worker diff application as a PR and run blocker after restoring clean state', async () => {
+  it('records failed worker diff application as a run blocker after restoring clean state', async () => {
     const adapters = createLiveAdapters({
       applyWorkerDiffError: new Error('git merge --squash failed\nCONFLICT in cli.ts'),
     })
@@ -1583,19 +1577,17 @@ None - can start immediately.
       arguments_: ['run', '--one-child'],
       stdin: '',
     })
-    const latestComment = adapters.postedComments.at(-1) ?? ''
 
     expect(result.exitCode).toBe(1)
     expect(adapters.events).toContain('git:apply-worker-diff')
     expect(adapters.events).toContain('git:restore-prd-branch')
     expect(adapters.events.indexOf('git:restore-prd-branch')).toBeLessThan(
-      adapters.events.indexOf('github:update-pr-body'),
+      adapters.events.indexOf('state:record-run-status'),
     )
     expect(adapters.events).not.toContain('verification:run')
     expect(adapters.events).not.toContain('git:commit-child')
-    expect(latestComment).toContain('Failed to apply worker diff for #82')
-    expect(latestComment).toContain('Operation: apply worker diff from')
-    expect(latestComment).toContain('Error evidence: git merge --squash failed')
+    expect(adapters.events).not.toContain('github:update-pr-body')
+    expect(adapters.events).not.toContain('github:post-pr-comment')
     expect(adapters.recordedStatuses.at(-1)).toMatchObject({
       blockers: [
         expect.stringContaining(
@@ -1636,15 +1628,12 @@ None - can start immediately.
       arguments_: ['run', '--one-child'],
       stdin: '',
     })
-    const latestComment = adapters.postedComments.at(-1) ?? ''
 
     expect(result.exitCode).toBe(1)
     expect(adapters.events).toContain('sandcastle:repair-verification')
     expect(adapters.events).toContain('git:restore-prd-branch')
     expect(adapters.events).not.toContain('git:commit-child')
-    expect(latestComment).toContain(
-      'worker diff touched files outside impact-analysis write surface after re-analysis',
-    )
+    expect(adapters.events).not.toContain('github:post-pr-comment')
     expect(adapters.recordedStatuses.at(-1)).toMatchObject({
       blockers: [
         expect.stringContaining(
@@ -1656,7 +1645,7 @@ None - can start immediately.
     })
   })
 
-  it('records missing Pencil evidence as a PR and run blocker before committing .pen changes', async () => {
+  it('records missing Pencil evidence as a run blocker before committing .pen changes', async () => {
     const adapters = createLiveAdapters({
       impactAnalyses: [
         {
@@ -1675,17 +1664,13 @@ None - can start immediately.
       arguments_: ['run', '--one-child'],
       stdin: '',
     })
-    const latestPrBody = adapters.updatedPrBodies.at(-1) ?? ''
 
     expect(result.exitCode).toBe(1)
     expect(result.stderr).toContain('Pencil verification evidence missing')
     expect(adapters.events).toContain('verification:run')
-    expect(adapters.events).toContain('github:update-pr-body')
     expect(adapters.events).toContain('state:record-run-status')
     expect(adapters.events).not.toContain('git:commit-child')
-    expect(latestPrBody).toContain(
-      '| #82 | Build PRD and child-task planning from GitHub Markdown | blocked |',
-    )
+    expect(adapters.events).not.toContain('github:update-pr-body')
     expect(adapters.recordedStatuses.at(-1)).toMatchObject({
       blockers: [
         'Pencil verification evidence missing for .pen design changes: design/app.pen. Provide Pencil screenshot evidence or saved persistence evidence before committing.',
@@ -1797,7 +1782,7 @@ None - can start immediately.
     )
   })
 
-  it('records unrecoverable blockers in the draft PR before stopping', async () => {
+  it('records unrecoverable blockers in run state before stopping', async () => {
     const adapters = createLiveAdapters({
       workerChangedFiles: ['apps/desktop/src/main.ts'],
     })
@@ -1808,9 +1793,9 @@ None - can start immediately.
     })
 
     expect(result.exitCode).toBe(1)
-    expect(adapters.events).toContain('github:update-pr-body')
-    expect(adapters.events).toContain('github:post-pr-comment')
     expect(adapters.events).toContain('state:record-run-status')
+    expect(adapters.events).not.toContain('github:update-pr-body')
+    expect(adapters.events).not.toContain('github:post-pr-comment')
     expect(adapters.events).toContain('lock:release')
   })
 

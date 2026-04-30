@@ -273,6 +273,13 @@ type ResumeRepairGateResult =
       readonly status: 'blocked'
     }
 
+type DraftPrResolver = (body: string) => Promise<RemoteAutomationPr>
+
+interface DraftPrHandle {
+  readonly current: () => RemoteAutomationPr | undefined
+  readonly ensure: DraftPrResolver
+}
+
 interface LiveRunStartupContext {
   readonly issues: readonly GitHubIssue[]
   readonly remoteAutomationPr: RemoteAutomationPr | undefined
@@ -549,28 +556,15 @@ const executeLiveRunWithLock = async (
     remoteAutomationPr,
   })
 
+  const draftPrHandle = createDraftPrHandle({
+    adapters,
+    branchName: branchSeedPlan.prdBranchName,
+    prdIssueNumber: selectedPrd.issueNumber,
+    remoteAutomationPr,
+    title: branchSeedPlan.draftPullRequest.title,
+  })
   const initialCompletedChildIssueNumbers =
     (await adapters.git.getCompletedChildIssueNumbers?.(branchSeedPlan.prdBranchName)) ?? []
-  const draftPr =
-    remoteAutomationPr ??
-    (await adapters.github.createDraftPr({
-      body: generateDraftPrBody({
-        branchName: branchSeedPlan.prdBranchName,
-        childTasks: selectedPrd.childTasks,
-        ledger: await createBaseLedger({
-          adapters,
-          blockedChildIssueNumbers: [],
-          branchName: branchSeedPlan.prdBranchName,
-          childTasks: selectedPrd.childTasks,
-          completedChildIssueNumbers: initialCompletedChildIssueNumbers,
-        }),
-        parentPrdIssueNumber: selectedPrd.issueNumber,
-        prdTitle: selectedPrd.title,
-      }),
-      branchName: branchSeedPlan.prdBranchName,
-      prdIssueNumber: selectedPrd.issueNumber,
-      title: branchSeedPlan.draftPullRequest.title,
-    }))
   const blockedChildIssueNumbers = new Set<number>()
   let madeProgress = initialCompletedChildIssueNumbers.length > 0
 
@@ -598,11 +592,27 @@ const executeLiveRunWithLock = async (
           }
         }
 
+        const activeDraftPr = await draftPrHandle.ensure(
+          generateDraftPrBody({
+            branchName: branchSeedPlan.prdBranchName,
+            childTasks: selectedPrd.childTasks,
+            ledger: await createBaseLedger({
+              adapters,
+              blockedChildIssueNumbers: [],
+              branchName: branchSeedPlan.prdBranchName,
+              childTasks: selectedPrd.childTasks,
+              completedChildIssueNumbers,
+            }),
+            parentPrdIssueNumber: selectedPrd.issueNumber,
+            prdTitle: selectedPrd.title,
+          }),
+        )
+
         return await finalizeRecoveredPrdBranch({
           adapters,
           branchName: branchSeedPlan.prdBranchName,
           completedChildren: completedChildIssueNumbers,
-          draftPr,
+          draftPr: activeDraftPr,
           lastCommand: 'run',
           selectedPrd,
         })
@@ -619,26 +629,29 @@ const executeLiveRunWithLock = async (
           currentChildIssueNumber: undefined,
           lastCommand: 'run',
           phase: 'blocked',
-          pr: draftPr,
+          pr: draftPrHandle.current(),
           prdIssueNumber: selectedPrd.issueNumber,
         })
 
-        await adapters.github.updatePrBody(
-          draftPr.prNumber,
-          generateDraftPrBody({
+        const blockedBody = generateDraftPrBody({
+          branchName: branchSeedPlan.prdBranchName,
+          childTasks: selectedPrd.childTasks,
+          ledger: await createBaseLedger({
+            adapters,
+            blockedChildIssueNumbers: [...blockedChildIssueNumbers],
             branchName: branchSeedPlan.prdBranchName,
             childTasks: selectedPrd.childTasks,
-            ledger: await createBaseLedger({
-              adapters,
-              blockedChildIssueNumbers: [...blockedChildIssueNumbers],
-              branchName: branchSeedPlan.prdBranchName,
-              childTasks: selectedPrd.childTasks,
-              completedChildIssueNumbers,
-            }),
-            parentPrdIssueNumber: selectedPrd.issueNumber,
-            prdTitle: selectedPrd.title,
+            completedChildIssueNumbers,
           }),
-        )
+          parentPrdIssueNumber: selectedPrd.issueNumber,
+          prdTitle: selectedPrd.title,
+        })
+        const activeDraftPr = draftPrHandle.current()
+
+        if (activeDraftPr !== undefined) {
+          await adapters.github.updatePrBody(activeDraftPr.prNumber, blockedBody)
+        }
+
         await adapters.state.recordRunStatus(status)
 
         return blockedResult('Full run blocked after continuing independent child work.')
@@ -683,7 +696,7 @@ const executeLiveRunWithLock = async (
         phase: `scheduling ${String(executableChildren.length)} executable child task${
           executableChildren.length === 1 ? '' : 's'
         }`,
-        pr: draftPr,
+        pr: draftPrHandle.current(),
         prdIssueNumber: selectedPrd.issueNumber,
       }),
     )
@@ -756,7 +769,8 @@ const executeLiveRunWithLock = async (
           blockedChildIssueNumbers: [...blockedChildIssueNumbers],
           branchSeedPlan,
           completedChildIssueNumbers: completedBeforeChild,
-          draftPr,
+          draftPr: draftPrHandle.current(),
+          ensureDraftPr: draftPrHandle.ensure,
           impactAnalysis,
           issues,
           lastCommand: 'run',
@@ -886,25 +900,13 @@ const executeLiveOneChildWithLock = async (
     remoteAutomationPr,
   })
 
-  const draftPr =
-    remoteAutomationPr ??
-    (await adapters.github.createDraftPr({
-      body: generateDraftPrBody({
-        branchName: branchSeedPlan.prdBranchName,
-        childTasks: selectedPrd.childTasks,
-        ledger: await createRunLedger({
-          adapters,
-          branchName: branchSeedPlan.prdBranchName,
-          childTasks: selectedPrd.childTasks,
-          completedChildIssueNumbers,
-        }),
-        parentPrdIssueNumber: selectedPrd.issueNumber,
-        prdTitle: selectedPrd.title,
-      }),
-      branchName: branchSeedPlan.prdBranchName,
-      prdIssueNumber: selectedPrd.issueNumber,
-      title: branchSeedPlan.draftPullRequest.title,
-    }))
+  const draftPrHandle = createDraftPrHandle({
+    adapters,
+    branchName: branchSeedPlan.prdBranchName,
+    prdIssueNumber: selectedPrd.issueNumber,
+    remoteAutomationPr,
+    title: branchSeedPlan.draftPullRequest.title,
+  })
 
   const siblingSummaries = selectedPrd.childTasks
     .filter((childTask) => childTask.issueNumber !== selectedChild.issueNumber)
@@ -940,6 +942,23 @@ const executeLiveOneChildWithLock = async (
   })
 
   if (writeSurface.blockers.length > 0) {
+    const blockedBody = generateDraftPrBody({
+      branchName: branchSeedPlan.prdBranchName,
+      childTasks: selectedPrd.childTasks,
+      ledger: await createRunLedger({
+        adapters,
+        blockedChildIssueNumber: selectedChild.issueNumber,
+        branchName: branchSeedPlan.prdBranchName,
+        childTasks: selectedPrd.childTasks,
+        completedChildIssueNumbers,
+      }),
+      parentPrdIssueNumber: selectedPrd.issueNumber,
+      prdTitle: selectedPrd.title,
+    })
+    const activeDraftPr =
+      completedChildIssueNumbers.length === 0
+        ? draftPrHandle.current()
+        : await draftPrHandle.ensure(blockedBody)
     const status = createRunStatus({
       blockers: writeSurface.blockers,
       branchName: branchSeedPlan.prdBranchName,
@@ -947,26 +966,14 @@ const executeLiveOneChildWithLock = async (
       completedChildIssueNumbers,
       currentChildIssueNumber: selectedChild.issueNumber,
       phase: 'blocked',
-      pr: draftPr,
+      pr: activeDraftPr,
       prdIssueNumber: selectedPrd.issueNumber,
     })
 
     await recordBlockedProgress({
       adapters,
-      body: generateDraftPrBody({
-        branchName: branchSeedPlan.prdBranchName,
-        childTasks: selectedPrd.childTasks,
-        ledger: await createRunLedger({
-          adapters,
-          blockedChildIssueNumber: selectedChild.issueNumber,
-          branchName: branchSeedPlan.prdBranchName,
-          childTasks: selectedPrd.childTasks,
-          completedChildIssueNumbers,
-        }),
-        parentPrdIssueNumber: selectedPrd.issueNumber,
-        prdTitle: selectedPrd.title,
-      }),
-      draftPr,
+      body: blockedBody,
+      draftPr: activeDraftPr,
       status,
     })
 
@@ -975,7 +982,7 @@ const executeLiveOneChildWithLock = async (
       stderr: `${writeSurface.blockers.join('\n')}\n`,
       stdout: `${renderOneChildSummary({
         childIssueNumber: selectedChild.issueNumber,
-        pr: draftPr,
+        pr: activeDraftPr,
         status,
       })}\n`,
     }
@@ -1000,7 +1007,7 @@ const executeLiveOneChildWithLock = async (
       blockers: verifiedWorkerResult.blockers,
       branchName: branchSeedPlan.prdBranchName,
       completedChildIssueNumbers,
-      draftPr,
+      draftPr: draftPrHandle.current(),
       selectedChild,
       selectedPrd,
     })
@@ -1025,12 +1032,16 @@ const executeLiveOneChildWithLock = async (
     impactAnalysis: verifiedWorkerResult.impactAnalysis,
     issues,
     mainBranchStatus,
-    remoteAutomationPr: draftPr,
+    remoteAutomationPr: draftPrHandle.current(),
     verificationEvidence,
     workerChangedFiles: verifiedWorkerResult.workerResult.changedFiles,
   })
 
   if (commitReadyPlan.status === 'blocked') {
+    const activeDraftPr =
+      completedChildIssueNumbers.length === 0
+        ? draftPrHandle.current()
+        : await draftPrHandle.ensure(commitReadyPlan.prBodyAfterChildUpdate)
     const status = createRunStatus({
       blockers: commitReadyPlan.blockers,
       branchName: branchSeedPlan.prdBranchName,
@@ -1038,14 +1049,14 @@ const executeLiveOneChildWithLock = async (
       completedChildIssueNumbers,
       currentChildIssueNumber: selectedChild.issueNumber,
       phase: 'blocked',
-      pr: draftPr,
+      pr: activeDraftPr,
       prdIssueNumber: selectedPrd.issueNumber,
     })
 
     await recordBlockedProgress({
       adapters,
       body: commitReadyPlan.prBodyAfterChildUpdate,
-      draftPr,
+      draftPr: activeDraftPr,
       status,
     })
 
@@ -1054,17 +1065,21 @@ const executeLiveOneChildWithLock = async (
       stderr: `${commitReadyPlan.blockers.join('\n')}\n`,
       stdout: `${renderOneChildSummary({
         childIssueNumber: selectedChild.issueNumber,
-        pr: draftPr,
+        pr: activeDraftPr,
         status,
       })}\n`,
     }
   }
 
-  const rewriteBlocker = await getFreshRewriteBlocker({
-    adapters,
-    command: input.lastCommand ?? 'run --one-child',
-    pr: draftPr,
-  })
+  const currentDraftPr = draftPrHandle.current()
+  const rewriteBlocker =
+    currentDraftPr === undefined
+      ? undefined
+      : await getFreshRewriteBlocker({
+          adapters,
+          command: input.lastCommand ?? 'run --one-child',
+          pr: currentDraftPr,
+        })
 
   if (rewriteBlocker !== undefined) {
     const status = createRunStatus({
@@ -1075,7 +1090,7 @@ const executeLiveOneChildWithLock = async (
       currentChildIssueNumber: selectedChild.issueNumber,
       lastCommand: input.lastCommand ?? 'run --one-child',
       phase: 'blocked',
-      pr: draftPr,
+      pr: draftPrHandle.current(),
       prdIssueNumber: selectedPrd.issueNumber,
     })
 
@@ -1086,7 +1101,7 @@ const executeLiveOneChildWithLock = async (
       stderr: `${rewriteBlocker}\n`,
       stdout: `${renderOneChildSummary({
         childIssueNumber: selectedChild.issueNumber,
-        pr: draftPr,
+        pr: draftPrHandle.current(),
         status,
       })}\n`,
     }
@@ -1096,17 +1111,39 @@ const executeLiveOneChildWithLock = async (
 
   await adapters.git.pushPrdBranch(commitReadyPlan.push)
 
+  const activeDraftPr = await draftPrHandle.ensure(
+    generateDraftPrBody({
+      branchName: branchSeedPlan.prdBranchName,
+      childTasks: selectedPrd.childTasks,
+      ledger: updateLedgerForChildResult({
+        childCommitHash: commit.hash,
+        codeRabbitStatus: 'pending',
+        existingLedger: await createRunLedger({
+          adapters,
+          branchName: branchSeedPlan.prdBranchName,
+          childTasks: selectedPrd.childTasks,
+          completedChildIssueNumbers,
+        }),
+        selectedChild,
+        status: 'complete',
+        verificationEvidence,
+      }),
+      parentPrdIssueNumber: selectedPrd.issueNumber,
+      prdTitle: selectedPrd.title,
+    }),
+  )
+
   const codeRabbitResult = await adapters.codeRabbit.reviewChild({
     branchName: branchSeedPlan.prdBranchName,
     childCommitHash: commit.hash,
     childIssueNumber: selectedChild.issueNumber,
-    prNumber: draftPr.prNumber,
+    prNumber: activeDraftPr.prNumber,
   })
   const cleanReview = await repairCodeRabbitFindingsUntilClean({
     adapters,
     branchName: branchSeedPlan.prdBranchName,
     childCommitHash: commit.hash,
-    draftPr,
+    draftPr: activeDraftPr,
     impactAnalysis: verifiedWorkerResult.impactAnalysis,
     parentPrd: selectedPrd,
     parentPrdBody,
@@ -1135,7 +1172,7 @@ const executeLiveOneChildWithLock = async (
     impactAnalysis: verifiedWorkerResult.impactAnalysis,
     issues,
     mainBranchStatus,
-    remoteAutomationPr: draftPr,
+    remoteAutomationPr: activeDraftPr,
     verificationEvidence,
     workerChangedFiles: verifiedWorkerResult.workerResult.changedFiles,
   })
@@ -1145,7 +1182,7 @@ const executeLiveOneChildWithLock = async (
       : completedChildIssueNumbers
   const allChildrenComplete = completedChildren.length === selectedPrd.childTasks.length
 
-  await adapters.github.updatePrBody(draftPr.prNumber, finalPlan.prBodyAfterChildUpdate)
+  await adapters.github.updatePrBody(activeDraftPr.prNumber, finalPlan.prBodyAfterChildUpdate)
 
   const finalizationResult =
     allChildrenComplete && cleanReview.result.findings.length === 0
@@ -1153,7 +1190,7 @@ const executeLiveOneChildWithLock = async (
           adapters,
           branchName: branchSeedPlan.prdBranchName,
           completedChildren,
-          draftPr,
+          draftPr: activeDraftPr,
           selectedPrd,
           verificationEvidence,
           verificationEvidenceByChild: createVerificationEvidenceByChild({
@@ -1180,7 +1217,7 @@ const executeLiveOneChildWithLock = async (
     currentChildIssueNumber: undefined,
     lastCommand: input.lastCommand ?? 'run --one-child',
     phase: cleanReview.result.findings.length === 0 ? finalizationResult.phase : 'blocked',
-    pr: draftPr,
+    pr: activeDraftPr,
     prdIssueNumber: selectedPrd.issueNumber,
   })
 
@@ -1192,7 +1229,7 @@ const executeLiveOneChildWithLock = async (
     stderr: '',
     stdout: `${renderOneChildSummary({
       childIssueNumber: selectedChild.issueNumber,
-      pr: draftPr,
+      pr: activeDraftPr,
       status,
     })}\n`,
   }
@@ -1203,7 +1240,8 @@ const executePreparedChildWithLock = async (input: {
   readonly blockedChildIssueNumbers: readonly number[]
   readonly branchSeedPlan: OneChildTransactionPlan
   readonly completedChildIssueNumbers: readonly number[]
-  readonly draftPr: RemoteAutomationPr
+  readonly draftPr: RemoteAutomationPr | undefined
+  readonly ensureDraftPr: DraftPrResolver
   readonly impactAnalysis: SandcastleImpactAnalysisResult
   readonly issues: readonly GitHubIssue[]
   readonly lastCommand: string
@@ -1315,11 +1353,14 @@ const executePreparedChildWithLock = async (input: {
     branchName: input.branchSeedPlan.prdBranchName,
     mode: 'force-with-lease',
   } as const
-  const rewriteBlocker = await getFreshRewriteBlocker({
-    adapters: input.adapters,
-    command: input.lastCommand,
-    pr: input.draftPr,
-  })
+  const rewriteBlocker =
+    input.draftPr === undefined
+      ? undefined
+      : await getFreshRewriteBlocker({
+          adapters: input.adapters,
+          command: input.lastCommand,
+          pr: input.draftPr,
+        })
 
   if (rewriteBlocker !== undefined) {
     const status = createRunStatus({
@@ -1351,18 +1392,35 @@ const executePreparedChildWithLock = async (input: {
 
   await input.adapters.git.pushPrdBranch(push)
 
+  const activeDraftPr = await input.ensureDraftPr(
+    generateDraftPrBody({
+      branchName: input.branchSeedPlan.prdBranchName,
+      childTasks: input.selectedPrd.childTasks,
+      ledger: updateLedgerForChildResult({
+        childCommitHash: commit.hash,
+        codeRabbitStatus: 'pending',
+        existingLedger: baseLedger,
+        selectedChild: input.selectedChild,
+        status: 'complete',
+        verificationEvidence,
+      }),
+      parentPrdIssueNumber: input.selectedPrd.issueNumber,
+      prdTitle: input.selectedPrd.title,
+    }),
+  )
+
   const codeRabbitResult = await input.adapters.codeRabbit.reviewChild({
     branchName: input.branchSeedPlan.prdBranchName,
     childCommitHash: commit.hash,
     childIssueNumber: input.selectedChild.issueNumber,
-    prNumber: input.draftPr.prNumber,
+    prNumber: activeDraftPr.prNumber,
   })
   const cleanReview = await repairCodeRabbitFindingsUntilClean({
     adapters: input.adapters,
     branchName: input.branchSeedPlan.prdBranchName,
     childCommitHash: commit.hash,
     curatedCommitMessage: commitMessage,
-    draftPr: input.draftPr,
+    draftPr: activeDraftPr,
     impactAnalysis: verifiedWorkerResult.impactAnalysis,
     initialResult: codeRabbitResult,
     parentPrd: input.selectedPrd,
@@ -1387,7 +1445,7 @@ const executePreparedChildWithLock = async (input: {
   })
 
   await input.adapters.github.updatePrBody(
-    input.draftPr.prNumber,
+    activeDraftPr.prNumber,
     generateDraftPrBody({
       branchName: input.branchSeedPlan.prdBranchName,
       childTasks: input.selectedPrd.childTasks,
@@ -1403,7 +1461,7 @@ const executePreparedChildWithLock = async (input: {
           adapters: input.adapters,
           branchName: input.branchSeedPlan.prdBranchName,
           completedChildren,
-          draftPr: input.draftPr,
+          draftPr: activeDraftPr,
           selectedPrd: input.selectedPrd,
           verificationEvidence,
           verificationEvidenceByChild: createVerificationEvidenceByChild({
@@ -1430,7 +1488,7 @@ const executePreparedChildWithLock = async (input: {
     currentChildIssueNumber: undefined,
     lastCommand: input.lastCommand,
     phase: cleanReview.result.findings.length === 0 ? finalizationResult.phase : 'blocked',
-    pr: input.draftPr,
+    pr: activeDraftPr,
     prdIssueNumber: input.selectedPrd.issueNumber,
   })
 
@@ -1442,7 +1500,7 @@ const executePreparedChildWithLock = async (input: {
     stderr: '',
     stdout: `${renderOneChildSummary({
       childIssueNumber: input.selectedChild.issueNumber,
-      pr: input.draftPr,
+      pr: activeDraftPr,
       status,
     })}\n`,
   }
@@ -2288,6 +2346,34 @@ const createWorkerBranchName = (
     selectedChild.issueNumber,
   )}-${slugify(selectedChild.title)}`
 
+const createDraftPrHandle = (input: {
+  readonly adapters: PrdOrchestratorLiveAdapters
+  readonly branchName: string
+  readonly prdIssueNumber: number
+  readonly remoteAutomationPr: RemoteAutomationPr | undefined
+  readonly title: string
+}): DraftPrHandle => {
+  let draftPr = input.remoteAutomationPr
+
+  return {
+    current: () => draftPr,
+    ensure: async (body) => {
+      if (draftPr !== undefined) {
+        return draftPr
+      }
+
+      draftPr = await input.adapters.github.createDraftPr({
+        body,
+        branchName: input.branchName,
+        prdIssueNumber: input.prdIssueNumber,
+        title: input.title,
+      })
+
+      return draftPr
+    },
+  }
+}
+
 const createRunStatus = (input: {
   readonly blockers: readonly string[]
   readonly branchName: string
@@ -2297,7 +2383,7 @@ const createRunStatus = (input: {
   readonly currentChildIssueNumber: number | undefined
   readonly lastCommand?: string
   readonly phase: string
-  readonly pr: RemoteAutomationPr
+  readonly pr: RemoteAutomationPr | undefined
   readonly prdIssueNumber: number
 }): RunStatus => ({
   activePrdIssueNumber: input.prdIssueNumber,
@@ -2310,8 +2396,8 @@ const createRunStatus = (input: {
   heartbeatIso: new Date().toISOString(),
   lastCommand: input.lastCommand ?? 'run --one-child',
   phase: input.phase,
-  prNumber: input.pr.prNumber,
-  prUrl: input.pr.url,
+  prNumber: input.pr?.prNumber,
+  prUrl: input.pr?.url,
 })
 
 const createPreExecutionBlockedStatus = (input: {
@@ -2349,15 +2435,18 @@ const recordPreExecutionPlanningBlockers = async (input: {
 
 const renderOneChildSummary = (input: {
   readonly childIssueNumber: number
-  readonly pr: RemoteAutomationPr
+  readonly pr: RemoteAutomationPr | undefined
   readonly status: RunStatus
 }): string =>
   [
     `Completed child #${String(input.childIssueNumber)}`,
-    `Draft PR: #${String(input.pr.prNumber)} ${input.pr.url}`,
+    `Draft PR: ${formatDraftPrSummary(input.pr)}`,
     `Phase: ${input.status.phase}`,
     `Blockers: ${input.status.blockers.length === 0 ? 'none' : input.status.blockers.join('; ')}`,
   ].join('\n')
+
+const formatDraftPrSummary = (pr: RemoteAutomationPr | undefined): string =>
+  pr === undefined ? 'not created' : `#${String(pr.prNumber)} ${pr.url}`
 
 const renderFullRunCompletion = (status: RunStatus): string =>
   [
@@ -2384,7 +2473,7 @@ const blockedResult = (message: string): LiveCommandResult => ({
 const recordBlockedProgress = async (input: {
   readonly adapters: PrdOrchestratorLiveAdapters
   readonly body: string
-  readonly draftPr: RemoteAutomationPr
+  readonly draftPr: RemoteAutomationPr | undefined
   readonly status: RunStatus
 }): Promise<void> => {
   const blockerBody = [
@@ -2393,8 +2482,11 @@ const recordBlockedProgress = async (input: {
     ...input.status.blockers.map((blocker) => `- ${blocker}`),
   ].join('\n')
 
-  await input.adapters.github.updatePrBody(input.draftPr.prNumber, input.body)
-  await input.adapters.github.postPrComment(input.draftPr.prNumber, blockerBody)
+  if (input.draftPr !== undefined) {
+    await input.adapters.github.updatePrBody(input.draftPr.prNumber, input.body)
+    await input.adapters.github.postPrComment(input.draftPr.prNumber, blockerBody)
+  }
+
   await input.adapters.state.recordRunStatus(input.status)
 }
 
@@ -2404,7 +2496,7 @@ const recordVerificationRepairBlockedProgress = async (input: {
   readonly blockers: readonly string[]
   readonly branchName: string
   readonly completedChildIssueNumbers: readonly number[]
-  readonly draftPr: RemoteAutomationPr
+  readonly draftPr: RemoteAutomationPr | undefined
   readonly lastCommand?: string
   readonly selectedChild: ParsedChildTask
   readonly selectedPrd: SelectedPrdPlan
