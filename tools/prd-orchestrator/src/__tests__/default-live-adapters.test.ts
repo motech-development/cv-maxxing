@@ -64,7 +64,7 @@ describe('default live adapters', () => {
       'git push --dry-run origin HEAD',
       'gh run list --limit 1 --json status,conclusion',
       'docker ps --format {{.ID}}',
-      'node --input-type=module --eval import("@ai-hero/sandcastle")',
+      'pnpm --filter @cv-maxxing/prd-orchestrator exec node --input-type=module --eval import("@ai-hero/sandcastle")',
       'coderabbit --version',
       'codex --version',
       'pnpm --filter @cv-maxxing/prd-orchestrator exec vitest --version',

@@ -1200,7 +1200,11 @@ const createRunStateAdapter = (
           'status,conclusion',
         ]),
         commandSucceeds(shell, 'docker', ['ps', '--format', '{{.ID}}']),
-        commandSucceeds(shell, 'node', [
+        commandSucceeds(shell, 'pnpm', [
+          '--filter',
+          '@cv-maxxing/prd-orchestrator',
+          'exec',
+          'node',
           '--input-type=module',
           '--eval',
           'import("@ai-hero/sandcastle")',
