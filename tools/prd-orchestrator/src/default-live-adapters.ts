@@ -1,4 +1,4 @@
-import { spawn } from 'node:child_process'
+import { execFileSync, spawn } from 'node:child_process'
 import { mkdtemp, mkdir, readdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
@@ -85,6 +85,16 @@ export type DefaultLiveAdapterShellRunner = (
   input: DefaultLiveAdapterShellCommandInput,
 ) => Promise<DefaultLiveAdapterShellCommandResult>
 
+export type RepositoryRootCommandRunner = (
+  command: string,
+  args: readonly string[],
+  options: {
+    readonly cwd: string
+    readonly encoding: 'utf8'
+    readonly stdio: ['ignore', 'pipe', 'ignore']
+  },
+) => string
+
 const defaultTimeoutMs = 10 * 60 * 1000
 const runStateRoot = '.git/prd-orchestrator/runs'
 const statusFileName = 'status.json'
@@ -95,7 +105,8 @@ export const createDefaultPrdOrchestratorLiveAdapters = (
   configuration?: PrdOrchestratorLiveConfiguration,
   shellRunner?: DefaultLiveAdapterShellRunner,
 ): PrdOrchestratorLiveAdapters => {
-  const shell = shellRunner ?? createShellRunner(cwd)
+  const repoRoot = resolveRepositoryRoot(cwd)
+  const shell = shellRunner ?? createShellRunner(repoRoot)
   const resolvedConfiguration = configuration ?? createEnvironmentConfiguration()
 
   return {
@@ -104,11 +115,31 @@ export const createDefaultPrdOrchestratorLiveAdapters = (
     configuration: resolvedConfiguration,
     git: createGitAdapter(shell),
     github: createGitHubAdapter(shell),
-    sandcastle: createSandcastleAdapter(cwd, shell, resolvedConfiguration),
-    state: createRunStateAdapter(cwd, shell),
+    sandcastle: createSandcastleAdapter(repoRoot, shell, resolvedConfiguration),
+    state: createRunStateAdapter(repoRoot, shell),
     verification: createVerificationAdapter(shell),
   }
 }
+
+export const resolveRepositoryRoot = (
+  cwd: string,
+  commandRunner: RepositoryRootCommandRunner = runRepositoryRootCommand,
+): string => {
+  try {
+    const root = commandRunner('git', ['rev-parse', '--show-toplevel'], {
+      cwd,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim()
+
+    return root.length === 0 ? cwd : root
+  } catch {
+    return cwd
+  }
+}
+
+const runRepositoryRootCommand: RepositoryRootCommandRunner = (command, args, options) =>
+  execFileSync(command, [...args], options)
 
 const createEnvironmentConfiguration = (): PrdOrchestratorLiveConfiguration => ({
   ciPollingIntervalMs: parseOptionalPositiveInteger(

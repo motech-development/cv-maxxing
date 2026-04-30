@@ -6,11 +6,25 @@ import { describe, expect, it } from 'vitest'
 
 import {
   createDefaultPrdOrchestratorLiveAdapters,
+  resolveRepositoryRoot,
   type DefaultLiveAdapterShellCommandInput,
   type DefaultLiveAdapterShellRunner,
+  type RepositoryRootCommandRunner,
 } from '../default-live-adapters.js'
 
 describe('default live adapters', () => {
+  it('resolves package-owned invocations to the repository root', () => {
+    expect(resolveRepositoryRoot('/repo/tools/prd-orchestrator', runSuccessfulRootCommand)).toBe(
+      '/repo',
+    )
+  })
+
+  it('falls back to the provided cwd outside a git worktree', () => {
+    expect(resolveRepositoryRoot('/repo/tools/prd-orchestrator', runFailingRootCommand)).toBe(
+      '/repo/tools/prd-orchestrator',
+    )
+  })
+
   it('constructs GitHub, CI, and preflight commands without live mutations in tests', async () => {
     const shell = createRecordingShell()
     const adapters = createDefaultPrdOrchestratorLiveAdapters(
@@ -327,6 +341,18 @@ const createRecordingShell = (
       })
     },
   }
+}
+
+const runSuccessfulRootCommand: RepositoryRootCommandRunner = (command, args, options) => {
+  expect(command).toBe('git')
+  expect(args).toEqual(['rev-parse', '--show-toplevel'])
+  expect(options.cwd).toBe('/repo/tools/prd-orchestrator')
+
+  return '/repo\n'
+}
+
+const runFailingRootCommand: RepositoryRootCommandRunner = () => {
+  throw new Error('not a git repository')
 }
 
 const responseForCommand = (
