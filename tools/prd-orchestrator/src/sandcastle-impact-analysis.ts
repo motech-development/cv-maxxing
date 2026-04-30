@@ -478,7 +478,9 @@ const toSandcastleBranchStrategy = (
 })
 
 const toProviderEnvironment = (env: Record<string, string | undefined>): Record<string, string> =>
-  env as Record<string, string>
+  Object.fromEntries(
+    Object.entries(env).filter((entry): entry is [string, string] => entry[1] !== undefined),
+  )
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)

@@ -478,14 +478,15 @@ describe('final PRD repair and audit flow', () => {
   })
 
   it('wraps final cleanup commit rationale lines within commitlint limits', () => {
+    const longTokenPath =
+      'tools/prd-orchestrator/src/this-is-a-single-long-generated-file-name-with-no-natural-wrap-point-and-it-must-not-break-commitlint-body-lines.ts'
     const plan = planResumePrRepair({
       childCommits: [],
       findings: [
         {
           body: 'General PR summary finding.',
           id: 'finding-with-an-especially-long-identifier-that-still-needs-wrapping',
-          filePath:
-            'tools/prd-orchestrator/src/final-prd-flow-with-a-long-generated-rationale-path.ts',
+          filePath: longTokenPath,
           source: 'github-pr-review',
           title: 'Summary finding',
         },
@@ -502,9 +503,7 @@ describe('final PRD repair and audit flow', () => {
     expect(plan.finalCleanupCommit?.message.split('\n').every((line) => line.length <= 100)).toBe(
       true,
     )
-    expect(normalizedMessage).toContain(
-      'File tools/prd-orchestrator/src/final-prd-flow-with-a-long-generated-rationale-path.ts',
-    )
+    expect(normalizedMessage).toContain('File tools/prd-orchestrator/src/this-is-a-single-long-')
     expect(normalizedMessage).toContain('did not match any child commit changed files.')
   })
 

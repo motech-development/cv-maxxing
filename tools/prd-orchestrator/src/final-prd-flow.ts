@@ -682,7 +682,7 @@ const formatWrappedCommitBullet = (value: string): readonly string[] =>
   )
 
 const wrapText = (value: string, maxLength: number): readonly string[] => {
-  const words = value.split(' ')
+  const words = value.split(' ').flatMap((word) => splitLongWord(word, maxLength))
 
   return words.reduce<string[]>((lines, word) => {
     const currentLine = lines.at(-1)
@@ -697,6 +697,20 @@ const wrapText = (value: string, maxLength: number): readonly string[] => {
 
     return [...lines, word]
   }, [])
+}
+
+const splitLongWord = (word: string, maxLength: number): readonly string[] => {
+  if (word.length <= maxLength) {
+    return [word]
+  }
+
+  const chunks: string[] = []
+
+  for (let index = 0; index < word.length; index += maxLength) {
+    chunks.push(word.slice(index, index + maxLength))
+  }
+
+  return chunks
 }
 
 const commitHashesMatch = (

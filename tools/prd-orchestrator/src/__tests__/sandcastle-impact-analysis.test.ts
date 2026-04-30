@@ -131,8 +131,25 @@ describe('Sandcastle impact analysis adapter planning', () => {
     } as const
     const options = buildSandcastleImpactAnalysisOptions(input)
     const runOptions = createSandcastleImpactAnalysisRunOptions(input, {
+      createAgentProvider: (model, agentOptions) => {
+        expect(model).toBe('gpt-5.5')
+        expect(agentOptions).toStrictEqual({
+          effort: 'high',
+          env: {},
+        })
+
+        return {
+          buildPrintCommand: () => ({
+            command: 'codex exec --config model_reasoning_effort="high"',
+          }),
+          captureSessions: false,
+          env: {},
+          name: 'codex',
+          parseStreamLine: () => [],
+        }
+      },
       createSandboxProvider: (sandboxOptions) => {
-        expect(sandboxOptions).toEqual({
+        expect(sandboxOptions).toStrictEqual({
           env: {},
           mounts: [
             {
