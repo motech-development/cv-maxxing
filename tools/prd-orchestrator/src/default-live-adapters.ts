@@ -40,6 +40,7 @@ import {
   type PollChecksInput,
   type RepairResumeFindingsInput,
   type RepairVerificationFailureInput,
+  type RestorePrdBranchToCleanStateInput,
   type ReviewChildInput,
   type ReviewChildResult,
   type RunImpactAnalysisInput,
@@ -627,7 +628,9 @@ const createGitAdapter = (
         command: 'git',
       })
     },
-    restorePrdBranchToCleanState: async (input): Promise<void> => {
+    restorePrdBranchToCleanState: async (
+      input: RestorePrdBranchToCleanStateInput,
+    ): Promise<void> => {
       await shell({
         args: ['checkout', input.branchName],
         command: 'git',
