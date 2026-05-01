@@ -234,6 +234,30 @@ describe('default live adapters', () => {
     })
   })
 
+  it('retries transient GitHub CLI network failures for PR comments', async () => {
+    const shell = createRecordingShell({
+      transientFailures: new Map([
+        [
+          'gh pr comment 123 --body-file <tmp>',
+          [
+            new Error(
+              'Command failed (1): gh pr comment 123 --body-file /tmp/content.txt\nerror connecting to api.github.com\ncheck your internet connection',
+            ),
+          ],
+        ],
+      ]),
+    })
+    const adapters = createDefaultPrdOrchestratorLiveAdapters('/repo', undefined, shell.run)
+
+    await expect(adapters.github.postPrComment(123, 'Retry this comment')).resolves.toBeUndefined()
+
+    expect(
+      shell.commands
+        .map((command) => formatCommand(command))
+        .filter((command) => command === 'gh pr comment 123 --body-file <tmp>'),
+    ).toHaveLength(2)
+  })
+
   it('inspects CodeRabbit PR reviews, comments, inline comments, and check rollups', async () => {
     const shell = createRecordingShell()
     const adapters = createDefaultPrdOrchestratorLiveAdapters('/repo', undefined, shell.run)
@@ -402,6 +426,7 @@ const createRecordingShell = (
     readonly failingCommands?: ReadonlySet<string>
     readonly historicalWorkflowRuns?: boolean
     readonly malformedAutomationPrBody?: boolean
+    readonly transientFailures?: Map<string, readonly Error[]>
   } = {},
 ): {
   readonly commands: DefaultLiveAdapterShellCommandInput[]
@@ -416,6 +441,15 @@ const createRecordingShell = (
 
       if (input.failingCommands?.has(formatCommand(command)) === true) {
         return Promise.reject(new Error(`Failed: ${formatCommand(command)}`))
+      }
+
+      const transientFailures = input.transientFailures?.get(formatCommand(command)) ?? []
+      const transientFailure = transientFailures[0]
+
+      if (transientFailure !== undefined) {
+        input.transientFailures?.set(formatCommand(command), transientFailures.slice(1))
+
+        return Promise.reject(transientFailure)
       }
 
       return Promise.resolve({

@@ -98,6 +98,7 @@ export type RepositoryRootCommandRunner = (
 
 const defaultTimeoutMs = 10 * 60 * 1000
 const codexCliCredentialFiles = ['.codex/auth.json', '.codex/config.toml'] as const
+const githubCliTransientRetryDelaysMs = [1000, 3000] as const
 const runStateRoot = '.git/prd-orchestrator/runs'
 const statusFileName = 'status.json'
 const lockFileName = 'lock.json'
@@ -376,7 +377,7 @@ const createGitHubAdapter = (
   },
   postPrComment: async (prNumber: number, body: string): Promise<void> => {
     await withTemporaryFile('prd-pr-comment-', body, async (bodyFilePath) => {
-      await shell({
+      await runGitHubCliCommandWithTransientRetry(shell, {
         args: ['pr', 'comment', String(prNumber), '--body-file', bodyFilePath],
         command: 'gh',
       })
@@ -384,7 +385,7 @@ const createGitHubAdapter = (
   },
   updatePrBody: async (prNumber: number, body: string): Promise<void> => {
     await withTemporaryFile('prd-pr-body-', body, async (bodyFilePath) => {
-      await shell({
+      await runGitHubCliCommandWithTransientRetry(shell, {
         args: ['pr', 'edit', String(prNumber), '--body-file', bodyFilePath],
         command: 'gh',
       })
@@ -395,7 +396,7 @@ const createGitHubAdapter = (
 
     if (commentId === undefined) {
       await withTemporaryFile('prd-pr-comment-', input.body, async (bodyFilePath) => {
-        await shell({
+        await runGitHubCliCommandWithTransientRetry(shell, {
           args: ['pr', 'comment', String(input.prNumber), '--body-file', bodyFilePath],
           command: 'gh',
         })
@@ -410,7 +411,7 @@ const createGitHubAdapter = (
         body: input.body,
       },
       async (bodyFilePath) => {
-        await shell({
+        await runGitHubCliCommandWithTransientRetry(shell, {
           args: [
             'api',
             `repos/{owner}/{repo}/issues/comments/${String(commentId)}`,
@@ -425,6 +426,35 @@ const createGitHubAdapter = (
     )
   },
 })
+
+const runGitHubCliCommandWithTransientRetry = async (
+  shell: DefaultLiveAdapterShellRunner,
+  input: DefaultLiveAdapterShellCommandInput,
+): Promise<DefaultLiveAdapterShellCommandResult> => {
+  for (const delayMs of [0, ...githubCliTransientRetryDelaysMs]) {
+    if (delayMs > 0) {
+      await sleep(delayMs)
+    }
+
+    try {
+      return await shell(input)
+    } catch (error) {
+      if (!isTransientGitHubCliError(error) || delayMs === githubCliTransientRetryDelaysMs.at(-1)) {
+        throw error
+      }
+    }
+  }
+
+  return await shell(input)
+}
+
+const isTransientGitHubCliError = (error: unknown): boolean => {
+  const message = error instanceof Error ? error.message : String(error)
+
+  return /error connecting to api\.github\.com|check your internet connection|HTTP 5\d\d|EOF/i.test(
+    message,
+  )
+}
 
 const createGitAdapter = (
   shell: DefaultLiveAdapterShellRunner,
