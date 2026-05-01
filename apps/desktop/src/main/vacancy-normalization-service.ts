@@ -128,7 +128,6 @@ async function writeRunWorkspaceInput({
 }): Promise<void> {
   const normalizationArtifacts = prepareVacancyNormalizationArtifacts({
     html: input.html,
-    source: input.source,
   })
   const inputDirectoryPath = path.join(runDirectoryPath, 'input')
   const taskJson = JSON.stringify({
