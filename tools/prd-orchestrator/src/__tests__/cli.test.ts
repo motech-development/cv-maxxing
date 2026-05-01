@@ -2050,6 +2050,22 @@ None - can start immediately.
       adapters.events.indexOf('github:convert-pr-to-draft'),
     )
     expect(adapters.amendedCommitMessages.at(0)).toContain('Closes #82')
+    expect(adapters.workerBranchNames).toEqual(
+      expect.arrayContaining([
+        expect.stringMatching(
+          /^agent\/prd-80-automate-prd-implementation-resume-82-[a-z0-9]+-\d+$/,
+        ),
+        expect.stringMatching(
+          /^agent\/prd-80-automate-prd-implementation-resume-final-cleanup-[a-z0-9]+-\d+$/,
+        ),
+      ]),
+    )
+    expect(adapters.workerBranchNames).not.toContain(
+      'agent/prd-80-automate-prd-implementation-resume-82',
+    )
+    expect(adapters.workerBranchNames).not.toContain(
+      'agent/prd-80-automate-prd-implementation-resume-final-cleanup',
+    )
   })
 
   it('blocks final cleanup resume repair when the git adapter cannot commit cleanup', async () => {
@@ -2838,8 +2854,9 @@ const createLiveAdapters = (
       },
     },
     sandcastle: {
-      repairResumeFindings: () => {
+      repairResumeFindings: (input) => {
         events.push('sandcastle:repair-resume-findings')
+        workerBranchNames.push(input.workerBranchName)
 
         if (options.resumeRepairError !== undefined) {
           return Promise.reject(options.resumeRepairError)

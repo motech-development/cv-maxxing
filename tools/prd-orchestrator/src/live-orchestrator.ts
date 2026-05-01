@@ -54,6 +54,8 @@ import {
 } from './final-prd-flow.js'
 import { groupRunnableTasksByImpactSurface } from './full-run-scheduler.js'
 
+let resumeRepairWorkerBranchSequence = 0
+
 export interface PrdOrchestratorLiveAdapters {
   readonly configuration?: PrdOrchestratorLiveConfiguration
   readonly ci: {
@@ -1807,6 +1809,7 @@ const runResumeRepairGateUntilClean = async (input: {
 
   for (;;) {
     let workerResult: RunImplementationResult
+    const workerBranchName = createResumeRepairWorkerBranchName(input.workerBranchName)
 
     try {
       workerResult = await repairResumeFindings({
@@ -1814,7 +1817,7 @@ const runResumeRepairGateUntilClean = async (input: {
         findings,
         prNumber: input.prNumber,
         targetCommitHash: input.targetCommitHash,
-        workerBranchName: input.workerBranchName,
+        workerBranchName,
       })
     } catch (error) {
       return {
@@ -2387,6 +2390,12 @@ const createWorkerBranchName = (
   `agent/prd-${String(selectedPrd.issueNumber)}-child-${String(
     selectedChild.issueNumber,
   )}-${slugify(selectedChild.title)}`
+
+const createResumeRepairWorkerBranchName = (branchNamePrefix: string): string => {
+  resumeRepairWorkerBranchSequence += 1
+
+  return `${branchNamePrefix}-${Date.now().toString(36)}-${String(resumeRepairWorkerBranchSequence)}`
+}
 
 const createDraftPrHandle = (input: {
   readonly adapters: PrdOrchestratorLiveAdapters
