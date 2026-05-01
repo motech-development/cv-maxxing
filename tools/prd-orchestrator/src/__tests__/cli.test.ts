@@ -1672,6 +1672,48 @@ None - can start immediately.
     })
   })
 
+  it('stops write-surface re-analysis when the same unexpected files remain out of scope', async () => {
+    const adapters = createLiveAdapters({
+      impactAnalyses: [
+        {
+          designFiles: [],
+          expectedFiles: ['tools/prd-orchestrator/src/cli.ts'],
+          expectedModules: ['@cv-maxxing/prd-orchestrator'],
+          riskLevel: 'low',
+          sharedContracts: [],
+          tests: ['tools/prd-orchestrator/src/__tests__/cli.test.ts'],
+        },
+        {
+          designFiles: [],
+          expectedFiles: ['tools/prd-orchestrator/src/planning.ts'],
+          expectedModules: ['@cv-maxxing/prd-orchestrator'],
+          riskLevel: 'medium',
+          sharedContracts: [],
+          tests: ['tools/prd-orchestrator/src/__tests__/planning.test.ts'],
+        },
+      ],
+      workerChangedFiles: ['apps/desktop/src/main.ts'],
+    })
+    const result = await runPrdOrchestratorCliAsync({
+      adapters,
+      arguments_: ['run', '--one-child'],
+      stdin: '',
+    })
+
+    expect(result.exitCode).toBe(1)
+    expect(adapters.events.filter((event) => event === 'sandcastle:impact-analysis')).toHaveLength(
+      2,
+    )
+    expect(adapters.events).not.toContain('git:apply-worker-diff')
+    expect(adapters.recordedStatuses.at(-1)).toMatchObject({
+      blockers: [
+        'worker diff touched files outside impact-analysis write surface after re-analysis: apps/desktop/src/main.ts',
+      ],
+      currentChildIssueNumber: 82,
+      phase: 'blocked',
+    })
+  })
+
   it('records missing Pencil evidence as a run blocker before committing .pen changes', async () => {
     const adapters = createLiveAdapters({
       impactAnalyses: [

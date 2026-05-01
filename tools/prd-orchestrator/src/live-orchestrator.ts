@@ -3265,7 +3265,7 @@ const resolveWriteSurfaceBeforeApply = async (input: {
   readonly impactAnalysis: SandcastleImpactAnalysisResult
 }> => {
   let impactAnalysis = input.impactAnalysis
-  const seenFingerprints = new Set<string>()
+  const seenUnexpectedFileFingerprints = new Set<string>()
 
   for (;;) {
     const decision = enforceWriteSurface({
@@ -3285,9 +3285,9 @@ const resolveWriteSurfaceBeforeApply = async (input: {
       }
     }
 
-    const fingerprint = `${decision.unexpectedFiles.join('|')}::${JSON.stringify(impactAnalysis)}`
+    const fingerprint = decision.unexpectedFiles.join('|')
 
-    if (seenFingerprints.has(fingerprint)) {
+    if (seenUnexpectedFileFingerprints.has(fingerprint)) {
       return {
         blockers: [
           `worker diff touched files outside impact-analysis write surface after re-analysis: ${decision.unexpectedFiles.join(
@@ -3298,7 +3298,7 @@ const resolveWriteSurfaceBeforeApply = async (input: {
       }
     }
 
-    seenFingerprints.add(fingerprint)
+    seenUnexpectedFileFingerprints.add(fingerprint)
     impactAnalysis = await input.adapters.sandcastle.runImpactAnalysis({
       childTask: input.selectedChild,
       parentPrd: input.parentPrd,
