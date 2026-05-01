@@ -16,13 +16,17 @@ import {
   type JobsWorkspaceSelection,
 } from '../shared/workspace-selection.js'
 import type { JsonValue, LocalAppDataStore } from './local-app-data-service.js'
-import type { VacancyBrowserPageSnapshot } from './vacancy-browser-session-service.js'
+import type {
+  VacancyBrowserInteractionRequester,
+  VacancyBrowserPageSnapshot,
+} from './vacancy-browser-session-service.js'
 import { inferTitleFromPageTitle, sanitizeSnapshotHtml } from './vacancy-page-content.js'
 import { VacancyNormalizationError } from './vacancy-normalization-error.js'
 import type {
   NormalizedVacancy,
   VacancyNormalizationService,
 } from './vacancy-normalization-service.js'
+import { VacancyUrlIntakeInteractionRequestError } from './vacancy-url-intake-interactions.js'
 import type { WorkspaceSelectionStore } from './workspace-selection-store.js'
 
 const VACANCY_DRAFT_SCOPE = 'vacancy-workspace'
@@ -47,10 +51,13 @@ const URL_MATCHING_CLEANUP_SEARCH_PARAMETER_NAMES = new Set([
   'msclkid',
   'trk',
 ])
+const DEFAULT_URL_INTAKE_BUDGET_MS = 90_000
 
 interface VacancyServiceDependencies {
   captureVacancyBrowserSessionPage?: (input: {
+    requestInteraction?: VacancyBrowserInteractionRequester
     shouldCapturePage: (snapshot: VacancyBrowserPageSnapshot) => boolean
+    signal?: AbortSignal
     url: string
   }) => Promise<VacancyBrowserPageSnapshot | null>
   generateId?: () => string
@@ -58,9 +65,12 @@ interface VacancyServiceDependencies {
   localAppData: Pick<LocalAppDataStore, 'artifacts' | 'metadata'>
   normalizationService: VacancyNormalizationService
   openVacancyBrowserSession: (input: {
+    requestInteraction?: VacancyBrowserInteractionRequester
     shouldCapturePage: (snapshot: VacancyBrowserPageSnapshot) => boolean
+    signal?: AbortSignal
     url: string
   }) => Promise<VacancyBrowserPageSnapshot | null>
+  urlIntakeBudgetMs?: number
   workspaceSelectionStore?: Pick<WorkspaceSelectionStore, 'getSelection' | 'setSelection'>
 }
 
@@ -105,8 +115,11 @@ export function createVacancyService({
   localAppData,
   normalizationService,
   openVacancyBrowserSession,
+  urlIntakeBudgetMs = DEFAULT_URL_INTAKE_BUDGET_MS,
   workspaceSelectionStore,
 }: VacancyServiceDependencies): VacancyService {
+  const resolvedUrlIntakeBudgetMs = resolveUrlIntakeBudgetMs(urlIntakeBudgetMs)
+
   return {
     resetWorkspaceState: async (): Promise<void> => {
       await localAppData.metadata.delete({
@@ -262,82 +275,9 @@ export function createVacancyService({
     ingestVacancyUrl: async ({ url }: { url: string }): Promise<VacancyIngestResult> => {
       const normalizedUrl = requireUrl(url)
       const source = normalizeSubmittedUrlHostname(normalizedUrl)
+      const intakeBudget = createUrlIntakeBudget(resolvedUrlIntakeBudgetMs)
 
-      await persistVacancyWorkspaceDraft({
-        localAppData,
-        url: normalizedUrl,
-      })
-      await persistJobsWorkspaceSelection({
-        jobs: {
-          kind: 'draft',
-        },
-        workspaceSelectionStore,
-      })
-
-      const capturedBrowserSnapshot = await captureVacancyBrowserSessionPage({
-        shouldCapturePage: (snapshot) => {
-          return isExpectedBrowserSessionVacancyPage({
-            originalUrl: normalizedUrl,
-            resolvedUrl: snapshot.resolvedUrl,
-          })
-        },
-        url: normalizedUrl,
-      })
-
-      if (
-        capturedBrowserSnapshot === null ||
-        !isExpectedBrowserSessionVacancyPage({
-          originalUrl: normalizedUrl,
-          resolvedUrl: capturedBrowserSnapshot.resolvedUrl,
-        })
-      ) {
-        return await createInteractiveBrowserFallbackResult({
-          getCurrentTimestamp,
-          localAppData,
-          originalUrl: normalizedUrl,
-          source,
-        })
-      }
-
-      return await persistFetchedVacancyPage({
-        fetchedPage: capturedBrowserSnapshot,
-        generateId,
-        getCurrentTimestamp,
-        localAppData,
-        normalizationService,
-        originalUrl: normalizedUrl,
-        source,
-        workspaceSelectionStore,
-      })
-    },
-    openBrowserSession: async ({ url }: { url: string }): Promise<VacancyIngestResult> => {
-      const normalizedUrl = requireUrl(url)
-      const source = normalizeSubmittedUrlHostname(normalizedUrl)
-      const browserSnapshot = await openVacancyBrowserSession({
-        shouldCapturePage: (snapshot) => {
-          return isExpectedBrowserSessionVacancyPage({
-            originalUrl: normalizedUrl,
-            resolvedUrl: snapshot.resolvedUrl,
-          })
-        },
-        url: normalizedUrl,
-      })
-
-      if (
-        browserSnapshot === null ||
-        !isExpectedBrowserSessionVacancyPage({
-          originalUrl: normalizedUrl,
-          resolvedUrl: browserSnapshot.resolvedUrl,
-        })
-      ) {
-        const incompleteVacancy = createBlockedVacancySummary({
-          blockingReason: RELOAD_JOB_PAGE_BLOCKING_REASON,
-          fetchedAt: getCurrentTimestamp(),
-          inputType: 'url',
-          originalUrl: normalizedUrl,
-          source,
-        })
-
+      try {
         await persistVacancyWorkspaceDraft({
           localAppData,
           url: normalizedUrl,
@@ -349,23 +289,123 @@ export function createVacancyService({
           workspaceSelectionStore,
         })
 
-        return {
-          kind: 'incomplete',
-          vacancy: incompleteVacancy,
-          workspaceState: await thisGetWorkspaceState(localAppData),
-        }
-      }
+        const capturedBrowserSnapshot = await captureVacancyBrowserSessionPage({
+          requestInteraction: createVacancyUrlInteractionRequester({
+            normalizationService,
+            originalUrl: normalizedUrl,
+            signal: intakeBudget.signal,
+            source,
+          }),
+          shouldCapturePage: (snapshot) => {
+            return isExpectedBrowserSessionVacancyPage({
+              originalUrl: normalizedUrl,
+              resolvedUrl: snapshot.resolvedUrl,
+            })
+          },
+          signal: intakeBudget.signal,
+          url: normalizedUrl,
+        })
 
-      return await persistFetchedVacancyPage({
-        fetchedPage: browserSnapshot,
-        generateId,
-        getCurrentTimestamp,
-        localAppData,
-        normalizationService,
-        originalUrl: normalizedUrl,
-        source,
-        workspaceSelectionStore,
-      })
+        if (
+          capturedBrowserSnapshot === null ||
+          !isExpectedBrowserSessionVacancyPage({
+            originalUrl: normalizedUrl,
+            resolvedUrl: capturedBrowserSnapshot.resolvedUrl,
+          })
+        ) {
+          return await createInteractiveBrowserFallbackResult({
+            getCurrentTimestamp,
+            localAppData,
+            originalUrl: normalizedUrl,
+            source,
+          })
+        }
+
+        return await persistFetchedVacancyPage({
+          fetchedPage: capturedBrowserSnapshot,
+          generateId,
+          getCurrentTimestamp,
+          localAppData,
+          normalizationService,
+          originalUrl: normalizedUrl,
+          signal: intakeBudget.signal,
+          source,
+          workspaceSelectionStore,
+        })
+      } finally {
+        intakeBudget.clear()
+      }
+    },
+    openBrowserSession: async ({ url }: { url: string }): Promise<VacancyIngestResult> => {
+      const normalizedUrl = requireUrl(url)
+      const source = normalizeSubmittedUrlHostname(normalizedUrl)
+      const intakeBudget = createUrlIntakeBudget(resolvedUrlIntakeBudgetMs)
+
+      try {
+        const browserSnapshot = await openVacancyBrowserSession({
+          requestInteraction: createVacancyUrlInteractionRequester({
+            normalizationService,
+            originalUrl: normalizedUrl,
+            signal: intakeBudget.signal,
+            source,
+          }),
+          shouldCapturePage: (snapshot) => {
+            return isExpectedBrowserSessionVacancyPage({
+              originalUrl: normalizedUrl,
+              resolvedUrl: snapshot.resolvedUrl,
+            })
+          },
+          signal: intakeBudget.signal,
+          url: normalizedUrl,
+        })
+
+        if (
+          browserSnapshot === null ||
+          !isExpectedBrowserSessionVacancyPage({
+            originalUrl: normalizedUrl,
+            resolvedUrl: browserSnapshot.resolvedUrl,
+          })
+        ) {
+          const incompleteVacancy = createBlockedVacancySummary({
+            blockingReason: RELOAD_JOB_PAGE_BLOCKING_REASON,
+            fetchedAt: getCurrentTimestamp(),
+            inputType: 'url',
+            originalUrl: normalizedUrl,
+            source,
+          })
+
+          await persistVacancyWorkspaceDraft({
+            localAppData,
+            url: normalizedUrl,
+          })
+          await persistJobsWorkspaceSelection({
+            jobs: {
+              kind: 'draft',
+            },
+            workspaceSelectionStore,
+          })
+
+          return {
+            kind: 'incomplete',
+            vacancy: incompleteVacancy,
+            workspaceState: await thisGetWorkspaceState(localAppData),
+          }
+        }
+
+        return await persistFetchedVacancyPage({
+          fetchedPage: browserSnapshot,
+          generateId,
+          getCurrentTimestamp,
+          localAppData,
+          normalizationService,
+          originalUrl: normalizedUrl,
+          signal: intakeBudget.signal,
+          source,
+          workspaceSelectionStore,
+        })
+      } finally {
+        intakeBudget.clear()
+      }
     },
   }
 }
@@ -444,6 +484,47 @@ async function createInteractiveBrowserFallbackResult({
   }
 }
 
+function createVacancyUrlInteractionRequester({
+  normalizationService,
+  originalUrl,
+  signal,
+  source,
+}: {
+  normalizationService: VacancyNormalizationService
+  originalUrl: string
+  signal: AbortSignal
+  source: string
+}): VacancyBrowserInteractionRequester {
+  return async (snapshot) => {
+    try {
+      await normalizationService.normalizeVacancy(
+        {
+          html: snapshot.html,
+          originalUrl,
+          pageTitle: snapshot.pageTitle,
+          resolvedUrl: snapshot.resolvedUrl,
+          source,
+        },
+        {
+          signal,
+        },
+      )
+
+      return null
+    } catch (error) {
+      if (error instanceof VacancyUrlIntakeInteractionRequestError) {
+        return error.interaction
+      }
+
+      if (error instanceof VacancyNormalizationError) {
+        return null
+      }
+
+      throw error
+    }
+  }
+}
+
 async function persistFetchedVacancyPage({
   fetchedPage,
   generateId,
@@ -451,6 +532,7 @@ async function persistFetchedVacancyPage({
   localAppData,
   normalizationService,
   originalUrl,
+  signal,
   source,
   workspaceSelectionStore,
 }: {
@@ -464,16 +546,22 @@ async function persistFetchedVacancyPage({
   localAppData: Pick<LocalAppDataStore, 'artifacts' | 'metadata'>
   normalizationService: VacancyNormalizationService
   originalUrl: string
+  signal?: AbortSignal
   source: string
   workspaceSelectionStore?: Pick<WorkspaceSelectionStore, 'getSelection' | 'setSelection'>
 }): Promise<VacancyIngestResult> {
-  const normalizedVacancy = await normalizationService.normalizeVacancy({
-    html: fetchedPage.html,
-    originalUrl,
-    pageTitle: fetchedPage.pageTitle,
-    resolvedUrl: fetchedPage.resolvedUrl,
-    source,
-  })
+  const normalizedVacancy = await normalizationService.normalizeVacancy(
+    {
+      html: fetchedPage.html,
+      originalUrl,
+      pageTitle: fetchedPage.pageTitle,
+      resolvedUrl: fetchedPage.resolvedUrl,
+      source,
+    },
+    {
+      signal,
+    },
+  )
   const vacancyId = generateId()
   const fetchedAt = getCurrentTimestamp()
   const extractedText = normalizedVacancy.bodyText.trim()
@@ -851,6 +939,31 @@ function normalizeSubmittedUrlHostname(url: string): string {
   return lowercasedHostname.startsWith('www.')
     ? lowercasedHostname.slice('www.'.length)
     : lowercasedHostname
+}
+
+function resolveUrlIntakeBudgetMs(urlIntakeBudgetMs: number): number {
+  if (!Number.isFinite(urlIntakeBudgetMs) || urlIntakeBudgetMs <= 0) {
+    return DEFAULT_URL_INTAKE_BUDGET_MS
+  }
+
+  return Math.trunc(urlIntakeBudgetMs)
+}
+
+function createUrlIntakeBudget(urlIntakeBudgetMs: number): {
+  clear: () => void
+  signal: AbortSignal
+} {
+  const abortController = new AbortController()
+  const timeoutId = setTimeout(() => {
+    abortController.abort(new Error('Vacancy URL intake timed out.'))
+  }, urlIntakeBudgetMs)
+
+  return {
+    clear: () => {
+      clearTimeout(timeoutId)
+    },
+    signal: abortController.signal,
+  }
 }
 
 function buildPastedVacancyHtml(text: string): string {

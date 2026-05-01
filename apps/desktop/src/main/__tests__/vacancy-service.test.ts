@@ -7,6 +7,7 @@ import { afterEach, expect, test, vi } from 'vitest'
 import { createLocalAppDataPaths, openLocalAppData } from '../local-app-data-service.js'
 import { VacancyNormalizationError } from '../vacancy-normalization-error.js'
 import { createVacancyService } from '../vacancy-service.js'
+import { VacancyUrlIntakeInteractionRequestError } from '../vacancy-url-intake-interactions.js'
 import type { KeychainBoundary, LocalAppDataPaths } from '../local-app-data-service.js'
 import type {
   VacancyNormalizationInput,
@@ -474,6 +475,166 @@ test('ingests an embedded-board vacancy URL through the generic browser capture 
   )
   expect(snapshotArtifact?.toString('utf8')).toContain('<h1>Senior Product Designer</h1>')
   expect(snapshotArtifact?.toString('utf8')).not.toContain('localStorage')
+
+  await localAppData.close()
+})
+
+test('lets AI request a safe same-page reading interaction during generic URL intake before persisting artifacts', async () => {
+  const paths = await createTestPaths()
+  const localAppData = await openLocalAppData({
+    keychain: createKeychainBoundary(),
+    paths,
+  })
+  const normalizationCalls: VacancyNormalizationInput[] = []
+  const normalizedVacancy = {
+    bodyText: 'Lead product design for desktop workflows. Partner with engineering and research.',
+    employer: 'Example Labs',
+    location: 'London, United Kingdom',
+    requirements: ['Experience shipping workflow software.'],
+    responsibilities: ['Lead product design for desktop workflows.'],
+    title: 'Senior Product Designer',
+  }
+  const normalizationService = {
+    normalizeVacancy: vi.fn((input: VacancyNormalizationInput) => {
+      normalizationCalls.push(input)
+
+      if (input.html.includes('Read more')) {
+        return Promise.reject(
+          new VacancyUrlIntakeInteractionRequestError({
+            action: 'click',
+            selector: '#read-more',
+          }),
+        )
+      }
+
+      return Promise.resolve(normalizedVacancy)
+    }),
+  } satisfies VacancyNormalizationService
+  const captureVacancyBrowserSessionPage = vi.fn(
+    async ({
+      requestInteraction,
+      shouldCapturePage,
+    }: {
+      requestInteraction?: (snapshot: {
+        html: string
+        pageTitle: string | null
+        resolvedUrl: string
+      }) => Promise<unknown>
+      shouldCapturePage: (snapshot: {
+        html: string
+        pageTitle: string | null
+        resolvedUrl: string
+      }) => boolean
+    }) => {
+      const collapsedSnapshot = {
+        html: '<main><h1>Senior Product Designer</h1><button id="read-more">Read more</button></main>',
+        pageTitle: 'Senior Product Designer',
+        resolvedUrl: 'https://careers.example.com/jobs/product-designer',
+      }
+      const expandedSnapshot = {
+        html: [
+          '<main>',
+          '<h1>Senior Product Designer</h1>',
+          '<section><h2>Responsibilities</h2><p>Lead product design for desktop workflows.</p></section>',
+          '<section><h2>Requirements</h2><p>Experience shipping workflow software.</p></section>',
+          '</main>',
+        ].join(''),
+        pageTitle: 'Senior Product Designer',
+        resolvedUrl: 'https://careers.example.com/jobs/product-designer',
+      }
+
+      expect(shouldCapturePage(collapsedSnapshot)).toBe(true)
+      await expect(requestInteraction?.(collapsedSnapshot)).resolves.toEqual({
+        action: 'click',
+        selector: '#read-more',
+      })
+      await expect(requestInteraction?.(expandedSnapshot)).resolves.toBeNull()
+
+      return expandedSnapshot
+    },
+  )
+  const vacancyService = createVacancyService({
+    captureVacancyBrowserSessionPage,
+    generateId: vi.fn(() => 'vacancy-ai-interaction'),
+    getCurrentTimestamp: vi.fn(() => '2026-04-08T21:11:00.000Z'),
+    localAppData,
+    normalizationService,
+    openVacancyBrowserSession: vi.fn(() => Promise.resolve(null)),
+  })
+
+  const result = await vacancyService.ingestVacancyUrl({
+    url: 'https://careers.example.com/jobs/product-designer',
+  })
+
+  expect(result.kind).toBe('ingested')
+  expect(captureVacancyBrowserSessionPage).toHaveBeenCalledTimes(1)
+  expect(normalizationService.normalizeVacancy).toHaveBeenCalledTimes(3)
+  expect(normalizationCalls[0]?.html).toContain('Read more')
+  expect(normalizationCalls[1]?.html).toContain('Lead product design')
+  expect(normalizationCalls[2]?.html).toContain('Lead product design')
+
+  const snapshotArtifact = await localAppData.artifacts.read({
+    id: 'vacancy-ai-interaction',
+    name: 'snapshot.html',
+    scope: 'vacancies',
+  })
+
+  expect(snapshotArtifact?.toString('utf8')).toContain('Lead product design')
+  expect(snapshotArtifact?.toString('utf8')).not.toContain('Read more')
+
+  await localAppData.close()
+})
+
+test('enforces the URL intake budget and leaves the draft unpersisted as a reviewed vacancy when capture stalls', async () => {
+  const paths = await createTestPaths()
+  const localAppData = await openLocalAppData({
+    keychain: createKeychainBoundary(),
+    paths,
+  })
+  const normalizationService = createVacancyNormalizationServiceDouble()
+  const vacancyService = createVacancyService({
+    captureVacancyBrowserSessionPage: vi.fn(({ signal }: { signal?: AbortSignal }) => {
+      return new Promise<null>((resolve) => {
+        signal?.addEventListener(
+          'abort',
+          () => {
+            resolve(null)
+          },
+          {
+            once: true,
+          },
+        )
+      })
+    }),
+    generateId: vi.fn(() => 'vacancy-budget-timeout'),
+    getCurrentTimestamp: vi.fn(() => '2026-04-08T21:11:30.000Z'),
+    localAppData,
+    normalizationService,
+    openVacancyBrowserSession: vi.fn(() => Promise.resolve(null)),
+    urlIntakeBudgetMs: 5,
+  })
+
+  const result = await vacancyService.ingestVacancyUrl({
+    url: 'https://careers.example.com/jobs/product-designer',
+  })
+
+  expect(result.kind).toBe('incomplete')
+  expect(result.vacancy.canGenerate).toBe(false)
+  expect(result.workspaceState).toEqual({
+    draft: {
+      text: '',
+      url: 'https://careers.example.com/jobs/product-designer',
+    },
+    reviewState: 'editable',
+    vacancy: null,
+  })
+  expect(normalizationService.normalizeVacancy).not.toHaveBeenCalled()
+  await expect(
+    localAppData.metadata.get({
+      id: 'vacancy-budget-timeout',
+      scope: 'vacancies',
+    }),
+  ).resolves.toBeNull()
 
   await localAppData.close()
 })

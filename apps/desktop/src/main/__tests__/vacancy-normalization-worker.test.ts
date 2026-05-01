@@ -162,6 +162,138 @@ test('maps Codex no-job-content output with null normalized vacancy to the inter
   })
 })
 
+test('returns an AI-requested same-page reading interaction from fixture output', async () => {
+  const worker = createVacancyNormalizationWorker({
+    environment: {
+      CV_MAXXING_AI_WORKER_VACANCY_NORMALIZATION_OUTPUT: JSON.stringify({
+        interaction: {
+          action: 'click',
+          selector: '#read-more',
+        },
+        kind: 'interaction_requested',
+        normalizedVacancy: null,
+      }),
+    },
+  })
+
+  await expect(
+    worker.runNormalization({
+      runDirectoryPath: '/tmp/unused',
+      signal: new AbortController().signal,
+    }),
+  ).resolves.toEqual({
+    interaction: {
+      action: 'click',
+      selector: '#read-more',
+    },
+    kind: 'interaction_requested',
+  })
+})
+
+test('rejects unsupported AI-requested vacancy URL intake actions from fixture output', async () => {
+  const worker = createVacancyNormalizationWorker({
+    environment: {
+      CV_MAXXING_AI_WORKER_VACANCY_NORMALIZATION_OUTPUT: JSON.stringify({
+        interaction: {
+          action: 'type',
+          selector: '#email',
+          value: 'ada@example.com',
+        },
+        kind: 'interaction_requested',
+        normalizedVacancy: null,
+      }),
+    },
+  })
+
+  await expect(
+    worker.runNormalization({
+      runDirectoryPath: '/tmp/unused',
+      signal: new AbortController().signal,
+    }),
+  ).rejects.toThrow(/produced invalid normalization output/u)
+})
+
+test('writes the vacancy normalization schema with a constrained interaction request contract', async () => {
+  const runDirectoryPath = await mkdtemp(
+    path.join(tmpdir(), 'cv-maxxing-vacancy-normalization-worker-interaction-schema-'),
+  )
+
+  temporaryDirectories.push(runDirectoryPath)
+
+  let observedSchema: unknown
+
+  spawnMock.mockImplementation((_command: string, args: string[]) => {
+    const child = new MockEventTarget() as MockEventTarget & {
+      stderr: MockEventTarget
+      stdout: MockEventTarget
+    }
+
+    child.stderr = new MockEventTarget()
+    child.stdout = new MockEventTarget()
+
+    const schemaFilePath = args[args.indexOf('--output-schema') + 1]
+    const outputFilePath = args[args.indexOf('--output-last-message') + 1]
+
+    if (schemaFilePath === undefined || outputFilePath === undefined) {
+      throw new Error('Expected Codex CLI schema and output file path arguments.')
+    }
+
+    void readFile(schemaFilePath, 'utf8').then(
+      async (schemaText) => {
+        observedSchema = JSON.parse(schemaText) as unknown
+        await writeFile(
+          outputFilePath,
+          JSON.stringify({
+            kind: 'no_job_content',
+            normalizedVacancy: null,
+          }),
+          'utf8',
+        )
+        child.emit('close', 0)
+      },
+      (error: unknown) => {
+        child.emit('error', error)
+      },
+    )
+
+    return child
+  })
+
+  const worker = createVacancyNormalizationWorker({
+    environment: {
+      CV_MAXXING_AI_WORKER_CODEX_COMMAND: 'codex',
+    },
+  })
+
+  await worker.runNormalization({
+    runDirectoryPath,
+    signal: new AbortController().signal,
+  })
+
+  expect(isRecord(observedSchema)).toBe(true)
+
+  if (!isRecord(observedSchema)) {
+    throw new Error('Expected the written schema to be an object.')
+  }
+
+  expect(observedSchema).toMatchObject({
+    properties: {
+      interaction: {
+        properties: {
+          action: {
+            enum: ['click', 'scroll', 'set_hash'],
+          },
+        },
+      },
+      kind: {
+        enum: ['interaction_requested', 'no_job_content', 'success'],
+      },
+    },
+  })
+  expect(Object.hasOwn(observedSchema, 'oneOf')).toBe(false)
+  expect(Object.hasOwn(observedSchema, 'allOf')).toBe(false)
+})
+
 test('writes a root object schema for Codex vacancy normalization', async () => {
   const runDirectoryPath = await mkdtemp(
     path.join(tmpdir(), 'cv-maxxing-vacancy-normalization-worker-schema-'),

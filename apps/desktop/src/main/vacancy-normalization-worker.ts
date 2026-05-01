@@ -7,10 +7,17 @@ import type {
   NormalizedVacancy,
   VacancyNormalizationWorkerResult,
 } from './vacancy-normalization-service.js'
+import { isVacancyUrlIntakeInteractionRequest } from './vacancy-url-intake-interactions.js'
+import type { VacancyUrlIntakeInteractionRequest } from './vacancy-url-intake-interactions.js'
 
 type RawVacancyNormalizationWorkerResult =
   | {
       kind: 'no_job_content'
+      normalizedVacancy?: null
+    }
+  | {
+      interaction: VacancyUrlIntakeInteractionRequest
+      kind: 'interaction_requested'
       normalizedVacancy?: null
     }
   | {
@@ -36,8 +43,28 @@ const OUTPUT_SCHEMA = {
   additionalProperties: false,
   properties: {
     kind: {
-      enum: ['no_job_content', 'success'],
+      enum: ['interaction_requested', 'no_job_content', 'success'],
       type: 'string',
+    },
+    interaction: {
+      additionalProperties: false,
+      properties: {
+        action: {
+          enum: ['click', 'scroll', 'set_hash'],
+          type: 'string',
+        },
+        direction: {
+          enum: ['down', 'up'],
+          type: 'string',
+        },
+        hash: {
+          type: 'string',
+        },
+        selector: {
+          type: 'string',
+        },
+      },
+      type: ['object', 'null'],
     },
     normalizedVacancy: {
       additionalProperties: false,
@@ -137,6 +164,8 @@ async function runCodexCliNormalization({
     'Preserve source meaning and page order.',
     'Ignore navigation chrome, cookie banners, account UI, and related-job content.',
     'Prefer the main vacancy body over summary snippets.',
+    'When more visible same-page reading is needed, return kind "interaction_requested" with one safe interaction and normalizedVacancy set to null.',
+    'Only request click, scroll, or set_hash reading interactions; never request typing, form submission, uploads, account actions, Apply/Submit actions, or external navigation.',
     'Leave missing fields empty instead of guessing.',
     'If no real job content exists, return kind "no_job_content" with normalizedVacancy set to null.',
   ].join(' ')
@@ -260,6 +289,13 @@ function isRawVacancyNormalizationWorkerResult(
     return candidate.normalizedVacancy === undefined || candidate.normalizedVacancy === null
   }
 
+  if (candidate.kind === 'interaction_requested') {
+    return (
+      isVacancyUrlIntakeInteractionRequest(candidate.interaction) &&
+      (candidate.normalizedVacancy === undefined || candidate.normalizedVacancy === null)
+    )
+  }
+
   if (candidate.kind !== 'success') {
     return false
   }
@@ -273,6 +309,13 @@ function normalizeWorkerResult(
   if (value.kind === 'no_job_content') {
     return {
       kind: 'no_job_content',
+    }
+  }
+
+  if (value.kind === 'interaction_requested') {
+    return {
+      interaction: value.interaction,
+      kind: 'interaction_requested',
     }
   }
 

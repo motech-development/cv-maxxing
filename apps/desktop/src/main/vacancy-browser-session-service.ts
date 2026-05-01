@@ -2,19 +2,33 @@ import { createRequire } from 'node:module'
 import path from 'node:path'
 import type { Session } from 'electron'
 
+import {
+  createVacancyUrlIntakeInteractionScript,
+  isVacancyUrlIntakeInteractionResult,
+  type VacancyUrlIntakeInteractionRequest,
+} from './vacancy-url-intake-interactions.js'
+
 export interface VacancyBrowserPageSnapshot {
   html: string
   pageTitle: string | null
   resolvedUrl: string
 }
 
+export type VacancyBrowserInteractionRequester = (
+  snapshot: VacancyBrowserPageSnapshot,
+) => Promise<VacancyUrlIntakeInteractionRequest | null>
+
 export interface VacancyBrowserSessionService {
   captureSessionPage: (input: {
+    requestInteraction?: VacancyBrowserInteractionRequester
     shouldCapturePage: (snapshot: VacancyBrowserPageSnapshot) => boolean
+    signal?: AbortSignal
     url: string
   }) => Promise<VacancyBrowserPageSnapshot | null>
   openSession: (input: {
+    requestInteraction?: VacancyBrowserInteractionRequester
     shouldCapturePage: (snapshot: VacancyBrowserPageSnapshot) => boolean
+    signal?: AbortSignal
     url: string
   }) => Promise<VacancyBrowserPageSnapshot | null>
 }
@@ -53,8 +67,50 @@ interface ElectronRuntime {
 const require = createRequire(import.meta.url)
 
 const browserCaptureScript = `(() => {
+  const isVisibleFrame = (frameElement) => {
+    const style = window.getComputedStyle(frameElement)
+    const rect = frameElement.getBoundingClientRect()
+
+    return style.display !== 'none' &&
+      style.visibility !== 'hidden' &&
+      rect.width > 0 &&
+      rect.height > 0
+  }
+  const documentClone = document.body?.cloneNode(true)
+
+  if (documentClone !== undefined && documentClone !== null) {
+    const frameElements = Array.from(document.querySelectorAll('iframe, frame'))
+    const clonedFrameElements = Array.from(documentClone.querySelectorAll('iframe, frame'))
+
+    for (const [index, frameElement] of frameElements.entries()) {
+      if (!isVisibleFrame(frameElement)) {
+        continue
+      }
+
+      try {
+        const frameBodyHtml = frameElement.contentDocument?.body?.innerHTML ?? ''
+
+        if (frameBodyHtml.trim() === '') {
+          continue
+        }
+
+        const framePlaceholder = document.createElement('section')
+        framePlaceholder.setAttribute('data-cv-maxxing-readable-frame', 'true')
+        framePlaceholder.innerHTML = frameBodyHtml
+
+        const clonedFrame = clonedFrameElements[index]
+
+        if (clonedFrame !== undefined) {
+          clonedFrame.replaceWith(framePlaceholder)
+        }
+      } catch {
+        continue
+      }
+    }
+  }
+
   return {
-    html: document.body?.innerHTML ?? '',
+    html: documentClone?.innerHTML ?? document.body?.innerHTML ?? '',
     pageTitle: document.title === '' ? null : document.title,
     resolvedUrl: window.location.href,
   }
@@ -62,6 +118,7 @@ const browserCaptureScript = `(() => {
 const INTERACTIVE_OBSERVATION_INTERVAL_MS = 500
 const SILENT_CAPTURE_OBSERVATION_INTERVAL_MS = 250
 const SILENT_CAPTURE_TIMEOUT_MS = 3000
+const SILENT_INTERACTION_CAPTURE_TIMEOUT_MS = 90_000
 
 export function createVacancyBrowserSessionService({
   autoCloseAfterFirstObservation = false,
@@ -83,10 +140,14 @@ export function createVacancyBrowserSessionService({
 
   return {
     captureSessionPage: async ({
+      requestInteraction,
       shouldCapturePage,
+      signal,
       url,
     }: {
+      requestInteraction?: VacancyBrowserInteractionRequester
       shouldCapturePage: (snapshot: VacancyBrowserPageSnapshot) => boolean
+      signal?: AbortSignal
       url: string
     }): Promise<VacancyBrowserPageSnapshot | null> => {
       const vacancyBrowserWindow = await createVacancyBrowserWindow({
@@ -99,6 +160,7 @@ export function createVacancyBrowserSessionService({
       let latestValidSnapshot: VacancyBrowserPageSnapshot | null = null
       let observationIntervalId: ReturnType<typeof setInterval> | null = null
       let observationTimeoutId: ReturnType<typeof setTimeout> | null = null
+      let isProcessingSnapshot = false
 
       return await new Promise<VacancyBrowserPageSnapshot | null>((resolve) => {
         const settle = (snapshot: VacancyBrowserPageSnapshot | null): void => {
@@ -118,7 +180,13 @@ export function createVacancyBrowserSessionService({
             observationTimeoutId = null
           }
 
+          signal?.removeEventListener('abort', abortHandler)
           resolve(snapshot)
+        }
+
+        const abortHandler = (): void => {
+          closeWindow()
+          settle(null)
         }
 
         const closeWindow = (): void => {
@@ -130,9 +198,11 @@ export function createVacancyBrowserSessionService({
         }
 
         const observeCurrentPage = async (): Promise<void> => {
-          if (hasSettled || vacancyBrowserWindow.isDestroyed()) {
+          if (hasSettled || isProcessingSnapshot || vacancyBrowserWindow.isDestroyed()) {
             return
           }
+
+          isProcessingSnapshot = true
 
           const snapshot = await captureCurrentPage({
             fallbackResolvedUrl: testResolvedUrl,
@@ -140,11 +210,55 @@ export function createVacancyBrowserSessionService({
           })
 
           if (snapshot === null) {
+            isProcessingSnapshot = false
+
             return
           }
 
           // Drop stale vacancy snapshots when later observations go off-target.
           latestValidSnapshot = shouldCapturePage(snapshot) ? snapshot : null
+
+          if (latestValidSnapshot === null || requestInteraction === undefined) {
+            isProcessingSnapshot = false
+
+            return
+          }
+
+          const interaction = await requestInteraction(latestValidSnapshot)
+
+          if (interaction === null) {
+            closeWindow()
+            settle(latestValidSnapshot)
+            isProcessingSnapshot = false
+
+            return
+          }
+
+          const interactionResult = await executeVacancyUrlIntakeInteraction({
+            interaction,
+            shouldCapturePage,
+            webContents: vacancyBrowserWindow.webContents,
+          })
+
+          if (interactionResult === 'rejected') {
+            latestValidSnapshot = null
+            closeWindow()
+            settle(null)
+            isProcessingSnapshot = false
+
+            return
+          }
+
+          const interactedSnapshot = await captureCurrentPage({
+            fallbackResolvedUrl: testResolvedUrl,
+            webContents: vacancyBrowserWindow.webContents,
+          })
+
+          latestValidSnapshot =
+            interactedSnapshot !== null && shouldCapturePage(interactedSnapshot)
+              ? interactedSnapshot
+              : null
+          isProcessingSnapshot = false
         }
 
         const startSilentObservation = (): void => {
@@ -153,23 +267,31 @@ export function createVacancyBrowserSessionService({
           }
 
           observeCurrentPage().catch(() => {
-            settle(latestValidSnapshot)
+            settle(requestInteraction === undefined ? latestValidSnapshot : null)
           })
 
           observationIntervalId = setInterval(() => {
             observeCurrentPage().catch(() => {
-              settle(latestValidSnapshot)
+              settle(requestInteraction === undefined ? latestValidSnapshot : null)
             })
           }, SILENT_CAPTURE_OBSERVATION_INTERVAL_MS)
 
+          const observationTimeoutMs =
+            requestInteraction === undefined
+              ? SILENT_CAPTURE_TIMEOUT_MS
+              : SILENT_INTERACTION_CAPTURE_TIMEOUT_MS
+
           observationTimeoutId = setTimeout(() => {
             closeWindow()
-            settle(latestValidSnapshot)
-          }, SILENT_CAPTURE_TIMEOUT_MS)
+            settle(requestInteraction === undefined ? latestValidSnapshot : null)
+          }, observationTimeoutMs)
         }
 
         vacancyBrowserWindow.once('closed', () => {
           settle(latestValidSnapshot)
+        })
+        signal?.addEventListener('abort', abortHandler, {
+          once: true,
         })
         vacancyBrowserWindow.webContents.on('did-finish-load', () => {
           startSilentObservation()
@@ -188,10 +310,14 @@ export function createVacancyBrowserSessionService({
       })
     },
     openSession: async ({
+      requestInteraction,
       shouldCapturePage,
+      signal,
       url,
     }: {
+      requestInteraction?: VacancyBrowserInteractionRequester
       shouldCapturePage: (snapshot: VacancyBrowserPageSnapshot) => boolean
+      signal?: AbortSignal
       url: string
     }): Promise<VacancyBrowserPageSnapshot | null> => {
       const vacancyBrowserWindow = await createVacancyBrowserWindow({
@@ -203,6 +329,7 @@ export function createVacancyBrowserSessionService({
       let hasSettled = false
       let latestValidSnapshot: VacancyBrowserPageSnapshot | null = null
       let observationIntervalId: ReturnType<typeof setInterval> | null = null
+      let isProcessingSnapshot = false
 
       return await new Promise<VacancyBrowserPageSnapshot | null>((resolve) => {
         const settle = (snapshot: VacancyBrowserPageSnapshot | null): void => {
@@ -217,7 +344,13 @@ export function createVacancyBrowserSessionService({
             observationIntervalId = null
           }
 
+          signal?.removeEventListener('abort', abortHandler)
           resolve(snapshot)
+        }
+
+        const abortHandler = (): void => {
+          closeWindow()
+          settle(null)
         }
 
         const closeWindow = (): void => {
@@ -229,9 +362,11 @@ export function createVacancyBrowserSessionService({
         }
 
         const observeCurrentPage = async (): Promise<void> => {
-          if (hasSettled || vacancyBrowserWindow.isDestroyed()) {
+          if (hasSettled || isProcessingSnapshot || vacancyBrowserWindow.isDestroyed()) {
             return
           }
+
+          isProcessingSnapshot = true
 
           const snapshot = await captureCurrentPage({
             fallbackResolvedUrl: testResolvedUrl,
@@ -239,15 +374,54 @@ export function createVacancyBrowserSessionService({
           })
 
           if (snapshot === null) {
+            isProcessingSnapshot = false
+
             return
           }
 
           // Drop stale vacancy snapshots when later observations go off-target.
           latestValidSnapshot = shouldCapturePage(snapshot) ? snapshot : null
 
+          if (latestValidSnapshot !== null && requestInteraction !== undefined) {
+            const interaction = await requestInteraction(latestValidSnapshot)
+
+            if (interaction === null) {
+              isProcessingSnapshot = false
+
+              return
+            }
+
+            const interactionResult = await executeVacancyUrlIntakeInteraction({
+              interaction,
+              shouldCapturePage,
+              webContents: vacancyBrowserWindow.webContents,
+            })
+
+            if (interactionResult === 'rejected') {
+              latestValidSnapshot = null
+              closeWindow()
+              settle(null)
+              isProcessingSnapshot = false
+
+              return
+            }
+
+            const interactedSnapshot = await captureCurrentPage({
+              fallbackResolvedUrl: testResolvedUrl,
+              webContents: vacancyBrowserWindow.webContents,
+            })
+
+            latestValidSnapshot =
+              interactedSnapshot !== null && shouldCapturePage(interactedSnapshot)
+                ? interactedSnapshot
+                : null
+          }
+
           if (shouldAutoCloseAfterObservation) {
             closeWindow()
           }
+
+          isProcessingSnapshot = false
         }
 
         const startInteractiveObservation = (): void => {
@@ -256,12 +430,12 @@ export function createVacancyBrowserSessionService({
           }
 
           observeCurrentPage().catch(() => {
-            settle(latestValidSnapshot)
+            settle(requestInteraction === undefined ? latestValidSnapshot : null)
           })
 
           observationIntervalId = setInterval(() => {
             observeCurrentPage().catch(() => {
-              settle(latestValidSnapshot)
+              settle(requestInteraction === undefined ? latestValidSnapshot : null)
             })
           }, INTERACTIVE_OBSERVATION_INTERVAL_MS)
         }
@@ -269,11 +443,14 @@ export function createVacancyBrowserSessionService({
         vacancyBrowserWindow.once('closed', () => {
           settle(latestValidSnapshot)
         })
+        signal?.addEventListener('abort', abortHandler, {
+          once: true,
+        })
         vacancyBrowserWindow.webContents.on('did-finish-load', () => {
           startInteractiveObservation()
 
           observeCurrentPage().catch(() => {
-            settle(latestValidSnapshot)
+            settle(requestInteraction === undefined ? latestValidSnapshot : null)
           })
         })
 
@@ -372,4 +549,36 @@ async function captureCurrentPage({
   } catch {
     return null
   }
+}
+
+async function executeVacancyUrlIntakeInteraction({
+  interaction,
+  shouldCapturePage,
+  webContents,
+}: {
+  interaction: VacancyUrlIntakeInteractionRequest
+  shouldCapturePage: (snapshot: VacancyBrowserPageSnapshot) => boolean
+  webContents: BrowserWebContentsLike
+}): Promise<'applied' | 'rejected'> {
+  const result = await webContents.executeJavaScript(
+    createVacancyUrlIntakeInteractionScript({
+      interaction,
+    }),
+  )
+
+  if (!isVacancyUrlIntakeInteractionResult(result)) {
+    return 'rejected'
+  }
+
+  if (result.status === 'rejected') {
+    return 'rejected'
+  }
+
+  const syntheticSnapshot = {
+    html: '',
+    pageTitle: null,
+    resolvedUrl: result.afterUrl,
+  } satisfies VacancyBrowserPageSnapshot
+
+  return shouldCapturePage(syntheticSnapshot) ? 'applied' : 'rejected'
 }

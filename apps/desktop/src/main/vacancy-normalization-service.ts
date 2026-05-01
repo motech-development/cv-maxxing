@@ -6,6 +6,8 @@ import { VacancyNormalizationError } from './vacancy-normalization-error.js'
 import { VACANCY_NORMALIZATION_EXAMPLES } from './vacancy-normalization-examples.js'
 import { prepareVacancyNormalizationArtifacts } from './vacancy-page-content.js'
 import type { VacancyNormalizationWorker } from './vacancy-normalization-worker.js'
+import { VacancyUrlIntakeInteractionRequestError } from './vacancy-url-intake-interactions.js'
+import type { VacancyUrlIntakeInteractionRequest } from './vacancy-url-intake-interactions.js'
 
 export interface NormalizedVacancy {
   bodyText: string
@@ -29,12 +31,21 @@ export type VacancyNormalizationWorkerResult =
       kind: 'no_job_content'
     }
   | {
+      interaction: VacancyUrlIntakeInteractionRequest
+      kind: 'interaction_requested'
+    }
+  | {
       kind: 'success'
       normalizedVacancy: NormalizedVacancy
     }
 
 export interface VacancyNormalizationService {
-  normalizeVacancy: (input: VacancyNormalizationInput) => Promise<NormalizedVacancy>
+  normalizeVacancy: (
+    input: VacancyNormalizationInput,
+    options?: {
+      signal?: AbortSignal
+    },
+  ) => Promise<NormalizedVacancy>
 }
 
 const DEFAULT_VACANCY_NORMALIZATION_TIMEOUT_MS = 120_000
@@ -60,7 +71,7 @@ export function createVacancyNormalizationService({
   const resolvedTimeoutMs = resolveTimeoutMs(timeoutMs)
 
   return {
-    normalizeVacancy: async (input): Promise<NormalizedVacancy> => {
+    normalizeVacancy: async (input, options = {}): Promise<NormalizedVacancy> => {
       const runDirectoryPath = path.join(runWorkspaceRootPath, generateId())
       const abortController = new AbortController()
 
@@ -72,6 +83,17 @@ export function createVacancyNormalizationService({
       const timeoutId = setTimeout(() => {
         abortController.abort(VACANCY_NORMALIZATION_TIMEOUT_REASON)
       }, resolvedTimeoutMs)
+      const externalAbortHandler = (): void => {
+        abortController.abort(options.signal?.reason)
+      }
+
+      options.signal?.addEventListener('abort', externalAbortHandler, {
+        once: true,
+      })
+
+      if (options.signal?.aborted === true) {
+        abortController.abort(options.signal.reason)
+      }
 
       try {
         const workerResult = await worker.runNormalization({
@@ -84,6 +106,10 @@ export function createVacancyNormalizationService({
             code: 'no_job_content',
             message: 'Vacancy normalization found no job content to persist.',
           })
+        }
+
+        if (workerResult.kind === 'interaction_requested') {
+          throw new VacancyUrlIntakeInteractionRequestError(workerResult.interaction)
         }
 
         return sanitizeNormalizedVacancy(workerResult.normalizedVacancy)
@@ -109,6 +135,7 @@ export function createVacancyNormalizationService({
         throw error
       } finally {
         clearTimeout(timeoutId)
+        options.signal?.removeEventListener('abort', externalAbortHandler)
         await rm(runDirectoryPath, {
           force: true,
           recursive: true,
