@@ -1113,6 +1113,12 @@ const executeLiveOneChildWithLock = async (
 
   await adapters.git.pushPrdBranch(commitReadyPlan.push)
 
+  const baseLedger = await createRunLedger({
+    adapters,
+    branchName: branchSeedPlan.prdBranchName,
+    childTasks: selectedPrd.childTasks,
+    completedChildIssueNumbers,
+  })
   const activeDraftPr = await draftPrHandle.ensure(
     generateDraftPrBody({
       branchName: branchSeedPlan.prdBranchName,
@@ -1120,12 +1126,7 @@ const executeLiveOneChildWithLock = async (
       ledger: updateLedgerForChildResult({
         childCommitHash: commit.hash,
         codeRabbitStatus: 'pending',
-        existingLedger: await createRunLedger({
-          adapters,
-          branchName: branchSeedPlan.prdBranchName,
-          childTasks: selectedPrd.childTasks,
-          completedChildIssueNumbers,
-        }),
+        existingLedger: baseLedger,
         selectedChild,
         status: 'complete',
         verificationEvidence,
@@ -1135,12 +1136,31 @@ const executeLiveOneChildWithLock = async (
     }),
   )
 
-  const codeRabbitResult = await adapters.codeRabbit.reviewChild({
-    branchName: branchSeedPlan.prdBranchName,
-    childCommitHash: commit.hash,
-    childIssueNumber: selectedChild.issueNumber,
-    prNumber: activeDraftPr.prNumber,
-  })
+  let codeRabbitResult: ReviewChildResult
+
+  try {
+    codeRabbitResult = await adapters.codeRabbit.reviewChild({
+      branchName: branchSeedPlan.prdBranchName,
+      childCommitHash: commit.hash,
+      childIssueNumber: selectedChild.issueNumber,
+      prNumber: activeDraftPr.prNumber,
+    })
+  } catch (error) {
+    return await recordCodeRabbitReviewFailedProgress({
+      adapters,
+      baseLedger,
+      branchName: branchSeedPlan.prdBranchName,
+      childCommitHash: commit.hash,
+      completedChildIssueNumbers,
+      draftPr: activeDraftPr,
+      errorMessage: formatErrorMessage(error),
+      lastCommand: input.lastCommand ?? 'run --one-child',
+      selectedChild,
+      selectedPrd,
+      verificationEvidence,
+    })
+  }
+
   const cleanReview = await repairCodeRabbitFindingsUntilClean({
     adapters,
     branchName: branchSeedPlan.prdBranchName,
@@ -1411,12 +1431,31 @@ const executePreparedChildWithLock = async (input: {
     }),
   )
 
-  const codeRabbitResult = await input.adapters.codeRabbit.reviewChild({
-    branchName: input.branchSeedPlan.prdBranchName,
-    childCommitHash: commit.hash,
-    childIssueNumber: input.selectedChild.issueNumber,
-    prNumber: activeDraftPr.prNumber,
-  })
+  let codeRabbitResult: ReviewChildResult
+
+  try {
+    codeRabbitResult = await input.adapters.codeRabbit.reviewChild({
+      branchName: input.branchSeedPlan.prdBranchName,
+      childCommitHash: commit.hash,
+      childIssueNumber: input.selectedChild.issueNumber,
+      prNumber: activeDraftPr.prNumber,
+    })
+  } catch (error) {
+    return await recordCodeRabbitReviewFailedProgress({
+      adapters: input.adapters,
+      baseLedger,
+      branchName: input.branchSeedPlan.prdBranchName,
+      childCommitHash: commit.hash,
+      completedChildIssueNumbers: input.completedChildIssueNumbers,
+      draftPr: activeDraftPr,
+      errorMessage: formatErrorMessage(error),
+      lastCommand: input.lastCommand,
+      selectedChild: input.selectedChild,
+      selectedPrd: input.selectedPrd,
+      verificationEvidence,
+    })
+  }
+
   const cleanReview = await repairCodeRabbitFindingsUntilClean({
     adapters: input.adapters,
     branchName: input.branchSeedPlan.prdBranchName,
@@ -2491,6 +2530,66 @@ const recordBlockedProgress = async (input: {
   }
 
   await input.adapters.state.recordRunStatus(input.status)
+}
+
+const recordCodeRabbitReviewFailedProgress = async (input: {
+  readonly adapters: PrdOrchestratorLiveAdapters
+  readonly baseLedger: readonly ChildTaskProgress[]
+  readonly branchName: string
+  readonly childCommitHash: string
+  readonly completedChildIssueNumbers: readonly number[]
+  readonly draftPr: RemoteAutomationPr
+  readonly errorMessage: string
+  readonly lastCommand: string
+  readonly selectedChild: ParsedChildTask
+  readonly selectedPrd: SelectedPrdPlan
+  readonly verificationEvidence: readonly string[]
+}): Promise<LiveCommandResult> => {
+  const blocker = `CodeRabbit review failed for child #${String(
+    input.selectedChild.issueNumber,
+  )}. Error evidence: ${formatConciseErrorEvidence(input.errorMessage)}`
+  const status = createRunStatus({
+    blockers: [blocker],
+    branchName: input.branchName,
+    codeRabbitStatus: 'failed',
+    completedChildIssueNumbers: input.completedChildIssueNumbers,
+    currentChildIssueNumber: input.selectedChild.issueNumber,
+    lastCommand: input.lastCommand,
+    phase: 'blocked',
+    pr: input.draftPr,
+    prdIssueNumber: input.selectedPrd.issueNumber,
+  })
+  const body = generateDraftPrBody({
+    branchName: input.branchName,
+    childTasks: input.selectedPrd.childTasks,
+    ledger: updateLedgerForChildResult({
+      childCommitHash: input.childCommitHash,
+      codeRabbitStatus: 'failed',
+      existingLedger: input.baseLedger,
+      selectedChild: input.selectedChild,
+      status: 'blocked',
+      verificationEvidence: input.verificationEvidence,
+    }),
+    parentPrdIssueNumber: input.selectedPrd.issueNumber,
+    prdTitle: input.selectedPrd.title,
+  })
+
+  await recordBlockedProgress({
+    adapters: input.adapters,
+    body,
+    draftPr: input.draftPr,
+    status,
+  })
+
+  return {
+    exitCode: 1,
+    stderr: `${blocker}\n`,
+    stdout: `${renderOneChildSummary({
+      childIssueNumber: input.selectedChild.issueNumber,
+      pr: input.draftPr,
+      status,
+    })}\n`,
+  }
 }
 
 const recordVerificationRepairBlockedProgress = async (input: {

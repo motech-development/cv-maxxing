@@ -1385,6 +1385,33 @@ None - can start immediately.
     })
   })
 
+  it('records a blocked child review when the initial CodeRabbit review command fails', async () => {
+    const adapters = createLiveAdapters({
+      codeRabbitReviewError: new Error('CodeRabbit CLI stopped'),
+    })
+    const result = await runPrdOrchestratorCliAsync({
+      adapters,
+      arguments_: ['run', '--one-child'],
+      stdin: '',
+    })
+
+    expect(result.exitCode).toBe(1)
+    expect(result.stderr).toContain('CodeRabbit review failed for child #82')
+    expect(adapters.events).toContain('git:commit-child')
+    expect(adapters.events).toContain('git:push-prd-branch')
+    expect(adapters.events).toContain('github:post-pr-comment')
+    expect(adapters.events).toContain('state:record-run-status')
+    expect(adapters.events).not.toContain('sandcastle:repair-review')
+    expect(adapters.events).not.toContain('git:restore-prd-branch')
+    expect(adapters.recordedStatuses.at(-1)).toMatchObject({
+      blockers: ['CodeRabbit review failed for child #82. Error evidence: CodeRabbit CLI stopped'],
+      codeRabbitStatus: 'failed',
+      completedChildren: [],
+      currentChildIssueNumber: 82,
+      phase: 'blocked',
+    })
+  })
+
   it('records a blocked child review when repair orchestration throws', async () => {
     const adapters = createLiveAdapters({
       codeRabbitFindingsBeforeClean: 1,
