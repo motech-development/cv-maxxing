@@ -313,6 +313,25 @@ describe('default live adapters', () => {
     ).toBe('none')
   })
 
+  it('ignores CodeRabbit generated top-level PR walkthrough comments', async () => {
+    const shell = createRecordingShell({
+      generatedCodeRabbitCommentOnly: true,
+    })
+    const adapters = createDefaultPrdOrchestratorLiveAdapters('/repo', undefined, shell.run)
+
+    await expect(
+      adapters.codeRabbit.reviewChild({
+        branchName: 'agent/prd-80-test',
+        childCommitHash: 'abc123456789',
+        childIssueNumber: 81,
+        prNumber: 123,
+      }),
+    ).resolves.toEqual({
+      findings: [],
+      status: 'passed',
+    })
+  })
+
   it('scans prohibited capabilities against the working tree files, not a branch ref', async () => {
     const shell = createRecordingShell()
     const adapters = createDefaultPrdOrchestratorLiveAdapters('/repo', undefined, shell.run)
@@ -424,6 +443,7 @@ describe('default live adapters', () => {
 const createRecordingShell = (
   input: {
     readonly failingCommands?: ReadonlySet<string>
+    readonly generatedCodeRabbitCommentOnly?: boolean
     readonly historicalWorkflowRuns?: boolean
     readonly malformedAutomationPrBody?: boolean
     readonly transientFailures?: Map<string, readonly Error[]>
@@ -475,6 +495,7 @@ const runFailingRootCommand: RepositoryRootCommandRunner = () => {
 const responseForCommand = (
   command: DefaultLiveAdapterShellCommandInput,
   input: {
+    readonly generatedCodeRabbitCommentOnly?: boolean
     readonly historicalWorkflowRuns?: boolean
     readonly malformedAutomationPrBody?: boolean
   },
@@ -544,6 +565,31 @@ const responseForCommand = (
   }
 
   if (formattedCommand.startsWith('gh pr view 123 --json reviews')) {
+    if (input.generatedCodeRabbitCommentOnly === true) {
+      return JSON.stringify({
+        comments: [
+          {
+            author: {
+              login: 'coderabbitai',
+            },
+            body:
+              '<!-- This is an auto-generated comment: summarize by coderabbit.ai -->\n' +
+              '<!-- walkthrough_start -->\n\n' +
+              '<details><summary>Walkthrough</summary>Generated summary.</details>\n\n' +
+              '<!-- This is an auto-generated comment by CodeRabbit for review status -->',
+          },
+        ],
+        reviews: [],
+        statusCheckRollup: [
+          {
+            conclusion: 'success',
+            name: 'CodeRabbit',
+            status: 'COMPLETED',
+          },
+        ],
+      })
+    }
+
     return JSON.stringify({
       comments: [
         {
@@ -573,6 +619,10 @@ const responseForCommand = (
   }
 
   if (formattedCommand === 'gh api repos/{owner}/{repo}/pulls/123/comments --paginate --slurp') {
+    if (input.generatedCodeRabbitCommentOnly === true) {
+      return JSON.stringify([[]])
+    }
+
     return JSON.stringify([
       [
         {

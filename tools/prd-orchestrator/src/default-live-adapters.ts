@@ -2075,15 +2075,31 @@ const parseCodeRabbitCommentFinding = (
     return []
   }
 
+  const body = parseOptionalStringField(comment, 'body')
+
+  if (body !== undefined && isCodeRabbitGeneratedTopLevelComment(body)) {
+    return []
+  }
+
   return [
     {
-      body: parseOptionalStringField(comment, 'body') ?? 'CodeRabbit left a PR comment.',
+      body: body ?? 'CodeRabbit left a PR comment.',
       id: `coderabbit-comment-${String(index + 1)}`,
       source: 'github-pr-review',
       title: 'CodeRabbit PR comment',
     },
   ]
 }
+
+const codeRabbitGeneratedTopLevelCommentMarkers = [
+  '<!-- This is an auto-generated comment: summarize by coderabbit.ai -->',
+  '<!-- This is an auto-generated comment by CodeRabbit for review status -->',
+  '<!-- walkthrough_start -->',
+  '<!-- review_rate_limit_status_start -->',
+] as const
+
+const isCodeRabbitGeneratedTopLevelComment = (body: string): boolean =>
+  codeRabbitGeneratedTopLevelCommentMarkers.some((marker) => body.includes(marker))
 
 const parseCodeRabbitInlineReviewCommentFinding = (
   comment: unknown,
