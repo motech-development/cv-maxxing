@@ -748,10 +748,10 @@ const createSandcastleAdapter = (
         effort: parseCodexEffort(configuration.codexEffort),
         env: {},
       }),
-      branchStrategy: {
-        branch: input.workerBranchName,
-        type: 'branch',
-      },
+      branchStrategy: createSandcastleWorkerBranchStrategy({
+        baseBranch: input.prdBranchName,
+        workerBranchName: input.workerBranchName,
+      }),
       cwd,
       maxIterations: 1,
       prompt,
@@ -794,10 +794,10 @@ const createSandcastleAdapter = (
         effort: parseCodexEffort(configuration.codexEffort),
         env: {},
       }),
-      branchStrategy: {
-        branch: input.workerBranchName,
-        type: 'branch',
-      },
+      branchStrategy: createSandcastleWorkerBranchStrategy({
+        baseBranch: input.targetCommitHash ?? input.branchName,
+        workerBranchName: input.workerBranchName,
+      }),
       cwd,
       maxIterations: 1,
       prompt,
@@ -834,10 +834,10 @@ const createSandcastleAdapter = (
         effort: parseCodexEffort(configuration.codexEffort),
         env: {},
       }),
-      branchStrategy: {
-        branch: input.workerBranchName,
-        type: 'branch',
-      },
+      branchStrategy: createSandcastleWorkerBranchStrategy({
+        baseBranch: input.prdBranchName,
+        workerBranchName: input.workerBranchName,
+      }),
       cwd,
       maxIterations: 1,
       prompt,
@@ -898,10 +898,10 @@ const createSandcastleAdapter = (
         effort: parseCodexEffort(configuration.codexEffort),
         env: {},
       }),
-      branchStrategy: {
-        branch: input.workerBranchName,
-        type: 'branch',
-      },
+      branchStrategy: createSandcastleWorkerBranchStrategy({
+        baseBranch: input.prdBranchName,
+        workerBranchName: input.workerBranchName,
+      }),
       cwd,
       maxIterations: 1,
       prompt,
@@ -1013,6 +1013,19 @@ export const createCodexCliCredentialMounts = (
       readonly: true,
       sandboxPath: `/home/agent/${credentialFile}`,
     }))
+
+export const createSandcastleWorkerBranchStrategy = (input: {
+  readonly baseBranch?: string
+  readonly workerBranchName: string
+}): {
+  readonly baseBranch?: string
+  readonly branch: string
+  readonly type: 'branch'
+} => ({
+  ...(input.baseBranch === undefined ? {} : { baseBranch: input.baseBranch }),
+  branch: input.workerBranchName,
+  type: 'branch',
+})
 
 const resolveCodexCliCredentialMounts = async (
   homeDirectory = homedir(),

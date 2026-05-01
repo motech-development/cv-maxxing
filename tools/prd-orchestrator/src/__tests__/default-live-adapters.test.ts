@@ -8,6 +8,7 @@ import {
   createCodexCliCredentialMounts,
   createDefaultPrdOrchestratorLiveAdapters,
   createDefaultSandcastleDockerImageName,
+  createSandcastleWorkerBranchStrategy,
   resolveHostShell,
   resolveRepositoryRoot,
   resolvePnpmStorePath,
@@ -72,6 +73,27 @@ describe('default live adapters', () => {
         sandboxPath: '/home/agent/.codex/config.toml',
       },
     ])
+  })
+
+  it('bases Sandcastle worker branches on the automation branch when provided', () => {
+    expect(
+      createSandcastleWorkerBranchStrategy({
+        baseBranch: 'agent/prd-80-test',
+        workerBranchName: 'agent/prd-80-test-resume-final-cleanup-1',
+      }),
+    ).toEqual({
+      baseBranch: 'agent/prd-80-test',
+      branch: 'agent/prd-80-test-resume-final-cleanup-1',
+      type: 'branch',
+    })
+    expect(
+      createSandcastleWorkerBranchStrategy({
+        workerBranchName: 'agent/prd-80-test-child-81',
+      }),
+    ).toEqual({
+      branch: 'agent/prd-80-test-child-81',
+      type: 'branch',
+    })
   })
 
   it('constructs GitHub, CI, and preflight commands without live mutations in tests', async () => {
