@@ -107,7 +107,7 @@ test('structures pasted vacancy text through AI normalization and persists encry
 
   expect(result.kind).toBe('ingested')
   expect(result.vacancy.id).toBe('vacancy-001')
-  expect(result.vacancy.source).toBe('generic')
+  expect(result.vacancy.source).toBe('jobs.example.com')
   expect(result.vacancy.inputType).toBe('pasted_text')
   expect(result.vacancy.title).toBe('Senior Product Designer')
   expect(result.vacancy.employer).toBe('Example Labs')
@@ -134,7 +134,7 @@ test('structures pasted vacancy text through AI normalization and persists encry
     originalUrl: 'https://jobs.example.com/senior-product-designer',
     pageTitle: 'Pasted job description',
     resolvedUrl: 'https://jobs.example.com/senior-product-designer',
-    source: 'generic',
+    source: 'jobs.example.com',
   })
 
   await expect(
@@ -149,7 +149,7 @@ test('structures pasted vacancy text through AI normalization and persists encry
   ).resolves.toEqual(
     expect.objectContaining({
       originalUrl: 'https://jobs.example.com/senior-product-designer',
-      source: 'generic',
+      source: 'jobs.example.com',
       title: 'Senior Product Designer',
     }),
   )
@@ -232,6 +232,119 @@ test('keeps pasted vacancy intake incomplete when AI returns insufficient job de
   await localAppData.close()
 })
 
+test('keeps pasted vacancy intake incomplete when AI cannot find job content', async () => {
+  const paths = await createTestPaths()
+  const localAppData = await openLocalAppData({
+    keychain: createKeychainBoundary(),
+    paths,
+  })
+  const normalizationService = {
+    normalizeVacancy: vi.fn(() => {
+      return Promise.reject(
+        new VacancyNormalizationError({
+          code: 'no_job_content',
+          message: 'Vacancy normalization found no job content to persist.',
+        }),
+      )
+    }),
+  } satisfies VacancyNormalizationService
+  const vacancyService = createVacancyService({
+    generateId: vi.fn(() => 'vacancy-pasted-failure'),
+    getCurrentTimestamp: vi.fn(() => '2026-04-08T21:07:00.000Z'),
+    localAppData,
+    normalizationService,
+    openVacancyBrowserSession: vi.fn(() => Promise.resolve(null)),
+  })
+  const text = 'Cookie preferences and sign-in prompts only.'
+
+  const result = await vacancyService.ingestPastedVacancy({
+    text,
+    url: 'https://www.jobs.example.com/senior-product-designer',
+  })
+
+  expect(result.kind).toBe('incomplete')
+  expect(result.vacancy).toMatchObject({
+    blockingReason: 'Paste the full job description before tailoring your CV.',
+    canGenerate: false,
+    inputType: 'pasted_text',
+    originalUrl: 'https://www.jobs.example.com/senior-product-designer',
+    source: 'jobs.example.com',
+    status: 'incomplete',
+  })
+  expect(result.workspaceState).toEqual({
+    draft: {
+      text,
+      url: 'https://www.jobs.example.com/senior-product-designer',
+    },
+    reviewState: 'editable',
+    vacancy: null,
+  })
+  await expect(
+    localAppData.metadata.get({
+      id: 'vacancy-pasted-failure',
+      scope: 'vacancies',
+    }),
+  ).resolves.toBeNull()
+
+  await localAppData.close()
+})
+
+test('keeps pasted vacancy intake incomplete when AI normalization times out', async () => {
+  const paths = await createTestPaths()
+  const localAppData = await openLocalAppData({
+    keychain: createKeychainBoundary(),
+    paths,
+  })
+  const normalizationService = {
+    normalizeVacancy: vi.fn(() => {
+      return Promise.reject(
+        new VacancyNormalizationError({
+          code: 'timeout',
+          message: 'Vacancy normalization timed out.',
+        }),
+      )
+    }),
+  } satisfies VacancyNormalizationService
+  const vacancyService = createVacancyService({
+    generateId: vi.fn(() => 'vacancy-pasted-timeout'),
+    getCurrentTimestamp: vi.fn(() => '2026-04-08T21:08:00.000Z'),
+    localAppData,
+    normalizationService,
+    openVacancyBrowserSession: vi.fn(() => Promise.resolve(null)),
+  })
+  const text = 'Senior Product Designer at Example Labs.'
+
+  const result = await vacancyService.ingestPastedVacancy({
+    text,
+  })
+
+  expect(result.kind).toBe('incomplete')
+  expect(result.vacancy).toMatchObject({
+    blockingReason: 'Paste the full job description before tailoring your CV.',
+    canGenerate: false,
+    inputType: 'pasted_text',
+    originalUrl: null,
+    source: 'pasted-job-description',
+    status: 'incomplete',
+  })
+  expect(result.workspaceState).toEqual({
+    draft: {
+      text,
+      url: '',
+    },
+    reviewState: 'editable',
+    vacancy: null,
+  })
+  await expect(
+    localAppData.metadata.get({
+      id: 'vacancy-pasted-timeout',
+      scope: 'vacancies',
+    }),
+  ).resolves.toBeNull()
+
+  await localAppData.close()
+})
+
 test('ingests an embedded-board vacancy URL through the generic browser capture and AI normalization path', async () => {
   const paths = await createTestPaths()
   const localAppData = await openLocalAppData({
@@ -306,7 +419,7 @@ test('ingests an embedded-board vacancy URL through the generic browser capture 
   })
 
   expect(result.kind).toBe('ingested')
-  expect(result.vacancy.source).toBe('generic')
+  expect(result.vacancy.source).toBe('boards.greenhouse.io')
   expect(result.vacancy.inputType).toBe('url')
   expect(result.vacancy.title).toBe('Senior Product Designer')
   expect(result.vacancy.employer).toBe('Example Labs')
@@ -328,7 +441,7 @@ test('ingests an embedded-board vacancy URL through the generic browser capture 
   expect(normalizationCall.originalUrl).toBe('https://boards.greenhouse.io/example/jobs/123')
   expect(normalizationCall.pageTitle).toBe('Senior Product Designer at Example Labs - Greenhouse')
   expect(normalizationCall.resolvedUrl).toBe('https://boards.greenhouse.io/example/jobs/123')
-  expect(normalizationCall.source).toBe('generic')
+  expect(normalizationCall.source).toBe('boards.greenhouse.io')
 
   const extractedArtifact = await localAppData.artifacts.read({
     id: 'vacancy-002',
@@ -361,6 +474,72 @@ test('ingests an embedded-board vacancy URL through the generic browser capture 
   )
   expect(snapshotArtifact?.toString('utf8')).toContain('<h1>Senior Product Designer</h1>')
   expect(snapshotArtifact?.toString('utf8')).not.toContain('localStorage')
+
+  await localAppData.close()
+})
+
+test('stores normalized submitted hostnames while accepting canonical URL formatting changes', async () => {
+  const paths = await createTestPaths()
+  const localAppData = await openLocalAppData({
+    keychain: createKeychainBoundary(),
+    paths,
+  })
+  const normalizationCalls: VacancyNormalizationInput[] = []
+  const normalizationService = {
+    normalizeVacancy: vi.fn((input: VacancyNormalizationInput) => {
+      normalizationCalls.push(input)
+
+      return Promise.resolve({
+        bodyText:
+          'Lead product design for desktop workflows. Partner with engineering and research.',
+        employer: 'Example Labs',
+        location: 'London, United Kingdom',
+        requirements: ['Experience shipping workflow software.'],
+        responsibilities: ['Lead product design for desktop workflows.'],
+        title: 'Senior Product Designer',
+      })
+    }),
+  } satisfies VacancyNormalizationService
+  const vacancyService = createVacancyService({
+    captureVacancyBrowserSessionPage: vi.fn(
+      ({
+        shouldCapturePage,
+      }: {
+        shouldCapturePage: (snapshot: {
+          html: string
+          pageTitle: string | null
+          resolvedUrl: string
+        }) => boolean
+      }) => {
+        const canonicalSnapshot = {
+          html: '<main><h1>Senior Product Designer</h1></main>',
+          pageTitle: 'Senior Product Designer',
+          resolvedUrl: 'https://www.example.com/jobs/product-designer?a=1&b=2#details',
+        }
+
+        expect(shouldCapturePage(canonicalSnapshot)).toBe(true)
+
+        return Promise.resolve(canonicalSnapshot)
+      },
+    ),
+    generateId: vi.fn(() => 'vacancy-canonical-url'),
+    getCurrentTimestamp: vi.fn(() => '2026-04-08T21:12:00.000Z'),
+    localAppData,
+    normalizationService,
+    openVacancyBrowserSession: vi.fn(() => Promise.resolve(null)),
+  })
+
+  const result = await vacancyService.ingestVacancyUrl({
+    url: 'https://WWW.EXAMPLE.com/jobs/product-designer/?b=2&a=1',
+  })
+
+  expect(result.kind).toBe('ingested')
+  expect(result.vacancy.source).toBe('example.com')
+  expect(result.vacancy.originalUrl).toBe('https://www.example.com/jobs/product-designer/?b=2&a=1')
+  expect(result.vacancy.resolvedUrl).toBe(
+    'https://www.example.com/jobs/product-designer?a=1&b=2#details',
+  )
+  expect(normalizationCalls[0]?.source).toBe('example.com')
 
   await localAppData.close()
 })
@@ -406,7 +585,7 @@ test('ingests an authenticated LinkedIn vacancy URL without opening the interact
   })
 
   expect(result.kind).toBe('ingested')
-  expect(result.vacancy.source).toBe('generic')
+  expect(result.vacancy.source).toBe('linkedin.com')
   expect(result.vacancy.canGenerate).toBe(true)
   expect(result.vacancy.blockingReason).toBeNull()
   expect(captureVacancyBrowserSessionPage).toHaveBeenCalledTimes(1)
@@ -418,7 +597,7 @@ test('ingests an authenticated LinkedIn vacancy URL without opening the interact
     url: 'https://www.linkedin.com/jobs/view/123456',
   })
   expect(workspaceState.vacancy?.canGenerate).toBe(true)
-  expect(workspaceState.vacancy?.source).toBe('generic')
+  expect(workspaceState.vacancy?.source).toBe('linkedin.com')
   expect(workspaceState.vacancy?.title).toBe('Senior Product Designer')
 
   await localAppData.close()
@@ -445,7 +624,7 @@ test('preserves a LinkedIn vacancy URL and falls back to the interactive browser
   })
 
   expect(result.kind).toBe('incomplete')
-  expect(result.vacancy.source).toBe('generic')
+  expect(result.vacancy.source).toBe('linkedin.com')
   expect(result.vacancy.canGenerate).toBe(false)
   expect(result.vacancy.blockingReason).toContain('Open the job page')
   expect(captureVacancyBrowserSessionPage).toHaveBeenCalledTimes(1)
@@ -515,7 +694,7 @@ test('ingests a browser-assisted LinkedIn vacancy into a ready preview and persi
 
   expect(result.kind).toBe('ingested')
   expect(result.vacancy.id).toBe('vacancy-006')
-  expect(result.vacancy.source).toBe('generic')
+  expect(result.vacancy.source).toBe('linkedin.com')
   expect(result.vacancy.canGenerate).toBe(true)
   expect(result.vacancy.title).toBe('Senior Product Designer')
   expect(result.vacancy.textPreview).toBe(
@@ -535,7 +714,7 @@ test('ingests a browser-assisted LinkedIn vacancy into a ready preview and persi
 
   expect(normalizationCall.originalUrl).toBe('https://www.linkedin.com/jobs/view/123456')
   expect(normalizationCall.resolvedUrl).toBe('https://www.linkedin.com/jobs/view/123456')
-  expect(normalizationCall.source).toBe('generic')
+  expect(normalizationCall.source).toBe('linkedin.com')
   expect(normalizationCall.html).toContain('Senior Product Designer')
 
   const extractedArtifact = await localAppData.artifacts.read({
@@ -633,7 +812,7 @@ test('ingests a browser-assisted Indeed vacancy through AI normalization and per
   })
 
   expect(result.kind).toBe('ingested')
-  expect(result.vacancy.source).toBe('generic')
+  expect(result.vacancy.source).toBe('indeed.com')
   expect(result.vacancy.title).toBe('Staff Product Designer')
   expect(result.vacancy.canGenerate).toBe(true)
 
@@ -647,7 +826,7 @@ test('ingests a browser-assisted Indeed vacancy through AI normalization and per
 
   expect(normalizationCall.originalUrl).toBe('https://www.indeed.com/viewjob?jk=abc123')
   expect(normalizationCall.resolvedUrl).toBe('https://www.indeed.com/viewjob?jk=abc123')
-  expect(normalizationCall.source).toBe('generic')
+  expect(normalizationCall.source).toBe('indeed.com')
 
   const extractedArtifact = await localAppData.artifacts.read({
     id: 'vacancy-006-indeed',
@@ -658,6 +837,61 @@ test('ingests a browser-assisted Indeed vacancy through AI normalization and per
   expect(extractedArtifact?.toString('utf8')).toBe(
     'Own the vacancy review workflow for operators. Ship desktop product improvements with engineering and research.',
   )
+
+  await localAppData.close()
+})
+
+test('matches a generic vacancy page after redirect cleanup removes tracking query parameters', async () => {
+  const paths = await createTestPaths()
+  const localAppData = await openLocalAppData({
+    keychain: createKeychainBoundary(),
+    paths,
+  })
+  const normalizationService = createVacancyNormalizationServiceDouble({
+    normalizedVacancy: {
+      bodyText: 'Lead product design for desktop workflows. Partner with engineering and research.',
+      employer: 'Example Labs',
+      location: 'London, United Kingdom',
+      requirements: ['Experience shipping workflow software.'],
+      responsibilities: ['Lead product design for desktop workflows.'],
+      title: 'Senior Product Designer',
+    },
+  })
+  const vacancyService = createVacancyService({
+    captureVacancyBrowserSessionPage: vi.fn(() => {
+      return Promise.resolve({
+        html: [
+          '<html>',
+          '<body>',
+          '<main>',
+          '<h1>Senior Product Designer</h1>',
+          '<section><h2>Responsibilities</h2><ul><li>Lead product design for desktop workflows.</li></ul></section>',
+          '<section><h2>Requirements</h2><ul><li>Experience shipping workflow software.</li></ul></section>',
+          '</main>',
+          '</body>',
+          '</html>',
+        ].join(''),
+        pageTitle: 'Senior Product Designer',
+        resolvedUrl: 'https://careers.example.com/jobs/product-designer?job_id=42',
+      })
+    }),
+    generateId: vi.fn(() => 'vacancy-generic-canonical'),
+    getCurrentTimestamp: vi.fn(() => '2026-04-08T21:17:30.000Z'),
+    localAppData,
+    normalizationService,
+    openVacancyBrowserSession: vi.fn(() => Promise.resolve(null)),
+  })
+
+  const result = await vacancyService.ingestVacancyUrl({
+    url: 'https://careers.example.com/jobs/../jobs/product-designer/?utm_source=linkedin&gh_src=abc&job_id=42',
+  })
+
+  expect(result.kind).toBe('ingested')
+  expect(result.vacancy.id).toBe('vacancy-generic-canonical')
+  expect(result.vacancy.resolvedUrl).toBe(
+    'https://careers.example.com/jobs/product-designer?job_id=42',
+  )
+  expect(normalizationService.normalizeVacancy).toHaveBeenCalledTimes(1)
 
   await localAppData.close()
 })
@@ -829,7 +1063,7 @@ test('returns an incomplete browser-assisted preview when AI normalization yield
   })
 
   expect(result.kind).toBe('incomplete')
-  expect(result.vacancy.source).toBe('generic')
+  expect(result.vacancy.source).toBe('linkedin.com')
   expect(result.vacancy.canGenerate).toBe(false)
   expect(result.vacancy.blockingReason).toBe(
     'Add the full job responsibilities or requirements before tailoring your CV.',
@@ -897,7 +1131,7 @@ test('derives generic URL review readiness from the normalized vacancy object an
   })
 
   expect(result.kind).toBe('ingested')
-  expect(result.vacancy.source).toBe('generic')
+  expect(result.vacancy.source).toBe('careers.example.com')
   expect(result.vacancy.canGenerate).toBe(true)
   expect(result.vacancy.blockingReason).toBeNull()
   expect(result.vacancy.title).toBe('Senior Product Designer')
@@ -920,7 +1154,7 @@ test('derives generic URL review readiness from the normalized vacancy object an
       requirements: [],
       resolvedUrl: 'https://careers.example.com/product-designer',
       responsibilities: [],
-      source: 'generic',
+      source: 'careers.example.com',
       status: 'ready',
       textPreview:
         'Design the workflow surface for authenticated job-vacancy review. Partner with engineering to ship desktop product improvements and document system behaviour for operators across desktop import, preview, and export flows without dropping factual vacancy detail.',

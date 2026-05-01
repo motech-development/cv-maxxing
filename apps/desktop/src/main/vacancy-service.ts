@@ -4,7 +4,6 @@ import type {
   VacancyIngestResult,
   VacancyInputType,
   VacancyReviewState,
-  VacancySource,
   VacancySummary,
   VacancyWorkspaceState,
 } from '../shared/vacancy.js'
@@ -19,6 +18,7 @@ import {
 import type { JsonValue, LocalAppDataStore } from './local-app-data-service.js'
 import type { VacancyBrowserPageSnapshot } from './vacancy-browser-session-service.js'
 import { inferTitleFromPageTitle, sanitizeSnapshotHtml } from './vacancy-page-content.js'
+import { VacancyNormalizationError } from './vacancy-normalization-error.js'
 import type {
   NormalizedVacancy,
   VacancyNormalizationService,
@@ -34,6 +34,19 @@ const OPEN_JOB_PAGE_BLOCKING_REASON =
   'This job page may need more access. Open the job page or paste the job description instead.'
 const RELOAD_JOB_PAGE_BLOCKING_REASON =
   'Open the job page and close it after the full details load, or paste the job description instead.'
+const PASTED_VACANCY_NORMALIZATION_BLOCKING_REASON =
+  'Paste the full job description before tailoring your CV.'
+const URL_MATCHING_CLEANUP_SEARCH_PARAMETER_NAMES = new Set([
+  'fbclid',
+  'gclid',
+  'gh_src',
+  'igshid',
+  'li_fat_id',
+  'mc_cid',
+  'mc_eid',
+  'msclkid',
+  'trk',
+])
 
 interface VacancyServiceDependencies {
   captureVacancyBrowserSessionPage?: (input: {
@@ -62,7 +75,7 @@ interface VacancyMetadataValue extends Record<string, JsonValue> {
   requirements: string[]
   resolvedUrl: string | null
   responsibilities: string[]
-  source: VacancySource
+  source: string
   status: 'incomplete' | 'ready'
   textPreview: string
   title: string | null
@@ -139,16 +152,37 @@ export function createVacancyService({
     }): Promise<VacancyIngestResult> => {
       const trimmedText = text.trim()
       const normalizedUrl = normalizeUrl(url)
-      const source = 'generic'
-      const vacancyId = generateId()
+      const source =
+        normalizedUrl === null
+          ? PASTED_VACANCY_PAGE_REFERENCE
+          : normalizeSubmittedUrlHostname(normalizedUrl)
       const fetchedAt = getCurrentTimestamp()
-      const normalizedVacancy = await normalizationService.normalizeVacancy({
-        html: buildPastedVacancyHtml(trimmedText),
-        originalUrl: normalizedUrl ?? PASTED_VACANCY_PAGE_REFERENCE,
-        pageTitle: PASTED_VACANCY_PAGE_TITLE,
-        resolvedUrl: normalizedUrl ?? PASTED_VACANCY_PAGE_REFERENCE,
-        source,
-      })
+      let normalizedVacancy: NormalizedVacancy
+
+      try {
+        normalizedVacancy = await normalizationService.normalizeVacancy({
+          html: buildPastedVacancyHtml(trimmedText),
+          originalUrl: normalizedUrl ?? PASTED_VACANCY_PAGE_REFERENCE,
+          pageTitle: PASTED_VACANCY_PAGE_TITLE,
+          resolvedUrl: normalizedUrl ?? PASTED_VACANCY_PAGE_REFERENCE,
+          source,
+        })
+      } catch (error) {
+        if (error instanceof VacancyNormalizationError) {
+          return await createPastedVacancyNormalizationFailureResult({
+            fetchedAt,
+            localAppData,
+            normalizedUrl,
+            source,
+            text: trimmedText,
+            workspaceSelectionStore,
+          })
+        }
+
+        throw error
+      }
+
+      const vacancyId = generateId()
       const extractedText = normalizedVacancy.bodyText.trim()
       const isLanguageBlocked =
         assessEnglishLanguageSupport(trimmedText).status === 'blocked' ||
@@ -227,7 +261,7 @@ export function createVacancyService({
     },
     ingestVacancyUrl: async ({ url }: { url: string }): Promise<VacancyIngestResult> => {
       const normalizedUrl = requireUrl(url)
-      const source = 'generic'
+      const source = normalizeSubmittedUrlHostname(normalizedUrl)
 
       await persistVacancyWorkspaceDraft({
         localAppData,
@@ -278,7 +312,7 @@ export function createVacancyService({
     },
     openBrowserSession: async ({ url }: { url: string }): Promise<VacancyIngestResult> => {
       const normalizedUrl = requireUrl(url)
-      const source = 'generic'
+      const source = normalizeSubmittedUrlHostname(normalizedUrl)
       const browserSnapshot = await openVacancyBrowserSession({
         shouldCapturePage: (snapshot) => {
           return isExpectedBrowserSessionVacancyPage({
@@ -336,6 +370,54 @@ export function createVacancyService({
   }
 }
 
+async function createPastedVacancyNormalizationFailureResult({
+  fetchedAt,
+  localAppData,
+  normalizedUrl,
+  source,
+  text,
+  workspaceSelectionStore,
+}: {
+  fetchedAt: string
+  localAppData: Pick<LocalAppDataStore, 'metadata'>
+  normalizedUrl: string | null
+  source: string
+  text: string
+  workspaceSelectionStore?: Pick<WorkspaceSelectionStore, 'getSelection' | 'setSelection'>
+}): Promise<VacancyIngestResult> {
+  const incompleteVacancy = createBlockedVacancySummary({
+    blockingReason: PASTED_VACANCY_NORMALIZATION_BLOCKING_REASON,
+    fetchedAt,
+    id: 'vacancy-pending-pasted-text',
+    inputType: 'pasted_text',
+    originalUrl: normalizedUrl,
+    source,
+  })
+
+  await localAppData.metadata.put({
+    id: VACANCY_WORKSPACE_RECORD_ID,
+    scope: VACANCY_DRAFT_SCOPE,
+    value: {
+      reviewState: 'editable',
+      text,
+      url: normalizedUrl ?? '',
+      vacancyId: null,
+    } satisfies VacancyDraftMetadataValue,
+  })
+  await persistJobsWorkspaceSelection({
+    jobs: {
+      kind: 'draft',
+    },
+    workspaceSelectionStore,
+  })
+
+  return {
+    kind: 'incomplete',
+    vacancy: incompleteVacancy,
+    workspaceState: await thisGetWorkspaceState(localAppData),
+  }
+}
+
 async function createInteractiveBrowserFallbackResult({
   getCurrentTimestamp,
   localAppData,
@@ -345,7 +427,7 @@ async function createInteractiveBrowserFallbackResult({
   getCurrentTimestamp: () => string
   localAppData: Pick<LocalAppDataStore, 'artifacts' | 'metadata'>
   originalUrl: string
-  source: VacancySource
+  source: string
 }): Promise<VacancyIngestResult> {
   const incompleteVacancy = createBlockedVacancySummary({
     blockingReason: OPEN_JOB_PAGE_BLOCKING_REASON,
@@ -382,7 +464,7 @@ async function persistFetchedVacancyPage({
   localAppData: Pick<LocalAppDataStore, 'artifacts' | 'metadata'>
   normalizationService: VacancyNormalizationService
   originalUrl: string
-  source: VacancySource
+  source: string
   workspaceSelectionStore?: Pick<WorkspaceSelectionStore, 'getSelection' | 'setSelection'>
 }): Promise<VacancyIngestResult> {
   const normalizedVacancy = await normalizationService.normalizeVacancy({
@@ -496,22 +578,24 @@ async function persistJobsWorkspaceSelection({
 function createBlockedVacancySummary({
   blockingReason,
   fetchedAt,
+  id = 'vacancy-pending-browser',
   inputType,
   originalUrl,
   source,
 }: {
   blockingReason: string
   fetchedAt: string
+  id?: string
   inputType: VacancyInputType
-  originalUrl: string
-  source: VacancySource
+  originalUrl: string | null
+  source: string
 }): VacancySummary {
   return {
     blockingReason,
     canGenerate: false,
     employer: null,
     fetchedAt,
-    id: 'vacancy-pending-browser',
+    id,
     inputType,
     location: null,
     originalUrl,
@@ -691,17 +775,51 @@ function isExpectedBrowserSessionVacancyPage({
   resolvedUrl: string
 }): boolean {
   try {
-    const requestedUrl = new URL(originalUrl)
-    const currentUrl = new URL(resolvedUrl)
-
-    return (
-      currentUrl.origin === requestedUrl.origin &&
-      currentUrl.pathname === requestedUrl.pathname &&
-      currentUrl.search === requestedUrl.search
-    )
+    return normalizeMatchingUrl(resolvedUrl) === normalizeMatchingUrl(originalUrl)
   } catch {
     return false
   }
+}
+
+function normalizeMatchingUrl(url: string): string {
+  const parsedUrl = new URL(url)
+  const origin = `${parsedUrl.protocol.toLowerCase()}//${parsedUrl.host.toLowerCase()}`
+  const pathname = normalizeMatchingPathname(parsedUrl.pathname)
+  const search = normalizeMatchingSearch(parsedUrl.searchParams)
+
+  return `${origin}${pathname}${search}`
+}
+
+function normalizeMatchingPathname(pathname: string): string {
+  const trimmedPathname = pathname.replace(/\/+$/u, '')
+
+  return trimmedPathname === '' ? '/' : trimmedPathname
+}
+
+function normalizeMatchingSearch(searchParameters: URLSearchParams): string {
+  const sortedEntries = [...searchParameters.entries()]
+    .filter(([key]) => {
+      return !isUrlMatchingCleanupSearchParameter(key)
+    })
+    .toSorted(([leftKey, leftValue], [rightKey, rightValue]) => {
+      const normalizedLeftKey = leftKey.toLowerCase()
+      const normalizedRightKey = rightKey.toLowerCase()
+      const keyComparison = normalizedLeftKey.localeCompare(normalizedRightKey)
+
+      return keyComparison === 0 ? leftValue.localeCompare(rightValue) : keyComparison
+    })
+  const normalizedSearch = new URLSearchParams(sortedEntries).toString()
+
+  return normalizedSearch === '' ? '' : `?${normalizedSearch}`
+}
+
+function isUrlMatchingCleanupSearchParameter(key: string): boolean {
+  const normalizedKey = key.toLowerCase()
+
+  return (
+    normalizedKey.startsWith('utm_') ||
+    URL_MATCHING_CLEANUP_SEARCH_PARAMETER_NAMES.has(normalizedKey)
+  )
 }
 
 function normalizeUrl(url: string | undefined): string | null {
@@ -724,6 +842,15 @@ function requireUrl(url: string): string {
   }
 
   return normalizedUrl
+}
+
+function normalizeSubmittedUrlHostname(url: string): string {
+  const { hostname } = new URL(url)
+  const lowercasedHostname = hostname.toLowerCase()
+
+  return lowercasedHostname.startsWith('www.')
+    ? lowercasedHostname.slice('www.'.length)
+    : lowercasedHostname
 }
 
 function buildPastedVacancyHtml(text: string): string {

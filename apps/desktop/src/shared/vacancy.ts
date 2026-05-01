@@ -1,6 +1,5 @@
 export type VacancyInputType = 'pasted_text' | 'url'
 export type VacancyReviewState = 'editable' | 'reviewed'
-export type VacancySource = 'generic' | 'greenhouse' | 'indeed' | 'linkedin'
 export type VacancyStatus = 'incomplete' | 'ready'
 
 export interface VacancyDraft {
@@ -29,7 +28,7 @@ export interface VacancySummary {
   requirements: string[]
   resolvedUrl: string | null
   responsibilities: string[]
-  source: VacancySource
+  source: string
   status: VacancyStatus
   textPreview: string
   title: string | null

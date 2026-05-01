@@ -2,7 +2,6 @@ import { randomUUID } from 'node:crypto'
 import { mkdir, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 
-import type { VacancySource } from '../shared/vacancy.js'
 import { VacancyNormalizationError } from './vacancy-normalization-error.js'
 import { VACANCY_NORMALIZATION_EXAMPLES } from './vacancy-normalization-examples.js'
 import { prepareVacancyNormalizationArtifacts } from './vacancy-page-content.js'
@@ -22,7 +21,7 @@ export interface VacancyNormalizationInput {
   originalUrl: string
   pageTitle: string | null
   resolvedUrl: string
-  source: VacancySource
+  source: string
 }
 
 export type VacancyNormalizationWorkerResult =

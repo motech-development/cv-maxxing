@@ -188,7 +188,7 @@ interface VacancyMetadataValue extends Record<string, JsonValue> {
   requirements: string[]
   resolvedUrl: string | null
   responsibilities: string[]
-  source: 'generic' | 'greenhouse' | 'indeed' | 'linkedin'
+  source: string
   status: 'incomplete' | 'ready'
   textPreview: string
   title: string | null

@@ -72,7 +72,7 @@ test('uses outcome-led low-content copy in the job details preview', () => {
     requirements: [],
     resolvedUrl: null,
     responsibilities: [],
-    source: 'generic',
+    source: 'jobs.example.com',
     status: 'incomplete',
     textPreview: '',
     title: 'Senior platform engineer',
