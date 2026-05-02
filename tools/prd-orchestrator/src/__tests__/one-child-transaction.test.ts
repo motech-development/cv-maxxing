@@ -468,6 +468,24 @@ describe('one-child transaction planning', () => {
     expect(
       selectVerificationCommands({
         designFiles: [],
+        expectedFiles: ['apps/desktop/src/main/vacancy-service.ts'],
+        expectedModules: ['@cv-maxxing/desktop/main'],
+        riskLevel: 'medium',
+        sharedContracts: [],
+        tests: [
+          'apps/desktop/src/main/__tests__/vacancy-service.test.ts',
+          'apps/desktop/src/renderer/__tests__/App.test.tsx',
+        ],
+      }),
+    ).toEqual([
+      'pnpm lint',
+      'pnpm --filter @cv-maxxing/desktop typecheck',
+      "pnpm --filter @cv-maxxing/desktop test:integration -- 'src/main/__tests__/vacancy-service.test.ts'",
+      "pnpm --filter @cv-maxxing/desktop test:unit -- 'src/renderer/__tests__/App.test.tsx'",
+    ])
+    expect(
+      selectVerificationCommands({
+        designFiles: [],
         expectedFiles: ['packages/shared/src/index.ts'],
         expectedModules: ['@cv-maxxing/shared; touch /tmp/pwned'],
         riskLevel: 'low',

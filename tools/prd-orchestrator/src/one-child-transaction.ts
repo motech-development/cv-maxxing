@@ -136,6 +136,17 @@ export interface FailureRecoveryPlan {
 
 const prdBranchPrefix = 'agent/prd'
 const dependencyChangeFiles = new Set(['package.json', 'pnpm-lock.yaml'])
+const desktopIntegrationTestPaths = new Set([
+  'src/main/__tests__/local-app-data-service.test.ts',
+  'src/main/__tests__/main.test.ts',
+  'src/main/__tests__/original-cv-service.test.ts',
+  'src/main/__tests__/settings-bootstrap.test.ts',
+  'src/main/__tests__/settings-service.test.ts',
+  'src/main/__tests__/tailored-application-generation-worker.test.ts',
+  'src/main/__tests__/tailored-application-session-service.test.ts',
+  'src/main/__tests__/vacancy-browser-session-service.test.ts',
+  'src/main/__tests__/vacancy-service.test.ts',
+])
 
 export const planOneChildTransaction = (
   input: PlanOneChildTransactionInput,
@@ -463,23 +474,21 @@ const selectTargetedTestCommands = (
   }
 
   return packageNames.flatMap((packageName) => {
-    const packageTestPathArguments = selectPackageTestPaths({
+    const packageTestPaths = selectPackageTestPaths({
       packageName,
       testPaths: impactAnalysis.tests,
     })
-      .map((testPath) => shellQuote(testPath))
-      .join(' ')
 
-    if (packageTestPathArguments.length === 0) {
+    if (packageTestPaths.length === 0) {
       return []
     }
 
-    return [
-      `${formatPackageScriptCommand(
-        packageName,
-        selectPackageTestScript(packageName),
-      )} -- ${packageTestPathArguments}`,
-    ]
+    return [...groupTestPathsByScript({ packageName, testPaths: packageTestPaths }).entries()].map(
+      ([scriptName, testPaths]) =>
+        `${formatPackageScriptCommand(packageName, scriptName)} -- ${testPaths
+          .map((testPath) => shellQuote(testPath))
+          .join(' ')}`,
+    )
   })
 }
 
@@ -515,10 +524,30 @@ const parsePackageName = (moduleName: string): readonly string[] => {
   return []
 }
 
-const selectPackageTestScript = (packageName: string): string =>
-  packageName === '@cv-maxxing/desktop' || packageName === '@cv-maxxing/prd-orchestrator'
-    ? 'test:unit'
-    : 'test'
+const groupTestPathsByScript = (input: {
+  readonly packageName: string
+  readonly testPaths: readonly string[]
+}): ReadonlyMap<string, readonly string[]> =>
+  input.testPaths.reduce<ReadonlyMap<string, readonly string[]>>((groups, testPath) => {
+    const scriptName = selectPackageTestScript({
+      packageName: input.packageName,
+      testPath,
+    })
+    const matchingTestPaths = groups.get(scriptName) ?? []
+
+    return new Map(groups).set(scriptName, [...matchingTestPaths, testPath])
+  }, new Map())
+
+const selectPackageTestScript = (input: {
+  readonly packageName: string
+  readonly testPath: string
+}): string => {
+  if (input.packageName === '@cv-maxxing/desktop') {
+    return desktopIntegrationTestPaths.has(input.testPath) ? 'test:integration' : 'test:unit'
+  }
+
+  return input.packageName === '@cv-maxxing/prd-orchestrator' ? 'test:unit' : 'test'
+}
 
 const selectPackageTestPaths = (input: {
   readonly packageName: string
