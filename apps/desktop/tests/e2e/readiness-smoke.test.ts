@@ -8,9 +8,14 @@ import { _electron as electron } from 'playwright'
 import { getDocument } from 'pdfjs-dist/legacy/build/pdf.mjs'
 
 import { createOriginalCvNormalizationFixtureOutput } from './original-cv-normalization-fixture.js'
+import {
+  createSpanishVacancyNormalizationFixtureOutput,
+  createVacancyNormalizationFixtureOutput,
+} from './vacancy-normalization-fixture.js'
 
 const temporaryDirectories: string[] = []
 const defaultOriginalCvNormalizationOutput = createOriginalCvNormalizationFixtureOutput()
+const defaultVacancyNormalizationOutput = createVacancyNormalizationFixtureOutput()
 
 async function launchDesktopApp(environment: NodeJS.ProcessEnv = {}) {
   const combinedEnvironment = Object.fromEntries(
@@ -20,6 +25,9 @@ async function launchDesktopApp(environment: NodeJS.ProcessEnv = {}) {
       CV_MAXXING_AI_WORKER_ORIGINAL_CV_NORMALIZATION_OUTPUT:
         environment.CV_MAXXING_AI_WORKER_ORIGINAL_CV_NORMALIZATION_OUTPUT ??
         defaultOriginalCvNormalizationOutput,
+      CV_MAXXING_AI_WORKER_VACANCY_NORMALIZATION_OUTPUT:
+        environment.CV_MAXXING_AI_WORKER_VACANCY_NORMALIZATION_OUTPUT ??
+        defaultVacancyNormalizationOutput,
     }).filter((entry): entry is [string, string] => {
       return typeof entry[1] === 'string'
     }),
@@ -488,6 +496,8 @@ test('blocks a non-English pasted vacancy, preserves the draft, and keeps Tailor
 
   const electronApp = await launchDesktopApp({
     CV_MAXXING_AI_WORKER_PREFLIGHT_STATUS: 'ready',
+    CV_MAXXING_AI_WORKER_VACANCY_NORMALIZATION_OUTPUT:
+      createSpanishVacancyNormalizationFixtureOutput(),
     CV_MAXXING_LOCAL_APP_DATA_ROOT: testPaths.appDataRoot,
     CV_MAXXING_STARTUP_DESTINATION: 'first_launch',
   })

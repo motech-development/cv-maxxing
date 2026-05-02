@@ -625,6 +625,73 @@ test('does not persist misleading URL intake data when an AI-requested action is
   await localAppData.close()
 })
 
+test('limits AI reading interactions during browser-assisted vacancy intake', async () => {
+  const paths = await createTestPaths()
+  const localAppData = await openLocalAppData({
+    keychain: createKeychainBoundary(),
+    paths,
+  })
+  const reviewVacancyPage = vi.fn<NonNullable<VacancyNormalizationService['reviewVacancyPage']>>(
+    () => {
+      return Promise.resolve({
+        interaction: {
+          kind: 'scroll',
+          pixels: 720,
+        },
+        kind: 'interaction_requested',
+      } satisfies VacancyPageReviewResult)
+    },
+  )
+  const applyReadingInteraction = vi.fn(() => {
+    return Promise.resolve({
+      kind: 'captured',
+      snapshot: {
+        html: '<main><h1>Senior Product Designer</h1><section>More details</section></main>',
+        pageTitle: 'Senior Product Designer',
+        resolvedUrl: 'https://careers.example.com/jobs/123',
+      },
+    } satisfies VacancyBrowserPageInteractionResult)
+  })
+  const normalizationService = {
+    normalizeVacancy: vi.fn(),
+    reviewVacancyPage,
+  } satisfies VacancyNormalizationService
+  const vacancyService = createVacancyService({
+    captureVacancyBrowserSessionPage: vi.fn(
+      async ({ reviewPage }: { reviewPage?: VacancyBrowserPageReview }) => {
+        if (reviewPage === undefined) {
+          throw new Error('Expected URL intake to provide an AI page-review callback.')
+        }
+
+        return await reviewPage({
+          applyReadingInteraction,
+          getRemainingTimeMs: () => 90_000,
+          initialSnapshot: {
+            html: '<main><h1>Senior Product Designer</h1><button>More details</button></main>',
+            pageTitle: 'Senior Product Designer',
+            resolvedUrl: 'https://careers.example.com/jobs/123',
+          },
+        })
+      },
+    ),
+    generateId: vi.fn(() => 'vacancy-max-reading-interactions'),
+    getCurrentTimestamp: vi.fn(() => '2026-04-08T21:14:00.000Z'),
+    localAppData,
+    normalizationService,
+    openVacancyBrowserSession: vi.fn(() => Promise.resolve(null)),
+  })
+
+  const result = await vacancyService.ingestVacancyUrl({
+    url: 'https://careers.example.com/jobs/123',
+  })
+
+  expect(result.kind).toBe('incomplete')
+  expect(reviewVacancyPage).toHaveBeenCalledTimes(8)
+  expect(applyReadingInteraction).toHaveBeenCalledTimes(7)
+
+  await localAppData.close()
+})
+
 test('opens the managed browser for auth-required URL intake and retries the original URL after close', async () => {
   const paths = await createTestPaths()
   const localAppData = await openLocalAppData({
@@ -1114,6 +1181,11 @@ test('keeps the internal browser session blocked when authenticated job site red
         resolvedUrl: string
       }) => boolean
     }) => {
+      const acceptedSnapshot = {
+        html: '<main><h1>Senior Product Designer</h1></main>',
+        pageTitle: 'Senior Product Designer',
+        resolvedUrl: 'https://careers.example.com/jobs/123456/?gh_jid=abc123&utm_source=auth',
+      }
       const redirectedSnapshot = {
         html: [
           '<html>',
@@ -1131,6 +1203,7 @@ test('keeps the internal browser session blocked when authenticated job site red
         resolvedUrl: 'https://careers.example.com/account/',
       }
 
+      expect(shouldCapturePage(acceptedSnapshot)).toBe(true)
       expect(shouldCapturePage(redirectedSnapshot)).toBe(false)
 
       return Promise.resolve(null)
@@ -1145,11 +1218,11 @@ test('keeps the internal browser session blocked when authenticated job site red
   })
 
   await vacancyService.ingestVacancyUrl({
-    url: 'https://careers.example.com/jobs/123456',
+    url: 'https://careers.example.com/jobs/123456?gh_jid=abc123',
   })
 
   const result = await vacancyService.openBrowserSession({
-    url: 'https://careers.example.com/jobs/123456',
+    url: 'https://careers.example.com/jobs/123456?gh_jid=abc123',
   })
 
   expect(result.kind).toBe('incomplete')
@@ -1157,7 +1230,7 @@ test('keeps the internal browser session blocked when authenticated job site red
   expect(result.vacancy.blockingReason).toContain('Open the job page')
   expect(result.workspaceState.draft).toEqual({
     text: '',
-    url: 'https://careers.example.com/jobs/123456',
+    url: 'https://careers.example.com/jobs/123456?gh_jid=abc123',
   })
 
   await localAppData.close()

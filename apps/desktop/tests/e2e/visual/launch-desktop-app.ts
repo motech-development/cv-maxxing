@@ -6,9 +6,11 @@ import type { Page } from '@playwright/test'
 import { _electron as electron } from 'playwright'
 
 import { createOriginalCvNormalizationFixtureOutput } from '../original-cv-normalization-fixture.js'
+import { createVacancyNormalizationFixtureOutput } from '../vacancy-normalization-fixture.js'
 
 const temporaryDirectories: string[] = []
 const defaultOriginalCvNormalizationOutput = createOriginalCvNormalizationFixtureOutput()
+const defaultVacancyNormalizationOutput = createVacancyNormalizationFixtureOutput()
 
 export interface VisualTestPaths {
   appDataRoot: string
@@ -74,6 +76,9 @@ export async function launchDesktopApp(environment: NodeJS.ProcessEnv = {}) {
       CV_MAXXING_AI_WORKER_ORIGINAL_CV_NORMALIZATION_OUTPUT:
         environment.CV_MAXXING_AI_WORKER_ORIGINAL_CV_NORMALIZATION_OUTPUT ??
         defaultOriginalCvNormalizationOutput,
+      CV_MAXXING_AI_WORKER_VACANCY_NORMALIZATION_OUTPUT:
+        environment.CV_MAXXING_AI_WORKER_VACANCY_NORMALIZATION_OUTPUT ??
+        defaultVacancyNormalizationOutput,
       CV_MAXXING_MAIN_WINDOW_SHOW: environment.CV_MAXXING_MAIN_WINDOW_SHOW ?? 'false',
     }).filter((entry): entry is [string, string] => {
       return typeof entry[1] === 'string'

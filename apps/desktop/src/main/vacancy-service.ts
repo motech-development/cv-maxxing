@@ -523,7 +523,7 @@ async function reviewVacancyPageWithReadingInteractions({
   let currentSnapshot = initialSnapshot
   const interactionHistory: VacancyPageInteractionHistoryEntry[] = []
 
-  for (let attemptIndex = 0; attemptIndex <= MAX_AI_READING_INTERACTIONS; attemptIndex += 1) {
+  for (let attemptIndex = 0; attemptIndex < MAX_AI_READING_INTERACTIONS; attemptIndex += 1) {
     const remainingTimeMs = getRemainingTimeMs()
 
     if (remainingTimeMs <= 0) {
@@ -563,6 +563,17 @@ async function reviewVacancyPageWithReadingInteractions({
         kind: 'success',
         normalizedVacancy: reviewResult.normalizedVacancy,
         snapshot: currentSnapshot,
+      }
+    }
+
+    if (attemptIndex >= MAX_AI_READING_INTERACTIONS - 1) {
+      interactionHistory.push({
+        interaction: reviewResult.interaction,
+        result: 'rejected',
+      })
+
+      return {
+        kind: 'rejected_interaction',
       }
     }
 
@@ -1006,12 +1017,29 @@ function isExpectedBrowserSessionVacancyPage({
 
     return (
       currentUrl.origin === requestedUrl.origin &&
-      currentUrl.pathname === requestedUrl.pathname &&
-      currentUrl.search === requestedUrl.search
+      normalizeUrlPathname(currentUrl.pathname) === normalizeUrlPathname(requestedUrl.pathname) &&
+      urlSearchParametersInclude(currentUrl.searchParams, requestedUrl.searchParams)
     )
   } catch {
     return false
   }
+}
+
+function normalizeUrlPathname(pathname: string): string {
+  if (pathname !== '/' && pathname.endsWith('/')) {
+    return pathname.slice(0, -1)
+  }
+
+  return pathname
+}
+
+function urlSearchParametersInclude(
+  currentParameters: URLSearchParams,
+  requestedParameters: URLSearchParams,
+): boolean {
+  return [...requestedParameters.entries()].every(([key, value]) => {
+    return currentParameters.getAll(key).includes(value)
+  })
 }
 
 function normalizeUrl(url: string | undefined): string | null {

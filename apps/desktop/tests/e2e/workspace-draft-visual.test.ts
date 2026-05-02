@@ -20,6 +20,7 @@ import {
   hideScrollbars,
   launchDesktopApp,
 } from './visual/launch-desktop-app.js'
+import { createSpanishVacancyNormalizationFixtureOutput } from './vacancy-normalization-fixture.js'
 
 test.afterEach(async () => {
   await cleanupVisualTestArtifacts()
@@ -138,6 +139,8 @@ test('captures the workspace review error screen', async () => {
 
   const electronApp = await launchDesktopApp({
     CV_MAXXING_AI_WORKER_PREFLIGHT_STATUS: 'ready',
+    CV_MAXXING_AI_WORKER_VACANCY_NORMALIZATION_OUTPUT:
+      createSpanishVacancyNormalizationFixtureOutput(),
     CV_MAXXING_LOCAL_APP_DATA_ROOT: testPaths.appDataRoot,
     CV_MAXXING_STARTUP_DESTINATION: 'first_launch',
   })
