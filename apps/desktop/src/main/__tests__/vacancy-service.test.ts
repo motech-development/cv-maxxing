@@ -85,12 +85,12 @@ test('ingests pasted vacancy text into a ready preview and persists encrypted va
       '- Experience shipping workflow products.',
       '- Strong written communication.',
     ].join('\n'),
-    url: 'https://jobs.example.com/senior-product-designer',
+    url: 'https://www.jobs.example.com/senior-product-designer',
   })
 
   expect(result.kind).toBe('ingested')
   expect(result.vacancy.id).toBe('vacancy-001')
-  expect(result.vacancy.source).toBe('generic')
+  expect(result.vacancy.source).toBe('jobs.example.com')
   expect(result.vacancy.inputType).toBe('pasted_text')
   expect(result.vacancy.title).toBe('Senior Product Designer')
   expect(result.vacancy.employer).toBe('Example Labs')
@@ -113,8 +113,8 @@ test('ingests pasted vacancy text into a ready preview and persists encrypted va
     }),
   ).resolves.toEqual(
     expect.objectContaining({
-      originalUrl: 'https://jobs.example.com/senior-product-designer',
-      source: 'generic',
+      originalUrl: 'https://www.jobs.example.com/senior-product-designer',
+      source: 'jobs.example.com',
       title: 'Senior Product Designer',
     }),
   )
@@ -215,7 +215,7 @@ test('ingests an embedded-board vacancy URL through the generic browser capture 
   })
 
   expect(result.kind).toBe('ingested')
-  expect(result.vacancy.source).toBe('generic')
+  expect(result.vacancy.source).toBe('careers.example.com')
   expect(result.vacancy.inputType).toBe('url')
   expect(result.vacancy.title).toBe('Senior Product Designer')
   expect(result.vacancy.employer).toBe('Example Labs')
@@ -238,7 +238,7 @@ test('ingests an embedded-board vacancy URL through the generic browser capture 
   expect(normalizationCall.resolvedUrl).toBe(
     'https://careers.example.com/jobs/senior-product-designer',
   )
-  expect(normalizationCall.source).toBe('generic')
+  expect(normalizationCall.source).toBe('careers.example.com')
 
   const extractedArtifact = await localAppData.artifacts.read({
     id: 'vacancy-002',
@@ -316,7 +316,7 @@ test('ingests an authenticated LinkedIn vacancy URL without opening the interact
   })
 
   expect(result.kind).toBe('ingested')
-  expect(result.vacancy.source).toBe('linkedin')
+  expect(result.vacancy.source).toBe('linkedin.com')
   expect(result.vacancy.canGenerate).toBe(true)
   expect(result.vacancy.blockingReason).toBeNull()
   expect(captureVacancyBrowserSessionPage).toHaveBeenCalledTimes(1)
@@ -328,7 +328,7 @@ test('ingests an authenticated LinkedIn vacancy URL without opening the interact
     url: 'https://www.linkedin.com/jobs/view/123456',
   })
   expect(workspaceState.vacancy?.canGenerate).toBe(true)
-  expect(workspaceState.vacancy?.source).toBe('linkedin')
+  expect(workspaceState.vacancy?.source).toBe('linkedin.com')
   expect(workspaceState.vacancy?.title).toBe('Senior Product Designer')
 
   await localAppData.close()
@@ -355,7 +355,7 @@ test('preserves a LinkedIn vacancy URL and falls back to the interactive browser
   })
 
   expect(result.kind).toBe('incomplete')
-  expect(result.vacancy.source).toBe('linkedin')
+  expect(result.vacancy.source).toBe('linkedin.com')
   expect(result.vacancy.canGenerate).toBe(false)
   expect(result.vacancy.blockingReason).toContain('Open the job page')
   expect(captureVacancyBrowserSessionPage).toHaveBeenCalledTimes(1)
@@ -425,7 +425,7 @@ test('ingests a browser-assisted LinkedIn vacancy into a ready preview and persi
 
   expect(result.kind).toBe('ingested')
   expect(result.vacancy.id).toBe('vacancy-006')
-  expect(result.vacancy.source).toBe('linkedin')
+  expect(result.vacancy.source).toBe('linkedin.com')
   expect(result.vacancy.canGenerate).toBe(true)
   expect(result.vacancy.title).toBe('Senior Product Designer')
   expect(result.vacancy.textPreview).toBe(
@@ -445,7 +445,7 @@ test('ingests a browser-assisted LinkedIn vacancy into a ready preview and persi
 
   expect(normalizationCall.originalUrl).toBe('https://www.linkedin.com/jobs/view/123456')
   expect(normalizationCall.resolvedUrl).toBe('https://www.linkedin.com/jobs/view/123456')
-  expect(normalizationCall.source).toBe('linkedin')
+  expect(normalizationCall.source).toBe('linkedin.com')
   expect(normalizationCall.html).toContain('Senior Product Designer')
 
   const extractedArtifact = await localAppData.artifacts.read({
@@ -543,7 +543,7 @@ test('ingests a browser-assisted Indeed vacancy through AI normalization and per
   })
 
   expect(result.kind).toBe('ingested')
-  expect(result.vacancy.source).toBe('indeed')
+  expect(result.vacancy.source).toBe('indeed.com')
   expect(result.vacancy.title).toBe('Staff Product Designer')
   expect(result.vacancy.canGenerate).toBe(true)
 
@@ -557,7 +557,7 @@ test('ingests a browser-assisted Indeed vacancy through AI normalization and per
 
   expect(normalizationCall.originalUrl).toBe('https://www.indeed.com/viewjob?jk=abc123')
   expect(normalizationCall.resolvedUrl).toBe('https://www.indeed.com/viewjob?jk=abc123')
-  expect(normalizationCall.source).toBe('indeed')
+  expect(normalizationCall.source).toBe('indeed.com')
 
   const extractedArtifact = await localAppData.artifacts.read({
     id: 'vacancy-006-indeed',
@@ -739,7 +739,7 @@ test('returns an incomplete browser-assisted preview when AI normalization yield
   })
 
   expect(result.kind).toBe('incomplete')
-  expect(result.vacancy.source).toBe('linkedin')
+  expect(result.vacancy.source).toBe('linkedin.com')
   expect(result.vacancy.canGenerate).toBe(false)
   expect(result.vacancy.blockingReason).toBe(
     'Add the full job responsibilities or requirements before tailoring your CV.',
@@ -808,7 +808,7 @@ test('derives generic URL review readiness from the normalized vacancy object an
   })
 
   expect(result.kind).toBe('ingested')
-  expect(result.vacancy.source).toBe('generic')
+  expect(result.vacancy.source).toBe('careers.example.com')
   expect(result.vacancy.canGenerate).toBe(true)
   expect(result.vacancy.blockingReason).toBeNull()
   expect(result.vacancy.title).toBe('Senior Product Designer')
@@ -832,7 +832,7 @@ test('derives generic URL review readiness from the normalized vacancy object an
       requirements: [],
       resolvedUrl: 'https://careers.example.com/product-designer',
       responsibilities: [],
-      source: 'generic',
+      source: 'careers.example.com',
       status: 'ready',
       textPreview:
         'Design the workflow surface for authenticated job-vacancy review. Partner with engineering to ship desktop product improvements and document system behaviour for operators across desktop import, preview, and export flows without dropping factual vacancy detail.',

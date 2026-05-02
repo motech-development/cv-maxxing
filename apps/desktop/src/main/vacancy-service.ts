@@ -4,7 +4,6 @@ import type {
   VacancyIngestResult,
   VacancyInputType,
   VacancyReviewState,
-  VacancySource,
   VacancySummary,
   VacancyWorkspaceState,
 } from '../shared/vacancy.js'
@@ -61,7 +60,7 @@ interface VacancyMetadataValue extends Record<string, JsonValue> {
   requirements: string[]
   resolvedUrl: string | null
   responsibilities: string[]
-  source: VacancySource
+  source: string
   status: 'incomplete' | 'ready'
   textPreview: string
   title: string | null
@@ -138,7 +137,7 @@ export function createVacancyService({
     }): Promise<VacancyIngestResult> => {
       const trimmedText = text.trim()
       const normalizedUrl = normalizeUrl(url)
-      const source = normalizedUrl ? classifyVacancyUrl(normalizedUrl) : 'generic'
+      const source = normalizedUrl ? normalizeSubmittedHostname(normalizedUrl) : 'pasted_text'
       const vacancyId = generateId()
       const fetchedAt = getCurrentTimestamp()
       const normalizedVacancy = normalizeVacancyText(trimmedText)
@@ -217,7 +216,7 @@ export function createVacancyService({
     },
     ingestVacancyUrl: async ({ url }: { url: string }): Promise<VacancyIngestResult> => {
       const normalizedUrl = requireUrl(url)
-      const source = classifyVacancyUrl(normalizedUrl)
+      const source = normalizeSubmittedHostname(normalizedUrl)
 
       await persistVacancyWorkspaceDraft({
         localAppData,
@@ -281,7 +280,7 @@ export function createVacancyService({
     },
     openBrowserSession: async ({ url }: { url: string }): Promise<VacancyIngestResult> => {
       const normalizedUrl = requireUrl(url)
-      const source = classifyVacancyUrl(normalizedUrl)
+      const source = normalizeSubmittedHostname(normalizedUrl)
       const browserSnapshot = await openVacancyBrowserSession({
         shouldCapturePage: (snapshot) => {
           return isExpectedBrowserSessionVacancyPage({
@@ -348,7 +347,7 @@ async function createInteractiveBrowserFallbackResult({
   getCurrentTimestamp: () => string
   localAppData: Pick<LocalAppDataStore, 'artifacts' | 'metadata'>
   originalUrl: string
-  source: VacancySource
+  source: string
 }): Promise<VacancyIngestResult> {
   const incompleteVacancy = createBlockedVacancySummary({
     blockingReason: OPEN_JOB_PAGE_BLOCKING_REASON,
@@ -385,7 +384,7 @@ async function persistFetchedVacancyPage({
   localAppData: Pick<LocalAppDataStore, 'artifacts' | 'metadata'>
   normalizationService: VacancyNormalizationService
   originalUrl: string
-  source: VacancySource
+  source: string
   workspaceSelectionStore?: Pick<WorkspaceSelectionStore, 'getSelection' | 'setSelection'>
 }): Promise<VacancyIngestResult> {
   const normalizedVacancy = await normalizationService.normalizeVacancy({
@@ -507,7 +506,7 @@ function createBlockedVacancySummary({
   fetchedAt: string
   inputType: VacancyInputType
   originalUrl: string
-  source: VacancySource
+  source: string
 }): VacancySummary {
   return {
     blockingReason,
@@ -686,22 +685,14 @@ function toVacancySummary({
   }
 }
 
-function classifyVacancyUrl(url: string): VacancySource {
+function normalizeSubmittedHostname(url: string): string {
   const hostname = new URL(url).hostname.toLowerCase()
 
-  if (hostname.includes('greenhouse.io')) {
-    return 'greenhouse'
+  if (hostname.startsWith('www.')) {
+    return hostname.slice('www.'.length)
   }
 
-  if (hostname.includes('linkedin.com')) {
-    return 'linkedin'
-  }
-
-  if (hostname.includes('indeed.com')) {
-    return 'indeed'
-  }
-
-  return 'generic'
+  return hostname
 }
 
 function isExpectedBrowserSessionVacancyPage({
