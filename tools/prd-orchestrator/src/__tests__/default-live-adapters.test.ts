@@ -231,6 +231,34 @@ describe('default live adapters', () => {
     })
   })
 
+  it('loads failed GitHub Actions log evidence for autonomous CI repair', async () => {
+    const shell = createRecordingShell()
+    const adapters = createDefaultPrdOrchestratorLiveAdapters('/repo', undefined, shell.run)
+    const getFailureEvidence = adapters.ci.getFailureEvidence
+
+    if (getFailureEvidence === undefined) {
+      throw new Error('Expected the default CI adapter to provide failure evidence.')
+    }
+
+    const evidence = await getFailureEvidence({
+      branchName: 'agent/prd-80-test',
+      prNumber: 123,
+    })
+
+    expect(evidence).toEqual([
+      {
+        detailsUrl: 'https://github.com/motech-development/cv-maxxing/actions/runs/252/job/740',
+        logExcerpt: evidence[0]?.logExcerpt,
+        name: 'Desktop Verification (apple-silicon)',
+        workflowName: 'Desktop CI',
+      },
+    ])
+    expect(evidence[0]?.logExcerpt).toContain('Run Electron smoke suite failed')
+    expect(shell.commands.map((command) => formatCommand(command))).toContain(
+      'gh run view 252 --log-failed',
+    )
+  })
+
   it('loads existing automation PR draft state before live run rewrites', async () => {
     const shell = createRecordingShell()
     const adapters = createDefaultPrdOrchestratorLiveAdapters('/repo', undefined, shell.run)
@@ -631,6 +659,34 @@ const responseForCommand = (
         status: 'completed',
       },
     ])
+  }
+
+  if (formattedCommand === 'gh pr view 123 --json statusCheckRollup') {
+    return JSON.stringify({
+      statusCheckRollup: [
+        {
+          conclusion: 'FAILURE',
+          detailsUrl: 'https://github.com/motech-development/cv-maxxing/actions/runs/252/job/740',
+          name: 'Desktop Verification (apple-silicon)',
+          status: 'COMPLETED',
+          workflowName: 'Desktop CI',
+        },
+        {
+          conclusion: 'SUCCESS',
+          detailsUrl: 'https://github.com/motech-development/cv-maxxing/actions/runs/252/job/741',
+          name: 'CodeRabbit',
+          status: 'COMPLETED',
+          workflowName: undefined,
+        },
+      ],
+    })
+  }
+
+  if (formattedCommand === 'gh run view 252 --log-failed') {
+    return [
+      'Desktop Verification (apple-silicon)\tRun Electron smoke suite\tRun Electron smoke suite failed',
+      'Desktop Verification (apple-silicon)\tRun Electron smoke suite\tError: expected locator to be visible',
+    ].join('\n')
   }
 
   if (formattedCommand.startsWith('gh pr view 123 --json reviews')) {

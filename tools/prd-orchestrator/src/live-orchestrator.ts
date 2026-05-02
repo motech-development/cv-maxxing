@@ -59,6 +59,7 @@ let resumeRepairWorkerBranchSequence = 0
 export interface PrdOrchestratorLiveAdapters {
   readonly configuration?: PrdOrchestratorLiveConfiguration
   readonly ci: {
+    readonly getFailureEvidence?: (input: PollChecksInput) => Promise<readonly CiFailureEvidence[]>
     readonly pollChecks: (input: PollChecksInput) => Promise<GitHubActionsStatus>
   }
   readonly codeRabbit: {
@@ -304,6 +305,13 @@ interface LiveRunStartupCheck {
 export interface PollChecksInput {
   readonly branchName: string
   readonly prNumber: number
+}
+
+export interface CiFailureEvidence {
+  readonly detailsUrl?: string
+  readonly logExcerpt: string
+  readonly name: string
+  readonly workflowName?: string
 }
 
 export interface AutomationPrDetails {
@@ -3023,10 +3031,57 @@ const finalizePrdIfReady = async (input: {
   readonly ciStatus: CiStatus
   readonly phase: string
 }> => {
-  const ciResult = await pollFinalCiUntilTerminal(input)
-  const ciStatus = ciResult.status
+  const seenCiFailureFingerprints = new Set<string>()
+  let ciStatus: CiStatus
 
-  if (ciStatus !== 'passed') {
+  for (;;) {
+    const ciResult = await pollFinalCiUntilTerminal(input)
+    ciStatus = ciResult.status
+
+    if (ciStatus === 'passed') {
+      break
+    }
+
+    if (ciStatus === 'failed') {
+      const repairResult = await runFinalCiRepairUntilClean({
+        ...input,
+        blockers: ciResult.blockers,
+        seenCiFailureFingerprints,
+      })
+
+      if (repairResult.status === 'clean') {
+        const commitFinalCleanup = input.adapters.git.commitFinalCleanup
+
+        if (commitFinalCleanup === undefined) {
+          return {
+            blockers: ciResult.blockers,
+            ciStatus,
+            phase: 'blocked',
+          }
+        }
+
+        await commitFinalCleanup(createFinalCiRepairCommitMessage(repairResult.findings))
+        await input.adapters.git.pushPrdBranch({
+          branchName: input.branchName,
+          mode: 'force-with-lease',
+        })
+
+        continue
+      }
+
+      await postCiBlockerComment({
+        blockers: repairResult.blockers,
+        prNumber: input.draftPr.prNumber,
+        postPrComment: input.adapters.github.postPrComment,
+      })
+
+      return {
+        blockers: repairResult.blockers,
+        ciStatus,
+        phase: 'blocked',
+      }
+    }
+
     await postCiBlockerComment({
       blockers: ciResult.blockers,
       prNumber: input.draftPr.prNumber,
@@ -3220,6 +3275,121 @@ const pollFinalCiUntilTerminal = async (input: {
     status: 'timed-out',
   }
 }
+
+const runFinalCiRepairUntilClean = async (input: {
+  readonly adapters: PrdOrchestratorLiveAdapters
+  readonly blockers: readonly string[]
+  readonly branchName: string
+  readonly draftPr: RemoteAutomationPr
+  readonly seenCiFailureFingerprints: Set<string>
+}): Promise<
+  | {
+      readonly findings: readonly CodeRabbitFinding[]
+      readonly status: 'clean'
+    }
+  | {
+      readonly blockers: readonly string[]
+      readonly status: 'blocked'
+    }
+> => {
+  if (input.adapters.git.commitFinalCleanup === undefined) {
+    return {
+      blockers: input.blockers,
+      status: 'blocked',
+    }
+  }
+
+  if (input.adapters.ci.getFailureEvidence === undefined) {
+    return {
+      blockers: input.blockers,
+      status: 'blocked',
+    }
+  }
+
+  const evidence = await input.adapters.ci.getFailureEvidence({
+    branchName: input.branchName,
+    prNumber: input.draftPr.prNumber,
+  })
+  const findings = createCiRepairFindings(evidence, input.blockers)
+  const fingerprint = findings.map((finding) => `${finding.title}\n${finding.body}`).join('\n---\n')
+
+  if (input.seenCiFailureFingerprints.has(fingerprint)) {
+    return {
+      blockers: [
+        ...input.blockers,
+        'CI repair stopped because GitHub Actions failed again with the same evidence after repair.',
+      ],
+      status: 'blocked',
+    }
+  }
+
+  input.seenCiFailureFingerprints.add(fingerprint)
+  const repairGate = await runResumeRepairGateUntilClean({
+    adapters: input.adapters,
+    branchName: input.branchName,
+    codeRabbitChildIssueNumber: 0,
+    codeRabbitCommitHash: 'final-ci-repair',
+    currentChildIssueNumber: undefined,
+    expectedFiles: [],
+    findings,
+    prNumber: input.draftPr.prNumber,
+    targetLabel: 'final cleanup',
+    workerBranchName: `${input.branchName}-resume-ci-repair`,
+  })
+
+  if (repairGate.status === 'blocked') {
+    return {
+      blockers: repairGate.blockers,
+      status: 'blocked',
+    }
+  }
+
+  return {
+    findings,
+    status: 'clean',
+  }
+}
+
+const createCiRepairFindings = (
+  evidence: readonly CiFailureEvidence[],
+  blockers: readonly string[],
+): readonly CodeRabbitFinding[] => {
+  if (evidence.length === 0) {
+    return [
+      {
+        body: blockers.join('\n'),
+        id: 'github-actions-ci-failure',
+        source: 'github-check',
+        title: 'GitHub Actions failed',
+      },
+    ]
+  }
+
+  return evidence.map((failure, index) => ({
+    body: [
+      ...(failure.workflowName === undefined ? [] : [`Workflow: ${failure.workflowName}`]),
+      `Check: ${failure.name}`,
+      ...(failure.detailsUrl === undefined ? [] : [`Details: ${failure.detailsUrl}`]),
+      '',
+      'Failure evidence:',
+      failure.logExcerpt,
+    ].join('\n'),
+    id: `github-actions-ci-failure-${String(index + 1)}`,
+    source: 'github-check',
+    title: `${failure.workflowName ?? 'GitHub Actions'} / ${failure.name} failed`,
+  }))
+}
+
+const createFinalCiRepairCommitMessage = (findings: readonly CodeRabbitFinding[]): string =>
+  [
+    'fix: repair final CI failures',
+    '',
+    'Verification evidence:',
+    '- Resume repair applied from failed GitHub Actions evidence.',
+    '',
+    'CI findings:',
+    ...findings.map((finding) => `- ${finding.id}: ${finding.title}`),
+  ].join('\n')
 
 const readFinalCiStatus = async (input: {
   readonly adapters: PrdOrchestratorLiveAdapters

@@ -226,6 +226,7 @@ export type {
   AutomationPrDetails,
   ChildCommitResult,
   CheckoutChildCommitInput,
+  CiFailureEvidence,
   CreateDraftPrInput,
   LiveCommandResult,
   LivePreflightResult,

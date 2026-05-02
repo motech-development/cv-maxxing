@@ -31,6 +31,7 @@ import {
   type AutomationPrDetails,
   type ChildCommitResult,
   type CheckoutChildCommitInput,
+  type CiFailureEvidence,
   type CreateDraftPrInput,
   type LivePreflightResult,
   type LiveRunLockResult,
@@ -1155,6 +1156,33 @@ const getInlineReviewComments = async (
 const createCiAdapter = (
   shell: DefaultLiveAdapterShellRunner,
 ): PrdOrchestratorLiveAdapters['ci'] => ({
+  getFailureEvidence: async (input: PollChecksInput): Promise<readonly CiFailureEvidence[]> => {
+    const prResult = await shell({
+      args: ['pr', 'view', String(input.prNumber), '--json', 'statusCheckRollup'],
+      command: 'gh',
+      timeoutMs: 30 * 60 * 1000,
+    })
+    const failedChecks = parseFailedGitHubActionsChecks(prResult.stdout)
+
+    return await Promise.all(
+      failedChecks.map(async (check) => {
+        const runId = parseGitHubActionsRunId(check.detailsUrl)
+        const logExcerpt = await loadCiFailureLogExcerpt({
+          checkName: check.name,
+          detailsUrl: check.detailsUrl,
+          runId,
+          shell,
+        })
+
+        return {
+          detailsUrl: check.detailsUrl,
+          logExcerpt,
+          name: check.name,
+          workflowName: check.workflowName,
+        }
+      }),
+    )
+  },
   pollChecks: async (input: PollChecksInput): Promise<GitHubActionsStatus> => {
     const result = await shell({
       args: [
@@ -1960,6 +1988,79 @@ const parseGitHubActionsRun = (
     status: parseStringField(value, 'status'),
     workflowDatabaseId: parseOptionalNumberField(value, 'workflowDatabaseId'),
   }
+}
+
+const parseFailedGitHubActionsChecks = (
+  content: string,
+): readonly {
+  readonly detailsUrl: string | undefined
+  readonly name: string
+  readonly workflowName: string | undefined
+}[] => {
+  const pullRequest = parseJsonRecord(content)
+  const checks = Array.isArray(pullRequest.statusCheckRollup) ? pullRequest.statusCheckRollup : []
+
+  return checks.flatMap((check) => {
+    if (!isRecord(check)) {
+      return []
+    }
+
+    const status = parseOptionalStringField(check, 'status')?.toUpperCase()
+    const conclusion = parseOptionalStringField(check, 'conclusion')?.toUpperCase()
+    const detailsUrl = parseOptionalStringField(check, 'detailsUrl')
+
+    if (status !== 'COMPLETED' || conclusion !== 'FAILURE') {
+      return []
+    }
+
+    if (detailsUrl?.includes('/actions/runs/') !== true) {
+      return []
+    }
+
+    return [
+      {
+        detailsUrl,
+        name: parseStringField(check, 'name'),
+        workflowName: parseOptionalStringField(check, 'workflowName'),
+      },
+    ]
+  })
+}
+
+const parseGitHubActionsRunId = (detailsUrl: string | undefined): string | undefined =>
+  /\/actions\/runs\/(\d+)/.exec(detailsUrl ?? '')?.[1]
+
+const loadCiFailureLogExcerpt = async (input: {
+  readonly checkName: string
+  readonly detailsUrl: string | undefined
+  readonly runId: string | undefined
+  readonly shell: DefaultLiveAdapterShellRunner
+}): Promise<string> => {
+  if (input.runId === undefined) {
+    return `No GitHub Actions run id was available for ${input.detailsUrl ?? input.checkName}.`
+  }
+
+  const logResult = await input.shell({
+    args: ['run', 'view', input.runId, '--log-failed'],
+    command: 'gh',
+    timeoutMs: 30 * 60 * 1000,
+  })
+
+  return trimCiFailureLog(logResult.stdout)
+}
+
+const trimCiFailureLog = (content: string): string => {
+  const lines = content.split('\n')
+  const firstFailureLineIndex = lines.findIndex((line) =>
+    /##\[error\]|Error:|TimeoutError|failed|FAIL/i.test(line),
+  )
+  const startIndex = firstFailureLineIndex === -1 ? 0 : Math.max(0, firstFailureLineIndex - 40)
+  const excerpt = lines
+    .slice(startIndex, startIndex + 220)
+    .join('\n')
+    .trim()
+
+  return excerpt.length <= 16_000 ? excerpt : `${excerpt.slice(0, 16_000)}\n[truncated]`
 }
 
 const selectLatestRunsByWorkflow = (

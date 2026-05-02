@@ -8,6 +8,7 @@ import { createDefaultPrdOrchestratorLiveAdapters } from '../default-live-adapte
 import { createProhibitedCapabilityScanResults } from '../final-prd-flow.js'
 import type {
   ChildCommitReference,
+  CiFailureEvidence,
   CodeRabbitFinding,
   GitHubActionsStatus,
   GitHubIssue,
@@ -696,6 +697,68 @@ describe('PRD orchestrator CLI', () => {
       ciStatus: 'failed',
       phase: 'blocked',
     })
+  })
+
+  it('repairs failed final CI with GitHub Actions log evidence before marking ready', async () => {
+    const adapters = createLiveAdapters({
+      ciFailureEvidence: [
+        {
+          detailsUrl: 'https://github.com/motech-development/cv-maxxing/actions/runs/1/job/2',
+          logExcerpt:
+            "Run Electron smoke suite failed: expected getByText('Review an English job before tailoring your CV.') to be visible.",
+          name: 'Desktop Verification (apple-silicon)',
+          workflowName: 'Desktop CI',
+        },
+      ],
+      ciPollingResults: [
+        {
+          blockers: ['GitHub Actions run Desktop CI failed with conclusion failure'],
+          status: 'failed',
+        },
+        {
+          blockers: [],
+          status: 'passed',
+        },
+      ],
+      issues: multiChildIssueObjects,
+      resumeRepairChangedFiles: ['apps/desktop/src/renderer/ui/vacancy-preview-card.tsx'],
+    })
+    const result = await runPrdOrchestratorCliAsync({
+      adapters,
+      arguments_: ['run'],
+      stdin: '',
+    })
+
+    expect(result.exitCode).toBe(0)
+    expect(adapters.events).toEqual(
+      expect.arrayContaining([
+        'ci:get-failure-evidence',
+        'sandcastle:repair-resume-findings',
+        'git:apply-worker-diff',
+        'verification:run',
+        'coderabbit:review',
+        'git:commit-final-cleanup',
+        'git:push-prd-branch',
+        'github:mark-ready-for-review',
+      ]),
+    )
+    expect(adapters.events.indexOf('ci:get-failure-evidence')).toBeLessThan(
+      adapters.events.indexOf('sandcastle:repair-resume-findings'),
+    )
+    expect(adapters.events.indexOf('git:push-prd-branch')).toBeLessThan(
+      adapters.events.lastIndexOf('ci:poll-checks'),
+    )
+    expect(adapters.workerBranchNames).toContainEqual(
+      expect.stringMatching(/^agent\/prd-80-automate-prd-implementation-resume-ci-repair-/),
+    )
+    expect(adapters.recordedStatuses).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          ciStatus: 'passed',
+          phase: 'ready-for-review',
+        }),
+      ]),
+    )
   })
 
   it('finalizes a full run recovered from all-complete branch commits', async () => {
@@ -2614,6 +2677,7 @@ interface CreateLiveAdaptersOptions {
   readonly applyWorkerDiffError?: Error
   readonly blockedImplementationChildIssueNumbers?: ReadonlySet<number>
   readonly childCommitReferences?: readonly ChildCommitReference[]
+  readonly ciFailureEvidence?: readonly CiFailureEvidence[]
   readonly ciPollingResults?: readonly (GitHubActionsStatus | Error)[]
   readonly ciPollingTimeoutMs?: number
   readonly codeRabbitFindings?: readonly CodeRabbitFinding[]
@@ -2699,6 +2763,15 @@ const createLiveAdapters = (
 
   return {
     ci: {
+      ...(options.ciFailureEvidence === undefined
+        ? {}
+        : {
+            getFailureEvidence: () => {
+              events.push('ci:get-failure-evidence')
+
+              return Promise.resolve(options.ciFailureEvidence ?? [])
+            },
+          }),
       pollChecks: () => {
         events.push('ci:poll-checks')
         const result = options.ciPollingResults?.[ciPollingCount]
