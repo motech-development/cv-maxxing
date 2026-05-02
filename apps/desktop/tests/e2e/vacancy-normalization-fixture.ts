@@ -46,8 +46,8 @@ export function createSpanishVacancyNormalizationFixtureOutput(): string {
     ].join(' '),
     employer: 'Example Labs',
     location: 'Madrid, España',
-    requirements: ['Experiencia enviando software de flujo de trabajo.'],
-    responsibilities: ['Diseñar productos para usuarios técnicos con equipos de ingeniería.'],
+    requirements: [],
+    responsibilities: [],
     title: 'Ingeniero de plataforma',
   })
 }
