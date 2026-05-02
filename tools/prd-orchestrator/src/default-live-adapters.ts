@@ -20,6 +20,7 @@ import {
   interpretGitHubActionsStatus,
   validateAutomationPrOwnership,
   type ChildCommitReference,
+  type GitHubActionsRun,
   type GitHubActionsStatus,
   type ProhibitedCapabilityId,
   type ProhibitedCapabilityMatch,
@@ -1214,24 +1215,13 @@ const createCiAdapter = (
   },
   pollChecks: async (input: PollChecksInput): Promise<GitHubActionsStatus> => {
     const result = await shell({
-      args: [
-        'run',
-        'list',
-        '--branch',
-        input.branchName,
-        '--json',
-        'name,status,conclusion,workflowDatabaseId,startedAt',
-        '--limit',
-        '20',
-      ],
+      args: ['pr', 'view', String(input.prNumber), '--json', 'statusCheckRollup'],
       command: 'gh',
       timeoutMs: 30 * 60 * 1000,
     })
 
     return interpretGitHubActionsStatus({
-      runs: selectLatestRunsByWorkflow(
-        parseJsonArray(result.stdout).map((runValue) => parseGitHubActionsRun(runValue)),
-      ),
+      runs: parseGitHubActionsCheckRuns(result.stdout),
     })
   },
 })
@@ -1997,25 +1987,70 @@ const parseGitHubIssue = (value: unknown): GitHubIssue => {
   }
 }
 
-const parseGitHubActionsRun = (
-  value: unknown,
-): {
-  readonly conclusion: string | undefined
-  readonly name: string
-  readonly startedAt: string | undefined
-  readonly status: string
-  readonly workflowDatabaseId: number | undefined
-} => {
-  if (!isRecord(value)) {
-    throw new TypeError('Expected GitHub Actions run JSON object.')
+const parseGitHubActionsCheckRuns = (content: string): readonly GitHubActionsRun[] => {
+  const pullRequest = parseJsonRecord(content)
+  const checks = Array.isArray(pullRequest.statusCheckRollup) ? pullRequest.statusCheckRollup : []
+
+  return checks.flatMap((check) => {
+    if (!isRecord(check)) {
+      return []
+    }
+
+    return [parseGitHubActionsCheckRun(check)]
+  })
+}
+
+const parseGitHubActionsCheckRun = (check: Record<string, unknown>): GitHubActionsRun => {
+  const name = parseOptionalStringField(check, 'name') ?? parseOptionalStringField(check, 'context')
+
+  if (name === undefined) {
+    throw new TypeError('Expected GitHub check JSON object to include a name or context.')
+  }
+
+  const status = parseOptionalStringField(check, 'status')
+  const state = parseOptionalStringField(check, 'state')
+  const conclusion = parseOptionalStringField(check, 'conclusion')
+
+  if (state !== undefined && status === undefined) {
+    return parseGitHubStatusContext({
+      name,
+      state,
+    })
   }
 
   return {
-    conclusion: parseOptionalStringField(value, 'conclusion'),
-    name: parseStringField(value, 'name'),
-    startedAt: parseOptionalStringField(value, 'startedAt'),
-    status: parseStringField(value, 'status'),
-    workflowDatabaseId: parseOptionalNumberField(value, 'workflowDatabaseId'),
+    conclusion: conclusion?.toLowerCase(),
+    name,
+    status: (status ?? 'pending').toLowerCase(),
+  }
+}
+
+const parseGitHubStatusContext = (input: {
+  readonly name: string
+  readonly state: string
+}): GitHubActionsRun => {
+  const state = input.state.toLowerCase()
+
+  if (state === 'success') {
+    return {
+      conclusion: 'success',
+      name: input.name,
+      status: 'completed',
+    }
+  }
+
+  if (state === 'error' || state === 'failure') {
+    return {
+      conclusion: state,
+      name: input.name,
+      status: 'completed',
+    }
+  }
+
+  return {
+    conclusion: undefined,
+    name: input.name,
+    status: 'pending',
   }
 }
 
@@ -2090,39 +2125,6 @@ const trimCiFailureLog = (content: string): string => {
     .trim()
 
   return excerpt.length <= 16_000 ? excerpt : `${excerpt.slice(0, 16_000)}\n[truncated]`
-}
-
-const selectLatestRunsByWorkflow = (
-  runs: readonly ReturnType<typeof parseGitHubActionsRun>[],
-): readonly ReturnType<typeof parseGitHubActionsRun>[] => {
-  const latestRunsByWorkflow = new Map<string, ReturnType<typeof parseGitHubActionsRun>>()
-
-  for (const run of runs) {
-    const workflowKey =
-      run.workflowDatabaseId === undefined ? run.name : String(run.workflowDatabaseId)
-    const currentRun = latestRunsByWorkflow.get(workflowKey)
-
-    if (currentRun === undefined || compareRunStart(run, currentRun) > 0) {
-      latestRunsByWorkflow.set(workflowKey, run)
-    }
-  }
-
-  return [...latestRunsByWorkflow.values()]
-}
-
-const compareRunStart = (
-  left: ReturnType<typeof parseGitHubActionsRun>,
-  right: ReturnType<typeof parseGitHubActionsRun>,
-): number => parseRunTimestamp(left.startedAt) - parseRunTimestamp(right.startedAt)
-
-const parseRunTimestamp = (startedAt: string | undefined): number => {
-  if (startedAt === undefined) {
-    return 0
-  }
-
-  const timestamp = Date.parse(startedAt)
-
-  return Number.isFinite(timestamp) ? timestamp : 0
 }
 
 const parseCodeRabbitFindings = (

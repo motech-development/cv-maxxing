@@ -171,7 +171,7 @@ describe('default live adapters', () => {
       'gh issue list --state open --limit 200 --json number,title,body,state',
       'gh pr create --draft --base main --head agent/prd-80-test --title feat: test --body-file <tmp>',
       'gh pr list --state open --head agent/prd-80-test --json number,url,headRefName,body,isDraft --limit 1',
-      'gh run list --branch agent/prd-80-test --json name,status,conclusion,workflowDatabaseId,startedAt --limit 20',
+      'gh pr view 123 --json statusCheckRollup',
       'node --version',
       'pnpm --version',
       'git --version',
@@ -214,9 +214,31 @@ describe('default live adapters', () => {
     })
   })
 
-  it('normalizes GitHub Actions status to the latest run for each workflow', async () => {
+  it('normalizes GitHub Actions status from the current PR head check rollup', async () => {
     const shell = createRecordingShell({
-      historicalWorkflowRuns: true,
+      commandResponses: new Map([
+        [
+          'gh pr view 123 --json statusCheckRollup',
+          JSON.stringify({
+            statusCheckRollup: [
+              {
+                conclusion: 'SUCCESS',
+                name: 'Desktop Verification (apple-silicon)',
+                status: 'COMPLETED',
+              },
+              {
+                conclusion: 'SUCCESS',
+                name: 'Desktop Verification (intel)',
+                status: 'COMPLETED',
+              },
+              {
+                context: 'CodeRabbit',
+                state: 'SUCCESS',
+              },
+            ],
+          }),
+        ],
+      ]),
     })
     const adapters = createDefaultPrdOrchestratorLiveAdapters('/repo', undefined, shell.run)
 
@@ -228,6 +250,45 @@ describe('default live adapters', () => {
     ).resolves.toEqual({
       blockers: [],
       status: 'passed',
+    })
+  })
+
+  it('keeps final CI pending while a current PR head check is still running', async () => {
+    const shell = createRecordingShell({
+      commandResponses: new Map([
+        [
+          'gh pr view 123 --json statusCheckRollup',
+          JSON.stringify({
+            statusCheckRollup: [
+              {
+                conclusion: 'SUCCESS',
+                name: 'Desktop Verification (apple-silicon)',
+                status: 'COMPLETED',
+              },
+              {
+                conclusion: '',
+                name: 'Desktop Verification (intel)',
+                status: 'IN_PROGRESS',
+              },
+              {
+                context: 'CodeRabbit',
+                state: 'SUCCESS',
+              },
+            ],
+          }),
+        ],
+      ]),
+    })
+    const adapters = createDefaultPrdOrchestratorLiveAdapters('/repo', undefined, shell.run)
+
+    await expect(
+      adapters.ci.pollChecks({
+        branchName: 'agent/prd-80-test',
+        prNumber: 123,
+      }),
+    ).resolves.toEqual({
+      blockers: [],
+      status: 'pending',
     })
   })
 
