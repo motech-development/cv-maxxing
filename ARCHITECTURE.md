@@ -34,7 +34,7 @@ These are now fixed inputs to the architecture.
 - The app may call the internet only where product behavior requires it: the local AI worker runtime and user-initiated vacancy page access.
 - The app must use a provider-neutral local AI worker abstraction for generation workflows.
 - v1 must ship with a bring-your-own Codex CLI adapter as the only AI worker adapter, in a pattern similar to OpenClaw’s Codex-backed workflows.
-- The app must fetch vacancy data from live job URLs and support pasted job descriptions as the fallback.
+- The app must read vacancy data from live job URLs through the app-managed browser session and support pasted job descriptions as the fallback.
 - v1 must not support saved page/file vacancy imports.
 - v1 target platforms are macOS Intel and Apple Silicon.
 - CV adaptation may strengthen phrasing if it remains truthful.
@@ -58,14 +58,14 @@ The app-facing boundary should be provider-neutral. v1 implements only a Codex C
 
 ### 3.2 Live URL ingestion is mandatory
 
-This rules out paste-only intake. The system must support real fetch and parse flows for:
+This rules out paste-only intake. The system must support generic browser-mediated AI intake for any user-submitted job posting URL that the user can read in the app-managed browser session, including:
 
-- LinkedIn
-- Indeed
-- Greenhouse
-- generic fallback pages
+- JavaScript-rendered pages
+- embedded job-board pages
+- authenticated pages after manual sign-in
+- custom careers pages
 
-Authenticated LinkedIn and Indeed pages must use an app-managed browser session. v1 only promises extraction when the user can visibly open the job page in that internal browser; pasted job text remains the fallback when extraction is blocked or incomplete.
+All authenticated job pages use the same app-managed browser session. v1 only promises extraction when the user can visibly open the job page in that internal browser; pasted job text remains the fallback when extraction is blocked or incomplete.
 
 ### 3.3 Output immutability is mandatory
 
@@ -167,7 +167,7 @@ Electron Desktop App
 | Package manager     | `pnpm`                                                                                                           |
 | Persistence         | SQLCipher-backed SQLite + encrypted local filesystem artifacts                                                   |
 | AI runtime          | Provider-neutral local AI worker port; v1 ships Codex CLI adapter only                                           |
-| Vacancy fetch       | app-owned fetch/browser capture plus AI-backed URL normalization; pasted text review stays deterministic         |
+| Vacancy intake      | app-managed browser capture plus AI-backed URL review for links; AI-backed review for pasted text                |
 | CV rendering        | dynamic shared HTML renderer derived from `design/cv.html`                                                       |
 | PDF export          | Chromium `printToPDF()` from hidden render surface                                                               |
 | PDF preview         | preview the actual generated PDF artifact in-app                                                                 |
@@ -222,13 +222,13 @@ Each generation job should provide the worker with:
 - extracted original CV text
 - writing style profile
 - normalized vacancy JSON
-- fetched vacancy text and metadata
+- stored vacancy text and metadata
 - rendering contract
 - British English output rules
 - cover-letter date-format rules
 - output JSON schema
 
-The worker should not browse the internet or fetch extra context in v1. The app fetches and snapshots the vacancy first, then passes bounded input artifacts to the worker.
+AI browsing is allowed only inside vacancy intake, where the app owns the browser session, same-page reading budget, and safety rules. CV and cover-letter generation must not browse the internet or fetch extra context in v1; generation uses only stored original-CV and vacancy artifacts that the app has already validated and persisted.
 
 Each generation job should expect back:
 
@@ -443,71 +443,41 @@ If generation succeeds but the app exits before deterministic PDF rendering fini
 
 The app should support:
 
-1. live URL fetch
+1. job-link intake
 2. pasted text
 
-Live URL fetch is the primary path. Pasted text is the resilience path and may include an optional URL for reference. Do not support saved page, HTML, TXT, PDF, or DOCX vacancy imports in v1.
+Job-link intake is the primary path. Pasted text is the resilience path and may include an optional URL for reference. Do not support saved page, HTML, TXT, PDF, or DOCX vacancy imports in v1.
 
-### 8.2 Fetch pipeline
+### 8.2 Generic AI/browser URL intake pipeline
 
-Use a layered ingestion strategy:
+All job-link intake uses one provider-neutral browser-mediated AI pipeline. URL intake must not branch on LinkedIn, Indeed, Greenhouse, embedded job-board conventions, query parameters, hostnames, or paths.
 
-```text
-1. URL classification
-2. Deterministic fetch adapter
-3. Browser-assisted fetch when needed
-4. Text extraction and cleanup
-5. AI-worker-assisted structuring when deterministic normalization is insufficient
-6. Persist snapshot and structured vacancy model
-```
-
-### 8.3 Vacancy fetch adapters
+Use this ingestion strategy for every submitted job link:
 
 ```text
-VacancyFetcherPort
-├── GreenhouseFetcher
-├── LinkedInFetcher
-├── IndeedFetcher
-└── GenericFetcher
+1. Normalize and persist the submitted URL draft
+2. Load the original submitted URL in the app-managed Electron browser session
+3. Capture sanitized rendered page evidence, including visible embedded frame content
+4. Let the AI vacancy reviewer request safe same-page reading interactions within the time budget
+5. Enforce deterministic interaction safety and session-boundary rules in the app
+6. Receive AI-cleaned job-spec text and structured vacancy fields
+7. Apply deterministic language, completeness, validation, and persistence rules
+8. Persist the reviewed vacancy artifacts and workspace state
 ```
 
-### 8.4 Fetch strategy by vacancy site
+The intake AI may request only same-page reading interactions such as click, scroll, or wait. The app must reject typing, form submission, file upload, Apply/Submit-equivalent actions, account actions, external links, and any top-level host, path, or query change. Hash-only URL changes are allowed. URL intake has a 90-second budget per attempt.
 
-#### Greenhouse
+If AI review reports that authentication is required, the app opens the managed browser window at the submitted URL. The user signs in manually and closes that window; then the app reloads the original submitted URL in the same session and retries generic intake once. If retry still cannot read a trustworthy vacancy, use the existing job-link failure behavior and keep the entered URL draft.
 
-Use deterministic HTTP fetch and DOM parsing first.
+### 8.3 Pasted text intake
 
-#### LinkedIn and Indeed
+Pasted job-description intake uses the same AI vacancy normalization contract as URL intake, with app-created HTML evidence from the pasted text. It does not use deterministic content parsers or provider-specific source inference.
 
-Use a browser-backed fetch path when static retrieval is incomplete or blocked.
+### 8.4 Failure and cancellation behavior
 
-Recommended implementation:
+If URL review fails because browser capture, AI normalization, or semantic validation cannot produce a trustworthy vacancy, do not proceed to generation. Keep the entered URL in the intake draft, do not persist reviewed vacancy artifacts, throw through the existing review-failure path, and offer the managed browser sign-in flow or pasted job text fallback.
 
-- app-managed browser session controlled by the main process
-- visible browser window when authentication or user interaction is needed
-- hidden/automated browser context only after the user has an authenticated app-managed session and the URL can be fetched reliably
-- persistent local profile support for authenticated sessions
-- page snapshot persisted after successful extraction
-- current domain shown clearly; do not hard-block cross-domain auth redirects in v1
-- extraction allowed only when the final page is classified as a supported or generic vacancy source
-
-External browser fallback may open the URL in Safari/Chrome for the user to view or copy manually, but extraction must never depend on reading external browser cookies or sessions.
-
-#### Generic fallback
-
-Use:
-
-- standard HTTP fetch
-- readability / article extraction
-- DOM text extraction
-- AI-worker-assisted field normalization for every successful URL review
-- deterministic pasted-text review without the AI normalization worker
-
-### 8.5 Failure and cancellation behavior
-
-If URL review fails because fetch, browser capture, AI normalization, or semantic validation cannot produce a trustworthy vacancy, do not proceed to generation. Keep the entered URL in the intake draft, do not persist reviewed vacancy artifacts, throw through the existing review-failure path, and offer internal browser sign-in for LinkedIn/Indeed or pasted job text fallback.
-
-Browser-navigation failures such as never reaching the requested LinkedIn/Indeed vacancy URL or closing off-target remain incomplete-review states instead of thrown errors. The browser session only decides whether the requested vacancy page was actually observed; AI normalization owns field extraction.
+Browser-navigation failures such as never reaching the requested vacancy URL or closing off-target remain incomplete-review states instead of thrown errors. The browser session only decides whether the requested vacancy page was actually observed; AI normalization owns field extraction.
 
 Generation requires a minimum useful vacancy model: substantive responsibilities or requirements text, plus title/employer/location when available.
 
@@ -515,19 +485,19 @@ The user should review a compact normalized vacancy preview before `Adapt CV` is
 
 URL normalization persists only semantically validated vacancy output. The app trims whitespace, removes trivial empties, deduplicates exact duplicate bullets, rejects obvious cookie/sign-in/feed junk, and derives language checks from the canonical normalized `bodyText`.
 
-Browser vacancy fetch jobs should run one at a time in v1. Cancelling an active fetch should stop the page/fetch job, keep the URL in the intake field, discard incomplete vacancy artifacts, and return to the vacancy intake state.
+Browser vacancy intake jobs should run one at a time in v1. Cancelling an active intake should stop the browser page review job, keep the URL in the intake field, discard incomplete vacancy artifacts, and return to the vacancy intake state.
 
-### 8.6 Persisted vacancy artifacts
+### 8.5 Persisted vacancy artifacts
 
 Always persist:
 
 - original URL
 - final resolved URL
-- job board classification
-- fetch timestamp
+- intake timestamp
 - page title when available
-- raw HTML or sanitized browser DOM snapshot
-- extracted text derived from the canonical normalized vacancy `bodyText`
+- source as the lowercased submitted URL hostname with a leading `www.` removed
+- sanitized rendered browser DOM snapshot as `snapshot.html` for URL intake
+- extracted text derived from the AI-cleaned canonical vacancy `bodyText` as `extracted.txt`
 - normalized vacancy JSON
 
 Do not persist cookies, localStorage, session tokens, or screenshots in vacancy records. Keep the authenticated browser profile separately under app-managed storage.
@@ -757,7 +727,7 @@ Do not ask fact-collection questions in v1. If a match is weak, generate from or
 
 ```text
 1. Normalize original CV and writing-style profile through the original-CV import worker contract
-3. Fetch and normalize vacancy
+3. Read and normalize vacancy from stored intake artifacts
 4. Extract vacancy priority signals
 5. Map original CV evidence to vacancy priorities
 6. Generate adapted CV JSON
@@ -1015,7 +985,7 @@ The renderer only:
 - encrypted artifact storage
 - AI worker process execution
 - AI worker preflight and resumable onboarding state
-- browser-assisted vacancy fetch
+- browser-mediated vacancy intake
 - HTML rendering for PDF export
 - secure settings storage
 
@@ -1072,7 +1042,7 @@ If app data is copied to another Mac without the key, the app should show a loca
 
 ### Browser session handling
 
-For LinkedIn or Indeed paths that need authenticated viewing:
+For job pages that need authenticated viewing:
 
 - use a dedicated local browser profile
 - keep the profile under app-managed local storage
@@ -1235,7 +1205,7 @@ Split test responsibility deliberately:
 - unit tests for domain logic, normalization, validators, and render view-model logic
 - integration tests for SQLite adapters, filesystem-backed services, IPC handlers, and render/export orchestration
 - end-to-end tests for Electron user journeys and screen-state transitions
-- optional environment tests for Codex CLI availability and live-site fetch compatibility, excluded from required CI unless explicitly enabled later
+- optional environment tests for Codex CLI availability and live-site intake compatibility, excluded from required CI unless explicitly enabled later
 
 Test harness requirements:
 
@@ -1312,12 +1282,10 @@ Baseline packaging requirements:
 
 ### Phase 3. Vacancy ingestion
 
-- classify job board by URL
-- implement Greenhouse deterministic fetcher
-- implement LinkedIn and Indeed browser-backed fetchers
-- implement generic fallback fetcher
+- implement one generic browser-mediated AI intake path for every job URL
+- reject provider-specific URL, hostname, and embedded-board intake branches
 - persist vacancy snapshots and normalized vacancy models
-- implement pasted job text fallback with optional URL reference
+- implement AI-backed pasted job text fallback with optional URL reference
 - implement vacancy preview before `Adapt CV`
 
 ### Phase 4. AI worker generation engine
@@ -1370,7 +1338,7 @@ Baseline packaging requirements:
 
 ### Integration tests
 
-- import original CV -> fetch vacancy -> generate tailored application -> render -> export PDF
+- import original CV -> ingest vacancy -> generate tailored application -> render -> export PDF
 - generate multiple tailored applications for one original CV
 - reopen an existing tailored application and export the exact same PDF again
 - IPC command/query coverage for tailored application browsing, AI worker preflight, and resumable pending commands
@@ -1385,8 +1353,8 @@ Baseline packaging requirements:
 - first `Adapt CV` flow when AI worker readiness is still valid
 - `Adapt CV` retry flow when sign-in is required after readiness was lost
 - retry from AI worker unavailable state after local repair
-- create tailored application from Greenhouse URL
-- create tailored application from LinkedIn or Indeed with browser-assisted fetch
+- create tailored application from a generic job URL with browser-mediated AI intake
+- create tailored application from an authenticated job URL after manual sign-in
 - browse saved tailored applications
 - download a specific PDF on demand
 - hard-delete a tailored application
@@ -1428,7 +1396,7 @@ Build v1 as:
 - no required backend
 - no required Docker
 - provider-neutral AI worker generation with Codex CLI as the only v1 adapter
-- browser-capable live vacancy fetching
+- browser-mediated live vacancy intake
 - pasted job description fallback
 - immutable tailored application history
 - shared HTML-to-PDF export path based on `design/cv.html`
