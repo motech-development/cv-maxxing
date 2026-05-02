@@ -171,7 +171,7 @@ function PreviewList({ emptyState, items, title }: PreviewListProperties) {
 }
 
 function isBrowserSessionAvailable(preview: VacancySummary): boolean {
-  return preview.originalUrl !== null && !preview.canGenerate
+  return preview.inputType === 'url' && preview.originalUrl !== null && !preview.canGenerate
 }
 
 function getPreviewStatusPill(preview: VacancySummary): {
