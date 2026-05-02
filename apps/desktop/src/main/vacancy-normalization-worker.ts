@@ -7,8 +7,14 @@ import type {
   NormalizedVacancy,
   VacancyNormalizationWorkerResult,
 } from './vacancy-normalization-service.js'
+import type { VacancyBrowserPageReadingInteraction } from './vacancy-browser-session-service.js'
 
 type RawVacancyNormalizationWorkerResult =
+  | {
+      interaction: VacancyBrowserPageReadingInteraction
+      kind: 'interaction_requested'
+      normalizedVacancy?: null
+    }
   | {
       kind: 'no_job_content'
       normalizedVacancy?: null
@@ -36,8 +42,34 @@ const OUTPUT_SCHEMA = {
   additionalProperties: false,
   properties: {
     kind: {
-      enum: ['no_job_content', 'success'],
+      enum: ['interaction_requested', 'no_job_content', 'success'],
       type: 'string',
+    },
+    interaction: {
+      additionalProperties: false,
+      properties: {
+        direction: {
+          enum: ['down', 'up'],
+          type: 'string',
+        },
+        kind: {
+          enum: ['click', 'scroll', 'submit_form', 'type', 'upload_file', 'wait'],
+          type: 'string',
+        },
+        milliseconds: {
+          type: 'number',
+        },
+        pixels: {
+          type: 'number',
+        },
+        selector: {
+          type: 'string',
+        },
+        text: {
+          type: 'string',
+        },
+      },
+      type: ['object', 'null'],
     },
     normalizedVacancy: {
       additionalProperties: false,
@@ -138,6 +170,8 @@ async function runCodexCliNormalization({
     'Ignore navigation chrome, cookie banners, account UI, and related-job content.',
     'Prefer the main vacancy body over summary snippets.',
     'Leave missing fields empty instead of guessing.',
+    'If more same-page visible evidence is needed, return kind "interaction_requested" with one safe click, scroll, or wait interaction and normalizedVacancy set to null.',
+    'Never request typing, form submission, file upload, Apply or Submit actions, account actions, external links, or top-level URL host/path/query changes.',
     'If no real job content exists, return kind "no_job_content" with normalizedVacancy set to null.',
   ].join(' ')
 
@@ -256,6 +290,13 @@ function isRawVacancyNormalizationWorkerResult(
 
   const candidate = value as Record<string, unknown>
 
+  if (candidate.kind === 'interaction_requested') {
+    return (
+      isVacancyBrowserPageReadingInteraction(candidate.interaction) &&
+      (candidate.normalizedVacancy === undefined || candidate.normalizedVacancy === null)
+    )
+  }
+
   if (candidate.kind === 'no_job_content') {
     return candidate.normalizedVacancy === undefined || candidate.normalizedVacancy === null
   }
@@ -270,6 +311,13 @@ function isRawVacancyNormalizationWorkerResult(
 function normalizeWorkerResult(
   value: RawVacancyNormalizationWorkerResult,
 ): VacancyNormalizationWorkerResult {
+  if (value.kind === 'interaction_requested') {
+    return {
+      interaction: value.interaction,
+      kind: 'interaction_requested',
+    }
+  }
+
   if (value.kind === 'no_job_content') {
     return {
       kind: 'no_job_content',
@@ -280,6 +328,43 @@ function normalizeWorkerResult(
     kind: 'success',
     normalizedVacancy: value.normalizedVacancy,
   }
+}
+
+function isVacancyBrowserPageReadingInteraction(
+  value: unknown,
+): value is VacancyBrowserPageReadingInteraction {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    return false
+  }
+
+  const candidate = value as Record<string, unknown>
+
+  if (candidate.kind === 'click') {
+    return typeof candidate.selector === 'string' && candidate.selector.trim() !== ''
+  }
+
+  if (candidate.kind === 'scroll') {
+    return (
+      (candidate.direction === undefined ||
+        candidate.direction === 'down' ||
+        candidate.direction === 'up') &&
+      (candidate.pixels === undefined || typeof candidate.pixels === 'number')
+    )
+  }
+
+  if (candidate.kind === 'wait') {
+    return candidate.milliseconds === undefined || typeof candidate.milliseconds === 'number'
+  }
+
+  if (
+    candidate.kind === 'type' ||
+    candidate.kind === 'submit_form' ||
+    candidate.kind === 'upload_file'
+  ) {
+    return true
+  }
+
+  return false
 }
 
 function isStringArray(value: unknown): value is string[] {

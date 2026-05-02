@@ -7,8 +7,13 @@ import { afterEach, expect, test, vi } from 'vitest'
 import { createLocalAppDataPaths, openLocalAppData } from '../local-app-data-service.js'
 import { VacancyNormalizationError } from '../vacancy-normalization-error.js'
 import { createVacancyService } from '../vacancy-service.js'
+import type {
+  VacancyBrowserPageInteractionResult,
+  VacancyBrowserPageReview,
+} from '../vacancy-browser-session-service.js'
 import type { KeychainBoundary, LocalAppDataPaths } from '../local-app-data-service.js'
 import type {
+  VacancyPageReviewResult,
   VacancyNormalizationInput,
   VacancyNormalizationService,
 } from '../vacancy-normalization-service.js'
@@ -271,6 +276,178 @@ test('ingests an embedded-board vacancy URL through the generic browser capture 
   )
   expect(snapshotArtifact?.toString('utf8')).toContain('<h2>Senior Product Designer</h2>')
   expect(snapshotArtifact?.toString('utf8')).not.toContain('localStorage')
+
+  await localAppData.close()
+})
+
+test('persists AI-cleaned URL intake after an AI-requested same-page reading interaction', async () => {
+  const paths = await createTestPaths()
+  const localAppData = await openLocalAppData({
+    keychain: createKeychainBoundary(),
+    paths,
+  })
+  const reviewVacancyPage = vi.fn<NonNullable<VacancyNormalizationService['reviewVacancyPage']>>()
+
+  reviewVacancyPage
+    .mockResolvedValueOnce({
+      interaction: {
+        kind: 'scroll',
+        pixels: 720,
+      },
+      kind: 'interaction_requested',
+    } satisfies VacancyPageReviewResult)
+    .mockResolvedValueOnce({
+      kind: 'success',
+      normalizedVacancy: {
+        bodyText:
+          'Lead product design for desktop workflows. Partner with engineering and research.',
+        employer: 'Example Labs',
+        location: 'London, United Kingdom',
+        requirements: ['Experience shipping workflow software.'],
+        responsibilities: ['Lead product design for desktop workflows.'],
+        title: 'Senior Product Designer',
+      },
+    } satisfies VacancyPageReviewResult)
+
+  const normalizationService = {
+    normalizeVacancy: vi.fn(),
+    reviewVacancyPage,
+  } satisfies VacancyNormalizationService
+  const captureVacancyBrowserSessionPage = vi.fn(
+    async ({ reviewPage }: { reviewPage?: VacancyBrowserPageReview }) => {
+      if (reviewPage === undefined) {
+        throw new Error('Expected URL intake to provide an AI page-review callback.')
+      }
+
+      return await reviewPage({
+        applyReadingInteraction: (): Promise<VacancyBrowserPageInteractionResult> => {
+          return Promise.resolve({
+            kind: 'captured',
+            snapshot: {
+              html: '<main><h1>Senior Product Designer</h1><section>Full role details</section></main>',
+              pageTitle: 'Senior Product Designer at Example Labs',
+              resolvedUrl: 'https://careers.example.com/jobs/senior-product-designer#details',
+            },
+          })
+        },
+        getRemainingTimeMs: () => 90_000,
+        initialSnapshot: {
+          html: '<main><h1>Senior Product Designer</h1><button>Show more</button></main>',
+          pageTitle: 'Senior Product Designer at Example Labs',
+          resolvedUrl: 'https://careers.example.com/jobs/senior-product-designer',
+        },
+      })
+    },
+  )
+  const vacancyService = createVacancyService({
+    captureVacancyBrowserSessionPage,
+    generateId: vi.fn(() => 'vacancy-ai-interaction'),
+    getCurrentTimestamp: vi.fn(() => '2026-04-08T21:12:00.000Z'),
+    localAppData,
+    normalizationService,
+    openVacancyBrowserSession: vi.fn(() => Promise.resolve(null)),
+  })
+
+  const result = await vacancyService.ingestVacancyUrl({
+    url: 'https://careers.example.com/jobs/senior-product-designer',
+  })
+
+  expect(result.kind).toBe('ingested')
+  expect(result.vacancy.source).toBe('careers.example.com')
+  expect(result.vacancy.resolvedUrl).toBe(
+    'https://careers.example.com/jobs/senior-product-designer#details',
+  )
+  expect(reviewVacancyPage).toHaveBeenCalledTimes(2)
+  const secondReviewCall = reviewVacancyPage.mock.calls[1]
+
+  expect(secondReviewCall).toBeDefined()
+
+  if (secondReviewCall === undefined) {
+    throw new Error('Expected a second vacancy page review call.')
+  }
+
+  expect(secondReviewCall[0]).toEqual(
+    expect.objectContaining({
+      html: '<main><h1>Senior Product Designer</h1><section>Full role details</section></main>',
+      resolvedUrl: 'https://careers.example.com/jobs/senior-product-designer#details',
+    }),
+  )
+  expect(secondReviewCall[1]?.timeoutMs).toEqual(expect.any(Number))
+
+  const extractedArtifact = await localAppData.artifacts.read({
+    id: 'vacancy-ai-interaction',
+    name: 'extracted.txt',
+    scope: 'vacancies',
+  })
+
+  expect(extractedArtifact?.toString('utf8')).toBe(
+    'Lead product design for desktop workflows. Partner with engineering and research.',
+  )
+
+  await localAppData.close()
+})
+
+test('does not persist misleading URL intake data when an AI-requested action is rejected', async () => {
+  const paths = await createTestPaths()
+  const localAppData = await openLocalAppData({
+    keychain: createKeychainBoundary(),
+    paths,
+  })
+  const normalizationService = {
+    normalizeVacancy: vi.fn(),
+    reviewVacancyPage: vi.fn(() => {
+      return Promise.resolve({
+        interaction: {
+          kind: 'type',
+          selector: 'input[name="email"]',
+          text: 'candidate@example.com',
+        },
+        kind: 'interaction_requested',
+      } satisfies VacancyPageReviewResult)
+    }),
+  } satisfies VacancyNormalizationService
+  const vacancyService = createVacancyService({
+    captureVacancyBrowserSessionPage: vi.fn(
+      async ({ reviewPage }: { reviewPage?: VacancyBrowserPageReview }) => {
+        if (reviewPage === undefined) {
+          throw new Error('Expected URL intake to provide an AI page-review callback.')
+        }
+
+        return await reviewPage({
+          applyReadingInteraction: (): Promise<VacancyBrowserPageInteractionResult> => {
+            return Promise.resolve({
+              kind: 'rejected',
+              reason: 'typing is not allowed during vacancy intake',
+            })
+          },
+          getRemainingTimeMs: () => 90_000,
+          initialSnapshot: {
+            html: '<main><input name="email" /></main>',
+            pageTitle: 'Senior Product Designer',
+            resolvedUrl: 'https://careers.example.com/jobs/123',
+          },
+        })
+      },
+    ),
+    generateId: vi.fn(() => 'vacancy-unsafe-action'),
+    getCurrentTimestamp: vi.fn(() => '2026-04-08T21:13:00.000Z'),
+    localAppData,
+    normalizationService,
+    openVacancyBrowserSession: vi.fn(() => Promise.resolve(null)),
+  })
+
+  const result = await vacancyService.ingestVacancyUrl({
+    url: 'https://careers.example.com/jobs/123',
+  })
+
+  expect(result.kind).toBe('incomplete')
+  expect(result.vacancy.canGenerate).toBe(false)
+  await expect(
+    localAppData.metadata.get({
+      id: 'vacancy-unsafe-action',
+      scope: 'vacancies',
+    }),
+  ).resolves.toBeNull()
 
   await localAppData.close()
 })

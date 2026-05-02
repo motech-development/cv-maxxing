@@ -16,11 +16,18 @@ import {
   type JobsWorkspaceSelection,
 } from '../shared/workspace-selection.js'
 import type { JsonValue, LocalAppDataStore } from './local-app-data-service.js'
-import type { VacancyBrowserPageSnapshot } from './vacancy-browser-session-service.js'
+import type {
+  VacancyBrowserPageInteractionResult,
+  VacancyBrowserPageReadingInteraction,
+  VacancyBrowserPageReview,
+  VacancyBrowserPageSnapshot,
+} from './vacancy-browser-session-service.js'
 import { VacancyNormalizationError } from './vacancy-normalization-error.js'
 import { inferTitleFromPageTitle, sanitizeSnapshotHtml } from './vacancy-page-content.js'
 import type {
   NormalizedVacancy,
+  VacancyPageInteractionHistoryEntry,
+  VacancyPageReviewResult,
   VacancyNormalizationService,
 } from './vacancy-normalization-service.js'
 import type { WorkspaceSelectionStore } from './workspace-selection-store.js'
@@ -32,10 +39,14 @@ const OPEN_JOB_PAGE_BLOCKING_REASON =
   'This job page may need more access. Open the job page or paste the job description instead.'
 const RELOAD_JOB_PAGE_BLOCKING_REASON =
   'Open the job page and close it after the full details load, or paste the job description instead.'
+const URL_INTAKE_TIME_BUDGET_MS = 90_000
+const MAX_AI_READING_INTERACTIONS = 8
 
 interface VacancyServiceDependencies {
   captureVacancyBrowserSessionPage?: (input: {
+    reviewPage?: VacancyBrowserPageReview
     shouldCapturePage: (snapshot: VacancyBrowserPageSnapshot) => boolean
+    timeBudgetMs?: number
     url: string
   }) => Promise<VacancyBrowserPageSnapshot | null>
   generateId?: () => string
@@ -217,6 +228,7 @@ export function createVacancyService({
     ingestVacancyUrl: async ({ url }: { url: string }): Promise<VacancyIngestResult> => {
       const normalizedUrl = requireUrl(url)
       const source = normalizeSubmittedHostname(normalizedUrl)
+      let capturedNormalizedVacancy: NormalizedVacancy | null = null
 
       await persistVacancyWorkspaceDraft({
         localAppData,
@@ -230,12 +242,31 @@ export function createVacancyService({
       })
 
       const capturedBrowserSnapshot = await captureVacancyBrowserSessionPage({
+        reviewPage: async ({ applyReadingInteraction, getRemainingTimeMs, initialSnapshot }) => {
+          const pageReviewResult = await reviewVacancyPageWithReadingInteractions({
+            applyReadingInteraction,
+            getRemainingTimeMs,
+            initialSnapshot,
+            normalizationService,
+            originalUrl: normalizedUrl,
+            source,
+          })
+
+          if (pageReviewResult === null) {
+            return null
+          }
+
+          capturedNormalizedVacancy = pageReviewResult.normalizedVacancy
+
+          return pageReviewResult.snapshot
+        },
         shouldCapturePage: (snapshot) => {
           return isExpectedBrowserSessionVacancyPage({
             originalUrl: normalizedUrl,
             resolvedUrl: snapshot.resolvedUrl,
           })
         },
+        timeBudgetMs: URL_INTAKE_TIME_BUDGET_MS,
         url: normalizedUrl,
       })
 
@@ -261,6 +292,7 @@ export function createVacancyService({
           getCurrentTimestamp,
           localAppData,
           normalizationService,
+          normalizedVacancy: capturedNormalizedVacancy,
           originalUrl: normalizedUrl,
           source,
           workspaceSelectionStore,
@@ -338,6 +370,119 @@ export function createVacancyService({
   }
 }
 
+async function reviewVacancyPageWithReadingInteractions({
+  applyReadingInteraction,
+  getRemainingTimeMs,
+  initialSnapshot,
+  normalizationService,
+  originalUrl,
+  source,
+}: {
+  applyReadingInteraction: (
+    interaction: VacancyBrowserPageReadingInteraction,
+  ) => Promise<VacancyBrowserPageInteractionResult>
+  getRemainingTimeMs: () => number
+  initialSnapshot: VacancyBrowserPageSnapshot
+  normalizationService: VacancyNormalizationService
+  originalUrl: string
+  source: string
+}): Promise<{
+  normalizedVacancy: NormalizedVacancy
+  snapshot: VacancyBrowserPageSnapshot
+} | null> {
+  let currentSnapshot = initialSnapshot
+  const interactionHistory: VacancyPageInteractionHistoryEntry[] = []
+
+  for (let attemptIndex = 0; attemptIndex <= MAX_AI_READING_INTERACTIONS; attemptIndex += 1) {
+    const remainingTimeMs = getRemainingTimeMs()
+
+    if (remainingTimeMs <= 0) {
+      throw new VacancyNormalizationError({
+        code: 'timeout',
+        message: 'Vacancy normalization timed out.',
+      })
+    }
+
+    const reviewResult = await runVacancyPageReview({
+      input: {
+        html: currentSnapshot.html,
+        interactionHistory,
+        originalUrl,
+        pageTitle: currentSnapshot.pageTitle,
+        resolvedUrl: currentSnapshot.resolvedUrl,
+        source,
+      },
+      normalizationService,
+      timeoutMs: remainingTimeMs,
+    })
+
+    if (reviewResult.kind === 'no_job_content') {
+      return null
+    }
+
+    if (reviewResult.kind === 'success') {
+      return {
+        normalizedVacancy: reviewResult.normalizedVacancy,
+        snapshot: currentSnapshot,
+      }
+    }
+
+    const interactionResult = await applyReadingInteraction(reviewResult.interaction)
+
+    if (interactionResult.kind === 'rejected') {
+      interactionHistory.push({
+        interaction: reviewResult.interaction,
+        result: 'rejected',
+      })
+
+      return null
+    }
+
+    interactionHistory.push({
+      interaction: reviewResult.interaction,
+      result: 'captured',
+    })
+    currentSnapshot = interactionResult.snapshot
+  }
+
+  return null
+}
+
+async function runVacancyPageReview({
+  input,
+  normalizationService,
+  timeoutMs,
+}: {
+  input: Parameters<VacancyNormalizationService['normalizeVacancy']>[0]
+  normalizationService: VacancyNormalizationService
+  timeoutMs: number
+}): Promise<VacancyPageReviewResult> {
+  if (normalizationService.reviewVacancyPage !== undefined) {
+    return await normalizationService.reviewVacancyPage(input, {
+      timeoutMs,
+    })
+  }
+
+  try {
+    const normalizedVacancy = await normalizationService.normalizeVacancy(input, {
+      timeoutMs,
+    })
+
+    return {
+      kind: 'success',
+      normalizedVacancy,
+    }
+  } catch (error) {
+    if (error instanceof VacancyNormalizationError && error.code === 'no_job_content') {
+      return {
+        kind: 'no_job_content',
+      }
+    }
+
+    throw error
+  }
+}
+
 async function createInteractiveBrowserFallbackResult({
   getCurrentTimestamp,
   localAppData,
@@ -370,6 +515,7 @@ async function persistFetchedVacancyPage({
   getCurrentTimestamp,
   localAppData,
   normalizationService,
+  normalizedVacancy: normalizedVacancyInput = null,
   originalUrl,
   source,
   workspaceSelectionStore,
@@ -383,17 +529,20 @@ async function persistFetchedVacancyPage({
   getCurrentTimestamp: () => string
   localAppData: Pick<LocalAppDataStore, 'artifacts' | 'metadata'>
   normalizationService: VacancyNormalizationService
+  normalizedVacancy?: NormalizedVacancy | null
   originalUrl: string
   source: string
   workspaceSelectionStore?: Pick<WorkspaceSelectionStore, 'getSelection' | 'setSelection'>
 }): Promise<VacancyIngestResult> {
-  const normalizedVacancy = await normalizationService.normalizeVacancy({
-    html: fetchedPage.html,
-    originalUrl,
-    pageTitle: fetchedPage.pageTitle,
-    resolvedUrl: fetchedPage.resolvedUrl,
-    source,
-  })
+  const normalizedVacancy =
+    normalizedVacancyInput ??
+    (await normalizationService.normalizeVacancy({
+      html: fetchedPage.html,
+      originalUrl,
+      pageTitle: fetchedPage.pageTitle,
+      resolvedUrl: fetchedPage.resolvedUrl,
+      source,
+    }))
   const vacancyId = generateId()
   const fetchedAt = getCurrentTimestamp()
   const extractedText = normalizedVacancy.bodyText.trim()

@@ -323,3 +323,200 @@ test('returns null when the browser window closes without any valid on-target sn
   expect(createdWindow?.isDestroyed()).toBe(true)
   expect(result).toBeNull()
 })
+
+test('lets URL intake review request a safe same-page reading interaction before capture settles', async () => {
+  const constructor = vi.fn(function BrowserWindowConstructor(options: Record<string, unknown>) {
+    return new BrowserWindowDouble(options, {
+      html: '<main><button data-testid="show-more-description">Show more</button></main>',
+      pageTitle: 'Senior Product Designer',
+      resolvedUrl: 'https://careers.example.com/jobs/123',
+    })
+  })
+  const vacancyBrowserSession = createVacancyBrowserSessionService({
+    browserWindowConstructor: constructor as never,
+    createSession: vi.fn(() => Promise.resolve({} as Session)),
+    profileRootPath: '/tmp/cv-maxxing/browser-sessions',
+  })
+
+  const resultPromise = vacancyBrowserSession.captureSessionPage({
+    reviewPage: async ({ applyReadingInteraction, initialSnapshot }) => {
+      expect(initialSnapshot.html).toContain('Show more')
+
+      const interactionResult = await applyReadingInteraction({
+        kind: 'scroll',
+        pixels: 640,
+      })
+
+      expect(interactionResult.kind).toBe('captured')
+
+      return interactionResult.kind === 'captured' ? interactionResult.snapshot : null
+    },
+    shouldCapturePage: () => true,
+    url: 'https://careers.example.com/jobs/123',
+  })
+
+  await vi.waitFor(() => {
+    expect(constructor).toHaveBeenCalledTimes(1)
+  })
+
+  const createdWindow = constructor.mock.results[0]?.value as BrowserWindowDouble | undefined
+
+  createdWindow?.finishLoad({
+    html: '<main><button data-testid="show-more-description">Show more</button><section>Full role details</section></main>',
+    pageTitle: 'Senior Product Designer',
+    resolvedUrl: 'https://careers.example.com/jobs/123#details',
+  })
+
+  await expect(resultPromise).resolves.toEqual({
+    html: '<main><button data-testid="show-more-description">Show more</button><section>Full role details</section></main>',
+    pageTitle: 'Senior Product Designer',
+    resolvedUrl: 'https://careers.example.com/jobs/123#details',
+  })
+})
+
+test('rejects unsafe AI-requested typing interactions before running page JavaScript', async () => {
+  const constructor = vi.fn(function BrowserWindowConstructor(options: Record<string, unknown>) {
+    return new BrowserWindowDouble(options, {
+      html: '<main><input name="email" /></main>',
+      pageTitle: 'Senior Product Designer',
+      resolvedUrl: 'https://careers.example.com/jobs/123',
+    })
+  })
+  const vacancyBrowserSession = createVacancyBrowserSessionService({
+    browserWindowConstructor: constructor as never,
+    createSession: vi.fn(() => Promise.resolve({} as Session)),
+    profileRootPath: '/tmp/cv-maxxing/browser-sessions',
+  })
+
+  const resultPromise = vacancyBrowserSession.captureSessionPage({
+    reviewPage: async ({ applyReadingInteraction }) => {
+      const interactionResult = await applyReadingInteraction({
+        kind: 'type',
+        selector: 'input[name="email"]',
+        text: 'candidate@example.com',
+      })
+
+      expect(interactionResult).toEqual({
+        kind: 'rejected',
+        reason: 'typing is not allowed during vacancy intake',
+      })
+
+      return null
+    },
+    shouldCapturePage: () => true,
+    url: 'https://careers.example.com/jobs/123',
+  })
+
+  await vi.waitFor(() => {
+    expect(constructor).toHaveBeenCalledTimes(1)
+  })
+
+  const createdWindow = constructor.mock.results[0]?.value as BrowserWindowDouble | undefined
+
+  createdWindow?.finishLoad({
+    html: '<main><input name="email" /></main>',
+    pageTitle: 'Senior Product Designer',
+    resolvedUrl: 'https://careers.example.com/jobs/123',
+  })
+
+  await expect(resultPromise).resolves.toBeNull()
+})
+
+test('rejects AI-requested interactions that change the top-level URL path', async () => {
+  const constructor = vi.fn(function BrowserWindowConstructor(options: Record<string, unknown>) {
+    return new BrowserWindowDouble(options, {
+      html: '<main><button>Show more</button></main>',
+      pageTitle: 'Senior Product Designer',
+      resolvedUrl: 'https://careers.example.com/jobs/123',
+    })
+  })
+  const vacancyBrowserSession = createVacancyBrowserSessionService({
+    browserWindowConstructor: constructor as never,
+    createSession: vi.fn(() => Promise.resolve({} as Session)),
+    profileRootPath: '/tmp/cv-maxxing/browser-sessions',
+  })
+
+  const resultPromise = vacancyBrowserSession.captureSessionPage({
+    reviewPage: async ({ applyReadingInteraction }) => {
+      const createdWindow = constructor.mock.results[0]?.value as BrowserWindowDouble | undefined
+
+      createdWindow?.finishLoad({
+        html: '<main><h1>Application form</h1></main>',
+        pageTitle: 'Application form',
+        resolvedUrl: 'https://careers.example.com/apply/123',
+      })
+
+      const interactionResult = await applyReadingInteraction({
+        kind: 'click',
+        selector: 'button',
+      })
+
+      expect(interactionResult.kind).toBe('rejected')
+
+      return null
+    },
+    shouldCapturePage: () => true,
+    url: 'https://careers.example.com/jobs/123',
+  })
+
+  await vi.waitFor(() => {
+    expect(constructor).toHaveBeenCalledTimes(1)
+  })
+
+  const createdWindow = constructor.mock.results[0]?.value as BrowserWindowDouble | undefined
+
+  createdWindow?.finishLoad({
+    html: '<main><button>Show more</button></main>',
+    pageTitle: 'Senior Product Designer',
+    resolvedUrl: 'https://careers.example.com/jobs/123',
+  })
+
+  await expect(resultPromise).resolves.toBeNull()
+})
+
+test('enforces the URL intake time budget while AI page review is still running', async () => {
+  vi.useFakeTimers()
+
+  try {
+    const constructor = vi.fn(function BrowserWindowConstructor(options: Record<string, unknown>) {
+      return new BrowserWindowDouble(options, {
+        html: '<main><h1>Senior Product Designer</h1></main>',
+        pageTitle: 'Senior Product Designer',
+        resolvedUrl: 'https://careers.example.com/jobs/123',
+      })
+    })
+    const vacancyBrowserSession = createVacancyBrowserSessionService({
+      browserWindowConstructor: constructor as never,
+      createSession: vi.fn(() => Promise.resolve({} as Session)),
+      profileRootPath: '/tmp/cv-maxxing/browser-sessions',
+    })
+
+    const resultPromise = vacancyBrowserSession.captureSessionPage({
+      reviewPage: () => {
+        return new Promise((resolve) => {
+          void resolve
+        })
+      },
+      shouldCapturePage: () => true,
+      timeBudgetMs: 5,
+      url: 'https://careers.example.com/jobs/123',
+    })
+
+    await vi.waitFor(() => {
+      expect(constructor).toHaveBeenCalledTimes(1)
+    })
+
+    const createdWindow = constructor.mock.results[0]?.value as BrowserWindowDouble | undefined
+
+    createdWindow?.finishLoad({
+      html: '<main><h1>Senior Product Designer</h1></main>',
+      pageTitle: 'Senior Product Designer',
+      resolvedUrl: 'https://careers.example.com/jobs/123',
+    })
+    await vi.advanceTimersByTimeAsync(5)
+
+    await expect(resultPromise).resolves.toBeNull()
+  } finally {
+    vi.useRealTimers()
+  }
+})

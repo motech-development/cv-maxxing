@@ -142,6 +142,34 @@ test('returns the no-job-content tagged union from fixture output', async () => 
   })
 })
 
+test('returns an AI-requested vacancy page reading interaction from fixture output', async () => {
+  const worker = createVacancyNormalizationWorker({
+    environment: {
+      CV_MAXXING_AI_WORKER_VACANCY_NORMALIZATION_OUTPUT: JSON.stringify({
+        interaction: {
+          kind: 'click',
+          selector: '[data-testid="show-more-description"]',
+        },
+        kind: 'interaction_requested',
+        normalizedVacancy: null,
+      }),
+    },
+  })
+
+  await expect(
+    worker.runNormalization({
+      runDirectoryPath: '/tmp/unused',
+      signal: new AbortController().signal,
+    }),
+  ).resolves.toEqual({
+    interaction: {
+      kind: 'click',
+      selector: '[data-testid="show-more-description"]',
+    },
+    kind: 'interaction_requested',
+  })
+})
+
 test('maps Codex no-job-content output with null normalized vacancy to the internal tagged union', async () => {
   const worker = createVacancyNormalizationWorker({
     environment: {

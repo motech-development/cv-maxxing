@@ -6,6 +6,7 @@ import { VacancyNormalizationError } from './vacancy-normalization-error.js'
 import { VACANCY_NORMALIZATION_EXAMPLES } from './vacancy-normalization-examples.js'
 import { prepareVacancyNormalizationArtifacts } from './vacancy-page-content.js'
 import type { VacancyNormalizationWorker } from './vacancy-normalization-worker.js'
+import type { VacancyBrowserPageReadingInteraction } from './vacancy-browser-session-service.js'
 
 export interface NormalizedVacancy {
   bodyText: string
@@ -18,13 +19,40 @@ export interface NormalizedVacancy {
 
 export interface VacancyNormalizationInput {
   html: string
+  interactionHistory?: VacancyPageInteractionHistoryEntry[]
   originalUrl: string
   pageTitle: string | null
   resolvedUrl: string
   source: string
 }
 
+export interface VacancyNormalizationOptions {
+  timeoutMs?: number
+}
+
+export interface VacancyPageInteractionHistoryEntry {
+  interaction: VacancyBrowserPageReadingInteraction
+  result: 'captured' | 'rejected'
+}
+
 export type VacancyNormalizationWorkerResult =
+  | {
+      interaction: VacancyBrowserPageReadingInteraction
+      kind: 'interaction_requested'
+    }
+  | {
+      kind: 'no_job_content'
+    }
+  | {
+      kind: 'success'
+      normalizedVacancy: NormalizedVacancy
+    }
+
+export type VacancyPageReviewResult =
+  | {
+      interaction: VacancyBrowserPageReadingInteraction
+      kind: 'interaction_requested'
+    }
   | {
       kind: 'no_job_content'
     }
@@ -34,7 +62,14 @@ export type VacancyNormalizationWorkerResult =
     }
 
 export interface VacancyNormalizationService {
-  normalizeVacancy: (input: VacancyNormalizationInput) => Promise<NormalizedVacancy>
+  normalizeVacancy: (
+    input: VacancyNormalizationInput,
+    options?: VacancyNormalizationOptions,
+  ) => Promise<NormalizedVacancy>
+  reviewVacancyPage?: (
+    input: VacancyNormalizationInput,
+    options?: VacancyNormalizationOptions,
+  ) => Promise<VacancyPageReviewResult>
 }
 
 const DEFAULT_VACANCY_NORMALIZATION_TIMEOUT_MS = 120_000
@@ -59,62 +94,74 @@ export function createVacancyNormalizationService({
 }): VacancyNormalizationService {
   const resolvedTimeoutMs = resolveTimeoutMs(timeoutMs)
 
-  return {
-    normalizeVacancy: async (input): Promise<NormalizedVacancy> => {
-      const runDirectoryPath = path.join(runWorkspaceRootPath, generateId())
-      const abortController = new AbortController()
+  const reviewVacancyPage = async (
+    input: VacancyNormalizationInput,
+    options: VacancyNormalizationOptions = {},
+  ): Promise<VacancyPageReviewResult> => {
+    const runDirectoryPath = path.join(runWorkspaceRootPath, generateId())
+    const abortController = new AbortController()
 
-      await writeRunWorkspaceInput({
-        input,
+    await writeRunWorkspaceInput({
+      input,
+      runDirectoryPath,
+    })
+
+    const timeoutId = setTimeout(
+      () => {
+        abortController.abort(VACANCY_NORMALIZATION_TIMEOUT_REASON)
+      },
+      resolveTimeoutMs(options.timeoutMs ?? resolvedTimeoutMs),
+    )
+
+    try {
+      const workerResult = await worker.runNormalization({
         runDirectoryPath,
+        signal: abortController.signal,
       })
 
-      const timeoutId = setTimeout(() => {
-        abortController.abort(VACANCY_NORMALIZATION_TIMEOUT_REASON)
-      }, resolvedTimeoutMs)
-
-      try {
-        const workerResult = await worker.runNormalization({
-          runDirectoryPath,
-          signal: abortController.signal,
-        })
-
-        if (workerResult.kind === 'no_job_content') {
-          throw new VacancyNormalizationError({
-            code: 'no_job_content',
-            message: 'Vacancy normalization found no job content to persist.',
-          })
+      if (workerResult.kind === 'success') {
+        return {
+          kind: 'success',
+          normalizedVacancy: sanitizeNormalizedVacancy(workerResult.normalizedVacancy),
         }
+      }
 
-        return sanitizeNormalizedVacancy(workerResult.normalizedVacancy)
-      } catch (error) {
-        if (abortController.signal.reason === VACANCY_NORMALIZATION_TIMEOUT_REASON) {
-          throw new VacancyNormalizationError({
-            code: 'timeout',
-            message: 'Vacancy normalization timed out.',
-          })
-        }
+      return workerResult
+    } catch (error) {
+      throw normalizeVacancyReviewError({
+        abortController,
+        error,
+      })
+    } finally {
+      clearTimeout(timeoutId)
+      await rm(runDirectoryPath, {
+        force: true,
+        recursive: true,
+      })
+    }
+  }
 
-        if (error instanceof VacancyNormalizationError) {
-          throw error
-        }
+  return {
+    normalizeVacancy: async (input, options): Promise<NormalizedVacancy> => {
+      const workerResult = await reviewVacancyPage(input, options)
 
-        if (isCancellationError(error)) {
-          throw new VacancyNormalizationError({
-            code: 'cancelled',
-            message: 'Vacancy normalization was cancelled.',
-          })
-        }
-
-        throw error
-      } finally {
-        clearTimeout(timeoutId)
-        await rm(runDirectoryPath, {
-          force: true,
-          recursive: true,
+      if (workerResult.kind === 'no_job_content') {
+        throw new VacancyNormalizationError({
+          code: 'no_job_content',
+          message: 'Vacancy normalization found no job content to persist.',
         })
       }
+
+      if (workerResult.kind === 'interaction_requested') {
+        throw new VacancyNormalizationError({
+          code: 'invalid_normalization',
+          message: 'Vacancy normalization requested an interaction where none is available.',
+        })
+      }
+
+      return workerResult.normalizedVacancy
     },
+    reviewVacancyPage,
   }
 }
 
@@ -140,6 +187,22 @@ async function writeRunWorkspaceInput({
     examplesPath: 'input/examples.json',
     outputContract: {
       normalizedArtifactName: 'normalized.json',
+    },
+    readingInteractions: {
+      allowedActions: ['click', 'scroll', 'wait'],
+      disallowedActions: [
+        'type into fields',
+        'submit forms',
+        'upload files',
+        'click Apply or Submit equivalents',
+        'perform account actions',
+        'open external links',
+        'change the top-level host, path, or query',
+      ],
+      history: input.interactionHistory ?? [],
+      hashOnlyUrlChangesAllowed: true,
+      requestContract:
+        'If more visible same-page evidence is needed, return kind "interaction_requested" with one safe reading interaction.',
     },
     vacancyPage: {
       extractedTextPath: 'input/page.txt',
@@ -172,6 +235,34 @@ async function writeRunWorkspaceInput({
     ),
     writeFile(path.join(inputDirectoryPath, 'task.json'), taskJson, 'utf8'),
   ])
+}
+
+function normalizeVacancyReviewError({
+  abortController,
+  error,
+}: {
+  abortController: AbortController
+  error: unknown
+}): Error {
+  if (abortController.signal.reason === VACANCY_NORMALIZATION_TIMEOUT_REASON) {
+    return new VacancyNormalizationError({
+      code: 'timeout',
+      message: 'Vacancy normalization timed out.',
+    })
+  }
+
+  if (error instanceof VacancyNormalizationError) {
+    return error
+  }
+
+  if (isCancellationError(error)) {
+    return new VacancyNormalizationError({
+      code: 'cancelled',
+      message: 'Vacancy normalization was cancelled.',
+    })
+  }
+
+  return error instanceof Error ? error : new Error('Vacancy normalization failed.')
 }
 
 function resolveTimeoutMs(timeoutMs: number): number {

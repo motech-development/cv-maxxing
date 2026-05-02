@@ -56,6 +56,22 @@ test('writes a dedicated vacancy-normalization run workspace and removes it afte
           outputContract: {
             normalizedArtifactName: 'normalized.json',
           },
+          readingInteractions: {
+            allowedActions: ['click', 'scroll', 'wait'],
+            disallowedActions: [
+              'type into fields',
+              'submit forms',
+              'upload files',
+              'click Apply or Submit equivalents',
+              'perform account actions',
+              'open external links',
+              'change the top-level host, path, or query',
+            ],
+            hashOnlyUrlChangesAllowed: true,
+            history: [],
+            requestContract:
+              'If more visible same-page evidence is needed, return kind "interaction_requested" with one safe reading interaction.',
+          },
           vacancyPage: {
             extractedTextPath: 'input/page.txt',
             originalUrl: 'https://boards.greenhouse.io/example/jobs/123',
