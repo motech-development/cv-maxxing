@@ -120,40 +120,6 @@ function trimTrailingRelatedContent(html: string): string {
   return html.slice(0, cutIndex).trim()
 }
 
-export function inferPageTitle(html: string): string | null {
-  const titleMatch = /<title>([^<]+)<\/title>/i.exec(html)
-
-  if (titleMatch === null) {
-    return null
-  }
-
-  const [, title] = titleMatch
-
-  if (title === undefined) {
-    return null
-  }
-
-  return title.trim()
-}
-
-export function inferTitleFromPageTitle(pageTitle: string | null): string | null {
-  if (pageTitle === null) {
-    return null
-  }
-
-  const normalizedTitle = pageTitle
-    .replace(/\s+-\s+Greenhouse$/i, '')
-    .replace(/\s+\|\s+Indeed$/i, '')
-    .replace(/\s+\|\s+LinkedIn$/i, '')
-    .split(/\s+(?:at|\|)\s+/i)[0]
-
-  if (normalizedTitle === undefined) {
-    return null
-  }
-
-  return normalizedTitle.trim()
-}
-
 function truncateContent(value: string, maxLength: number): string {
   if (value.length <= maxLength) {
     return value

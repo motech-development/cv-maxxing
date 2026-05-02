@@ -352,11 +352,7 @@ function looksLikeSemanticJunk(value: string): boolean {
     return true
   }
 
-  if (
-    normalizedValue.includes('sign in') ||
-    normalizedValue.includes('log in') ||
-    normalizedValue.includes('join linkedin')
-  ) {
+  if (normalizedValue.includes('sign in') || normalizedValue.includes('log in')) {
     return true
   }
 

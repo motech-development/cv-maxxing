@@ -23,7 +23,7 @@ import type {
   VacancyBrowserPageSnapshot,
 } from './vacancy-browser-session-service.js'
 import { VacancyNormalizationError } from './vacancy-normalization-error.js'
-import { inferTitleFromPageTitle, sanitizeSnapshotHtml } from './vacancy-page-content.js'
+import { sanitizeSnapshotHtml } from './vacancy-page-content.js'
 import type {
   NormalizedVacancy,
   VacancyPageInteractionHistoryEntry,
@@ -714,7 +714,7 @@ async function persistFetchedVacancyPage({
       source,
       status: canGenerate ? 'ready' : 'incomplete',
       textPreview: normalizedVacancy.bodyText.slice(0, 280),
-      title: normalizedVacancy.title ?? inferTitleFromPageTitle(fetchedPage.pageTitle),
+      title: normalizedVacancy.title,
     },
   })
 

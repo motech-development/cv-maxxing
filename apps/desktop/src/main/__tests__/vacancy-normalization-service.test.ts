@@ -74,11 +74,11 @@ test('writes a dedicated vacancy-normalization run workspace and removes it afte
           },
           vacancyPage: {
             extractedTextPath: 'input/page.txt',
-            originalUrl: 'https://boards.greenhouse.io/example/jobs/123',
-            pageTitle: 'Senior Product Designer at Example Labs - Greenhouse',
-            resolvedUrl: 'https://boards.greenhouse.io/example/jobs/123?gh_jid=123',
+            originalUrl: 'https://jobs.example.com/roles/123',
+            pageTitle: 'Senior Product Designer at Example Labs',
+            resolvedUrl: 'https://jobs.example.com/roles/123',
             sanitizedHtmlPath: 'input/page.html',
-            source: 'boards.greenhouse.io',
+            source: 'jobs.example.com',
           },
         })
         expect(Array.isArray(parsedExamples)).toBe(true)
@@ -123,10 +123,10 @@ test('writes a dedicated vacancy-normalization run workspace and removes it afte
         '</body>',
         '</html>',
       ].join(''),
-      originalUrl: 'https://boards.greenhouse.io/example/jobs/123',
-      pageTitle: 'Senior Product Designer at Example Labs - Greenhouse',
-      resolvedUrl: 'https://boards.greenhouse.io/example/jobs/123?gh_jid=123',
-      source: 'boards.greenhouse.io',
+      originalUrl: 'https://jobs.example.com/roles/123',
+      pageTitle: 'Senior Product Designer at Example Labs',
+      resolvedUrl: 'https://jobs.example.com/roles/123',
+      source: 'jobs.example.com',
     }),
   ).resolves.toEqual({
     bodyText: 'Lead product design for desktop workflows. Partner with engineering and research.',
@@ -285,7 +285,7 @@ test('rejects semantically invalid normalized vacancy output after deterministic
         return Promise.resolve({
           kind: 'success',
           normalizedVacancy: {
-            bodyText: 'Join LinkedIn or sign in to continue.',
+            bodyText: 'Sign in to continue.',
             employer: null,
             location: null,
             requirements: [],
@@ -300,10 +300,10 @@ test('rejects semantically invalid normalized vacancy output after deterministic
   await expect(
     service.normalizeVacancy({
       html: '<main><h1>Sign in to view this job</h1></main>',
-      originalUrl: 'https://www.linkedin.com/jobs/view/123456',
-      pageTitle: 'Sign in to view this job | LinkedIn',
-      resolvedUrl: 'https://www.linkedin.com/jobs/view/123456',
-      source: 'linkedin.com',
+      originalUrl: 'https://careers.example.com/jobs/123456',
+      pageTitle: 'Sign in to view this job',
+      resolvedUrl: 'https://careers.example.com/jobs/123456',
+      source: 'careers.example.com',
     }),
   ).rejects.toEqual(
     new VacancyNormalizationError({

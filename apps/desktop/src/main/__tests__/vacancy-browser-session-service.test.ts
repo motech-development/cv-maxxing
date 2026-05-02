@@ -83,8 +83,8 @@ test('uses an app-managed browser session path instead of a shared partition and
   const constructor = vi.fn(function BrowserWindowConstructor(options: Record<string, unknown>) {
     return new BrowserWindowDouble(options, {
       html: '<main><h1>Senior Product Designer</h1></main>',
-      pageTitle: 'Senior Product Designer | LinkedIn',
-      resolvedUrl: 'https://www.linkedin.com/jobs/view/123456',
+      pageTitle: 'Senior Product Designer | Example Careers',
+      resolvedUrl: 'https://careers.example.com/jobs/123456',
     })
   })
   const vacancyBrowserSession = createVacancyBrowserSessionService({
@@ -95,7 +95,7 @@ test('uses an app-managed browser session path instead of a shared partition and
 
   const resultPromise = vacancyBrowserSession.openSession({
     shouldCapturePage: () => true,
-    url: 'https://www.linkedin.com/jobs/view/123456',
+    url: 'https://careers.example.com/jobs/123456',
   })
 
   await vi.waitFor(() => {
@@ -106,8 +106,8 @@ test('uses an app-managed browser session path instead of a shared partition and
 
   createdWindow?.finishLoad({
     html: '<main><h1>Senior Product Designer</h1></main>',
-    pageTitle: 'Senior Product Designer | LinkedIn',
-    resolvedUrl: 'https://www.linkedin.com/jobs/view/123456',
+    pageTitle: 'Senior Product Designer | Example Careers',
+    resolvedUrl: 'https://careers.example.com/jobs/123456',
   })
   await flushObservation()
   createdWindow?.close()
@@ -128,8 +128,8 @@ test('uses an app-managed browser session path instead of a shared partition and
   )
   expect(result).toEqual({
     html: '<main><h1>Senior Product Designer</h1></main>',
-    pageTitle: 'Senior Product Designer | LinkedIn',
-    resolvedUrl: 'https://www.linkedin.com/jobs/view/123456',
+    pageTitle: 'Senior Product Designer | Example Careers',
+    resolvedUrl: 'https://careers.example.com/jobs/123456',
   })
 })
 
@@ -139,8 +139,8 @@ test('captures a vacancy page silently with the managed browser session before f
   const constructor = vi.fn(function BrowserWindowConstructor(options: Record<string, unknown>) {
     return new BrowserWindowDouble(options, {
       html: '<main><h1>Senior Product Designer</h1></main>',
-      pageTitle: 'Senior Product Designer | LinkedIn',
-      resolvedUrl: 'https://www.linkedin.com/jobs/view/123456',
+      pageTitle: 'Senior Product Designer | Example Careers',
+      resolvedUrl: 'https://careers.example.com/jobs/123456',
     })
   })
   const vacancyBrowserSession = createVacancyBrowserSessionService({
@@ -151,7 +151,7 @@ test('captures a vacancy page silently with the managed browser session before f
 
   const resultPromise = vacancyBrowserSession.captureSessionPage({
     shouldCapturePage: () => true,
-    url: 'https://www.linkedin.com/jobs/view/123456',
+    url: 'https://careers.example.com/jobs/123456',
   })
 
   await vi.waitFor(() => {
@@ -162,8 +162,8 @@ test('captures a vacancy page silently with the managed browser session before f
 
   createdWindow?.finishLoad({
     html: '<main><h1>Senior Product Designer</h1></main>',
-    pageTitle: 'Senior Product Designer | LinkedIn',
-    resolvedUrl: 'https://www.linkedin.com/jobs/view/123456',
+    pageTitle: 'Senior Product Designer | Example Careers',
+    resolvedUrl: 'https://careers.example.com/jobs/123456',
   })
 
   const result = await resultPromise
@@ -175,8 +175,8 @@ test('captures a vacancy page silently with the managed browser session before f
   expect(firstConstructorCall?.[0].show).toBe(false)
   expect(result).toEqual({
     html: '<main><h1>Senior Product Designer</h1></main>',
-    pageTitle: 'Senior Product Designer | LinkedIn',
-    resolvedUrl: 'https://www.linkedin.com/jobs/view/123456',
+    pageTitle: 'Senior Product Designer | Example Careers',
+    resolvedUrl: 'https://careers.example.com/jobs/123456',
   })
   expect(createdWindow?.isDestroyed()).toBe(true)
 })
@@ -185,8 +185,8 @@ test('tracks the latest valid on-target snapshot across later page loads and ret
   const constructor = vi.fn(function BrowserWindowConstructor(options: Record<string, unknown>) {
     return new BrowserWindowDouble(options, {
       html: '<main><h1>Loading…</h1></main>',
-      pageTitle: 'Loading | LinkedIn',
-      resolvedUrl: 'https://www.linkedin.com/jobs/view/123456',
+      pageTitle: 'Loading | authenticated job site',
+      resolvedUrl: 'https://careers.example.com/jobs/123456',
     })
   })
   const vacancyBrowserSession = createVacancyBrowserSessionService({
@@ -197,9 +197,9 @@ test('tracks the latest valid on-target snapshot across later page loads and ret
 
   const resultPromise = vacancyBrowserSession.openSession({
     shouldCapturePage: (snapshot) => {
-      return snapshot.resolvedUrl === 'https://www.linkedin.com/jobs/view/123456'
+      return snapshot.resolvedUrl === 'https://careers.example.com/jobs/123456'
     },
-    url: 'https://www.linkedin.com/jobs/view/123456',
+    url: 'https://careers.example.com/jobs/123456',
   })
 
   await vi.waitFor(() => {
@@ -212,21 +212,21 @@ test('tracks the latest valid on-target snapshot across later page loads and ret
   expect(createdWindow?.isDestroyed()).toBe(false)
 
   createdWindow?.finishLoad({
-    html: '<main><h1>LinkedIn Feed</h1></main>',
-    pageTitle: 'Feed | LinkedIn',
-    resolvedUrl: 'https://www.linkedin.com/feed/',
+    html: '<main><h1>Account home</h1></main>',
+    pageTitle: 'Account home',
+    resolvedUrl: 'https://careers.example.com/account/',
   })
   await flushObservation()
   createdWindow?.finishLoad({
     html: '<main><h1>Senior Product Designer</h1></main>',
-    pageTitle: 'Senior Product Designer | LinkedIn',
-    resolvedUrl: 'https://www.linkedin.com/jobs/view/123456',
+    pageTitle: 'Senior Product Designer | Example Careers',
+    resolvedUrl: 'https://careers.example.com/jobs/123456',
   })
   await flushObservation()
   createdWindow?.finishLoad({
     html: '<main><h1>Senior Product Designer Updated</h1></main>',
-    pageTitle: 'Senior Product Designer | LinkedIn',
-    resolvedUrl: 'https://www.linkedin.com/jobs/view/123456',
+    pageTitle: 'Senior Product Designer | Example Careers',
+    resolvedUrl: 'https://careers.example.com/jobs/123456',
   })
   await flushObservation()
   createdWindow?.close()
@@ -235,8 +235,8 @@ test('tracks the latest valid on-target snapshot across later page loads and ret
 
   expect(result).toEqual({
     html: '<main><h1>Senior Product Designer Updated</h1></main>',
-    pageTitle: 'Senior Product Designer | LinkedIn',
-    resolvedUrl: 'https://www.linkedin.com/jobs/view/123456',
+    pageTitle: 'Senior Product Designer | Example Careers',
+    resolvedUrl: 'https://careers.example.com/jobs/123456',
   })
 })
 
@@ -244,8 +244,8 @@ test('discards a previously valid snapshot if the user later navigates off-targe
   const constructor = vi.fn(function BrowserWindowConstructor(options: Record<string, unknown>) {
     return new BrowserWindowDouble(options, {
       html: '<main><h1>Loading…</h1></main>',
-      pageTitle: 'Loading | LinkedIn',
-      resolvedUrl: 'https://www.linkedin.com/jobs/view/123456',
+      pageTitle: 'Loading | authenticated job site',
+      resolvedUrl: 'https://careers.example.com/jobs/123456',
     })
   })
   const vacancyBrowserSession = createVacancyBrowserSessionService({
@@ -256,9 +256,9 @@ test('discards a previously valid snapshot if the user later navigates off-targe
 
   const resultPromise = vacancyBrowserSession.openSession({
     shouldCapturePage: (snapshot) => {
-      return snapshot.resolvedUrl === 'https://www.linkedin.com/jobs/view/123456'
+      return snapshot.resolvedUrl === 'https://careers.example.com/jobs/123456'
     },
-    url: 'https://www.linkedin.com/jobs/view/123456',
+    url: 'https://careers.example.com/jobs/123456',
   })
 
   await vi.waitFor(() => {
@@ -269,14 +269,14 @@ test('discards a previously valid snapshot if the user later navigates off-targe
 
   createdWindow?.finishLoad({
     html: '<main><h1>Senior Product Designer</h1></main>',
-    pageTitle: 'Senior Product Designer | LinkedIn',
-    resolvedUrl: 'https://www.linkedin.com/jobs/view/123456',
+    pageTitle: 'Senior Product Designer | Example Careers',
+    resolvedUrl: 'https://careers.example.com/jobs/123456',
   })
   await flushObservation()
   createdWindow?.finishLoad({
-    html: '<main><h1>LinkedIn Feed</h1></main>',
-    pageTitle: 'Feed | LinkedIn',
-    resolvedUrl: 'https://www.linkedin.com/feed/',
+    html: '<main><h1>Account home</h1></main>',
+    pageTitle: 'Account home',
+    resolvedUrl: 'https://careers.example.com/account/',
   })
   await flushObservation()
   createdWindow?.close()
@@ -288,7 +288,7 @@ test('returns null when the browser window closes without any valid on-target sn
   const constructor = vi.fn(function BrowserWindowConstructor(options: Record<string, unknown>) {
     return new BrowserWindowDouble(options, {
       html: '<main><h1>Sign in to view this job</h1></main>',
-      pageTitle: 'Sign in to view this job | LinkedIn',
+      pageTitle: 'Sign in to view this job',
       resolvedUrl: 'data:text/html,fixture',
     })
   })
@@ -302,7 +302,7 @@ test('returns null when the browser window closes without any valid on-target sn
 
   const resultPromise = vacancyBrowserSession.openSession({
     shouldCapturePage: () => false,
-    url: 'https://www.linkedin.com/jobs/view/123456',
+    url: 'https://careers.example.com/jobs/123456',
   })
   await vi.waitFor(() => {
     expect(constructor).toHaveBeenCalledTimes(1)
@@ -312,7 +312,7 @@ test('returns null when the browser window closes without any valid on-target sn
 
   createdWindow?.finishLoad({
     html: '<main><h1>Sign in to view this job</h1></main>',
-    pageTitle: 'Sign in to view this job | LinkedIn',
+    pageTitle: 'Sign in to view this job',
     resolvedUrl: 'data:text/html,fixture',
   })
   await flushObservation()

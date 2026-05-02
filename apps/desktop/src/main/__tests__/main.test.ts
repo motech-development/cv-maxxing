@@ -79,11 +79,11 @@ function createVacancyDouble() {
         id: 'vacancy-pending-browser',
         inputType: 'url',
         location: null,
-        originalUrl: 'https://www.linkedin.com/jobs/view/123456',
+        originalUrl: 'https://careers.example.com/jobs/123456',
         requirements: [],
         resolvedUrl: null,
         responsibilities: [],
-        source: 'linkedin.com',
+        source: 'careers.example.com',
         status: 'incomplete',
         textPreview: '',
         title: null,
@@ -91,7 +91,7 @@ function createVacancyDouble() {
       workspaceState: {
         draft: {
           text: '',
-          url: 'https://www.linkedin.com/jobs/view/123456',
+          url: 'https://careers.example.com/jobs/123456',
         },
         vacancy: null,
       },
@@ -385,11 +385,11 @@ test('bootstrap registers the full AI worker onboarding IPC surface and opens th
         id: 'vacancy-pending-browser',
         inputType: 'url',
         location: null,
-        originalUrl: 'https://www.linkedin.com/jobs/view/123456',
+        originalUrl: 'https://careers.example.com/jobs/123456',
         requirements: [],
         resolvedUrl: null,
         responsibilities: [],
-        source: 'linkedin.com',
+        source: 'careers.example.com',
         status: 'incomplete',
         textPreview: '',
         title: null,
@@ -397,7 +397,7 @@ test('bootstrap registers the full AI worker onboarding IPC surface and opens th
       workspaceState: {
         draft: {
           text: '',
-          url: 'https://www.linkedin.com/jobs/view/123456',
+          url: 'https://careers.example.com/jobs/123456',
         },
         vacancy: null,
       },
@@ -413,11 +413,11 @@ test('bootstrap registers the full AI worker onboarding IPC surface and opens th
         id: 'vacancy-pending-browser',
         inputType: 'url',
         location: null,
-        originalUrl: 'https://www.linkedin.com/jobs/view/123456',
+        originalUrl: 'https://careers.example.com/jobs/123456',
         requirements: [],
         resolvedUrl: null,
         responsibilities: [],
-        source: 'linkedin.com',
+        source: 'careers.example.com',
         status: 'incomplete',
         textPreview: '',
         title: null,
@@ -425,7 +425,7 @@ test('bootstrap registers the full AI worker onboarding IPC surface and opens th
       workspaceState: {
         draft: {
           text: '',
-          url: 'https://www.linkedin.com/jobs/view/123456',
+          url: 'https://careers.example.com/jobs/123456',
         },
         vacancy: null,
       },
@@ -668,7 +668,7 @@ test('bootstrap registers the full AI worker onboarding IPC surface and opens th
   ).resolves.toBeUndefined()
   await expect(
     registeredHandlers.get(VACANCY_IPC_CHANNELS.ingestUrl)?.(undefined, {
-      url: 'https://www.linkedin.com/jobs/view/123456',
+      url: 'https://careers.example.com/jobs/123456',
     }),
   ).resolves.toEqual({
     kind: 'incomplete',
@@ -681,11 +681,11 @@ test('bootstrap registers the full AI worker onboarding IPC surface and opens th
       id: 'vacancy-pending-browser',
       inputType: 'url',
       location: null,
-      originalUrl: 'https://www.linkedin.com/jobs/view/123456',
+      originalUrl: 'https://careers.example.com/jobs/123456',
       requirements: [],
       resolvedUrl: null,
       responsibilities: [],
-      source: 'linkedin.com',
+      source: 'careers.example.com',
       status: 'incomplete',
       textPreview: '',
       title: null,
@@ -693,7 +693,7 @@ test('bootstrap registers the full AI worker onboarding IPC surface and opens th
     workspaceState: {
       draft: {
         text: '',
-        url: 'https://www.linkedin.com/jobs/view/123456',
+        url: 'https://careers.example.com/jobs/123456',
       },
       vacancy: null,
     },
@@ -748,7 +748,7 @@ test('bootstrap registers the full AI worker onboarding IPC surface and opens th
   })
   await expect(
     registeredHandlers.get(VACANCY_IPC_CHANNELS.openBrowserSession)?.(undefined, {
-      url: 'https://www.linkedin.com/jobs/view/123456',
+      url: 'https://careers.example.com/jobs/123456',
     }),
   ).resolves.toEqual({
     kind: 'incomplete',
@@ -761,11 +761,11 @@ test('bootstrap registers the full AI worker onboarding IPC surface and opens th
       id: 'vacancy-pending-browser',
       inputType: 'url',
       location: null,
-      originalUrl: 'https://www.linkedin.com/jobs/view/123456',
+      originalUrl: 'https://careers.example.com/jobs/123456',
       requirements: [],
       resolvedUrl: null,
       responsibilities: [],
-      source: 'linkedin.com',
+      source: 'careers.example.com',
       status: 'incomplete',
       textPreview: '',
       title: null,
@@ -773,20 +773,20 @@ test('bootstrap registers the full AI worker onboarding IPC surface and opens th
     workspaceState: {
       draft: {
         text: '',
-        url: 'https://www.linkedin.com/jobs/view/123456',
+        url: 'https://careers.example.com/jobs/123456',
       },
       vacancy: null,
     },
   })
   expect(vacancy.ingestVacancyUrl).toHaveBeenCalledWith({
-    url: 'https://www.linkedin.com/jobs/view/123456',
+    url: 'https://careers.example.com/jobs/123456',
   })
   expect(vacancy.ingestPastedVacancy).toHaveBeenCalledWith({
     text: 'Senior Product Designer',
     url: 'https://jobs.example.com/senior-product-designer',
   })
   expect(vacancy.openBrowserSession).toHaveBeenCalledWith({
-    url: 'https://www.linkedin.com/jobs/view/123456',
+    url: 'https://careers.example.com/jobs/123456',
   })
   expect(vacancy.resetWorkspaceState).toHaveBeenCalledTimes(1)
   await expect(
