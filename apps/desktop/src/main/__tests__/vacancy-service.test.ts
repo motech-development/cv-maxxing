@@ -154,7 +154,7 @@ test('ingests pasted vacancy text into a ready preview and persists encrypted va
   await localAppData.close()
 })
 
-test('classifies a Greenhouse vacancy URL, fetches it deterministically, and persists the sanitized snapshot', async () => {
+test('ingests an embedded-board vacancy URL through the generic browser capture path and persists the sanitized snapshot', async () => {
   const paths = await createTestPaths()
   const localAppData = await openLocalAppData({
     keychain: createKeychainBoundary(),
@@ -177,27 +177,32 @@ test('classifies a Greenhouse vacancy URL, fetches it deterministically, and per
       })
     }),
   } satisfies VacancyNormalizationService
+  const captureVacancyBrowserSessionPage = vi.fn(() => {
+    return Promise.resolve({
+      html: [
+        '<html>',
+        '<head><title>Senior Product Designer at Example Labs</title></head>',
+        '<body>',
+        '<main>',
+        '<h1>Careers at Example Labs</h1>',
+        '<iframe title="Current openings"></iframe>',
+        '<section data-embedded-board="greenhouse">',
+        '<h2>Senior Product Designer</h2>',
+        '<p>Example Labs</p>',
+        '<p>London, United Kingdom</p>',
+        '<section><h3>Responsibilities</h3><ul><li>Lead product design for desktop workflows.</li><li>Partner with engineering and research.</li></ul></section>',
+        '<section><h3>Requirements</h3><ul><li>Experience shipping workflow software.</li><li>Excellent written communication.</li></ul></section>',
+        '</section>',
+        '</main>',
+        '</body>',
+        '</html>',
+      ].join(''),
+      pageTitle: 'Senior Product Designer at Example Labs',
+      resolvedUrl: 'https://careers.example.com/jobs/senior-product-designer',
+    })
+  })
   const vacancyService = createVacancyService({
-    fetchVacancyPage: vi.fn(() => {
-      return Promise.resolve({
-        html: [
-          '<html>',
-          '<head><title>Senior Product Designer at Example Labs - Greenhouse</title></head>',
-          '<body>',
-          '<main>',
-          '<h1>Senior Product Designer</h1>',
-          '<p>Example Labs</p>',
-          '<p>London, United Kingdom</p>',
-          '<section><h2>Responsibilities</h2><ul><li>Lead product design for desktop workflows.</li><li>Partner with engineering and research.</li></ul></section>',
-          '<section><h2>Requirements</h2><ul><li>Experience shipping workflow software.</li><li>Excellent written communication.</li></ul></section>',
-          '</main>',
-          '</body>',
-          '</html>',
-        ].join(''),
-        pageTitle: 'Senior Product Designer at Example Labs - Greenhouse',
-        resolvedUrl: 'https://boards.greenhouse.io/example/jobs/123',
-      })
-    }),
+    captureVacancyBrowserSessionPage,
     generateId: vi.fn(() => 'vacancy-002'),
     getCurrentTimestamp: vi.fn(() => '2026-04-08T21:10:00.000Z'),
     localAppData,
@@ -206,16 +211,17 @@ test('classifies a Greenhouse vacancy URL, fetches it deterministically, and per
   })
 
   const result = await vacancyService.ingestVacancyUrl({
-    url: 'https://boards.greenhouse.io/example/jobs/123',
+    url: 'https://careers.example.com/jobs/senior-product-designer',
   })
 
   expect(result.kind).toBe('ingested')
-  expect(result.vacancy.source).toBe('greenhouse')
+  expect(result.vacancy.source).toBe('generic')
   expect(result.vacancy.inputType).toBe('url')
   expect(result.vacancy.title).toBe('Senior Product Designer')
   expect(result.vacancy.employer).toBe('Example Labs')
   expect(result.vacancy.location).toBe('London, United Kingdom')
   expect(result.vacancy.canGenerate).toBe(true)
+  expect(captureVacancyBrowserSessionPage).toHaveBeenCalledTimes(1)
   const normalizationCall = normalizationCalls[0]
 
   expect(normalizationCall).toBeDefined()
@@ -224,11 +230,15 @@ test('classifies a Greenhouse vacancy URL, fetches it deterministically, and per
     throw new Error('Expected vacancy normalization input to be captured.')
   }
 
-  expect(normalizationCall.html).toContain('<h1>Senior Product Designer</h1>')
-  expect(normalizationCall.originalUrl).toBe('https://boards.greenhouse.io/example/jobs/123')
-  expect(normalizationCall.pageTitle).toBe('Senior Product Designer at Example Labs - Greenhouse')
-  expect(normalizationCall.resolvedUrl).toBe('https://boards.greenhouse.io/example/jobs/123')
-  expect(normalizationCall.source).toBe('greenhouse')
+  expect(normalizationCall.html).toContain('data-embedded-board="greenhouse"')
+  expect(normalizationCall.originalUrl).toBe(
+    'https://careers.example.com/jobs/senior-product-designer',
+  )
+  expect(normalizationCall.pageTitle).toBe('Senior Product Designer at Example Labs')
+  expect(normalizationCall.resolvedUrl).toBe(
+    'https://careers.example.com/jobs/senior-product-designer',
+  )
+  expect(normalizationCall.source).toBe('generic')
 
   const extractedArtifact = await localAppData.artifacts.read({
     id: 'vacancy-002',
@@ -259,7 +269,7 @@ test('classifies a Greenhouse vacancy URL, fetches it deterministically, and per
       title: 'Senior Product Designer',
     }),
   )
-  expect(snapshotArtifact?.toString('utf8')).toContain('<h1>Senior Product Designer</h1>')
+  expect(snapshotArtifact?.toString('utf8')).toContain('<h2>Senior Product Designer</h2>')
   expect(snapshotArtifact?.toString('utf8')).not.toContain('localStorage')
 
   await localAppData.close()
@@ -331,9 +341,7 @@ test('preserves a LinkedIn vacancy URL and falls back to the interactive browser
     paths,
   })
   const captureVacancyBrowserSessionPage = vi.fn(() => Promise.resolve(null))
-  const fetchVacancyPage = vi.fn()
   const vacancyService = createVacancyService({
-    fetchVacancyPage,
     generateId: vi.fn(() => 'vacancy-003-fallback'),
     getCurrentTimestamp: vi.fn(() => '2026-04-08T21:15:30.000Z'),
     localAppData,
@@ -351,7 +359,6 @@ test('preserves a LinkedIn vacancy URL and falls back to the interactive browser
   expect(result.vacancy.canGenerate).toBe(false)
   expect(result.vacancy.blockingReason).toContain('Open the job page')
   expect(captureVacancyBrowserSessionPage).toHaveBeenCalledTimes(1)
-  expect(fetchVacancyPage).not.toHaveBeenCalled()
 
   await localAppData.close()
 })
@@ -771,23 +778,24 @@ test('derives generic URL review readiness from the normalized vacancy object an
       })
     }),
   } satisfies VacancyNormalizationService
+  const captureVacancyBrowserSessionPage = vi.fn(() => {
+    return Promise.resolve({
+      html: [
+        '<html>',
+        '<body>',
+        '<main>',
+        '<div>Accept cookies to continue</div>',
+        '<button>Accept all cookies</button>',
+        '</main>',
+        '</body>',
+        '</html>',
+      ].join(''),
+      pageTitle: 'Cookie banner',
+      resolvedUrl: 'https://careers.example.com/product-designer',
+    })
+  })
   const vacancyService = createVacancyService({
-    fetchVacancyPage: vi.fn(() => {
-      return Promise.resolve({
-        html: [
-          '<html>',
-          '<body>',
-          '<main>',
-          '<div>Accept cookies to continue</div>',
-          '<button>Accept all cookies</button>',
-          '</main>',
-          '</body>',
-          '</html>',
-        ].join(''),
-        pageTitle: 'Cookie banner',
-        resolvedUrl: 'https://careers.example.com/product-designer',
-      })
-    }),
+    captureVacancyBrowserSessionPage,
     generateId: vi.fn(() => 'vacancy-004'),
     getCurrentTimestamp: vi.fn(() => '2026-04-08T21:20:00.000Z'),
     localAppData,
@@ -805,6 +813,7 @@ test('derives generic URL review readiness from the normalized vacancy object an
   expect(result.vacancy.blockingReason).toBeNull()
   expect(result.vacancy.title).toBe('Senior Product Designer')
   expect(result.vacancy.textPreview).toContain('Design the workflow surface')
+  expect(captureVacancyBrowserSessionPage).toHaveBeenCalledTimes(1)
   await expect(vacancyService.getWorkspaceState()).resolves.toEqual({
     draft: {
       text: '',
@@ -1017,7 +1026,7 @@ test('blocks a non-English pasted vacancy while preserving the entered draft', a
   await localAppData.close()
 })
 
-test('blocks a non-English fetched vacancy page while preserving the entered URL', async () => {
+test('blocks a non-English browser-captured vacancy page while preserving the entered URL', async () => {
   const paths = await createTestPaths()
   const localAppData = await openLocalAppData({
     keychain: createKeychainBoundary(),
@@ -1037,7 +1046,7 @@ test('blocks a non-English fetched vacancy page while preserving the entered URL
     }),
   } satisfies VacancyNormalizationService
   const vacancyService = createVacancyService({
-    fetchVacancyPage: vi.fn(() => {
+    captureVacancyBrowserSessionPage: vi.fn(() => {
       return Promise.resolve({
         html: [
           '<html>',
@@ -1098,7 +1107,7 @@ test('preserves the entered URL draft and throws when generic URL review is sema
     paths,
   })
   const vacancyService = createVacancyService({
-    fetchVacancyPage: vi.fn(() => {
+    captureVacancyBrowserSessionPage: vi.fn(() => {
       return Promise.resolve({
         html: '<main><h1>Accept cookies to continue</h1></main>',
         pageTitle: 'Cookie banner',
