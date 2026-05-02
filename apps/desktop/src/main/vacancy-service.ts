@@ -170,8 +170,15 @@ export function createVacancyService({
       const source = normalizedUrl ? normalizeSubmittedHostname(normalizedUrl) : 'pasted_text'
       const vacancyId = generateId()
       const fetchedAt = getCurrentTimestamp()
-      const normalizedVacancy = normalizeVacancyText(trimmedText)
-      const isLanguageBlocked = assessEnglishLanguageSupport(trimmedText).status === 'blocked'
+      const normalizedVacancy = await normalizationService.normalizeVacancy({
+        html: createPastedVacancyHtml(trimmedText),
+        originalUrl: normalizedUrl ?? 'pasted_text',
+        pageTitle: null,
+        resolvedUrl: normalizedUrl ?? 'pasted_text',
+        source,
+      })
+      const extractedText = normalizedVacancy.bodyText.trim()
+      const isLanguageBlocked = assessEnglishLanguageSupport(extractedText).status === 'blocked'
       const canGenerate = !isLanguageBlocked && isVacancyReady(normalizedVacancy)
       let blockingReason: string | null = null
 
@@ -197,7 +204,7 @@ export function createVacancyService({
           responsibilities: normalizedVacancy.responsibilities,
           source,
           status: canGenerate ? 'ready' : 'incomplete',
-          textPreview: normalizedVacancy.bodyText.slice(0, 280),
+          textPreview: extractedText.slice(0, 280),
           title: normalizedVacancy.title,
         },
       })
@@ -208,7 +215,7 @@ export function createVacancyService({
         value: toVacancyMetadataValue(vacancy),
       })
       await localAppData.artifacts.write({
-        content: Buffer.from(trimmedText, 'utf8'),
+        content: Buffer.from(extractedText, 'utf8'),
         id: vacancyId,
         name: 'extracted.txt',
         scope: VACANCY_SCOPE,
@@ -1037,105 +1044,17 @@ function requireUrl(url: string): string {
   return normalizedUrl
 }
 
-function normalizeVacancyText(text: string): NormalizedVacancy {
-  const normalizedText = text.replaceAll('\r\n', '\n').trim()
-  const lines = normalizedText
-    .split('\n')
-    .map((line) => {
-      return line.trim()
-    })
-    .filter((line) => {
-      return line !== ''
-    })
-  const bodyLines: string[] = []
-  const requirements: string[] = []
-  const responsibilities: string[] = []
-  let activeSection: 'requirements' | 'responsibilities' | null = null
-
-  for (const line of lines.slice(3)) {
-    const normalizedLine = line.toLowerCase()
-
-    if (normalizedLine === 'requirements' || normalizedLine === 'qualifications') {
-      activeSection = 'requirements'
-
-      continue
-    }
-
-    if (
-      normalizedLine === 'responsibilities' ||
-      normalizedLine === 'what you will do' ||
-      normalizedLine === 'about the role'
-    ) {
-      activeSection = 'responsibilities'
-
-      continue
-    }
-
-    const cleanedLine = line.replace(/^[*-]\s*/, '')
-
-    if (activeSection === 'requirements') {
-      requirements.push(cleanedLine)
-      bodyLines.push(cleanedLine)
-
-      continue
-    }
-
-    if (activeSection === 'responsibilities') {
-      responsibilities.push(cleanedLine)
-      bodyLines.push(cleanedLine)
-
-      continue
-    }
-
-    bodyLines.push(cleanedLine)
-  }
-
-  const location = inferLocation(lines[2])
-
-  return {
-    bodyText: bodyLines.join(' ').trim(),
-    employer: normalizeNullableLine(lines[1]),
-    location,
-    requirements,
-    responsibilities,
-    title: normalizeNullableLine(lines[0]),
-  }
+function createPastedVacancyHtml(text: string): string {
+  return `<main data-vacancy-input="pasted-description"><pre>${escapeHtml(text)}</pre></main>`
 }
 
-function inferLocation(line: string | undefined): string | null {
-  if (line === undefined) {
-    return null
-  }
-
-  const normalizedLine = line.trim()
-
-  if (normalizedLine === '') {
-    return null
-  }
-
-  if (
-    normalizedLine.includes(',') ||
-    normalizedLine.toLowerCase().includes('remote') ||
-    normalizedLine.toLowerCase().includes('hybrid')
-  ) {
-    return normalizedLine
-  }
-
-  return null
-}
-
-function normalizeNullableLine(line: string | undefined): string | null {
-  if (line === undefined) {
-    return null
-  }
-
-  const normalizedLine = line.trim()
-
-  if (normalizedLine === '') {
-    return null
-  }
-
-  return normalizedLine
+function escapeHtml(value: string): string {
+  return value
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;')
 }
 
 function isVacancyReady(vacancy: NormalizedVacancy): boolean {

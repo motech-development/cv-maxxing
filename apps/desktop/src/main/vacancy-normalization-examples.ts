@@ -28,4 +28,16 @@ export const VACANCY_NORMALIZATION_EXAMPLES: readonly {
     },
     title: 'Missing employer stays empty while concrete vacancy fields remain grounded',
   },
+  {
+    normalizedVacancy: {
+      bodyText:
+        'Design desktop workflows for technical users. Partner with engineering to ship accessible product improvements.',
+      employer: 'Northstar Tools',
+      location: null,
+      requirements: ['Experience designing workflow software for technical users.'],
+      responsibilities: ['Design desktop workflows for technical users.'],
+      title: 'Product Designer',
+    },
+    title: 'Pasted job description is cleaned and structured without relying on section order',
+  },
 ] as const

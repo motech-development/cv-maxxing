@@ -167,10 +167,11 @@ async function runCodexCliNormalization({
   await writeFile(schemaFilePath, JSON.stringify(OUTPUT_SCHEMA), 'utf8')
 
   const prompt = [
-    'Read input/task.json, input/examples.json, and the referenced vacancy page artifacts.',
+    'Read input/task.json, input/examples.json, and the referenced vacancy page or pasted job-description artifacts.',
     'Return JSON only.',
     'Use British English.',
     'Preserve source meaning and page order.',
+    'Do not translate non-English vacancy content; preserve source language so app validation can block unsupported postings.',
     'Ignore navigation chrome, cookie banners, account UI, and related-job content.',
     'Prefer the main vacancy body over summary snippets.',
     'Leave missing fields empty instead of guessing.',

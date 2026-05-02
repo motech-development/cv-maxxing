@@ -13,6 +13,7 @@ import type {
 } from '../vacancy-browser-session-service.js'
 import type { KeychainBoundary, LocalAppDataPaths } from '../local-app-data-service.js'
 import type {
+  NormalizedVacancy,
   VacancyPageReviewResult,
   VacancyNormalizationInput,
   VacancyNormalizationService,
@@ -46,18 +47,23 @@ function createKeychainBoundary(secret = Buffer.alloc(32, 7)): KeychainBoundary 
   }
 }
 
-function createVacancyNormalizationServiceDouble(): VacancyNormalizationService {
+function createDefaultNormalizedVacancy(): NormalizedVacancy {
+  return {
+    bodyText: 'Lead product design for desktop workflows. Partner with engineering and research.',
+    employer: 'Example Labs',
+    location: 'London, United Kingdom',
+    requirements: ['Experience shipping workflow software.'],
+    responsibilities: ['Lead product design for desktop workflows.'],
+    title: 'Senior Product Designer',
+  }
+}
+
+function createVacancyNormalizationServiceDouble(
+  normalizedVacancy: NormalizedVacancy = createDefaultNormalizedVacancy(),
+): VacancyNormalizationService {
   return {
     normalizeVacancy: vi.fn(() => {
-      return Promise.resolve({
-        bodyText:
-          'Lead product design for desktop workflows. Partner with engineering and research.',
-        employer: 'Example Labs',
-        location: 'London, United Kingdom',
-        requirements: ['Experience shipping workflow software.'],
-        responsibilities: ['Lead product design for desktop workflows.'],
-        title: 'Senior Product Designer',
-      })
+      return Promise.resolve(normalizedVacancy)
     }),
   }
 }
@@ -77,34 +83,47 @@ function createDeferredPromise<T>(): {
   }
 }
 
-test('ingests pasted vacancy text into a ready preview and persists encrypted vacancy artifacts', async () => {
+test('ingests pasted vacancy text through AI normalization and persists cleaned vacancy artifacts', async () => {
   const paths = await createTestPaths()
   const localAppData = await openLocalAppData({
     keychain: createKeychainBoundary(),
     paths,
   })
+  const normalizationService = createVacancyNormalizationServiceDouble({
+    bodyText:
+      'Lead product design for AI-assisted desktop workflows. Partner with engineering and research teams. Experience shipping workflow products. Strong written communication.',
+    employer: 'Example Labs',
+    location: 'London, United Kingdom',
+    requirements: ['Experience shipping workflow products.', 'Strong written communication.'],
+    responsibilities: [
+      'Lead product design for AI-assisted desktop workflows.',
+      'Partner with engineering and research teams.',
+    ],
+    title: 'Senior Product Designer',
+  })
   const vacancyService = createVacancyService({
     generateId: vi.fn(() => 'vacancy-001'),
     getCurrentTimestamp: vi.fn(() => '2026-04-08T21:00:00.000Z'),
     localAppData,
-    normalizationService: createVacancyNormalizationServiceDouble(),
+    normalizationService,
     openVacancyBrowserSession: vi.fn(() => Promise.resolve(null)),
   })
+  const pastedText = [
+    'Senior Product Designer',
+    'Example Labs',
+    'London, United Kingdom',
+    '',
+    'Responsibilities',
+    '- Lead product design for AI-assisted desktop workflows.',
+    '- Partner with engineering and research teams.',
+    '',
+    'Requirements',
+    '- Experience shipping workflow products.',
+    '- Strong written communication.',
+  ].join('\n')
 
   const result = await vacancyService.ingestPastedVacancy({
-    text: [
-      'Senior Product Designer',
-      'Example Labs',
-      'London, United Kingdom',
-      '',
-      'Responsibilities',
-      '- Lead product design for AI-assisted desktop workflows.',
-      '- Partner with engineering and research teams.',
-      '',
-      'Requirements',
-      '- Experience shipping workflow products.',
-      '- Strong written communication.',
-    ].join('\n'),
+    text: pastedText,
     url: 'https://www.jobs.example.com/senior-product-designer',
   })
 
@@ -121,6 +140,23 @@ test('ingests pasted vacancy text into a ready preview and persists encrypted va
   expect(result.vacancy.responsibilities).toContain(
     'Lead product design for AI-assisted desktop workflows.',
   )
+  expect(normalizationService.normalizeVacancy).toHaveBeenCalledTimes(1)
+  const normalizationCall = vi.mocked(normalizationService.normalizeVacancy).mock.calls[0]?.[0]
+
+  expect(normalizationCall).toEqual(
+    expect.objectContaining({
+      originalUrl: 'https://www.jobs.example.com/senior-product-designer',
+      pageTitle: null,
+      resolvedUrl: 'https://www.jobs.example.com/senior-product-designer',
+      source: 'jobs.example.com',
+    }),
+  )
+
+  if (normalizationCall === undefined) {
+    throw new Error('Expected pasted vacancy normalization input to be captured.')
+  }
+
+  expect(normalizationCall.html).toContain('Senior Product Designer')
 
   await expect(
     localAppData.metadata.get<{
@@ -146,19 +182,7 @@ test('ingests pasted vacancy text into a ready preview and persists encrypted va
     }),
   ).resolves.toEqual(
     Buffer.from(
-      [
-        'Senior Product Designer',
-        'Example Labs',
-        'London, United Kingdom',
-        '',
-        'Responsibilities',
-        '- Lead product design for AI-assisted desktop workflows.',
-        '- Partner with engineering and research teams.',
-        '',
-        'Requirements',
-        '- Experience shipping workflow products.',
-        '- Strong written communication.',
-      ].join('\n'),
+      'Lead product design for AI-assisted desktop workflows. Partner with engineering and research teams. Experience shipping workflow products. Strong written communication.',
       'utf8',
     ),
   )
@@ -170,6 +194,60 @@ test('ingests pasted vacancy text into a ready preview and persists encrypted va
 
   expect(normalizedArtifact?.toString('utf8')).toContain('"title":"Senior Product Designer"')
   expect(normalizedArtifact?.toString('utf8')).toContain('"employer":"Example Labs"')
+
+  await localAppData.close()
+})
+
+test('keeps pasted vacancy editable when AI normalization yields insufficient content', async () => {
+  const paths = await createTestPaths()
+  const localAppData = await openLocalAppData({
+    keychain: createKeychainBoundary(),
+    paths,
+  })
+  const vacancyService = createVacancyService({
+    generateId: vi.fn(() => 'vacancy-pasted-incomplete'),
+    getCurrentTimestamp: vi.fn(() => '2026-04-08T21:05:00.000Z'),
+    localAppData,
+    normalizationService: createVacancyNormalizationServiceDouble({
+      bodyText: 'Small founding team.',
+      employer: 'Example Labs',
+      location: null,
+      requirements: [],
+      responsibilities: [],
+      title: 'Product Designer',
+    }),
+    openVacancyBrowserSession: vi.fn(() => Promise.resolve(null)),
+  })
+  const text = 'Product Designer\nExample Labs\nSmall founding team.'
+
+  const result = await vacancyService.ingestPastedVacancy({
+    text,
+  })
+
+  expect(result.kind).toBe('incomplete')
+  expect(result.vacancy.canGenerate).toBe(false)
+  expect(result.vacancy.blockingReason).toBe(
+    'Add the full job responsibilities or requirements before tailoring your CV.',
+  )
+  expect(result.workspaceState).toMatchObject({
+    draft: {
+      text,
+      url: '',
+    },
+    reviewState: 'editable',
+    vacancy: {
+      id: 'vacancy-pasted-incomplete',
+      status: 'incomplete',
+    },
+  })
+
+  await expect(
+    localAppData.artifacts.read({
+      id: 'vacancy-pasted-incomplete',
+      name: 'extracted.txt',
+      scope: 'vacancies',
+    }),
+  ).resolves.toEqual(Buffer.from('Small founding team.', 'utf8'))
 
   await localAppData.close()
 })
@@ -1344,11 +1422,26 @@ test('blocks a non-English pasted vacancy while preserving the entered draft', a
     keychain: createKeychainBoundary(),
     paths,
   })
+  const normalizationService = createVacancyNormalizationServiceDouble({
+    bodyText:
+      'Diseñar productos para usuarios técnicos con equipos de ingeniería. Colaborar con investigación y operaciones. Experiencia enviando software de flujo de trabajo. Comunicación escrita sólida.',
+    employer: 'Example Labs',
+    location: 'Madrid, España',
+    requirements: [
+      'Experiencia enviando software de flujo de trabajo.',
+      'Comunicación escrita sólida.',
+    ],
+    responsibilities: [
+      'Diseñar productos para usuarios técnicos con equipos de ingeniería.',
+      'Colaborar con investigación y operaciones.',
+    ],
+    title: 'Ingeniero de plataforma',
+  })
   const vacancyService = createVacancyService({
     generateId: vi.fn(() => 'vacancy-008'),
     getCurrentTimestamp: vi.fn(() => '2026-04-08T21:40:00.000Z'),
     localAppData,
-    normalizationService: createVacancyNormalizationServiceDouble(),
+    normalizationService,
     openVacancyBrowserSession: vi.fn(() => Promise.resolve(null)),
   })
 
@@ -1376,6 +1469,7 @@ test('blocks a non-English pasted vacancy while preserving the entered draft', a
   expect(result.vacancy.blockingReason).toBe(
     'CV Maxxing v1 supports British English only. Review an English job before tailoring your CV.',
   )
+  expect(normalizationService.normalizeVacancy).toHaveBeenCalledTimes(1)
   const workspaceState = await vacancyService.getWorkspaceState()
 
   expect(workspaceState.draft).toEqual({
