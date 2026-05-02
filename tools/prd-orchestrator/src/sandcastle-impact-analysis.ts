@@ -57,6 +57,12 @@ export interface SiblingTaskSummary {
   readonly summary: string
 }
 
+export interface WriteSurfaceReanalysisPromptInput {
+  readonly previousImpactAnalysis: SandcastleImpactAnalysisResult
+  readonly unexpectedFiles: readonly string[]
+  readonly workerChangedFiles: readonly string[]
+}
+
 export interface ImpactAnalysisPromptInput {
   readonly architectureDesignConstraints: string
   readonly assignedChildTaskBody: string
@@ -65,6 +71,7 @@ export interface ImpactAnalysisPromptInput {
   readonly prdIssueNumber: number
   readonly repoInstructions: string
   readonly siblingSummaries: readonly SiblingTaskSummary[]
+  readonly writeSurfaceReanalysis?: WriteSurfaceReanalysisPromptInput
 }
 
 export interface BuildSandcastleImpactAnalysisOptionsInput extends ImpactAnalysisPromptInput {
@@ -261,6 +268,10 @@ export const buildImpactAnalysisPrompt = (input: ImpactAnalysisPromptInput): str
     '',
     formatSiblingSummaries(input.siblingSummaries),
     '',
+    '## Write Surface Re-analysis Context',
+    '',
+    formatWriteSurfaceReanalysis(input.writeSurfaceReanalysis),
+    '',
     '## Repository Instructions',
     '',
     input.repoInstructions,
@@ -283,6 +294,36 @@ export const buildImpactAnalysisPrompt = (input: ImpactAnalysisPromptInput): str
       '}',
     ].join('\n'),
   ].join('\n')
+
+const formatWriteSurfaceReanalysis = (
+  input: WriteSurfaceReanalysisPromptInput | undefined,
+): string => {
+  if (input === undefined) {
+    return 'This is the initial impact analysis. No worker diff exists yet.'
+  }
+
+  return [
+    'This is a re-analysis after a worker implementation diff touched files outside the previous write surface.',
+    'Review the concrete changed files below. Include legitimate files in `expectedFiles`, `tests`, `sharedContracts`, `designFiles`, or `pencilRequiredDesignFiles` as appropriate. Do not include illegitimate files merely to pass the guard.',
+    '',
+    'Previous impact analysis:',
+    JSON.stringify(input.previousImpactAnalysis, null, 2),
+    '',
+    'Worker changed files:',
+    formatPathList(input.workerChangedFiles),
+    '',
+    'Files missing from the previous write surface:',
+    formatPathList(input.unexpectedFiles),
+  ].join('\n')
+}
+
+const formatPathList = (filePaths: readonly string[]): string => {
+  if (filePaths.length === 0) {
+    return '- None'
+  }
+
+  return filePaths.map((filePath) => `- ${filePath}`).join('\n')
+}
 
 export const getPencilRequiredDesignFiles = (
   impactAnalysis: SandcastleImpactAnalysisResult,

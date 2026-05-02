@@ -203,6 +203,7 @@ export interface RunImpactAnalysisInput {
   readonly parentPrd: SelectedPrdPlan
   readonly parentPrdBody: string
   readonly siblingSummaries: readonly SiblingTaskSummary[]
+  readonly writeSurfaceReanalysis?: WriteSurfaceReanalysisInput
 }
 
 export interface RunImplementationInput extends RunImpactAnalysisInput {
@@ -216,6 +217,12 @@ export interface RunImplementationResult {
   readonly stdout: string
   readonly workerBranchName: string
   readonly workerWorktreePath?: string
+}
+
+export interface WriteSurfaceReanalysisInput {
+  readonly previousImpactAnalysis: SandcastleImpactAnalysisResult
+  readonly unexpectedFiles: readonly string[]
+  readonly workerChangedFiles: readonly string[]
 }
 
 export interface RepairReviewFindingsInput extends RunImplementationInput {
@@ -3304,6 +3311,11 @@ const resolveWriteSurfaceBeforeApply = async (input: {
       parentPrd: input.parentPrd,
       parentPrdBody: input.parentPrdBody,
       siblingSummaries: input.siblingSummaries,
+      writeSurfaceReanalysis: {
+        previousImpactAnalysis: impactAnalysis,
+        unexpectedFiles: decision.unexpectedFiles,
+        workerChangedFiles: input.workerChangedFiles,
+      },
     })
   }
 }

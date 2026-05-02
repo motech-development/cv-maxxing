@@ -885,6 +885,7 @@ const createSandcastleAdapter = (
         repoInstructions: promptInputs.instructions,
         sandboxBranchName: `${createWorkerBranchName(input)}-impact`,
         siblingSummaries: input.siblingSummaries,
+        writeSurfaceReanalysis: input.writeSurfaceReanalysis,
       }),
       cwd,
     })

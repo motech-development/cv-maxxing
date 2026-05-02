@@ -1851,6 +1851,62 @@ None - can start immediately.
     )
   })
 
+  it('passes unexpected worker files into write-surface re-analysis', async () => {
+    const adapters = createLiveAdapters({
+      impactAnalyses: [
+        {
+          designFiles: [],
+          expectedFiles: ['apps/desktop/src/main/vacancy-service.ts'],
+          expectedModules: ['@cv-maxxing/desktop'],
+          riskLevel: 'medium',
+          sharedContracts: [],
+          tests: ['apps/desktop/src/main/__tests__/vacancy-service.test.ts'],
+        },
+        {
+          designFiles: [],
+          expectedFiles: ['apps/desktop/src/main/vacancy-service.ts'],
+          expectedModules: ['@cv-maxxing/desktop'],
+          riskLevel: 'medium',
+          sharedContracts: [],
+          tests: [
+            'apps/desktop/src/main/__tests__/vacancy-service.test.ts',
+            'apps/desktop/tests/e2e/visual/launch-desktop-app.ts',
+          ],
+        },
+      ],
+      workerChangedFiles: [
+        'apps/desktop/src/main/vacancy-service.ts',
+        'apps/desktop/tests/e2e/visual/launch-desktop-app.ts',
+      ],
+    })
+
+    const result = await runPrdOrchestratorCliAsync({
+      adapters,
+      arguments_: ['run', '--one-child'],
+      stdin: '',
+    })
+
+    expect(result.exitCode).toBe(0)
+    expect(adapters.impactAnalysisInputs).toHaveLength(2)
+    expect(adapters.impactAnalysisInputs[0]?.writeSurfaceReanalysis).toBeUndefined()
+    expect(adapters.impactAnalysisInputs[1]?.writeSurfaceReanalysis).toEqual({
+      previousImpactAnalysis: {
+        designFiles: [],
+        expectedFiles: ['apps/desktop/src/main/vacancy-service.ts'],
+        expectedModules: ['@cv-maxxing/desktop'],
+        riskLevel: 'medium',
+        sharedContracts: [],
+        tests: ['apps/desktop/src/main/__tests__/vacancy-service.test.ts'],
+      },
+      unexpectedFiles: ['apps/desktop/tests/e2e/visual/launch-desktop-app.ts'],
+      workerChangedFiles: [
+        'apps/desktop/src/main/vacancy-service.ts',
+        'apps/desktop/tests/e2e/visual/launch-desktop-app.ts',
+      ],
+    })
+    expect(adapters.events).toContain('git:apply-worker-diff')
+  })
+
   it('records unrecoverable blockers in run state before stopping', async () => {
     const adapters = createLiveAdapters({
       workerChangedFiles: ['apps/desktop/src/main.ts'],
@@ -2608,6 +2664,9 @@ const createLiveAdapters = (
   readonly updatedPrBodies: string[]
   readonly upsertedComments: string[]
   readonly workerBranchNames: string[]
+  readonly impactAnalysisInputs: Parameters<
+    PrdOrchestratorLiveAdapters['sandcastle']['runImpactAnalysis']
+  >[0][]
 } => {
   const events: string[] = []
   const amendedCommitMessages: string[] = []
@@ -2624,6 +2683,9 @@ const createLiveAdapters = (
   const updatedPrBodies: string[] = []
   const upsertedComments: string[] = []
   const workerBranchNames: string[] = []
+  const impactAnalysisInputs: Parameters<
+    PrdOrchestratorLiveAdapters['sandcastle']['runImpactAnalysis']
+  >[0][] = []
   let codeRabbitReviewCount = 0
   let ciPollingCount = 0
   let impactAnalysisCount = 0
@@ -2939,6 +3001,7 @@ const createLiveAdapters = (
       },
       runImpactAnalysis: (input) => {
         events.push('sandcastle:impact-analysis')
+        impactAnalysisInputs.push(input)
         activeChildIssueNumber = input.childTask.issueNumber
         const impactAnalysis = options.impactAnalyses?.[impactAnalysisCount]
         impactAnalysisCount += 1
@@ -3115,6 +3178,7 @@ const createLiveAdapters = (
         )
       },
     },
+    impactAnalysisInputs,
     postedComments,
   }
 }

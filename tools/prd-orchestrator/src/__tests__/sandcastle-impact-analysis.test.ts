@@ -254,6 +254,34 @@ describe('Sandcastle impact analysis adapter planning', () => {
     expect(prompt).toContain('Return only machine-parseable JSON. Do not wrap it in Markdown.')
   })
 
+  it('includes concrete unexpected files when re-analysing a worker write surface', () => {
+    const prompt = buildImpactAnalysisPrompt({
+      ...workerInput,
+      writeSurfaceReanalysis: {
+        previousImpactAnalysis: {
+          designFiles: [],
+          expectedFiles: ['apps/desktop/src/main/vacancy-service.ts'],
+          expectedModules: ['@cv-maxxing/desktop'],
+          riskLevel: 'medium',
+          sharedContracts: [],
+          tests: ['apps/desktop/src/main/__tests__/vacancy-service.test.ts'],
+        },
+        unexpectedFiles: ['apps/desktop/tests/e2e/visual/launch-desktop-app.ts'],
+        workerChangedFiles: [
+          'apps/desktop/src/main/vacancy-service.ts',
+          'apps/desktop/tests/e2e/visual/launch-desktop-app.ts',
+        ],
+      },
+    })
+
+    expect(prompt).toContain('## Write Surface Re-analysis Context')
+    expect(prompt).toContain('Files missing from the previous write surface:')
+    expect(prompt).toContain('- apps/desktop/tests/e2e/visual/launch-desktop-app.ts')
+    expect(prompt).toContain(
+      'Include legitimate files in `expectedFiles`, `tests`, `sharedContracts`, `designFiles`, or `pencilRequiredDesignFiles` as appropriate.',
+    )
+  })
+
   it('keeps the Sandcastle prompt file aligned with the parser JSON contract', async () => {
     const prompt = await readFile(
       new URL('../../../../.sandcastle/prompts/impact-analysis.md', import.meta.url),
