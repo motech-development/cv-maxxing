@@ -486,6 +486,7 @@ describe('default live adapters', () => {
     })
 
     expect(shell.commands.map((command) => formatCommand(command))).toEqual([
+      'git -C /repo/.sandcastle/worktrees/agent-prd-80-worker branch --show-current',
       'git checkout agent/prd-80-test',
       'git -C /repo/.sandcastle/worktrees/agent-prd-80-worker add --all',
       'git -C /repo/.sandcastle/worktrees/agent-prd-80-worker diff --cached --binary HEAD',
@@ -494,6 +495,31 @@ describe('default live adapters', () => {
     expect(shell.commands.at(-1)?.stdin).toBe(
       'diff --git a/apps/desktop/src/main.ts b/apps/desktop/src/main.ts\n',
     )
+  })
+
+  it('detaches a preserved Sandcastle worktree that holds the automation branch lock', async () => {
+    const workerWorktreePath = '/repo/.sandcastle/worktrees/agent-prd-80-worker'
+    const shell = createRecordingShell({
+      commandResponses: new Map([
+        [`git -C ${workerWorktreePath} branch --show-current`, 'agent/prd-80-test\n'],
+      ]),
+    })
+    const adapters = createDefaultPrdOrchestratorLiveAdapters('/repo', undefined, shell.run)
+
+    await adapters.git.applyWorkerDiff({
+      prdBranchName: 'agent/prd-80-test',
+      workerBranchName: 'agent/prd-80-worker',
+      workerWorktreePath,
+    })
+
+    expect(shell.commands.map((command) => formatCommand(command))).toEqual([
+      'git -C /repo/.sandcastle/worktrees/agent-prd-80-worker branch --show-current',
+      'git -C /repo/.sandcastle/worktrees/agent-prd-80-worker switch --detach',
+      'git checkout agent/prd-80-test',
+      'git -C /repo/.sandcastle/worktrees/agent-prd-80-worker add --all',
+      'git -C /repo/.sandcastle/worktrees/agent-prd-80-worker diff --cached --binary HEAD',
+      'git apply --index -',
+    ])
   })
 
   it('restores the automation branch worktree and index to a clean HEAD state', async () => {
@@ -539,6 +565,7 @@ describe('default live adapters', () => {
 
 const createRecordingShell = (
   input: {
+    readonly commandResponses?: ReadonlyMap<string, string>
     readonly failingCommands?: ReadonlySet<string>
     readonly generatedCodeRabbitCommentOnly?: boolean
     readonly historicalWorkflowRuns?: boolean
@@ -567,6 +594,15 @@ const createRecordingShell = (
         input.transientFailures?.set(formatCommand(command), transientFailures.slice(1))
 
         return Promise.reject(transientFailure)
+      }
+
+      const commandResponse = input.commandResponses?.get(formatCommand(command))
+
+      if (commandResponse !== undefined) {
+        return Promise.resolve({
+          stderr: '',
+          stdout: commandResponse,
+        })
       }
 
       return Promise.resolve({

@@ -465,6 +465,13 @@ const createGitAdapter = (
   return {
     applyWorkerDiff: async (input: ApplyWorkerDiffInput): Promise<void> => {
       if (pendingChildCommitTarget === undefined) {
+        if (input.workerWorktreePath !== undefined) {
+          await detachPreservedWorkerWorktreeIfOnBranch(shell, {
+            branchName: input.prdBranchName,
+            workerWorktreePath: input.workerWorktreePath,
+          })
+        }
+
         await shell({
           args: ['checkout', input.prdBranchName],
           command: 'git',
@@ -926,6 +933,28 @@ const createSandcastleAdapter = (
     }
   },
 })
+
+const detachPreservedWorkerWorktreeIfOnBranch = async (
+  shell: DefaultLiveAdapterShellRunner,
+  input: {
+    readonly branchName: string
+    readonly workerWorktreePath: string
+  },
+): Promise<void> => {
+  const currentBranch = await shell({
+    args: ['-C', input.workerWorktreePath, 'branch', '--show-current'],
+    command: 'git',
+  })
+
+  if (currentBranch.stdout.trim() !== input.branchName) {
+    return
+  }
+
+  await shell({
+    args: ['-C', input.workerWorktreePath, 'switch', '--detach'],
+    command: 'git',
+  })
+}
 
 const applyPreservedWorkerWorktreeDiff = async (
   shell: DefaultLiveAdapterShellRunner,
