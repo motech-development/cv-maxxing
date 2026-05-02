@@ -1701,6 +1701,13 @@ const buildImplementationPrompt = async (
     'utf8',
   )
 
+  return renderImplementationPrompt(template, input)
+}
+
+export const renderImplementationPrompt = (
+  template: string,
+  input: RunImplementationInput,
+): string => {
   return template
     .replace('{{PARENT_PRD}}', input.parentPrdBody)
     .replace('{{CHILD_TASK}}', formatChildTaskForPrompt(input.childTask))

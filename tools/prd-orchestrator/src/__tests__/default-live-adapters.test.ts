@@ -1,4 +1,4 @@
-import { mkdtemp, mkdir, stat, writeFile } from 'node:fs/promises'
+import { mkdtemp, mkdir, readFile, stat, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { tmpdir } from 'node:os'
 
@@ -9,6 +9,7 @@ import {
   createDefaultPrdOrchestratorLiveAdapters,
   createDefaultSandcastleDockerImageName,
   createSandcastleWorkerBranchStrategy,
+  renderImplementationPrompt,
   resolveHostShell,
   resolveRepositoryRoot,
   resolvePnpmStorePath,
@@ -94,6 +95,52 @@ describe('default live adapters', () => {
       branch: 'agent/prd-80-test-child-81',
       type: 'branch',
     })
+  })
+
+  it('keeps host-owned CodeRabbit and SQLCipher guidance in implementation prompts', async () => {
+    const template = await readFile(
+      new URL('../../../../.sandcastle/prompts/implement-child-task.md', import.meta.url),
+      'utf8',
+    )
+    const prompt = renderImplementationPrompt(template, {
+      childTask: {
+        acceptanceCriteria: ['Worker prompt policy is explicit.'],
+        blockedBy: [],
+        hitlMarkers: [],
+        issueNumber: 82,
+        parentPrdNumber: 80,
+        title: 'Test worker prompt policy',
+        userStoriesAddressed: [1],
+        whatToBuild: 'Test worker prompt policy.',
+      },
+      impactAnalysis: {
+        designFiles: [],
+        expectedFiles: ['tools/prd-orchestrator/src/default-live-adapters.ts'],
+        expectedModules: ['@cv-maxxing/prd-orchestrator'],
+        riskLevel: 'low',
+        sharedContracts: [],
+        tests: ['tools/prd-orchestrator/src/__tests__/default-live-adapters.test.ts'],
+      },
+      parentPrd: {
+        blockers: [],
+        childTaskDag: [],
+        childTasks: [],
+        issueNumber: 80,
+        nextExecutableTasks: [],
+        title: 'PRD: Test',
+        warnings: [],
+      },
+      parentPrdBody: '## Parent PRD',
+      prdBranchName: 'agent/prd-80-test',
+      siblingSummaries: [],
+      workerBranchName: 'agent/prd-80-child-82-test-worker-prompt-policy',
+    })
+
+    expect(prompt).toContain('Do not run CodeRabbit inside the Sandcastle worker.')
+    expect(prompt).toContain('The parent orchestrator runs `coderabbit review --agent`')
+    expect(prompt).toContain('SQLCipher-backed tests')
+    expect(prompt).toContain('host-required verification')
+    expect(prompt).not.toContain('{{PARENT_PRD}}')
   })
 
   it('constructs GitHub, CI, and preflight commands without live mutations in tests', async () => {
