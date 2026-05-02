@@ -457,16 +457,30 @@ const selectTargetedTestCommands = (
   }
 
   const packageNames = selectAffectedPackageNames(impactAnalysis)
-  const testPathArguments = impactAnalysis.tests.map((testPath) => shellQuote(testPath)).join(' ')
 
   if (packageNames.length === 0) {
     return ['pnpm --filter @cv-maxxing/prd-orchestrator test:unit']
   }
 
-  return packageNames.map(
-    (packageName) =>
-      `${formatPackageScriptCommand(packageName, selectPackageTestScript(packageName))} -- ${testPathArguments}`,
-  )
+  return packageNames.flatMap((packageName) => {
+    const packageTestPathArguments = selectPackageTestPaths({
+      packageName,
+      testPaths: impactAnalysis.tests,
+    })
+      .map((testPath) => shellQuote(testPath))
+      .join(' ')
+
+    if (packageTestPathArguments.length === 0) {
+      return []
+    }
+
+    return [
+      `${formatPackageScriptCommand(
+        packageName,
+        selectPackageTestScript(packageName),
+      )} -- ${packageTestPathArguments}`,
+    ]
+  })
 }
 
 const selectDesignVerificationCommands = (
@@ -505,6 +519,41 @@ const selectPackageTestScript = (packageName: string): string =>
   packageName === '@cv-maxxing/desktop' || packageName === '@cv-maxxing/prd-orchestrator'
     ? 'test:unit'
     : 'test'
+
+const selectPackageTestPaths = (input: {
+  readonly packageName: string
+  readonly testPaths: readonly string[]
+}): readonly string[] => {
+  const packageRoot = getWorkspacePackageRoot(input.packageName)
+
+  return input.testPaths.flatMap((testPath) => {
+    if (packageRoot === undefined) {
+      return [testPath]
+    }
+
+    if (testPath === packageRoot) {
+      return []
+    }
+
+    const packagePathPrefix = `${packageRoot}/`
+
+    return testPath.startsWith(packagePathPrefix) ? [testPath.slice(packagePathPrefix.length)] : []
+  })
+}
+
+const getWorkspacePackageRoot = (packageName: string): string | undefined => {
+  if (packageName === '@cv-maxxing/desktop') {
+    return 'apps/desktop'
+  }
+
+  if (packageName === '@cv-maxxing/prd-orchestrator') {
+    return 'tools/prd-orchestrator'
+  }
+
+  const workspacePackageName = /^@cv-maxxing\/([a-z0-9][a-z0-9-]*)$/.exec(packageName)?.[1]
+
+  return workspacePackageName === undefined ? undefined : `packages/${workspacePackageName}`
+}
 
 const formatPackageScriptCommand = (packageName: string, scriptName: string): string =>
   `pnpm --filter ${packageName} ${scriptName}`

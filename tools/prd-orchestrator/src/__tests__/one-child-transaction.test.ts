@@ -400,7 +400,7 @@ describe('one-child transaction planning', () => {
       'pnpm lint',
       'pnpm --filter @cv-maxxing/prd-orchestrator typecheck',
       'pnpm --filter @cv-maxxing/desktop test:visual',
-      "pnpm --filter @cv-maxxing/prd-orchestrator test:unit -- 'tools/prd-orchestrator/src/__tests__/one-child-transaction.test.ts'",
+      "pnpm --filter @cv-maxxing/prd-orchestrator test:unit -- 'src/__tests__/one-child-transaction.test.ts'",
     ])
 
     expect(
@@ -424,7 +424,7 @@ describe('one-child transaction planning', () => {
         tests: ['tools/prd-orchestrator/src/__tests__/planning.test.ts'],
       }),
     ).toContain(
-      "pnpm --filter @cv-maxxing/prd-orchestrator test:unit -- 'tools/prd-orchestrator/src/__tests__/planning.test.ts'",
+      "pnpm --filter @cv-maxxing/prd-orchestrator test:unit -- 'src/__tests__/planning.test.ts'",
     )
 
     expect(
@@ -449,7 +449,7 @@ describe('one-child transaction planning', () => {
         tests: ["tools/prd-orchestrator/src/__tests__/quoted path's test.ts"],
       }),
     ).toContain(
-      String.raw`pnpm --filter @cv-maxxing/prd-orchestrator test:unit -- 'tools/prd-orchestrator/src/__tests__/quoted path'\''s test.ts'`,
+      String.raw`pnpm --filter @cv-maxxing/prd-orchestrator test:unit -- 'src/__tests__/quoted path'\''s test.ts'`,
     )
     expect(
       selectVerificationCommands({
@@ -463,7 +463,7 @@ describe('one-child transaction planning', () => {
     ).toEqual([
       'pnpm lint',
       'pnpm --filter @cv-maxxing/desktop typecheck',
-      "pnpm --filter @cv-maxxing/desktop test:unit -- 'apps/desktop/src/renderer/__tests__/App.test.tsx'",
+      "pnpm --filter @cv-maxxing/desktop test:unit -- 'src/renderer/__tests__/App.test.tsx'",
     ])
     expect(
       selectVerificationCommands({
@@ -477,7 +477,7 @@ describe('one-child transaction planning', () => {
     ).toEqual([
       'pnpm lint',
       'pnpm --filter @cv-maxxing/shared typecheck',
-      "pnpm --filter @cv-maxxing/shared test -- 'packages/shared/src/index.test.ts'",
+      "pnpm --filter @cv-maxxing/shared test -- 'src/index.test.ts'",
     ])
     expect(
       selectVerificationCommands({
