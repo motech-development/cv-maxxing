@@ -142,6 +142,26 @@ test('returns the no-job-content tagged union from fixture output', async () => 
   })
 })
 
+test('returns the authentication-required tagged union from fixture output', async () => {
+  const worker = createVacancyNormalizationWorker({
+    environment: {
+      CV_MAXXING_AI_WORKER_VACANCY_NORMALIZATION_OUTPUT: JSON.stringify({
+        kind: 'authentication_required',
+        normalizedVacancy: null,
+      }),
+    },
+  })
+
+  await expect(
+    worker.runNormalization({
+      runDirectoryPath: '/tmp/unused',
+      signal: new AbortController().signal,
+    }),
+  ).resolves.toEqual({
+    kind: 'authentication_required',
+  })
+})
+
 test('returns an AI-requested vacancy page reading interaction from fixture output', async () => {
   const worker = createVacancyNormalizationWorker({
     environment: {

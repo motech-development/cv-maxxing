@@ -788,18 +788,8 @@ export function App() {
   }
   const reviewVacancyUrlMutation = useMutation({
     mutationFn: async (): Promise<VacancyIngestResult> => {
-      const result = await globalThis.window.cvMaxxing.vacancy.ingestVacancyUrl({
+      return await globalThis.window.cvMaxxing.vacancy.ingestVacancyUrl({
         url: vacancyDraft.url.trim(),
-      })
-
-      const browserSessionUrl = resolveAutoBrowserSessionUrl(result)
-
-      if (browserSessionUrl === null) {
-        return result
-      }
-
-      return await globalThis.window.cvMaxxing.vacancy.openVacancyBrowserSession({
-        url: browserSessionUrl,
       })
     },
     onSuccess: async (result): Promise<void> => {
@@ -2815,14 +2805,6 @@ function extractElectronInvokeMessage(errorMessage: string): string | null {
   }
 
   return wrappedMessageSummary
-}
-
-function resolveAutoBrowserSessionUrl(result: VacancyIngestResult): string | null {
-  if (result.kind !== 'incomplete') {
-    return null
-  }
-
-  return result.vacancy.originalUrl
 }
 
 function resolveTailoredApplicationId({

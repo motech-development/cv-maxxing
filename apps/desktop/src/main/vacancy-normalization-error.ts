@@ -1,4 +1,5 @@
 export type VacancyNormalizationErrorCode =
+  | 'authentication_required'
   | 'cancelled'
   | 'invalid_normalization'
   | 'no_job_content'

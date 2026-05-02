@@ -676,9 +676,16 @@ async function createRuntimeServices(electronRuntime: ElectronRuntimeModule): Pr
     }),
     tailoredApplication,
     vacancy: createVacancyService({
-      captureVacancyBrowserSessionPage: async ({ shouldCapturePage, url }) => {
+      captureVacancyBrowserSessionPage: async ({
+        reviewPage,
+        shouldCapturePage,
+        timeBudgetMs,
+        url,
+      }) => {
         return await vacancyBrowserSession.captureSessionPage({
+          reviewPage,
           shouldCapturePage,
+          timeBudgetMs,
           url,
         })
       },

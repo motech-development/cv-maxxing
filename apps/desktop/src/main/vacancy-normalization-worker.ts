@@ -11,6 +11,10 @@ import type { VacancyBrowserPageReadingInteraction } from './vacancy-browser-ses
 
 type RawVacancyNormalizationWorkerResult =
   | {
+      kind: 'authentication_required'
+      normalizedVacancy?: null
+    }
+  | {
       interaction: VacancyBrowserPageReadingInteraction
       kind: 'interaction_requested'
       normalizedVacancy?: null
@@ -42,7 +46,7 @@ const OUTPUT_SCHEMA = {
   additionalProperties: false,
   properties: {
     kind: {
-      enum: ['interaction_requested', 'no_job_content', 'success'],
+      enum: ['authentication_required', 'interaction_requested', 'no_job_content', 'success'],
       type: 'string',
     },
     interaction: {
@@ -172,6 +176,7 @@ async function runCodexCliNormalization({
     'Leave missing fields empty instead of guessing.',
     'If more same-page visible evidence is needed, return kind "interaction_requested" with one safe click, scroll, or wait interaction and normalizedVacancy set to null.',
     'Never request typing, form submission, file upload, Apply or Submit actions, account actions, external links, or top-level URL host/path/query changes.',
+    'If the page requires user sign-in before the job content can be read, return kind "authentication_required" with normalizedVacancy set to null.',
     'If no real job content exists, return kind "no_job_content" with normalizedVacancy set to null.',
   ].join(' ')
 
@@ -290,6 +295,10 @@ function isRawVacancyNormalizationWorkerResult(
 
   const candidate = value as Record<string, unknown>
 
+  if (candidate.kind === 'authentication_required') {
+    return candidate.normalizedVacancy === undefined || candidate.normalizedVacancy === null
+  }
+
   if (candidate.kind === 'interaction_requested') {
     return (
       isVacancyBrowserPageReadingInteraction(candidate.interaction) &&
@@ -311,6 +320,12 @@ function isRawVacancyNormalizationWorkerResult(
 function normalizeWorkerResult(
   value: RawVacancyNormalizationWorkerResult,
 ): VacancyNormalizationWorkerResult {
+  if (value.kind === 'authentication_required') {
+    return {
+      kind: 'authentication_required',
+    }
+  }
+
   if (value.kind === 'interaction_requested') {
     return {
       interaction: value.interaction,

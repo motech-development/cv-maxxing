@@ -3115,7 +3115,7 @@ test('restores a reviewed vacancy draft as locked source inputs on startup', asy
   expect(ingestPastedVacancy).not.toHaveBeenCalled()
 })
 
-test('submitting a LinkedIn vacancy URL automatically continues into the internal browser session and restores adaptation when extraction succeeds', async () => {
+test('submitting an auth-required vacancy URL applies the main-process retry result when extraction succeeds', async () => {
   const openVacancyBrowserSession = vi.fn().mockResolvedValue({
     kind: 'ingested',
     vacancy: {
@@ -3225,31 +3225,46 @@ test('submitting a LinkedIn vacancy URL automatically continues into the interna
           },
         }),
       ingestVacancyUrl: vi.fn().mockResolvedValue({
-        kind: 'incomplete',
+        kind: 'ingested',
         vacancy: {
-          blockingReason:
-            'This job page may need more access. Open the job page or paste the job description instead.',
-          canGenerate: false,
-          employer: null,
-          fetchedAt: '2026-04-08T21:15:00.000Z',
-          id: 'vacancy-pending-browser',
+          blockingReason: null,
+          canGenerate: true,
+          employer: 'Example Labs',
+          fetchedAt: '2026-04-08T21:18:00.000Z',
+          id: 'vacancy-006',
           inputType: 'url',
-          location: null,
+          location: 'London, United Kingdom',
           originalUrl: 'https://www.linkedin.com/jobs/view/123456',
-          requirements: [],
-          resolvedUrl: null,
-          responsibilities: [],
+          requirements: ['Experience shipping workflow software.'],
+          resolvedUrl: 'https://www.linkedin.com/jobs/view/123456',
+          responsibilities: ['Lead product design for authenticated desktop workflows.'],
           source: 'linkedin.com',
-          status: 'incomplete',
-          textPreview: '',
-          title: null,
+          status: 'ready',
+          textPreview: 'Lead product design for authenticated desktop workflows.',
+          title: 'Senior Product Designer',
         },
         workspaceState: {
           draft: {
             text: '',
             url: 'https://www.linkedin.com/jobs/view/123456',
           },
-          vacancy: null,
+          vacancy: {
+            blockingReason: null,
+            canGenerate: true,
+            employer: 'Example Labs',
+            fetchedAt: '2026-04-08T21:18:00.000Z',
+            id: 'vacancy-006',
+            inputType: 'url',
+            location: 'London, United Kingdom',
+            originalUrl: 'https://www.linkedin.com/jobs/view/123456',
+            requirements: ['Experience shipping workflow software.'],
+            resolvedUrl: 'https://www.linkedin.com/jobs/view/123456',
+            responsibilities: ['Lead product design for authenticated desktop workflows.'],
+            source: 'linkedin.com',
+            status: 'ready',
+            textPreview: 'Lead product design for authenticated desktop workflows.',
+            title: 'Senior Product Designer',
+          },
         },
       }),
       openVacancyBrowserSession,
@@ -3274,15 +3289,10 @@ test('submitting a LinkedIn vacancy URL automatically continues into the interna
   fireEvent.click(reviewUrlButton)
 
   await waitFor(() => {
-    expect(openVacancyBrowserSession).toHaveBeenCalledWith({
-      url: 'https://www.linkedin.com/jobs/view/123456',
-    })
-  })
-
-  await waitFor(() => {
     expect(screen.getByText('Senior Product Designer')).toBeDefined()
   })
 
+  expect(openVacancyBrowserSession).not.toHaveBeenCalled()
   expect(screen.getByLabelText('Job link')).toHaveProperty(
     'value',
     'https://www.linkedin.com/jobs/view/123456',

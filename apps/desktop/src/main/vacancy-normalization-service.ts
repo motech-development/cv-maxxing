@@ -37,6 +37,9 @@ export interface VacancyPageInteractionHistoryEntry {
 
 export type VacancyNormalizationWorkerResult =
   | {
+      kind: 'authentication_required'
+    }
+  | {
       interaction: VacancyBrowserPageReadingInteraction
       kind: 'interaction_requested'
     }
@@ -49,6 +52,9 @@ export type VacancyNormalizationWorkerResult =
     }
 
 export type VacancyPageReviewResult =
+  | {
+      kind: 'authentication_required'
+    }
   | {
       interaction: VacancyBrowserPageReadingInteraction
       kind: 'interaction_requested'
@@ -149,6 +155,13 @@ export function createVacancyNormalizationService({
         throw new VacancyNormalizationError({
           code: 'no_job_content',
           message: 'Vacancy normalization found no job content to persist.',
+        })
+      }
+
+      if (workerResult.kind === 'authentication_required') {
+        throw new VacancyNormalizationError({
+          code: 'authentication_required',
+          message: 'Vacancy page requires sign-in before job content can be read.',
         })
       }
 

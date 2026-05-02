@@ -235,6 +235,41 @@ test('maps a no-job-content worker result to a typed vacancy-normalization failu
   )
 })
 
+test('maps an authentication-required worker result to a typed vacancy-normalization failure', async () => {
+  const runWorkspaceRootPath = await mkdtemp(
+    path.join(tmpdir(), 'cv-maxxing-vacancy-normalization-service-auth-required-'),
+  )
+
+  temporaryDirectories.push(runWorkspaceRootPath)
+
+  const service = createVacancyNormalizationService({
+    generateId: vi.fn(() => 'vacancy-normalization-run-auth-required'),
+    runWorkspaceRootPath,
+    worker: {
+      runNormalization: vi.fn(() => {
+        return Promise.resolve({
+          kind: 'authentication_required',
+        } satisfies VacancyNormalizationWorkerResult)
+      }),
+    },
+  })
+
+  await expect(
+    service.normalizeVacancy({
+      html: '<main><h1>Sign in to view this job</h1></main>',
+      originalUrl: 'https://jobs.example.com/roles/123',
+      pageTitle: 'Sign in to view this job',
+      resolvedUrl: 'https://jobs.example.com/roles/123',
+      source: 'jobs.example.com',
+    }),
+  ).rejects.toEqual(
+    new VacancyNormalizationError({
+      code: 'authentication_required',
+      message: 'Vacancy page requires sign-in before job content can be read.',
+    }),
+  )
+})
+
 test('rejects semantically invalid normalized vacancy output after deterministic post-validation', async () => {
   const runWorkspaceRootPath = await mkdtemp(
     path.join(tmpdir(), 'cv-maxxing-vacancy-normalization-service-semantic-'),

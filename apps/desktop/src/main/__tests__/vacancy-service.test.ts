@@ -62,6 +62,21 @@ function createVacancyNormalizationServiceDouble(): VacancyNormalizationService 
   }
 }
 
+function createDeferredPromise<T>(): {
+  promise: Promise<T>
+  resolve: (value: T) => void
+} {
+  let resolvePromise!: (value: T) => void
+  const promise = new Promise<T>((resolve) => {
+    resolvePromise = resolve
+  })
+
+  return {
+    promise,
+    resolve: resolvePromise,
+  }
+}
+
 test('ingests pasted vacancy text into a ready preview and persists encrypted vacancy artifacts', async () => {
   const paths = await createTestPaths()
   const localAppData = await openLocalAppData({
@@ -445,6 +460,182 @@ test('does not persist misleading URL intake data when an AI-requested action is
   await expect(
     localAppData.metadata.get({
       id: 'vacancy-unsafe-action',
+      scope: 'vacancies',
+    }),
+  ).resolves.toBeNull()
+
+  await localAppData.close()
+})
+
+test('opens the managed browser for auth-required URL intake and retries the original URL after close', async () => {
+  const paths = await createTestPaths()
+  const localAppData = await openLocalAppData({
+    keychain: createKeychainBoundary(),
+    paths,
+  })
+  const orderedEvents: string[] = []
+  const manualSignInClosed = createDeferredPromise<null>()
+  const reviewVacancyPage = vi.fn<NonNullable<VacancyNormalizationService['reviewVacancyPage']>>()
+
+  reviewVacancyPage
+    .mockResolvedValueOnce({
+      kind: 'authentication_required',
+    } satisfies VacancyPageReviewResult)
+    .mockResolvedValueOnce({
+      kind: 'success',
+      normalizedVacancy: {
+        bodyText:
+          'Lead product design for authenticated desktop workflows. Partner with engineering and research.',
+        employer: 'Example Labs',
+        location: 'London, United Kingdom',
+        requirements: ['Experience shipping workflow software.'],
+        responsibilities: ['Lead product design for authenticated desktop workflows.'],
+        title: 'Senior Product Designer',
+      },
+    } satisfies VacancyPageReviewResult)
+
+  const captureVacancyBrowserSessionPage = vi.fn(
+    async ({ reviewPage, url }: { reviewPage?: VacancyBrowserPageReview; url: string }) => {
+      orderedEvents.push(`capture:${url}`)
+
+      if (reviewPage === undefined) {
+        throw new Error('Expected URL intake to provide an AI page-review callback.')
+      }
+
+      return await reviewPage({
+        applyReadingInteraction: (): Promise<VacancyBrowserPageInteractionResult> => {
+          throw new Error('No interaction was expected for this fixture.')
+        },
+        getRemainingTimeMs: () => 90_000,
+        initialSnapshot: {
+          html: '<main><h1>Sign in to view this job</h1></main>',
+          pageTitle: 'Sign in to view this job',
+          resolvedUrl: url,
+        },
+      })
+    },
+  )
+  const openVacancyBrowserSession = vi.fn(
+    async ({
+      url,
+    }: {
+      shouldCapturePage: (snapshot: {
+        html: string
+        pageTitle: string | null
+        resolvedUrl: string
+      }) => boolean
+      url: string
+    }) => {
+      orderedEvents.push(`open:${url}`)
+      await manualSignInClosed.promise
+      orderedEvents.push('closed')
+
+      return null
+    },
+  )
+  const vacancyService = createVacancyService({
+    captureVacancyBrowserSessionPage,
+    generateId: vi.fn(() => 'vacancy-auth-retry'),
+    getCurrentTimestamp: vi.fn(() => '2026-04-08T21:16:00.000Z'),
+    localAppData,
+    normalizationService: {
+      normalizeVacancy: vi.fn(),
+      reviewVacancyPage,
+    },
+    openVacancyBrowserSession,
+  })
+
+  const resultPromise = vacancyService.ingestVacancyUrl({
+    url: 'https://careers.example.com/jobs/authenticated-role',
+  })
+
+  await vi.waitFor(() => {
+    expect(openVacancyBrowserSession).toHaveBeenCalledWith(
+      expect.objectContaining({
+        url: 'https://careers.example.com/jobs/authenticated-role',
+      }),
+    )
+  })
+
+  expect(captureVacancyBrowserSessionPage).toHaveBeenCalledTimes(1)
+  manualSignInClosed.resolve(null)
+
+  const result = await resultPromise
+
+  expect(result.kind).toBe('ingested')
+  expect(result.vacancy.source).toBe('careers.example.com')
+  expect(result.vacancy.canGenerate).toBe(true)
+  expect(captureVacancyBrowserSessionPage).toHaveBeenCalledTimes(2)
+  expect(openVacancyBrowserSession).toHaveBeenCalledTimes(1)
+  expect(orderedEvents).toEqual([
+    'capture:https://careers.example.com/jobs/authenticated-role',
+    'open:https://careers.example.com/jobs/authenticated-role',
+    'closed',
+    'capture:https://careers.example.com/jobs/authenticated-role',
+  ])
+
+  await localAppData.close()
+})
+
+test('uses the existing job-link failure result when the post-auth retry still needs authentication', async () => {
+  const paths = await createTestPaths()
+  const localAppData = await openLocalAppData({
+    keychain: createKeychainBoundary(),
+    paths,
+  })
+  const reviewVacancyPage = vi.fn<NonNullable<VacancyNormalizationService['reviewVacancyPage']>>(
+    () => {
+      return Promise.resolve({
+        kind: 'authentication_required',
+      } satisfies VacancyPageReviewResult)
+    },
+  )
+  const captureVacancyBrowserSessionPage = vi.fn(
+    async ({ reviewPage, url }: { reviewPage?: VacancyBrowserPageReview; url: string }) => {
+      if (reviewPage === undefined) {
+        throw new Error('Expected URL intake to provide an AI page-review callback.')
+      }
+
+      return await reviewPage({
+        applyReadingInteraction: (): Promise<VacancyBrowserPageInteractionResult> => {
+          throw new Error('No interaction was expected for this fixture.')
+        },
+        getRemainingTimeMs: () => 90_000,
+        initialSnapshot: {
+          html: '<main><h1>Sign in to view this job</h1></main>',
+          pageTitle: 'Sign in to view this job',
+          resolvedUrl: url,
+        },
+      })
+    },
+  )
+  const openVacancyBrowserSession = vi.fn(() => Promise.resolve(null))
+  const vacancyService = createVacancyService({
+    captureVacancyBrowserSessionPage,
+    generateId: vi.fn(() => 'vacancy-auth-retry-failed'),
+    getCurrentTimestamp: vi.fn(() => '2026-04-08T21:16:30.000Z'),
+    localAppData,
+    normalizationService: {
+      normalizeVacancy: vi.fn(),
+      reviewVacancyPage,
+    },
+    openVacancyBrowserSession,
+  })
+
+  const result = await vacancyService.ingestVacancyUrl({
+    url: 'https://careers.example.com/jobs/private-role',
+  })
+
+  expect(result.kind).toBe('incomplete')
+  expect(result.vacancy.canGenerate).toBe(false)
+  expect(result.vacancy.blockingReason).toBe(
+    'This job page may need more access. Open the job page or paste the job description instead.',
+  )
+  expect(captureVacancyBrowserSessionPage).toHaveBeenCalledTimes(2)
+  expect(openVacancyBrowserSession).toHaveBeenCalledTimes(1)
+  await expect(
+    localAppData.metadata.get({
+      id: 'vacancy-auth-retry-failed',
       scope: 'vacancies',
     }),
   ).resolves.toBeNull()

@@ -42,6 +42,25 @@ const RELOAD_JOB_PAGE_BLOCKING_REASON =
 const URL_INTAKE_TIME_BUDGET_MS = 90_000
 const MAX_AI_READING_INTERACTIONS = 8
 
+type UrlIntakeAttemptResult =
+  | {
+      kind: 'authentication_required'
+    }
+  | {
+      kind: 'complete'
+      result: VacancyIngestResult
+    }
+
+type VacancyPageReviewOutcome =
+  | {
+      kind: 'authentication_required' | 'no_job_content' | 'rejected_interaction'
+    }
+  | {
+      kind: 'success'
+      normalizedVacancy: NormalizedVacancy
+      snapshot: VacancyBrowserPageSnapshot
+    }
+
 interface VacancyServiceDependencies {
   captureVacancyBrowserSessionPage?: (input: {
     reviewPage?: VacancyBrowserPageReview
@@ -228,7 +247,6 @@ export function createVacancyService({
     ingestVacancyUrl: async ({ url }: { url: string }): Promise<VacancyIngestResult> => {
       const normalizedUrl = requireUrl(url)
       const source = normalizeSubmittedHostname(normalizedUrl)
-      let capturedNormalizedVacancy: NormalizedVacancy | null = null
 
       await persistVacancyWorkspaceDraft({
         localAppData,
@@ -241,42 +259,43 @@ export function createVacancyService({
         workspaceSelectionStore,
       })
 
-      const capturedBrowserSnapshot = await captureVacancyBrowserSessionPage({
-        reviewPage: async ({ applyReadingInteraction, getRemainingTimeMs, initialSnapshot }) => {
-          const pageReviewResult = await reviewVacancyPageWithReadingInteractions({
-            applyReadingInteraction,
-            getRemainingTimeMs,
-            initialSnapshot,
-            normalizationService,
-            originalUrl: normalizedUrl,
-            source,
-          })
+      const firstAttempt = await attemptGenericUrlIntake({
+        captureVacancyBrowserSessionPage,
+        generateId,
+        getCurrentTimestamp,
+        localAppData,
+        normalizationService,
+        originalUrl: normalizedUrl,
+        source,
+        workspaceSelectionStore,
+      })
 
-          if (pageReviewResult === null) {
-            return null
-          }
+      if (firstAttempt.kind === 'complete') {
+        return firstAttempt.result
+      }
 
-          capturedNormalizedVacancy = pageReviewResult.normalizedVacancy
-
-          return pageReviewResult.snapshot
-        },
+      await openVacancyBrowserSession({
         shouldCapturePage: (snapshot) => {
           return isExpectedBrowserSessionVacancyPage({
             originalUrl: normalizedUrl,
             resolvedUrl: snapshot.resolvedUrl,
           })
         },
-        timeBudgetMs: URL_INTAKE_TIME_BUDGET_MS,
         url: normalizedUrl,
       })
 
-      if (
-        capturedBrowserSnapshot === null ||
-        !isExpectedBrowserSessionVacancyPage({
-          originalUrl: normalizedUrl,
-          resolvedUrl: capturedBrowserSnapshot.resolvedUrl,
-        })
-      ) {
+      const retryAttempt = await attemptGenericUrlIntake({
+        captureVacancyBrowserSessionPage,
+        generateId,
+        getCurrentTimestamp,
+        localAppData,
+        normalizationService,
+        originalUrl: normalizedUrl,
+        source,
+        workspaceSelectionStore,
+      })
+
+      if (retryAttempt.kind === 'authentication_required') {
         return await createInteractiveBrowserFallbackResult({
           getCurrentTimestamp,
           localAppData,
@@ -285,30 +304,7 @@ export function createVacancyService({
         })
       }
 
-      try {
-        return await persistFetchedVacancyPage({
-          fetchedPage: capturedBrowserSnapshot,
-          generateId,
-          getCurrentTimestamp,
-          localAppData,
-          normalizationService,
-          normalizedVacancy: capturedNormalizedVacancy,
-          originalUrl: normalizedUrl,
-          source,
-          workspaceSelectionStore,
-        })
-      } catch (error) {
-        if (isSilentCaptureFallbackError(error)) {
-          return await createInteractiveBrowserFallbackResult({
-            getCurrentTimestamp,
-            localAppData,
-            originalUrl: normalizedUrl,
-            source,
-          })
-        }
-
-        throw error
-      }
+      return retryAttempt.result
     },
     openBrowserSession: async ({ url }: { url: string }): Promise<VacancyIngestResult> => {
       const normalizedUrl = requireUrl(url)
@@ -370,6 +366,127 @@ export function createVacancyService({
   }
 }
 
+async function attemptGenericUrlIntake({
+  captureVacancyBrowserSessionPage,
+  generateId,
+  getCurrentTimestamp,
+  localAppData,
+  normalizationService,
+  originalUrl,
+  source,
+  workspaceSelectionStore,
+}: {
+  captureVacancyBrowserSessionPage: NonNullable<
+    VacancyServiceDependencies['captureVacancyBrowserSessionPage']
+  >
+  generateId: () => string
+  getCurrentTimestamp: () => string
+  localAppData: Pick<LocalAppDataStore, 'artifacts' | 'metadata'>
+  normalizationService: VacancyNormalizationService
+  originalUrl: string
+  source: string
+  workspaceSelectionStore?: Pick<WorkspaceSelectionStore, 'getSelection' | 'setSelection'>
+}): Promise<UrlIntakeAttemptResult> {
+  let capturedNormalizedVacancy: NormalizedVacancy | null = null
+  const reviewOutcome: {
+    failureKind: Exclude<VacancyPageReviewOutcome['kind'], 'success'> | null
+  } = {
+    failureKind: null,
+  }
+
+  const capturedBrowserSnapshot = await captureVacancyBrowserSessionPage({
+    reviewPage: async ({ applyReadingInteraction, getRemainingTimeMs, initialSnapshot }) => {
+      const pageReviewResult = await reviewVacancyPageWithReadingInteractions({
+        applyReadingInteraction,
+        getRemainingTimeMs,
+        initialSnapshot,
+        normalizationService,
+        originalUrl,
+        source,
+      })
+
+      if (pageReviewResult.kind !== 'success') {
+        reviewOutcome.failureKind = pageReviewResult.kind
+
+        return null
+      }
+
+      capturedNormalizedVacancy = pageReviewResult.normalizedVacancy
+
+      return pageReviewResult.snapshot
+    },
+    shouldCapturePage: (snapshot) => {
+      return isExpectedBrowserSessionVacancyPage({
+        originalUrl,
+        resolvedUrl: snapshot.resolvedUrl,
+      })
+    },
+    timeBudgetMs: URL_INTAKE_TIME_BUDGET_MS,
+    url: originalUrl,
+  })
+
+  if (reviewOutcome.failureKind === 'authentication_required') {
+    return {
+      kind: 'authentication_required',
+    }
+  }
+
+  if (
+    capturedBrowserSnapshot === null ||
+    !isExpectedBrowserSessionVacancyPage({
+      originalUrl,
+      resolvedUrl: capturedBrowserSnapshot.resolvedUrl,
+    })
+  ) {
+    return {
+      kind: 'complete',
+      result: await createInteractiveBrowserFallbackResult({
+        getCurrentTimestamp,
+        localAppData,
+        originalUrl,
+        source,
+      }),
+    }
+  }
+
+  try {
+    return {
+      kind: 'complete',
+      result: await persistFetchedVacancyPage({
+        fetchedPage: capturedBrowserSnapshot,
+        generateId,
+        getCurrentTimestamp,
+        localAppData,
+        normalizationService,
+        normalizedVacancy: capturedNormalizedVacancy,
+        originalUrl,
+        source,
+        workspaceSelectionStore,
+      }),
+    }
+  } catch (error) {
+    if (isSilentCaptureFallbackError(error)) {
+      return {
+        kind: 'complete',
+        result: await createInteractiveBrowserFallbackResult({
+          getCurrentTimestamp,
+          localAppData,
+          originalUrl,
+          source,
+        }),
+      }
+    }
+
+    if (isAuthenticationRequiredError(error)) {
+      return {
+        kind: 'authentication_required',
+      }
+    }
+
+    throw error
+  }
+}
+
 async function reviewVacancyPageWithReadingInteractions({
   applyReadingInteraction,
   getRemainingTimeMs,
@@ -386,10 +503,16 @@ async function reviewVacancyPageWithReadingInteractions({
   normalizationService: VacancyNormalizationService
   originalUrl: string
   source: string
-}): Promise<{
-  normalizedVacancy: NormalizedVacancy
-  snapshot: VacancyBrowserPageSnapshot
-} | null> {
+}): Promise<
+  | {
+      kind: 'authentication_required' | 'no_job_content' | 'rejected_interaction'
+    }
+  | {
+      kind: 'success'
+      normalizedVacancy: NormalizedVacancy
+      snapshot: VacancyBrowserPageSnapshot
+    }
+> {
   let currentSnapshot = initialSnapshot
   const interactionHistory: VacancyPageInteractionHistoryEntry[] = []
 
@@ -416,12 +539,21 @@ async function reviewVacancyPageWithReadingInteractions({
       timeoutMs: remainingTimeMs,
     })
 
+    if (reviewResult.kind === 'authentication_required') {
+      return {
+        kind: 'authentication_required',
+      }
+    }
+
     if (reviewResult.kind === 'no_job_content') {
-      return null
+      return {
+        kind: 'no_job_content',
+      }
     }
 
     if (reviewResult.kind === 'success') {
       return {
+        kind: 'success',
         normalizedVacancy: reviewResult.normalizedVacancy,
         snapshot: currentSnapshot,
       }
@@ -435,7 +567,9 @@ async function reviewVacancyPageWithReadingInteractions({
         result: 'rejected',
       })
 
-      return null
+      return {
+        kind: 'rejected_interaction',
+      }
     }
 
     interactionHistory.push({
@@ -445,7 +579,9 @@ async function reviewVacancyPageWithReadingInteractions({
     currentSnapshot = interactionResult.snapshot
   }
 
-  return null
+  return {
+    kind: 'no_job_content',
+  }
 }
 
 async function runVacancyPageReview({
@@ -473,6 +609,12 @@ async function runVacancyPageReview({
       normalizedVacancy,
     }
   } catch (error) {
+    if (error instanceof VacancyNormalizationError && error.code === 'authentication_required') {
+      return {
+        kind: 'authentication_required',
+      }
+    }
+
     if (error instanceof VacancyNormalizationError && error.code === 'no_job_content') {
       return {
         kind: 'no_job_content',
@@ -879,6 +1021,10 @@ function normalizeUrl(url: string | undefined): string | null {
 
 function isSilentCaptureFallbackError(error: unknown): boolean {
   return error instanceof VacancyNormalizationError && error.code === 'no_job_content'
+}
+
+function isAuthenticationRequiredError(error: unknown): boolean {
+  return error instanceof VacancyNormalizationError && error.code === 'authentication_required'
 }
 
 function requireUrl(url: string): string {
