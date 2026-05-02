@@ -3157,12 +3157,158 @@ const finalizePrdIfReady = async (input: {
 
   await input.adapters.github.markReadyForReview(input.draftPr.prNumber)
 
-  return {
-    blockers: [],
-    ciStatus,
-    phase: 'ready-for-review',
+  const seenReadyReviewFindingFingerprints = new Set<string>()
+
+  for (;;) {
+    const ciResult = await pollFinalCiUntilTerminal(input)
+    ciStatus = ciResult.status
+
+    if (ciStatus === 'failed') {
+      const repairResult = await runFinalCiRepairUntilClean({
+        ...input,
+        blockers: ciResult.blockers,
+        seenCiFailureFingerprints,
+      })
+
+      if (repairResult.status === 'clean') {
+        const commitFinalCleanup = input.adapters.git.commitFinalCleanup
+
+        if (commitFinalCleanup === undefined) {
+          return {
+            blockers: ciResult.blockers,
+            ciStatus,
+            phase: 'blocked',
+          }
+        }
+
+        await commitFinalCleanup(createFinalCiRepairCommitMessage(repairResult.findings))
+        await input.adapters.git.pushPrdBranch({
+          branchName: input.branchName,
+          mode: 'force-with-lease',
+        })
+
+        continue
+      }
+
+      await postCiBlockerComment({
+        blockers: repairResult.blockers,
+        prNumber: input.draftPr.prNumber,
+        postPrComment: input.adapters.github.postPrComment,
+      })
+
+      return {
+        blockers: repairResult.blockers,
+        ciStatus,
+        phase: 'blocked',
+      }
+    }
+
+    if (ciStatus !== 'passed') {
+      await postCiBlockerComment({
+        blockers: ciResult.blockers,
+        prNumber: input.draftPr.prNumber,
+        postPrComment: input.adapters.github.postPrComment,
+      })
+
+      return {
+        blockers: ciResult.blockers,
+        ciStatus,
+        phase: 'blocked',
+      }
+    }
+
+    const reviewFindings =
+      (await input.adapters.github.getReviewFindings?.(input.draftPr.prNumber)) ?? []
+    const classifications = reviewFindings.map((finding) => classifyCodeRabbitFinding(finding))
+    const nonActionableRecords = classifications.flatMap((classification) =>
+      classification.kind === 'non-actionable'
+        ? [recordNonActionableFinding(classification.finding)]
+        : [],
+    )
+    const actionableFindings = classifications.flatMap((classification) =>
+      classification.kind === 'actionable' ? [classification.finding] : [],
+    )
+
+    if (nonActionableRecords.length > 0) {
+      await input.adapters.github.postPrComment(
+        input.draftPr.prNumber,
+        renderNonActionableFindingRecords(nonActionableRecords),
+      )
+    }
+
+    if (actionableFindings.length === 0) {
+      return {
+        blockers: [],
+        ciStatus,
+        phase: 'ready-for-review',
+      }
+    }
+
+    const fingerprint = actionableFindings
+      .map((finding) => `${finding.id}\n${finding.title}\n${finding.body}`)
+      .join('\n---\n')
+
+    if (seenReadyReviewFindingFingerprints.has(fingerprint)) {
+      return {
+        blockers: [
+          'Ready-for-review repair stopped because CodeRabbit returned the same actionable findings after repair.',
+        ],
+        ciStatus,
+        phase: 'blocked',
+      }
+    }
+
+    seenReadyReviewFindingFingerprints.add(fingerprint)
+
+    const repairGate = await runResumeRepairGateUntilClean({
+      adapters: input.adapters,
+      branchName: input.branchName,
+      codeRabbitChildIssueNumber: 0,
+      codeRabbitCommitHash: 'ready-for-review',
+      currentChildIssueNumber: undefined,
+      expectedFiles: [],
+      findings: actionableFindings,
+      prNumber: input.draftPr.prNumber,
+      targetLabel: 'final cleanup',
+      workerBranchName: `${input.branchName}-ready-review-repair`,
+    })
+
+    if (repairGate.status === 'blocked') {
+      return {
+        blockers: repairGate.blockers,
+        ciStatus,
+        phase: 'blocked',
+      }
+    }
+
+    const commitFinalCleanup = input.adapters.git.commitFinalCleanup
+
+    if (commitFinalCleanup === undefined) {
+      return {
+        blockers: ['Ready-for-review CodeRabbit repair requires final cleanup commit support.'],
+        ciStatus,
+        phase: 'blocked',
+      }
+    }
+
+    await commitFinalCleanup(createReadyForReviewRepairCommitMessage(actionableFindings))
+    await input.adapters.git.pushPrdBranch({
+      branchName: input.branchName,
+      mode: 'force-with-lease',
+    })
   }
 }
+
+const createReadyForReviewRepairCommitMessage = (findings: readonly CodeRabbitFinding[]): string =>
+  [
+    'fix: address ready-for-review findings',
+    '',
+    'Verification evidence:',
+    '- Ready-for-review CodeRabbit repair applied.',
+    '',
+    'Review findings:',
+    ...findings.map((finding) => `- ${finding.id}: ${finding.title}`),
+  ].join('\n')
 
 const finalizeRecoveredPrdBranch = async (input: {
   readonly adapters: PrdOrchestratorLiveAdapters

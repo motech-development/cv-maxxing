@@ -648,7 +648,7 @@ describe('PRD orchestrator CLI', () => {
     })
 
     expect(result.exitCode).toBe(0)
-    expect(adapters.events.filter((event) => event === 'ci:poll-checks')).toHaveLength(2)
+    expect(adapters.events.filter((event) => event === 'ci:poll-checks')).toHaveLength(3)
     expect(adapters.recordedStatuses).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -662,7 +662,66 @@ describe('PRD orchestrator CLI', () => {
       ]),
     )
     expect(adapters.events.indexOf('github:mark-ready-for-review')).toBeGreaterThan(
+      adapters.events.indexOf('ci:poll-checks'),
+    )
+    expect(adapters.events.lastIndexOf('ci:poll-checks')).toBeGreaterThan(
+      adapters.events.indexOf('github:mark-ready-for-review'),
+    )
+    expect(adapters.events).toContain('github:get-review-findings')
+  })
+
+  it('waits for ready-for-review checks and repairs GitHub review findings before completing', async () => {
+    const adapters = createLiveAdapters({
+      ciPollingResults: [
+        {
+          blockers: [],
+          status: 'passed',
+        },
+        {
+          blockers: [],
+          status: 'pending',
+        },
+        {
+          blockers: [],
+          status: 'passed',
+        },
+        {
+          blockers: [],
+          status: 'passed',
+        },
+      ],
+      issues: multiChildIssueObjects,
+      resumeRepairChangedFiles: ['apps/desktop/src/renderer/app.tsx'],
+      reviewFindingsBeforeClean: 1,
+    })
+    const result = await runPrdOrchestratorCliAsync({
+      adapters,
+      arguments_: ['run'],
+      stdin: '',
+    })
+
+    expect(result.exitCode).toBe(0)
+    expect(adapters.events.indexOf('github:mark-ready-for-review')).toBeLessThan(
       adapters.events.lastIndexOf('ci:poll-checks'),
+    )
+    expect(adapters.events).toEqual(
+      expect.arrayContaining([
+        'github:get-review-findings',
+        'sandcastle:repair-resume-findings',
+        'git:apply-worker-diff',
+        'verification:run',
+        'git:commit-final-cleanup',
+        'git:push-prd-branch',
+      ]),
+    )
+    expect(adapters.events.filter((event) => event === 'github:get-review-findings')).toHaveLength(
+      2,
+    )
+    expect(adapters.events.indexOf('git:push-prd-branch')).toBeLessThan(
+      adapters.events.lastIndexOf('ci:poll-checks'),
+    )
+    expect(adapters.workerBranchNames).toContainEqual(
+      expect.stringMatching(/^agent\/prd-80-automate-prd-implementation-ready-review-repair-/),
     )
   })
 
@@ -1036,6 +1095,8 @@ describe('PRD orchestrator CLI', () => {
       'github:upsert-pr-comment',
       'github:create-final-audit-comment',
       'github:mark-ready-for-review',
+      'ci:poll-checks',
+      'github:get-review-findings',
       'state:record-run-status',
       'lock:release',
     ])
@@ -2702,6 +2763,7 @@ interface CreateLiveAdaptersOptions {
   readonly remoteAutomationBlockers?: readonly string[]
   readonly resumeRepairChangedFiles?: readonly string[]
   readonly resumeRepairError?: Error
+  readonly reviewFindingsBeforeClean?: number
   readonly repairVerificationChangedFiles?: readonly string[]
   readonly resumePrFindings?: readonly ResumePrFinding[]
   readonly runLockResult?: LiveRunLockResult
@@ -2752,6 +2814,7 @@ const createLiveAdapters = (
   >[0][] = []
   let codeRabbitReviewCount = 0
   let ciPollingCount = 0
+  let reviewFindingsCount = 0
   let impactAnalysisCount = 0
   let prIsDraft = options.automationPr?.isDraft ?? options.resumePrFindings === undefined
   let lastRecordedStatus:
@@ -2981,8 +3044,28 @@ const createLiveAdapters = (
       },
       getReviewFindings: () => {
         events.push('github:get-review-findings')
+        reviewFindingsCount += 1
 
-        return Promise.resolve(options.resumePrFindings ?? [])
+        if (options.reviewFindingsBeforeClean !== undefined) {
+          return Promise.resolve(
+            reviewFindingsCount <= options.reviewFindingsBeforeClean
+              ? [
+                  {
+                    body: 'Repair this ready review finding.',
+                    id: `ready-review-finding-${String(reviewFindingsCount)}`,
+                    source: 'github-pr-review' as const,
+                    title: 'Ready review finding',
+                  },
+                ]
+              : [],
+          )
+        }
+
+        return Promise.resolve(
+          options.resumePrFindings === undefined || reviewFindingsCount > 1
+            ? []
+            : options.resumePrFindings,
+        )
       },
       getCurrentPr: () => {
         events.push('github:get-current-pr')
