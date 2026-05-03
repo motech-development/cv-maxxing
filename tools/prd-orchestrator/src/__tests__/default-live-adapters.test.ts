@@ -551,7 +551,7 @@ describe('default live adapters', () => {
       'git checkout agent/prd-80-test',
       'git -C /repo/.sandcastle/worktrees/agent-prd-80-worker add --all',
       'git -C /repo/.sandcastle/worktrees/agent-prd-80-worker diff --cached --binary HEAD',
-      'git apply --index -',
+      'git apply --3way --index -',
     ])
     expect(shell.commands.at(-1)?.stdin).toBe(
       'diff --git a/apps/desktop/src/main.ts b/apps/desktop/src/main.ts\n',
@@ -579,7 +579,7 @@ describe('default live adapters', () => {
       'git checkout agent/prd-80-test',
       'git -C /repo/.sandcastle/worktrees/agent-prd-80-worker add --all',
       'git -C /repo/.sandcastle/worktrees/agent-prd-80-worker diff --cached --binary HEAD',
-      'git apply --index -',
+      'git apply --3way --index -',
     ])
   })
 
@@ -592,6 +592,8 @@ describe('default live adapters', () => {
     })
 
     expect(shell.commands.map((command) => formatCommand(command))).toEqual([
+      'git reset --hard HEAD',
+      'git clean -fd',
       'git checkout agent/prd-80-test',
       'git reset --hard HEAD',
       'git clean -fd',

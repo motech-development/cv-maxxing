@@ -710,6 +710,14 @@ const createGitAdapter = (
       input: RestorePrdBranchToCleanStateInput,
     ): Promise<void> => {
       await shell({
+        args: ['reset', '--hard', 'HEAD'],
+        command: 'git',
+      })
+      await shell({
+        args: ['clean', '-fd'],
+        command: 'git',
+      })
+      await shell({
         args: ['checkout', input.branchName],
         command: 'git',
       })
@@ -975,7 +983,7 @@ const applyPreservedWorkerWorktreeDiff = async (
   }
 
   await shell({
-    args: ['apply', '--index', '-'],
+    args: ['apply', '--3way', '--index', '-'],
     command: 'git',
     stdin: patch.stdout,
   })
