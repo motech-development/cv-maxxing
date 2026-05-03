@@ -35,13 +35,13 @@ Build the local Sandcastle image and run the controlled wiring check:
 corepack enable pnpm
 pnpm install
 pnpm exec sandcastle docker build-image --image-name sandcastle:cv-maxxing
-node .sandcastle/main.ts --dry-run
+pnpm sandcastle:dry-run
 ```
 
 Run the scaffold entrypoint without side effects:
 
 ```sh
-node .sandcastle/main.ts
+pnpm sandcastle
 ```
 
 Before running the real workflow, log in to Codex locally:
@@ -88,7 +88,7 @@ draft pull request as durable workflow state. It deliberately excludes:
 - Custom resume or recovery machinery.
 - History rewriting, including child commit rewriting.
 
-The controlled dry run (`node .sandcastle/main.ts --dry-run`) demonstrates the
+The controlled dry run (`pnpm sandcastle:dry-run`) demonstrates the
 planner, implementer/reviewer, merger, and draft PR wiring with injected no-op
 executors. It does not inspect live GitHub issues, start Codex, create branches,
 merge branches, or create a real pull request.
