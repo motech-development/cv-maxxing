@@ -17,12 +17,29 @@ Sandcastle entrypoint and prompt-driven agents.
 
 ## Setup
 
-Use Node 24 and pnpm, matching the repository runtime and workspace tooling.
+Use Node 24 and pnpm, matching `.nvmrc` and the repository workspace tooling.
+Phase 1 assumes these tools are available on the host or inside the Sandcastle
+container:
+
+- Docker, for the supported Sandcastle sandbox provider.
+- GitHub CLI, authenticated with access to `motech-development/cv-maxxing`.
+- Codex, available to the Sandcastle agent with the required model credentials.
+- pnpm via Corepack, using the repository-pinned package manager version.
+- Git credentials that can create local branches and, when running for real,
+  push the parent PRD branch.
+
+Build the local Sandcastle image and run the controlled wiring check:
 
 ```sh
 corepack enable pnpm
 pnpm install
 pnpm exec sandcastle docker build-image --image-name sandcastle:cv-maxxing
+node .sandcastle/main.ts --dry-run
+```
+
+Run the scaffold entrypoint without side effects:
+
+```sh
 node .sandcastle/main.ts
 ```
 
@@ -30,11 +47,14 @@ Copy `.sandcastle/.env.example` to `.sandcastle/.env` locally and provide:
 
 - `GITHUB_TOKEN` for GitHub CLI issue and draft PR operations.
 - `OPENAI_API_KEY` for the Codex agent.
-- `SANDCASTLE_CODEX_MODEL` when overriding the default `gpt-5.5` model.
+- `SANDCASTLE_CODEX_MODEL` when overriding the default `codex-mini-latest` model.
 - `SANDCASTLE_DOCKER_IMAGE` when using a non-default Docker image name.
 
 Docker is the supported Phase 1 sandbox provider. The image uses Node 24,
 pnpm via Corepack, GitHub CLI, and Codex.
+
+For GitHub CLI, either run `gh auth login` before invoking the workflow or
+provide a token through the environment used by the container.
 
 ## Phase 1 Shape
 
@@ -46,7 +66,16 @@ shape used by the native workflow:
 - planner, implementer, reviewer, and merger prompt file names
 - Codex and Docker providers
 
-The child slices add the prompt contracts and phase wiring. Host-side custom
-state machines, local run-state databases, resume repair, child commit
-rewriting, patch stacking, CI polling, and CodeRabbit comment repair are not
-part of Phase 1.
+The Phase 1 flow uses GitHub issues, child branches, normal git merges, and one
+draft pull request as durable workflow state. It deliberately excludes:
+
+- CodeRabbit comment repair.
+- Ready-for-review marking.
+- CI polling.
+- Custom resume or recovery machinery.
+- History rewriting, including child commit rewriting.
+
+The controlled dry run (`node .sandcastle/main.ts --dry-run`) demonstrates the
+planner, implementer/reviewer, merger, and draft PR wiring with injected no-op
+executors. It does not inspect live GitHub issues, start Codex, create branches,
+merge branches, or create a real pull request.
