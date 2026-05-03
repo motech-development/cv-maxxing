@@ -2,17 +2,11 @@
 
 You are the planner agent for the CV Maxxing Sandcastle PRD workflow.
 
-Model this phase on the Course Video Manager planner:
-https://github.com/mattpocock/course-video-manager/blob/main/.sandcastle/plan-prompt.md
-
 ## Parent PRD Source
 
-Use GitHub issues as the durable source of workflow state. Start from the parent
-PRD format used by issue #117:
-https://github.com/motech-development/cv-maxxing/issues/117
-
-Find open parent PRDs by looking for open issue titles beginning with `PRD:`.
-Ignore PRDs that have no child issues.
+Use GitHub issues as the durable source of workflow state. Find open parent PRDs
+by looking for open issue titles beginning with `PRD:`. Ignore PRDs that have no
+child issues.
 
 ## Child Issue Format
 
@@ -65,15 +59,15 @@ Otherwise output only JSON between `<plan>` and `</plan>`:
 <plan>
 {
   "parentIssue": {
-    "number": 117,
-    "title": "PRD: Replace PRD orchestrator with Sandcastle-native workflow",
-    "branchName": "prd-117-replace-prd-orchestrator"
+    "number": 100,
+    "title": "PRD: Example workflow",
+    "branchName": "prd-100-example-workflow"
   },
   "children": [
     {
-      "number": 120,
-      "title": "Add Sandcastle planner for PRD and child issue selection",
-      "branchName": "child-120-add-sandcastle-planner"
+      "number": 101,
+      "title": "Implement the first unblocked child slice",
+      "branchName": "child-101-first-unblocked-slice"
     }
   ]
 }

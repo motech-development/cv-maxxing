@@ -79,7 +79,6 @@ describe('planner prompt contract', () => {
   it('documents the GitHub issue inspection commands and JSON output contract', async () => {
     const prompt = await readFile(PLANNER_PROMPT_FILE, 'utf8')
 
-    expect(prompt).toContain('https://github.com/motech-development/cv-maxxing/issues/117')
     expect(prompt).toContain('gh issue list')
     expect(prompt).toContain('gh issue view')
     expect(prompt).toContain('"number"')
