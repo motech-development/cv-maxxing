@@ -16,6 +16,7 @@ export const REVIEW_PROMPT_FILE = '.sandcastle/prompts/review-child.md'
 export const MERGE_PROMPT_FILE = '.sandcastle/prompts/merge-children.md'
 
 export const COMPLETION_SIGNAL = '</task>'
+export const DEFAULT_CODEX_MODEL = 'codex-mini-latest'
 export const PLAN_START_SIGNAL = '<plan>'
 export const PLAN_END_SIGNAL = '</plan>'
 export const PLAN_SIGNAL = PLAN_END_SIGNAL
@@ -166,6 +167,14 @@ export interface CreateOrReusePrdDraftPullRequestInput {
   readonly gateway?: DraftPullRequestGateway
 }
 
+export interface PhaseOneDryRunResult {
+  readonly plannerOutput: PlannerOutput
+  readonly childResults: readonly ChildTaskExecutionResult[]
+  readonly mergeResult: MergeCompletedBranchesResult
+  readonly draftPullRequestResult: DraftPullRequestLifecycleResult
+  readonly phases: readonly string[]
+}
+
 export const createPrdBranchName = (issueNumber: number, title: string): string =>
   `prd-${String(issueNumber)}-${slugify(title)}`
 
@@ -289,7 +298,7 @@ export const runChildPrompt: ChildTaskPromptRunner = async ({
   promptFile,
 }) => {
   const result = await run({
-    agent: codex(process.env.SANDCASTLE_CODEX_MODEL ?? 'gpt-5.5', {
+    agent: codex(process.env.SANDCASTLE_CODEX_MODEL ?? DEFAULT_CODEX_MODEL, {
       effort: 'high',
     }),
     branchStrategy: {
@@ -357,7 +366,7 @@ export const runMergePromptWithSandcastle: MergePromptRunner = async ({
   promptFile,
 }) => {
   const result = await run({
-    agent: codex(process.env.SANDCASTLE_CODEX_MODEL ?? 'gpt-5.5', {
+    agent: codex(process.env.SANDCASTLE_CODEX_MODEL ?? DEFAULT_CODEX_MODEL, {
       effort: 'high',
     }),
     branchStrategy: {
@@ -480,6 +489,48 @@ export const githubCliDraftPullRequestGateway: DraftPullRequestGateway = {
 
     return pullRequests.find(({ isDraft }) => isDraft)
   },
+}
+
+export const runPhaseOneDryRun = async (): Promise<PhaseOneDryRunResult> => {
+  const plannerOutput = parsePlannerOutput(
+    `${PLAN_START_SIGNAL}${JSON.stringify(createPhaseOneDryRunPlan())}${PLAN_END_SIGNAL}`,
+  )
+
+  if (plannerOutput.kind === 'no-work') {
+    throw new Error('Phase 1 dry run must produce a planner output.')
+  }
+
+  const plan = plannerOutput.plan
+  const childResults = await runPlannedChildTasks({
+    executeChild: runDryRunChildTask,
+    maxParallel: 1,
+    plan,
+  })
+  const mergeResult = await runMergeCompletedBranches({
+    childResults,
+    plan,
+    runMergePrompt: async () => {
+      await Promise.resolve()
+
+      return {
+        branchName: plan.parentIssue.branchName,
+        logFilePath: '.sandcastle/logs/dry-run-merge.log',
+      }
+    },
+  })
+  const draftPullRequestResult = await createOrReusePrdDraftPullRequest({
+    completedBranches: mergeResult.completedBranches,
+    gateway: createDryRunDraftPullRequestGateway(),
+    plan,
+  })
+
+  return {
+    childResults,
+    draftPullRequestResult,
+    mergeResult,
+    phases: ['planner', 'implementer', 'reviewer', 'merger', 'draft-pr'],
+    plannerOutput,
+  }
 }
 
 const slugify = (value: string): string => {
@@ -609,6 +660,67 @@ const isDefined = <Value>(value: Value | undefined): value is Value => value !==
 const formatErrorMessage = (error: unknown): string =>
   error instanceof Error ? error.message : String(error)
 
+const createPhaseOneDryRunPlan = (): PlannerPlan => {
+  const parentIssue: PlannedIssue = {
+    branchName: createPrdBranchName(
+      117,
+      'PRD: Replace PRD orchestrator with Sandcastle-native workflow',
+    ),
+    number: 117,
+    title: 'PRD: Replace PRD orchestrator with Sandcastle-native workflow',
+  }
+  const child: PlannedIssue = {
+    branchName: createChildBranchName(
+      124,
+      'Document and verify the Sandcastle-native Phase 1 workflow',
+    ),
+    number: 124,
+    title: 'Document and verify the Sandcastle-native Phase 1 workflow',
+  }
+
+  return {
+    children: [child],
+    parentIssue,
+  }
+}
+
+const runDryRunChildTask: ChildTaskExecutor = async ({ child }) => {
+  await Promise.resolve()
+
+  return {
+    branchName: child.branchName,
+    child,
+    implementationCommits: [{ sha: 'dry-run-implementation' }],
+    logFilePaths: [
+      `.sandcastle/logs/dry-run-implement-${String(child.number)}.log`,
+      `.sandcastle/logs/dry-run-review-${String(child.number)}.log`,
+    ],
+    reviewCommits: [{ sha: 'dry-run-review' }],
+    status: 'fulfilled',
+  }
+}
+
+const createDryRunDraftPullRequestGateway = (): DraftPullRequestGateway => ({
+  createDraftPullRequest: async ({ branchName }) => {
+    await Promise.resolve()
+
+    return {
+      isDraft: true,
+      number: 1,
+      url: `https://github.com/motech-development/cv-maxxing/pull/dry-run-${branchName}`,
+    }
+  },
+  ensureParentBranch: async () => {
+    await Promise.resolve()
+  },
+  findDraftPullRequest: async () => {
+    const pullRequests: readonly DraftPullRequest[] = []
+    await Promise.resolve()
+
+    return pullRequests.find(({ isDraft }) => isDraft)
+  },
+})
+
 const runCommand = async (
   command: string,
   commandArguments: readonly string[],
@@ -663,11 +775,24 @@ const parseDraftPullRequest = (value: unknown): DraftPullRequest => {
   }
 }
 
-const main = (): void => {
+const main = async (): Promise<void> => {
+  if (process.argv.includes('--dry-run')) {
+    const result = await runPhaseOneDryRun()
+
+    console.info(JSON.stringify(result, null, 2))
+
+    return
+  }
+
   console.info('Sandcastle PRD workflow scaffold is installed.')
   console.info('Planner, implementer, reviewer, and merger phases land in child slices.')
 }
 
 if (process.argv[1]?.endsWith('/.sandcastle/main.ts') === true) {
-  main()
+  try {
+    await main()
+  } catch (error: unknown) {
+    console.error(formatErrorMessage(error))
+    process.exitCode = 1
+  }
 }
