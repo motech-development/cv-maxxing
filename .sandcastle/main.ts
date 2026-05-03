@@ -6,6 +6,8 @@ import { docker } from '@ai-hero/sandcastle/sandboxes/docker'
 import type { PromptArgs, RunResult } from '@ai-hero/sandcastle'
 
 const execFileAsync = promisify(execFile)
+const COMMAND_TIMEOUT_MS = 60_000
+const GIT_BRANCH_MISSING_EXIT_CODE = 1
 
 export const MAX_ITERATIONS = 10
 export const MAX_PARALLEL_CHILDREN = 4
@@ -564,11 +566,13 @@ export const githubCliDraftPullRequestGateway: DraftPullRequestGateway = {
     return await viewPullRequest(url)
   },
   ensureParentBranch: async (branchName) => {
-    try {
+    if (await localBranchExists(branchName)) {
       await runCommand('git', ['switch', branchName])
-    } catch {
-      await runCommand('git', ['switch', '--create', branchName])
+
+      return
     }
+
+    await runCommand('git', ['switch', '--create', branchName])
   },
   findDraftPullRequest: async (branchName) => {
     const output = await runCommand('gh', [
@@ -821,14 +825,33 @@ const createDryRunDraftPullRequestGateway = (): DraftPullRequestGateway => ({
   },
 })
 
+const localBranchExists = async (branchName: string): Promise<boolean> => {
+  try {
+    await runCommand('git', ['show-ref', '--verify', '--quiet', `refs/heads/${branchName}`])
+
+    return true
+  } catch (error: unknown) {
+    if (isCommandExitCode(error, GIT_BRANCH_MISSING_EXIT_CODE)) {
+      return false
+    }
+
+    throw error
+  }
+}
+
 const runCommand = async (
   command: string,
   commandArguments: readonly string[],
 ): Promise<string> => {
-  const { stdout } = await execFileAsync(command, [...commandArguments])
+  const { stdout } = await execFileAsync(command, [...commandArguments], {
+    timeout: COMMAND_TIMEOUT_MS,
+  })
 
   return stdout
 }
+
+const isCommandExitCode = (error: unknown, exitCode: number): boolean =>
+  isRecord(error) && error.code === exitCode
 
 const viewPullRequest = async (url: string): Promise<DraftPullRequest> => {
   const output = await runCommand('gh', ['pr', 'view', url, '--json', 'number,url,isDraft'])
