@@ -11,7 +11,9 @@
     "lint": "eslint . --max-warnings 0",
     "lint:fix": "eslint . --fix",
     "lint-staged": "lint-staged",
-    "prepare": "husky"
+    "prepare": "husky",
+    "sandcastle": "node .sandcastle/main.ts",
+    "sandcastle:dry-run": "node .sandcastle/main.ts --dry-run"
   },
   "keywords": [],
   "author": "",
