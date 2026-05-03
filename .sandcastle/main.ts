@@ -1,6 +1,11 @@
+import { execFile } from 'node:child_process'
+import { promisify } from 'node:util'
+
 import { codex, run } from '@ai-hero/sandcastle'
 import { docker } from '@ai-hero/sandcastle/sandboxes/docker'
 import type { PromptArgs, RunResult } from '@ai-hero/sandcastle'
+
+const execFileAsync = promisify(execFile)
 
 export const MAX_ITERATIONS = 10
 export const MAX_PARALLEL_CHILDREN = 4
@@ -124,6 +129,41 @@ export interface RunMergeCompletedBranchesInput {
   readonly plan: PlannerPlan
   readonly childResults: readonly ChildTaskExecutionResult[]
   readonly runMergePrompt?: MergePromptRunner
+}
+
+export interface DraftPullRequest {
+  readonly number: number
+  readonly url: string
+  readonly isDraft: boolean
+}
+
+export interface CreateDraftPullRequestInput {
+  readonly branchName: string
+  readonly body: string
+  readonly draft: true
+  readonly title: string
+}
+
+export interface DraftPullRequestGateway {
+  readonly ensureParentBranch: (branchName: string) => Promise<void>
+  readonly findDraftPullRequest: (branchName: string) => Promise<DraftPullRequest | undefined>
+  readonly createDraftPullRequest: (input: CreateDraftPullRequestInput) => Promise<DraftPullRequest>
+}
+
+export type DraftPullRequestLifecycleResult =
+  | {
+      readonly status: 'created'
+      readonly pullRequest: DraftPullRequest
+    }
+  | {
+      readonly status: 'reused'
+      readonly pullRequest: DraftPullRequest
+    }
+
+export interface CreateOrReusePrdDraftPullRequestInput {
+  readonly plan: PlannerPlan
+  readonly completedBranches?: readonly CompletedChildBranch[]
+  readonly gateway?: DraftPullRequestGateway
 }
 
 export const createPrdBranchName = (issueNumber: number, title: string): string =>
@@ -340,6 +380,108 @@ export const runMergePromptWithSandcastle: MergePromptRunner = async ({
   }
 }
 
+export const createOrReusePrdDraftPullRequest = async ({
+  completedBranches = [],
+  gateway = githubCliDraftPullRequestGateway,
+  plan,
+}: CreateOrReusePrdDraftPullRequestInput): Promise<DraftPullRequestLifecycleResult> => {
+  await gateway.ensureParentBranch(plan.parentIssue.branchName)
+
+  const existingPullRequest = await gateway.findDraftPullRequest(plan.parentIssue.branchName)
+
+  if (existingPullRequest !== undefined) {
+    return {
+      pullRequest: existingPullRequest,
+      status: 'reused',
+    }
+  }
+
+  const pullRequest = await gateway.createDraftPullRequest({
+    body: createDraftPullRequestBody({
+      completedBranches,
+      plan,
+    }),
+    branchName: plan.parentIssue.branchName,
+    draft: true,
+    title: plan.parentIssue.title,
+  })
+
+  return {
+    pullRequest,
+    status: 'created',
+  }
+}
+
+export const createDraftPullRequestBody = ({
+  completedBranches = [],
+  plan,
+}: {
+  readonly plan: PlannerPlan
+  readonly completedBranches?: readonly CompletedChildBranch[]
+}): string => {
+  const childIssueLines = plan.children.map((child) => `- #${String(child.number)} ${child.title}`)
+  const completedBranchLines = completedBranches.map(
+    ({ branchName, issue }) => `- ${branchName} for #${String(issue.number)}`,
+  )
+
+  return [
+    `Parent PRD: #${String(plan.parentIssue.number)} ${plan.parentIssue.title}`,
+    '',
+    'Draft: yes',
+    '',
+    'Child issues:',
+    ...childIssueLines,
+    '',
+    'Completed branches:',
+    ...(completedBranchLines.length > 0 ? completedBranchLines : ['- None yet']),
+    '',
+    'GitHub issues and this pull request are the durable workflow state.',
+  ].join('\n')
+}
+
+export const githubCliDraftPullRequestGateway: DraftPullRequestGateway = {
+  createDraftPullRequest: async ({ body, branchName, title }) => {
+    const createArguments = [
+      'pr',
+      'create',
+      '--head',
+      branchName,
+      '--title',
+      title,
+      '--body',
+      body,
+      '--draft',
+    ]
+
+    const output = await runCommand('gh', createArguments)
+    const url = output.trim()
+
+    return await viewPullRequest(url)
+  },
+  ensureParentBranch: async (branchName) => {
+    try {
+      await runCommand('git', ['switch', branchName])
+    } catch {
+      await runCommand('git', ['switch', '--create', branchName])
+    }
+  },
+  findDraftPullRequest: async (branchName) => {
+    const output = await runCommand('gh', [
+      'pr',
+      'list',
+      '--head',
+      branchName,
+      '--state',
+      'open',
+      '--json',
+      'number,url,isDraft',
+    ])
+    const pullRequests = parsePullRequestList(output)
+
+    return pullRequests.find(({ isDraft }) => isDraft)
+  },
+}
+
 const slugify = (value: string): string => {
   const slug = value
     .toLowerCase()
@@ -466,6 +608,60 @@ const isDefined = <Value>(value: Value | undefined): value is Value => value !==
 
 const formatErrorMessage = (error: unknown): string =>
   error instanceof Error ? error.message : String(error)
+
+const runCommand = async (
+  command: string,
+  commandArguments: readonly string[],
+): Promise<string> => {
+  const { stdout } = await execFileAsync(command, [...commandArguments])
+
+  return stdout
+}
+
+const viewPullRequest = async (url: string): Promise<DraftPullRequest> => {
+  const output = await runCommand('gh', ['pr', 'view', url, '--json', 'number,url,isDraft'])
+  const parsed: unknown = JSON.parse(output)
+
+  return parseDraftPullRequest(parsed)
+}
+
+const parsePullRequestList = (output: string): readonly DraftPullRequest[] => {
+  const parsed: unknown = JSON.parse(output)
+
+  if (!Array.isArray(parsed)) {
+    throw new TypeError('GitHub PR list output must be an array.')
+  }
+
+  return parsed.map((value) => parseDraftPullRequest(value))
+}
+
+const parseDraftPullRequest = (value: unknown): DraftPullRequest => {
+  if (!isRecord(value)) {
+    throw new TypeError('GitHub PR output must be an object.')
+  }
+
+  const number = value.number
+  const url = value.url
+  const isDraft = value.isDraft
+
+  if (typeof number !== 'number' || !Number.isInteger(number)) {
+    throw new TypeError('GitHub PR number must be an integer.')
+  }
+
+  if (typeof url !== 'string' || url.length === 0) {
+    throw new TypeError('GitHub PR URL must be a string.')
+  }
+
+  if (typeof isDraft !== 'boolean') {
+    throw new TypeError('GitHub PR draft state must be a boolean.')
+  }
+
+  return {
+    isDraft,
+    number,
+    url,
+  }
+}
 
 const main = (): void => {
   console.info('Sandcastle PRD workflow scaffold is installed.')
