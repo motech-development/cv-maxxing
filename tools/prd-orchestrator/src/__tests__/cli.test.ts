@@ -2554,7 +2554,7 @@ None - can start immediately.
     expect(adapters.events).not.toContain('git:push-prd-branch')
   })
 
-  it('blocks mapped resume repair output outside the child write surface before applying it', async () => {
+  it('allows mapped resume repair output to expand beyond the original child write surface', async () => {
     const adapters = createLiveAdapters({
       initialCompletedChildIssueNumbers: [82],
       resumePrFindings: [
@@ -2574,15 +2574,12 @@ None - can start immediately.
       stdin: '',
     })
 
-    expect(result.exitCode).toBe(1)
-    expect(result.stderr).toContain(
-      'Resume repair output touched files outside the child write surface',
-    )
-    expect(adapters.events).not.toContain('git:apply-worker-diff')
-    expect(adapters.events).not.toContain('verification:run')
-    expect(adapters.events).not.toContain('coderabbit:review')
-    expect(adapters.events).not.toContain('git:amend-child-commit')
-    expect(adapters.events).not.toContain('git:push-prd-branch')
+    expect(result.exitCode).toBe(0)
+    expect(adapters.events).toContain('git:apply-worker-diff')
+    expect(adapters.events).toContain('verification:run')
+    expect(adapters.events).toContain('coderabbit:review')
+    expect(adapters.events).toContain('git:amend-child-commit')
+    expect(adapters.events).toContain('git:push-prd-branch')
   })
 
   it('maps resume PR review findings by changed file before amending child commits', async () => {

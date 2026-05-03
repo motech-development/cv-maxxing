@@ -1678,11 +1678,6 @@ const executeResumePrWithLock = async (
 
   for (const amendPlan of repairPlan.amendChildCommits) {
     const findings = reviewFindings.filter((finding) => amendPlan.findingIds.includes(finding.id))
-    const childCommit = childCommits.find(
-      (commit) =>
-        commit.childIssueNumber === amendPlan.childIssueNumber &&
-        commit.commitHash === amendPlan.commitHash,
-    )
 
     await adapters.git.checkoutChildCommit?.({
       branchName: pr.branchName,
@@ -1695,7 +1690,7 @@ const executeResumePrWithLock = async (
       codeRabbitChildIssueNumber: amendPlan.childIssueNumber,
       codeRabbitCommitHash: amendPlan.commitHash,
       currentChildIssueNumber: amendPlan.childIssueNumber,
-      expectedFiles: childCommit?.changedFiles ?? getFindingFilePaths(findings),
+      expectedFiles: [],
       findings,
       prNumber,
       targetLabel: 'child',
@@ -1745,7 +1740,7 @@ const executeResumePrWithLock = async (
       codeRabbitChildIssueNumber: 0,
       codeRabbitCommitHash: 'final-cleanup',
       currentChildIssueNumber: undefined,
-      expectedFiles: getFindingFilePaths(findings),
+      expectedFiles: [],
       findings,
       prNumber,
       targetLabel: 'final cleanup',
@@ -2008,12 +2003,6 @@ const validateResumeRepairWriteSurface = (input: {
     )}. Expected files: ${input.expectedFiles.join(', ')}.`,
   ]
 }
-
-const getFindingFilePaths = (findings: readonly ResumePrFinding[]): readonly string[] => [
-  ...new Set(
-    findings.flatMap((finding) => (finding.filePath === undefined ? [] : [finding.filePath])),
-  ),
-]
 
 const createDryRunPlanForPrdBranch = (
   issues: readonly GitHubIssue[],
