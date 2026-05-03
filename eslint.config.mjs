@@ -71,6 +71,7 @@ export default tseslint.config(
       'apps/*/tests/e2e/**/*.ts',
       'apps/*/src/main/**/*.ts',
       'apps/*/src/preload/**/*.ts',
+      '.sandcastle/**/*.ts',
       'eslint.config.mjs',
       'scripts/**/*.{js,mjs,ts,mts}',
       'tools/**/*.{js,mjs,ts,mts}',

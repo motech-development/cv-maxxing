@@ -5,7 +5,7 @@
       "path": "./apps/desktop"
     },
     {
-      "path": "./tools/prd-orchestrator"
+      "path": "./.sandcastle"
     }
   ]
 }

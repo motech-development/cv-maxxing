@@ -1,7 +1,7 @@
 FROM node:24-bookworm
 
 RUN apt-get update \
-  && apt-get install --yes --no-install-recommends ca-certificates curl git jq \
+  && apt-get install --yes --no-install-recommends ca-certificates curl git gh jq \
   && rm -rf /var/lib/apt/lists/*
 
 RUN corepack enable pnpm
