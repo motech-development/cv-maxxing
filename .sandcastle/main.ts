@@ -167,6 +167,29 @@ export interface CreateOrReusePrdDraftPullRequestInput {
   readonly gateway?: DraftPullRequestGateway
 }
 
+export type PlannerPromptRunner = () => Promise<PlannerOutput>
+
+export interface PhaseOneWorkflowIterationResult {
+  readonly plannerOutput: Extract<PlannerOutput, { readonly kind: 'plan' }>
+  readonly childResults: readonly ChildTaskExecutionResult[]
+  readonly mergeResult: MergeCompletedBranchesResult
+  readonly draftPullRequestResult: DraftPullRequestLifecycleResult
+}
+
+export interface PhaseOneWorkflowResult {
+  readonly status: 'no-work' | 'iteration-limit-reached'
+  readonly iterations: readonly PhaseOneWorkflowIterationResult[]
+}
+
+export interface RunPhaseOneWorkflowInput {
+  readonly runPlanner?: PlannerPromptRunner
+  readonly executeChild?: ChildTaskExecutor
+  readonly runMergePrompt?: MergePromptRunner
+  readonly draftPullRequestGateway?: DraftPullRequestGateway
+  readonly maxIterations?: number
+  readonly maxParallel?: number
+}
+
 export interface PhaseOneDryRunResult {
   readonly plannerOutput: PlannerOutput
   readonly childResults: readonly ChildTaskExecutionResult[]
@@ -195,6 +218,79 @@ export const parsePlannerOutput = (output: string): PlannerOutput => {
     kind: 'plan',
     plan: parsePlannerPlan(parsed),
   }
+}
+
+export const runPhaseOneWorkflow = async ({
+  draftPullRequestGateway = githubCliDraftPullRequestGateway,
+  executeChild,
+  maxIterations = MAX_ITERATIONS,
+  maxParallel = MAX_PARALLEL_CHILDREN,
+  runMergePrompt,
+  runPlanner = runPlannerPrompt,
+}: RunPhaseOneWorkflowInput = {}): Promise<PhaseOneWorkflowResult> => {
+  const runNextIteration = async (
+    iterations: readonly PhaseOneWorkflowIterationResult[],
+  ): Promise<PhaseOneWorkflowResult> => {
+    if (iterations.length >= maxIterations) {
+      return {
+        iterations,
+        status: 'iteration-limit-reached',
+      }
+    }
+
+    const plannerOutput = await runPlanner()
+
+    if (plannerOutput.kind === 'no-work') {
+      return {
+        iterations,
+        status: 'no-work',
+      }
+    }
+
+    const plan = plannerOutput.plan
+    const childResults = await runPlannedChildTasks({
+      executeChild,
+      maxParallel,
+      plan,
+    })
+    const mergeResult = await runMergeCompletedBranches({
+      childResults,
+      plan,
+      runMergePrompt,
+    })
+    const draftPullRequestResult = await createOrReusePrdDraftPullRequest({
+      completedBranches: mergeResult.completedBranches,
+      gateway: draftPullRequestGateway,
+      plan,
+    })
+    const iteration = {
+      childResults,
+      draftPullRequestResult,
+      mergeResult,
+      plannerOutput,
+    }
+
+    return await runNextIteration([...iterations, iteration])
+  }
+
+  return await runNextIteration([])
+}
+
+export const runPlannerPrompt: PlannerPromptRunner = async () => {
+  const result = await run({
+    agent: codex(process.env.SANDCASTLE_CODEX_MODEL ?? DEFAULT_CODEX_MODEL, {
+      effort: 'high',
+    }),
+    completionSignal: [PLAN_END_SIGNAL, NO_WORK_SIGNAL],
+    maxIterations: MAX_ITERATIONS,
+    name: 'planner',
+    promptFile: PLANNER_PROMPT_FILE,
+    sandbox: docker({
+      imageName: process.env.SANDCASTLE_DOCKER_IMAGE ?? 'sandcastle:cv-maxxing',
+    }),
+  })
+
+  return parsePlannerOutput(result.stdout)
 }
 
 export const runPlannedChildTasks = async ({
@@ -492,44 +588,48 @@ export const githubCliDraftPullRequestGateway: DraftPullRequestGateway = {
 }
 
 export const runPhaseOneDryRun = async (): Promise<PhaseOneDryRunResult> => {
-  const plannerOutput = parsePlannerOutput(
-    `${PLAN_START_SIGNAL}${JSON.stringify(createPhaseOneDryRunPlan())}${PLAN_END_SIGNAL}`,
-  )
-
-  if (plannerOutput.kind === 'no-work') {
-    throw new Error('Phase 1 dry run must produce a planner output.')
-  }
-
-  const plan = plannerOutput.plan
-  const childResults = await runPlannedChildTasks({
+  let hasPlanned = false
+  const workflowResult = await runPhaseOneWorkflow({
+    draftPullRequestGateway: createDryRunDraftPullRequestGateway(),
     executeChild: runDryRunChildTask,
+    maxIterations: 2,
     maxParallel: 1,
-    plan,
-  })
-  const mergeResult = await runMergeCompletedBranches({
-    childResults,
-    plan,
     runMergePrompt: async () => {
       await Promise.resolve()
 
       return {
-        branchName: plan.parentIssue.branchName,
+        branchName: createPhaseOneDryRunPlan().parentIssue.branchName,
         logFilePath: '.sandcastle/logs/dry-run-merge.log',
       }
     },
+    runPlanner: async () => {
+      await Promise.resolve()
+
+      if (hasPlanned) {
+        return {
+          kind: 'no-work',
+        }
+      }
+
+      hasPlanned = true
+
+      return parsePlannerOutput(
+        `${PLAN_START_SIGNAL}${JSON.stringify(createPhaseOneDryRunPlan())}${PLAN_END_SIGNAL}`,
+      )
+    },
   })
-  const draftPullRequestResult = await createOrReusePrdDraftPullRequest({
-    completedBranches: mergeResult.completedBranches,
-    gateway: createDryRunDraftPullRequestGateway(),
-    plan,
-  })
+  const iteration = workflowResult.iterations[0]
+
+  if (iteration === undefined) {
+    throw new Error('Phase 1 dry run must produce one workflow iteration.')
+  }
 
   return {
-    childResults,
-    draftPullRequestResult,
-    mergeResult,
+    childResults: iteration.childResults,
+    draftPullRequestResult: iteration.draftPullRequestResult,
+    mergeResult: iteration.mergeResult,
     phases: ['planner', 'implementer', 'reviewer', 'merger', 'draft-pr'],
-    plannerOutput,
+    plannerOutput: iteration.plannerOutput,
   }
 }
 
