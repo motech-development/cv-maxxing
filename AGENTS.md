@@ -34,6 +34,7 @@ These rules always apply. Follow project-local rules first when they are more sp
 - Use ESLint and Prettier as the repository linting and formatting baseline. Husky runs `lint-staged` on `pre-commit`.
 - Use Vitest for unit tests. Keep tests colocated in `__tests__` folders next to the source they cover.
 - Implement new behavior and bug fixes using TDD: start with a failing automated test, make it pass with the minimal change, then refactor while keeping the test suite green.
+- Do not add tests whose only purpose is to prove that old code, old copy, or old references were removed. Test active behavior and durable contracts instead.
 - Use `CV_MAXXING_LOCAL_APP_DATA_ROOT` in desktop smoke/Electron tests when deterministic local encrypted storage paths are required; point it at a disposable temp directory instead of the user profile.
 - Treat `CV_MAXXING_VACANCY_BROWSER_SESSION_CLOSE_AFTER_LOAD` as a synthetic browser-session fixture aid only; it should only auto-close sessions when paired with `CV_MAXXING_VACANCY_BROWSER_SESSION_HTML`, never for real interactive auth windows.
 - Run required desktop CI on both `macos-15-intel` and `macos-15` so Electron smoke, visual baselines, and packaged build verification stay aligned across Intel and Apple Silicon macOS targets.
