@@ -154,6 +154,7 @@ describe('merger prompt contract', () => {
     expect(prompt).toContain('{{COMPLETED_BRANCHES}}')
     expect(prompt).toContain('{{CHILD_ISSUES}}')
     expect(prompt).toContain('git merge')
+    expect(prompt).toContain('chore: merge <branch-name>')
     expect(prompt).toContain('merge conflicts')
     expect(prompt).not.toContain('git apply')
     expect(prompt).not.toContain('git commit --amend')

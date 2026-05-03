@@ -1,13 +1,18 @@
 import { execFile } from 'node:child_process'
+import { existsSync } from 'node:fs'
+import { homedir } from 'node:os'
+import path from 'node:path'
 import { promisify } from 'node:util'
 
 import { codex, run } from '@ai-hero/sandcastle'
 import { docker } from '@ai-hero/sandcastle/sandboxes/docker'
 import type { PromptArgs, RunResult } from '@ai-hero/sandcastle'
+import type { DockerOptions } from '@ai-hero/sandcastle/sandboxes/docker'
 
 const execFileAsync = promisify(execFile)
 const COMMAND_TIMEOUT_MS = 60_000
 const GIT_BRANCH_MISSING_EXIT_CODE = 1
+const SANDBOX_CODEX_HOME = '/home/agent/.codex'
 
 export const MAX_ITERATIONS = 10
 export const MAX_PARALLEL_CHILDREN = 4
@@ -192,6 +197,11 @@ export interface RunPhaseOneWorkflowInput {
   readonly maxParallel?: number
 }
 
+export interface CreateCodexDockerOptionsInput {
+  readonly fileExists?: (path: string) => boolean
+  readonly hostCodexHome?: string
+}
+
 export interface PhaseOneDryRunResult {
   readonly plannerOutput: PlannerOutput
   readonly childResults: readonly ChildTaskExecutionResult[]
@@ -287,9 +297,7 @@ export const runPlannerPrompt: PlannerPromptRunner = async () => {
     maxIterations: MAX_ITERATIONS,
     name: 'planner',
     promptFile: PLANNER_PROMPT_FILE,
-    sandbox: docker({
-      imageName: process.env.SANDCASTLE_DOCKER_IMAGE ?? 'sandcastle:cv-maxxing',
-    }),
+    sandbox: createCodexDockerSandbox(),
   })
 
   return parsePlannerOutput(result.stdout)
@@ -411,9 +419,7 @@ export const runChildPrompt: ChildTaskPromptRunner = async ({
       parentIssue,
     }),
     promptFile,
-    sandbox: docker({
-      imageName: process.env.SANDCASTLE_DOCKER_IMAGE ?? 'sandcastle:cv-maxxing',
-    }),
+    sandbox: createCodexDockerSandbox(),
   })
 
   return toChildTaskPromptResult(result)
@@ -476,9 +482,7 @@ export const runMergePromptWithSandcastle: MergePromptRunner = async ({
     name: `merge-${String(parentIssue.number)}`,
     promptArgs,
     promptFile,
-    sandbox: docker({
-      imageName: process.env.SANDCASTLE_DOCKER_IMAGE ?? 'sandcastle:cv-maxxing',
-    }),
+    sandbox: createCodexDockerSandbox(),
   })
 
   return {
@@ -590,6 +594,45 @@ export const githubCliDraftPullRequestGateway: DraftPullRequestGateway = {
     return pullRequests.find(({ isDraft }) => isDraft)
   },
 }
+
+export const createCodexDockerOptions = ({
+  fileExists = existsSync,
+  hostCodexHome = process.env.SANDCASTLE_HOST_CODEX_HOME ?? path.join(homedir(), '.codex'),
+}: CreateCodexDockerOptionsInput = {}): DockerOptions => {
+  const hostAuthPath = path.join(hostCodexHome, 'auth.json')
+  const hostConfigPath = path.join(hostCodexHome, 'config.toml')
+
+  if (!fileExists(hostAuthPath)) {
+    throw new Error(
+      `Codex subscription auth requires ${hostAuthPath}. Run \`codex login\` locally first.`,
+    )
+  }
+
+  return {
+    env: {
+      CODEX_HOME: SANDBOX_CODEX_HOME,
+    },
+    imageName: process.env.SANDCASTLE_DOCKER_IMAGE ?? 'sandcastle:cv-maxxing',
+    mounts: [
+      {
+        hostPath: hostAuthPath,
+        readonly: true,
+        sandboxPath: `${SANDBOX_CODEX_HOME}/auth.json`,
+      },
+      ...(fileExists(hostConfigPath)
+        ? [
+            {
+              hostPath: hostConfigPath,
+              readonly: true,
+              sandboxPath: `${SANDBOX_CODEX_HOME}/config.toml`,
+            },
+          ]
+        : []),
+    ],
+  }
+}
+
+const createCodexDockerSandbox = () => docker(createCodexDockerOptions())
 
 export const runPhaseOneDryRun = async (): Promise<PhaseOneDryRunResult> => {
   let hasPlanned = false

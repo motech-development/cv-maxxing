@@ -23,7 +23,8 @@ container:
 
 - Docker, for the supported Sandcastle sandbox provider.
 - GitHub CLI, authenticated with access to `motech-development/cv-maxxing`.
-- Codex, available to the Sandcastle agent with the required model credentials.
+- Codex, logged in locally with the subscription account you want Sandcastle to
+  reuse.
 - pnpm via Corepack, using the repository-pinned package manager version.
 - Git credentials that can create local branches and, when running for real,
   push the parent PRD branch.
@@ -43,12 +44,24 @@ Run the scaffold entrypoint without side effects:
 node .sandcastle/main.ts
 ```
 
+Before running the real workflow, log in to Codex locally:
+
+```sh
+codex login
+```
+
+The Docker sandbox reuses your Codex subscription login by mounting only
+`~/.codex/auth.json`, plus `~/.codex/config.toml` when present, into a
+sandbox-local `CODEX_HOME`. It does not require an OpenAI API key and does not
+mount your whole `~/.codex` directory.
+
 Copy `.sandcastle/.env.example` to `.sandcastle/.env` locally and provide:
 
 - `GITHUB_TOKEN` for GitHub CLI issue and draft PR operations.
-- `OPENAI_API_KEY` for the Codex agent.
 - `SANDCASTLE_CODEX_MODEL` when overriding the default `codex-mini-latest` model.
 - `SANDCASTLE_DOCKER_IMAGE` when using a non-default Docker image name.
+- `SANDCASTLE_HOST_CODEX_HOME` only when your host Codex login is not in
+  `~/.codex`.
 
 Docker is the supported Phase 1 sandbox provider. The image uses Node 24,
 pnpm via Corepack, GitHub CLI, and Codex.

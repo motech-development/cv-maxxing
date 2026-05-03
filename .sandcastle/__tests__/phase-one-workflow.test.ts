@@ -7,6 +7,7 @@ import {
   MERGE_PROMPT_FILE,
   PLANNER_PROMPT_FILE,
   REVIEW_PROMPT_FILE,
+  createCodexDockerOptions,
   runPhaseOneWorkflow,
   runPhaseOneDryRun,
   type DraftPullRequestGateway,
@@ -62,6 +63,51 @@ describe('Phase 1 controlled dry run', () => {
       },
       status: 'created',
     })
+  })
+})
+
+describe('Codex subscription auth', () => {
+  it('mounts only the local Codex auth files into a sandbox-local CODEX_HOME', () => {
+    const options = createCodexDockerOptions({
+      fileExists: (path) =>
+        ['/Users/dev/.codex/auth.json', '/Users/dev/.codex/config.toml'].includes(path),
+      hostCodexHome: '/Users/dev/.codex',
+    })
+
+    expect(options.env).toMatchObject({
+      CODEX_HOME: '/home/agent/.codex',
+    })
+    expect(options.mounts).toEqual([
+      {
+        hostPath: '/Users/dev/.codex/auth.json',
+        readonly: true,
+        sandboxPath: '/home/agent/.codex/auth.json',
+      },
+      {
+        hostPath: '/Users/dev/.codex/config.toml',
+        readonly: true,
+        sandboxPath: '/home/agent/.codex/config.toml',
+      },
+    ])
+  })
+
+  it('fails fast when the host is not logged into Codex locally', () => {
+    expect(() =>
+      createCodexDockerOptions({
+        fileExists: () => false,
+        hostCodexHome: '/Users/dev/.codex',
+      }),
+    ).toThrow('Codex subscription auth requires /Users/dev/.codex/auth.json')
+  })
+
+  it('documents subscription auth without requiring an OpenAI API key', async () => {
+    const readme = await readFile('.sandcastle/README.md', 'utf8')
+    const environmentExample = await readFile('.sandcastle/.env.example', 'utf8')
+
+    expect(readme).toContain('Codex subscription')
+    expect(readme).toContain('codex login')
+    expect(readme).not.toContain('OPENAI_API_KEY')
+    expect(environmentExample).not.toContain('OPENAI_API_KEY')
   })
 })
 
