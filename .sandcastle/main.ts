@@ -14,7 +14,7 @@ export const COMPLETION_SIGNAL = '</task>'
 export const PLAN_START_SIGNAL = '<plan>'
 export const PLAN_END_SIGNAL = '</plan>'
 export const PLAN_SIGNAL = PLAN_END_SIGNAL
-export const NO_WORK_SIGNAL = '</no-work>'
+export const NO_WORK_SIGNAL = '<no-work />'
 
 export interface PlannedIssue {
   readonly number: number
@@ -87,6 +87,43 @@ export interface RunPlannedChildTasksInput {
   readonly plan: PlannerPlan
   readonly maxParallel?: number
   readonly executeChild?: ChildTaskExecutor
+}
+
+export interface CompletedChildBranch {
+  readonly branchName: string
+  readonly issue: PlannedIssue
+}
+
+export interface MergePromptInput {
+  readonly completedBranches: readonly CompletedChildBranch[]
+  readonly parentIssue: PlannedIssue
+  readonly promptArgs: PromptArgs
+  readonly promptFile: string
+}
+
+export interface MergePromptResult {
+  readonly branchName: string
+  readonly logFilePath?: string
+}
+
+export type MergePromptRunner = (input: MergePromptInput) => Promise<MergePromptResult>
+
+export type MergeCompletedBranchesResult =
+  | {
+      readonly status: 'merged'
+      readonly branchName: string
+      readonly completedBranches: readonly CompletedChildBranch[]
+      readonly logFilePath?: string
+    }
+  | {
+      readonly status: 'skipped'
+      readonly completedBranches: readonly CompletedChildBranch[]
+    }
+
+export interface RunMergeCompletedBranchesInput {
+  readonly plan: PlannerPlan
+  readonly childResults: readonly ChildTaskExecutionResult[]
+  readonly runMergePrompt?: MergePromptRunner
 }
 
 export const createPrdBranchName = (issueNumber: number, title: string): string =>
@@ -235,6 +272,74 @@ export const runChildPrompt: ChildTaskPromptRunner = async ({
   return toChildTaskPromptResult(result)
 }
 
+export const collectCompletedChildBranches = (
+  childResults: readonly ChildTaskExecutionResult[],
+): readonly CompletedChildBranch[] =>
+  childResults.filter(isFulfilledChildWithCommits).map(({ branchName, child }) => ({
+    branchName,
+    issue: child,
+  }))
+
+export const runMergeCompletedBranches = async ({
+  childResults,
+  plan,
+  runMergePrompt = runMergePromptWithSandcastle,
+}: RunMergeCompletedBranchesInput): Promise<MergeCompletedBranchesResult> => {
+  const completedBranches = collectCompletedChildBranches(childResults)
+
+  if (completedBranches.length === 0) {
+    return {
+      completedBranches,
+      status: 'skipped',
+    }
+  }
+
+  const result = await runMergePrompt({
+    completedBranches,
+    parentIssue: plan.parentIssue,
+    promptArgs: createMergePromptArguments({
+      completedBranches,
+    }),
+    promptFile: MERGE_PROMPT_FILE,
+  })
+
+  return {
+    branchName: result.branchName,
+    completedBranches,
+    logFilePath: result.logFilePath,
+    status: 'merged',
+  }
+}
+
+export const runMergePromptWithSandcastle: MergePromptRunner = async ({
+  parentIssue,
+  promptArgs,
+  promptFile,
+}) => {
+  const result = await run({
+    agent: codex(process.env.SANDCASTLE_CODEX_MODEL ?? 'gpt-5.5', {
+      effort: 'high',
+    }),
+    branchStrategy: {
+      branch: parentIssue.branchName,
+      type: 'branch',
+    },
+    completionSignal: COMPLETION_SIGNAL,
+    maxIterations: MAX_ITERATIONS,
+    name: `merge-${String(parentIssue.number)}`,
+    promptArgs,
+    promptFile,
+    sandbox: docker({
+      imageName: process.env.SANDCASTLE_DOCKER_IMAGE ?? 'sandcastle:cv-maxxing',
+    }),
+  })
+
+  return {
+    branchName: result.branch,
+    logFilePath: result.logFilePath,
+  }
+}
+
 const slugify = (value: string): string => {
   const slug = value
     .toLowerCase()
@@ -328,11 +433,31 @@ const createChildPromptArguments = ({
   PARENT_ISSUE_TITLE: parentIssue.title,
 })
 
+const createMergePromptArguments = ({
+  completedBranches,
+}: {
+  readonly completedBranches: readonly CompletedChildBranch[]
+}): PromptArgs => ({
+  CHILD_ISSUES: JSON.stringify(
+    completedBranches.map(({ issue }) => ({
+      number: issue.number,
+      title: issue.title,
+    })),
+  ),
+  COMPLETED_BRANCHES: JSON.stringify(completedBranches.map(({ branchName }) => branchName)),
+})
+
 const toChildTaskPromptResult = (result: RunResult): ChildTaskPromptResult => ({
   branchName: result.branch,
   commits: result.commits,
   logFilePath: result.logFilePath,
 })
+
+const isFulfilledChildWithCommits = (
+  result: ChildTaskExecutionResult,
+): result is Extract<ChildTaskExecutionResult, { readonly status: 'fulfilled' }> =>
+  result.status === 'fulfilled' &&
+  result.implementationCommits.length + result.reviewCommits.length > 0
 
 const compactOptionalString = (values: readonly (string | undefined)[]): readonly string[] =>
   values.filter(isDefined)
