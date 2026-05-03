@@ -24,10 +24,15 @@ changing code.
 
 - Stay inside the assigned child issue scope.
 - Use pnpm for repository commands and dependency work.
-- Run relevant checks before committing.
-- Add or update tests for changed behavior where practical.
+- Follow TDD for behavior changes: add or update a failing automated test first,
+  then implement the minimal change and keep the tests passing.
+- Run linting, type-checking, and relevant tests before committing.
+- Run `coderabbit review --agent` when available, and wait for a terminal result
+  before considering the task complete.
 - Commit normal append-only changes on the current Sandcastle child branch.
+- Do not skip git hooks. Never use `--no-verify`.
 - Do not mutate GitHub issue or pull request state.
 - Do not close issues manually.
 
-End by printing `</task>` after implementation and verification are complete.
+End by printing `</task>` only after implementation, tests, checks, and
+CodeRabbit review are complete.

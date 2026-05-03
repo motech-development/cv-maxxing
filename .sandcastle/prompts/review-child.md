@@ -6,6 +6,7 @@ the parent PRD branch.
 ## Context
 
 - Parent issue: #{{PARENT_ISSUE_NUMBER}} {{PARENT_ISSUE_TITLE}}
+- Parent branch: {{PARENT_BRANCH_NAME}}
 - Child issue: #{{CHILD_ISSUE_NUMBER}} {{CHILD_ISSUE_TITLE}}
 - Branch: {{CHILD_BRANCH_NAME}}
 
@@ -14,7 +15,7 @@ the parent PRD branch.
 1. Inspect the branch diff:
 
    ```sh
-   git diff main..HEAD
+   git diff {{PARENT_BRANCH_NAME}}..HEAD
    ```
 
 2. Compare the diff against the child issue acceptance criteria and parent PRD.

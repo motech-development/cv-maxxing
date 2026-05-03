@@ -2,7 +2,13 @@ import { readFile } from 'node:fs/promises'
 
 import { describe, expect, it } from 'vitest'
 
-import { NO_WORK_SIGNAL, PLAN_END_SIGNAL, PLAN_START_SIGNAL, parsePlannerOutput } from '../main.js'
+import {
+  NO_WORK_SIGNAL,
+  PLANNER_PROMPT_FILE,
+  PLAN_END_SIGNAL,
+  PLAN_START_SIGNAL,
+  parsePlannerOutput,
+} from '../main.js'
 
 describe('parsePlannerOutput', () => {
   it('parses planned child issues from the planner JSON payload', () => {
@@ -71,7 +77,7 @@ describe('parsePlannerOutput', () => {
 
 describe('planner prompt contract', () => {
   it('documents the GitHub issue inspection commands and JSON output contract', async () => {
-    const prompt = await readFile('.sandcastle/prompts/plan-prd.md', 'utf8')
+    const prompt = await readFile(PLANNER_PROMPT_FILE, 'utf8')
 
     expect(prompt).toContain('https://github.com/motech-development/cv-maxxing/issues/117')
     expect(prompt).toContain('gh issue list')

@@ -32,12 +32,13 @@ const createPlan = (children: readonly PlannedIssue[]): PlannerPlan => ({
 const fulfilledChild = (
   child: PlannedIssue,
   implementationCommits: readonly { readonly sha: string }[],
+  reviewCommits: readonly { readonly sha: string }[] = [],
 ): ChildTaskExecutionResult => ({
   branchName: child.branchName,
   child,
   implementationCommits,
   logFilePaths: [],
-  reviewCommits: [],
+  reviewCommits,
   status: 'fulfilled',
 })
 
@@ -52,12 +53,14 @@ const failedChild = (child: PlannedIssue): ChildTaskExecutionResult => ({
 describe('collectCompletedChildBranches', () => {
   it('keeps only fulfilled child branches that produced commits', () => {
     const withCommits = createChild(122)
+    const withReviewCommits = createChild(125)
     const withoutCommits = createChild(123)
     const failed = createChild(124)
 
     expect(
       collectCompletedChildBranches([
         fulfilledChild(withCommits, [{ sha: 'implementation' }]),
+        fulfilledChild(withReviewCommits, [], [{ sha: 'review' }]),
         fulfilledChild(withoutCommits, []),
         failedChild(failed),
       ]),
@@ -65,6 +68,10 @@ describe('collectCompletedChildBranches', () => {
       {
         branchName: withCommits.branchName,
         issue: withCommits,
+      },
+      {
+        branchName: withReviewCommits.branchName,
+        issue: withReviewCommits,
       },
     ])
   })
