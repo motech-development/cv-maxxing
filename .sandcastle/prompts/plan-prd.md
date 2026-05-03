@@ -56,7 +56,7 @@ Do not use old orchestrator branch names.
 If there is no available PRD work, output:
 
 ```text
-</no-work>
+<no-work />
 ```
 
 Otherwise output only JSON between `<plan>` and `</plan>`:
