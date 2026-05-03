@@ -12,8 +12,8 @@
     "lint:fix": "eslint . --fix",
     "lint-staged": "lint-staged",
     "prepare": "husky",
-    "sandcastle": "node .sandcastle/main.ts",
-    "sandcastle:dry-run": "node .sandcastle/main.ts --dry-run"
+    "sandcastle": "node --experimental-strip-types .sandcastle/main.ts",
+    "sandcastle:dry-run": "node --experimental-strip-types .sandcastle/main.ts --dry-run"
   },
   "keywords": [],
   "author": "",
