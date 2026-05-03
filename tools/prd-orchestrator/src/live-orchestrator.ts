@@ -1581,6 +1581,8 @@ export const executeResumePr = async (
   }
 
   try {
+    await adapters.state.cleanup()
+
     return await executeResumePrWithLock(prNumber, adapters)
   } finally {
     await adapters.state.releaseRunLock()

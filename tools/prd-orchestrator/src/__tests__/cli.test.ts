@@ -1374,6 +1374,7 @@ describe('PRD orchestrator CLI', () => {
     expect(adapters.events).toEqual([
       'preflight:run',
       'lock:acquire',
+      'state:cleanup',
       'github:get-pr',
       'github:list-open-issues',
       'state:record-run-status',
@@ -2218,9 +2219,27 @@ None - can start immediately.
     expect(adapters.events).toEqual([
       'preflight:run',
       'lock:acquire',
+      'state:cleanup',
       'github:get-pr',
       'lock:release',
     ])
+  })
+
+  it('cleans stale artifacts before reading or repairing an automation PR during resume', async () => {
+    const adapters = createLiveAdapters()
+    const result = await runPrdOrchestratorCliAsync({
+      adapters,
+      arguments_: ['resume-pr', '123'],
+      stdin: '',
+    })
+
+    expect(result.exitCode).toBe(0)
+    expect(adapters.events.indexOf('state:cleanup')).toBeGreaterThan(
+      adapters.events.indexOf('lock:acquire'),
+    )
+    expect(adapters.events.indexOf('state:cleanup')).toBeLessThan(
+      adapters.events.indexOf('github:get-pr'),
+    )
   })
 
   it('resumes by repairing PR findings before returning to the full live run', async () => {
