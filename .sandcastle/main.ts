@@ -1,3 +1,7 @@
+import { codex, run } from '@ai-hero/sandcastle'
+import { docker } from '@ai-hero/sandcastle/sandboxes/docker'
+import type { PromptArgs, RunResult } from '@ai-hero/sandcastle'
+
 export const MAX_ITERATIONS = 10
 export const MAX_PARALLEL_CHILDREN = 4
 
@@ -32,6 +36,59 @@ export type PlannerOutput =
       readonly kind: 'no-work'
     }
 
+export interface ChildTaskPromptInput {
+  readonly parentIssue: PlannedIssue
+  readonly child: PlannedIssue
+  readonly promptFile: string
+  readonly phase: 'implement' | 'review'
+}
+
+export interface ChildTaskPromptResult {
+  readonly branchName: string
+  readonly commits: readonly CommitReference[]
+  readonly logFilePath?: string
+}
+
+export interface CommitReference {
+  readonly sha: string
+}
+
+export type ChildTaskPromptRunner = (input: ChildTaskPromptInput) => Promise<ChildTaskPromptResult>
+
+export type ChildTaskExecutionResult =
+  | {
+      readonly status: 'fulfilled'
+      readonly child: PlannedIssue
+      readonly branchName: string
+      readonly implementationCommits: readonly CommitReference[]
+      readonly reviewCommits: readonly CommitReference[]
+      readonly logFilePaths: readonly string[]
+    }
+  | {
+      readonly status: 'failed'
+      readonly child: PlannedIssue
+      readonly branchName: string
+      readonly error: string
+      readonly logFilePaths: readonly string[]
+    }
+
+export interface ExecuteChildTaskInput {
+  readonly parentIssue: PlannedIssue
+  readonly child: PlannedIssue
+  readonly runPrompt?: ChildTaskPromptRunner
+}
+
+export type ChildTaskExecutor = (input: {
+  readonly parentIssue: PlannedIssue
+  readonly child: PlannedIssue
+}) => Promise<ChildTaskExecutionResult>
+
+export interface RunPlannedChildTasksInput {
+  readonly plan: PlannerPlan
+  readonly maxParallel?: number
+  readonly executeChild?: ChildTaskExecutor
+}
+
 export const createPrdBranchName = (issueNumber: number, title: string): string =>
   `prd-${String(issueNumber)}-${slugify(title)}`
 
@@ -52,6 +109,130 @@ export const parsePlannerOutput = (output: string): PlannerOutput => {
     kind: 'plan',
     plan: parsePlannerPlan(parsed),
   }
+}
+
+export const runPlannedChildTasks = async ({
+  executeChild = ({ child, parentIssue }) => executeChildTask({ child, parentIssue }),
+  maxParallel = MAX_PARALLEL_CHILDREN,
+  plan,
+}: RunPlannedChildTasksInput): Promise<readonly ChildTaskExecutionResult[]> => {
+  const results: (ChildTaskExecutionResult | undefined)[] = Array.from({
+    length: plan.children.length,
+  })
+  let nextChildIndex = 0
+  const workerCount = Math.min(maxParallel, plan.children.length)
+
+  const runNextChild = async (): Promise<void> => {
+    const childIndex = nextChildIndex
+    nextChildIndex += 1
+
+    const child = plan.children[childIndex]
+
+    if (child !== undefined) {
+      results[childIndex] = await executeChild({
+        child,
+        parentIssue: plan.parentIssue,
+      })
+      await runNextChild()
+    }
+  }
+
+  await Promise.all(
+    Array.from({ length: workerCount }, async () => {
+      await runNextChild()
+    }),
+  )
+
+  return results.filter(isDefined)
+}
+
+export const executeChildTask = async ({
+  child,
+  parentIssue,
+  runPrompt = runChildPrompt,
+}: ExecuteChildTaskInput): Promise<ChildTaskExecutionResult> => {
+  let collectedLogFilePaths: readonly string[] = []
+
+  try {
+    const implementationResult = await runPrompt({
+      child,
+      parentIssue,
+      phase: 'implement',
+      promptFile: IMPLEMENT_PROMPT_FILE,
+    })
+
+    const implementationLogFilePaths = compactOptionalString([implementationResult.logFilePath])
+    collectedLogFilePaths = implementationLogFilePaths
+
+    if (implementationResult.commits.length === 0) {
+      return {
+        branchName: implementationResult.branchName,
+        child,
+        implementationCommits: [],
+        logFilePaths: implementationLogFilePaths,
+        reviewCommits: [],
+        status: 'fulfilled',
+      }
+    }
+
+    const reviewResult = await runPrompt({
+      child,
+      parentIssue,
+      phase: 'review',
+      promptFile: REVIEW_PROMPT_FILE,
+    })
+    collectedLogFilePaths = compactOptionalString([
+      implementationResult.logFilePath,
+      reviewResult.logFilePath,
+    ])
+
+    return {
+      branchName: reviewResult.branchName,
+      child,
+      implementationCommits: implementationResult.commits,
+      logFilePaths: collectedLogFilePaths,
+      reviewCommits: reviewResult.commits,
+      status: 'fulfilled',
+    }
+  } catch (error: unknown) {
+    return {
+      branchName: child.branchName,
+      child,
+      error: formatErrorMessage(error),
+      logFilePaths: collectedLogFilePaths,
+      status: 'failed',
+    }
+  }
+}
+
+export const runChildPrompt: ChildTaskPromptRunner = async ({
+  child,
+  parentIssue,
+  phase,
+  promptFile,
+}) => {
+  const result = await run({
+    agent: codex(process.env.SANDCASTLE_CODEX_MODEL ?? 'gpt-5.5', {
+      effort: 'high',
+    }),
+    branchStrategy: {
+      branch: child.branchName,
+      type: 'branch',
+    },
+    completionSignal: COMPLETION_SIGNAL,
+    maxIterations: MAX_ITERATIONS,
+    name: `${phase}-${String(child.number)}`,
+    promptArgs: createChildPromptArguments({
+      child,
+      parentIssue,
+    }),
+    promptFile,
+    sandbox: docker({
+      imageName: process.env.SANDCASTLE_DOCKER_IMAGE ?? 'sandcastle:cv-maxxing',
+    }),
+  })
+
+  return toChildTaskPromptResult(result)
 }
 
 const slugify = (value: string): string => {
@@ -131,6 +312,35 @@ const parsePlannedIssue = (value: unknown, label: string): PlannedIssue => {
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
+
+const createChildPromptArguments = ({
+  child,
+  parentIssue,
+}: {
+  readonly child: PlannedIssue
+  readonly parentIssue: PlannedIssue
+}): PromptArgs => ({
+  CHILD_BRANCH_NAME: child.branchName,
+  CHILD_ISSUE_NUMBER: child.number,
+  CHILD_ISSUE_TITLE: child.title,
+  PARENT_BRANCH_NAME: parentIssue.branchName,
+  PARENT_ISSUE_NUMBER: parentIssue.number,
+  PARENT_ISSUE_TITLE: parentIssue.title,
+})
+
+const toChildTaskPromptResult = (result: RunResult): ChildTaskPromptResult => ({
+  branchName: result.branch,
+  commits: result.commits,
+  logFilePath: result.logFilePath,
+})
+
+const compactOptionalString = (values: readonly (string | undefined)[]): readonly string[] =>
+  values.filter(isDefined)
+
+const isDefined = <Value>(value: Value | undefined): value is Value => value !== undefined
+
+const formatErrorMessage = (error: unknown): string =>
+  error instanceof Error ? error.message : String(error)
 
 const main = (): void => {
   console.info('Sandcastle PRD workflow scaffold is installed.')
