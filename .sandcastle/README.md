@@ -58,7 +58,7 @@ mount your whole `~/.codex` directory.
 Copy `.sandcastle/.env.example` to `.sandcastle/.env` locally and provide:
 
 - `GITHUB_TOKEN` for GitHub CLI issue and draft PR operations.
-- `SANDCASTLE_CODEX_MODEL` when overriding the default `codex-mini-latest` model.
+- `SANDCASTLE_CODEX_MODEL` when overriding the default `gpt-5.5` model.
 - `SANDCASTLE_DOCKER_IMAGE` when using a non-default Docker image name.
 - `SANDCASTLE_HOST_CODEX_HOME` only when your host Codex login is not in
   `~/.codex`.

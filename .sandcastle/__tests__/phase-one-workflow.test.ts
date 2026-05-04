@@ -3,6 +3,8 @@ import { readFile } from 'node:fs/promises'
 import { describe, expect, it } from 'vitest'
 
 import {
+  DEFAULT_CODEX_EFFORT,
+  DEFAULT_CODEX_MODEL,
   IMPLEMENT_PROMPT_FILE,
   MERGE_PROMPT_FILE,
   PLANNER_PROMPT_FILE,
@@ -67,6 +69,11 @@ describe('Phase 1 controlled dry run', () => {
 })
 
 describe('Codex subscription auth', () => {
+  it('defaults Sandcastle agents to gpt-5.5 with high effort', () => {
+    expect(DEFAULT_CODEX_MODEL).toBe('gpt-5.5')
+    expect(DEFAULT_CODEX_EFFORT).toBe('high')
+  })
+
   it('mounts only the local Codex auth files into a sandbox-local CODEX_HOME', () => {
     const options = createCodexDockerOptions({
       fileExists: (path) =>

@@ -23,7 +23,8 @@ export const REVIEW_PROMPT_FILE = '.sandcastle/prompts/review-child.md'
 export const MERGE_PROMPT_FILE = '.sandcastle/prompts/merge-children.md'
 
 export const COMPLETION_SIGNAL = '</task>'
-export const DEFAULT_CODEX_MODEL = 'codex-mini-latest'
+export const DEFAULT_CODEX_MODEL = 'gpt-5.5'
+export const DEFAULT_CODEX_EFFORT = 'high'
 export const PLAN_START_SIGNAL = '<plan>'
 export const PLAN_END_SIGNAL = '</plan>'
 export const PLAN_SIGNAL = PLAN_END_SIGNAL
@@ -291,7 +292,7 @@ export const runPhaseOneWorkflow = async ({
 export const runPlannerPrompt: PlannerPromptRunner = async () => {
   const result = await run({
     agent: codex(process.env.SANDCASTLE_CODEX_MODEL ?? DEFAULT_CODEX_MODEL, {
-      effort: 'high',
+      effort: DEFAULT_CODEX_EFFORT,
     }),
     completionSignal: [PLAN_END_SIGNAL, NO_WORK_SIGNAL],
     maxIterations: MAX_ITERATIONS,
@@ -405,7 +406,7 @@ export const runChildPrompt: ChildTaskPromptRunner = async ({
 }) => {
   const result = await run({
     agent: codex(process.env.SANDCASTLE_CODEX_MODEL ?? DEFAULT_CODEX_MODEL, {
-      effort: 'high',
+      effort: DEFAULT_CODEX_EFFORT,
     }),
     branchStrategy: {
       branch: child.branchName,
@@ -471,7 +472,7 @@ export const runMergePromptWithSandcastle: MergePromptRunner = async ({
 }) => {
   const result = await run({
     agent: codex(process.env.SANDCASTLE_CODEX_MODEL ?? DEFAULT_CODEX_MODEL, {
-      effort: 'high',
+      effort: DEFAULT_CODEX_EFFORT,
     }),
     branchStrategy: {
       branch: parentIssue.branchName,
