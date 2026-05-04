@@ -10,14 +10,14 @@ import {
 } from '../main.js'
 
 const parentIssue: PlannedIssue = {
-  branchName: 'prd-117-replace-prd-orchestrator',
-  number: 117,
-  title: 'PRD: Replace PRD orchestrator with Sandcastle-native workflow',
+  branchName: 'prd-100-automate-prd-issue-workflow',
+  number: 100,
+  title: 'PRD: Automate PRD issue workflow',
 }
 
 const childIssue: PlannedIssue = {
-  branchName: 'child-123-create-draft-pr',
-  number: 123,
+  branchName: 'child-101-create-draft-pr',
+  number: 101,
   title: 'Create or reuse one draft PR for the Sandcastle PRD branch',
 }
 
@@ -66,8 +66,8 @@ describe('createOrReusePrdDraftPullRequest', () => {
     })
 
     expect(calls).toEqual([
-      'branch:prd-117-replace-prd-orchestrator',
-      'find:prd-117-replace-prd-orchestrator',
+      'branch:prd-100-automate-prd-issue-workflow',
+      'find:prd-100-automate-prd-issue-workflow',
     ])
     expect(result).toEqual({
       pullRequest: existingPullRequest,
@@ -111,9 +111,9 @@ describe('createOrReusePrdDraftPullRequest', () => {
       draft: true,
       title: parentIssue.title,
     })
-    expect(createInput?.body).toContain('#117')
-    expect(createInput?.body).toContain('#123')
-    expect(createInput?.body).toContain('child-123-create-draft-pr')
+    expect(createInput?.body).toContain('#100')
+    expect(createInput?.body).toContain('#101')
+    expect(createInput?.body).toContain('child-101-create-draft-pr')
     expect(result).toEqual({
       pullRequest: createdPullRequest,
       status: 'created',
@@ -122,7 +122,7 @@ describe('createOrReusePrdDraftPullRequest', () => {
 })
 
 describe('createDraftPullRequestBody', () => {
-  it('keeps durable GitHub context concise without old ledger or audit sections', () => {
+  it('keeps durable GitHub context concise', () => {
     const body = createDraftPullRequestBody({
       completedBranches: [
         {
@@ -133,14 +133,9 @@ describe('createDraftPullRequestBody', () => {
       plan,
     })
 
-    expect(body).toContain('Parent PRD: #117')
-    expect(body).toContain('- #123 Create or reuse one draft PR')
-    expect(body).toContain('child-123-create-draft-pr')
+    expect(body).toContain('Parent PRD: #100')
+    expect(body).toContain('- #101 Create or reuse one draft PR')
+    expect(body).toContain('child-101-create-draft-pr')
     expect(body).toContain('Draft: yes')
-    expect(body).not.toContain('Closes #')
-    expect(body).not.toContain('ledger')
-    expect(body).not.toContain('run-state database')
-    expect(body).not.toContain('final acceptance audit')
-    expect(body).not.toContain('ready for review')
   })
 })

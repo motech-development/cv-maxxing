@@ -14,9 +14,9 @@ import {
 } from '../main.js'
 
 const parentIssue: PlannedIssue = {
-  branchName: 'prd-117-replace-prd-orchestrator',
-  number: 117,
-  title: 'PRD: Replace PRD orchestrator with Sandcastle-native workflow',
+  branchName: 'prd-100-automate-prd-issue-workflow',
+  number: 100,
+  title: 'PRD: Automate PRD issue workflow',
 }
 
 const createChild = (number: number): PlannedIssue => ({

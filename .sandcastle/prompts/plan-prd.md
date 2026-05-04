@@ -43,8 +43,6 @@ Use normal Sandcastle branch names:
 - parent branch: `prd-<number>-<short-slug>`
 - child branch: `child-<number>-<short-slug>`
 
-Do not use old orchestrator branch names.
-
 ## Output
 
 If there is no available PRD work, output:

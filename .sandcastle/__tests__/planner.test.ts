@@ -17,15 +17,15 @@ describe('parsePlannerOutput', () => {
       ${PLAN_START_SIGNAL}
       {
         "parentIssue": {
-          "number": 117,
-          "title": "PRD: Replace PRD orchestrator with Sandcastle-native workflow",
-          "branchName": "prd-117-replace-prd-orchestrator"
+          "number": 100,
+          "title": "PRD: Automate PRD issue workflow",
+          "branchName": "prd-100-automate-prd-issue-workflow"
         },
         "children": [
           {
-            "number": 120,
-            "title": "Add Sandcastle planner for PRD and child issue selection",
-            "branchName": "child-120-add-sandcastle-planner"
+            "number": 101,
+            "title": "Implement the first workflow slice",
+            "branchName": "child-101-implement-first-workflow-slice"
           }
         ]
       }
@@ -36,15 +36,15 @@ describe('parsePlannerOutput', () => {
       kind: 'plan',
       plan: {
         parentIssue: {
-          number: 117,
-          title: 'PRD: Replace PRD orchestrator with Sandcastle-native workflow',
-          branchName: 'prd-117-replace-prd-orchestrator',
+          number: 100,
+          title: 'PRD: Automate PRD issue workflow',
+          branchName: 'prd-100-automate-prd-issue-workflow',
         },
         children: [
           {
-            number: 120,
-            title: 'Add Sandcastle planner for PRD and child issue selection',
-            branchName: 'child-120-add-sandcastle-planner',
+            number: 101,
+            title: 'Implement the first workflow slice',
+            branchName: 'child-101-implement-first-workflow-slice',
           },
         ],
       },
@@ -55,23 +55,6 @@ describe('parsePlannerOutput', () => {
     expect(parsePlannerOutput(`No unblocked PRD work remains. ${NO_WORK_SIGNAL}`)).toEqual({
       kind: 'no-work',
     })
-  })
-
-  it('rejects old orchestrator branch naming in planner output', () => {
-    expect(() =>
-      parsePlannerOutput(`
-        ${PLAN_START_SIGNAL}
-        {
-          "parentIssue": {
-            "number": 117,
-            "title": "PRD: Replace PRD orchestrator with Sandcastle-native workflow",
-            "branchName": "agent/prd-orchestrator-117"
-          },
-          "children": []
-        }
-        ${PLAN_END_SIGNAL}
-      `),
-    ).toThrow('old PRD orchestrator branch naming')
   })
 })
 
@@ -86,7 +69,5 @@ describe('planner prompt contract', () => {
     expect(prompt).toContain('"branchName"')
     expect(prompt).toContain('## Parent PRD')
     expect(prompt).toContain('## Blocked by')
-    expect(prompt).not.toContain('agent/prd-orchestrator')
-    expect(prompt).not.toContain('ledger')
   })
 })

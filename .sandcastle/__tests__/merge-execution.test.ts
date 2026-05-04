@@ -13,9 +13,9 @@ import {
 } from '../main.js'
 
 const parentIssue: PlannedIssue = {
-  branchName: 'prd-117-replace-prd-orchestrator',
-  number: 117,
-  title: 'PRD: Replace PRD orchestrator with Sandcastle-native workflow',
+  branchName: 'prd-100-automate-prd-issue-workflow',
+  number: 100,
+  title: 'PRD: Automate PRD issue workflow',
 }
 
 const createChild = (number: number): PlannedIssue => ({
@@ -150,7 +150,7 @@ describe('merger prompt contract', () => {
   it('uses normal git merges and conflict handling without patching or rewriting history', async () => {
     const prompt = await readFile(MERGE_PROMPT_FILE, 'utf8')
 
-    expect(prompt).toContain('course-video-manager')
+    expect(prompt).toContain('Use normal Git merge operations')
     expect(prompt).toContain('{{COMPLETED_BRANCHES}}')
     expect(prompt).toContain('{{CHILD_ISSUES}}')
     expect(prompt).toContain('git merge')
