@@ -1,7 +1,7 @@
 # Sandcastle PRD Workflow
 
 This directory holds the repo-native Sandcastle workflow for PRD issue automation.
-Phase 1 replaces the removed `tools/prd-orchestrator` package with a thin
+It replaces the removed `tools/prd-orchestrator` package with a thin
 Sandcastle entrypoint and prompt-driven agents.
 
 ## References
@@ -18,7 +18,7 @@ Sandcastle entrypoint and prompt-driven agents.
 ## Setup
 
 Use Node 24 and pnpm, matching `.nvmrc` and the repository workspace tooling.
-Phase 1 assumes these tools are available on the host or inside the Sandcastle
+The workflow assumes these tools are available on the host or inside the Sandcastle
 container:
 
 - Docker, for the supported Sandcastle sandbox provider.
@@ -63,13 +63,13 @@ Copy `.sandcastle/.env.example` to `.sandcastle/.env` locally and provide:
 - `SANDCASTLE_HOST_CODEX_HOME` only when your host Codex login is not in
   `~/.codex`.
 
-Docker is the supported Phase 1 sandbox provider. The image uses Node 24,
+Docker is the supported sandbox provider. The image uses Node 24,
 pnpm via Corepack, GitHub CLI, and Codex.
 
 For GitHub CLI, either run `gh auth login` before invoking the workflow or
 provide a token through the environment used by the container.
 
-## Phase 1 Shape
+## Workflow Shape
 
 `.sandcastle/main.ts` stays intentionally small. It defines the bounded loop
 shape used by the native workflow:
@@ -79,7 +79,7 @@ shape used by the native workflow:
 - planner, implementer, reviewer, and merger prompt file names
 - Codex and Docker providers
 
-The Phase 1 flow uses GitHub issues, child branches, normal git merges, and one
+The workflow uses GitHub issues, child branches, normal git merges, and one
 draft pull request as durable workflow state. It deliberately excludes:
 
 - CodeRabbit comment repair.

@@ -2,7 +2,7 @@
 
 You are the merger agent for the CV Maxxing Sandcastle PRD workflow.
 
-Model this phase on the Course Video Manager merger:
+Model this step on the Course Video Manager merger:
 https://github.com/mattpocock/course-video-manager/blob/main/.sandcastle/merge-prompt.md
 
 ## Inputs
