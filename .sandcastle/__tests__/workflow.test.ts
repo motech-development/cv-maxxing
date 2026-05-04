@@ -10,8 +10,8 @@ import {
   PLANNER_PROMPT_FILE,
   REVIEW_PROMPT_FILE,
   createCodexDockerOptions,
-  runPhaseOneWorkflow,
-  runPhaseOneDryRun,
+  runDryRun,
+  runWorkflow,
   type DraftPullRequestGateway,
   type MergePromptRunner,
   type PlannerOutput,
@@ -34,9 +34,9 @@ const parentIssue = {
 } satisfies PlannerPlan['parentIssue']
 
 const childIssue = {
-  branchName: 'child-124-document-phase-one',
+  branchName: 'child-124-document-workflow',
   number: 124,
-  title: 'Document and verify the Sandcastle-native Phase 1 workflow',
+  title: 'Document and verify the Sandcastle-native workflow',
 } satisfies PlannerPlan['children'][number]
 
 const plan: PlannerPlan = {
@@ -44,11 +44,11 @@ const plan: PlannerPlan = {
   parentIssue,
 }
 
-describe('Phase 1 controlled dry run', () => {
+describe('controlled dry run', () => {
   it('exercises planner, implementer, reviewer, merger, and draft PR wiring', async () => {
-    const result = await runPhaseOneDryRun()
+    const result = await runDryRun()
 
-    expect(result.phases).toEqual(['planner', 'implementer', 'reviewer', 'merger', 'draft-pr'])
+    expect(result.steps).toEqual(['planner', 'implementer', 'reviewer', 'merger', 'draft-pr'])
     expect(result.plannerOutput.kind).toBe('plan')
     expect(result.childResults).toHaveLength(1)
     expect(result.childResults[0]).toMatchObject({
@@ -118,7 +118,7 @@ describe('Codex subscription auth', () => {
   })
 })
 
-describe('runPhaseOneWorkflow', () => {
+describe('runWorkflow', () => {
   it('runs a bounded planner-driven workflow until the planner reports no work', async () => {
     const calls: string[] = []
     const plannerOutputs: PlannerOutput[] = [
@@ -164,7 +164,7 @@ describe('runPhaseOneWorkflow', () => {
       },
     }
 
-    const result = await runPhaseOneWorkflow({
+    const result = await runWorkflow({
       draftPullRequestGateway: gateway,
       executeChild: async ({ child }) => {
         calls.push('child')
@@ -214,7 +214,7 @@ describe('runPhaseOneWorkflow', () => {
   })
 
   it('stops before child execution when the planner reports no work immediately', async () => {
-    const result = await runPhaseOneWorkflow({
+    const result = await runWorkflow({
       executeChild: () =>
         Promise.reject(new Error('Child execution should not run without a plan.')),
       runPlanner: async () => {
@@ -233,7 +233,7 @@ describe('runPhaseOneWorkflow', () => {
   })
 })
 
-describe('Phase 1 repository guardrails', () => {
+describe('repository guardrails', () => {
   it('keeps workspace scripts and dependencies free of the removed orchestrator package', async () => {
     const manifests = await Promise.all(
       packageManifestPaths.map(async (path) => ({

@@ -33,8 +33,8 @@ const createPlan = (children: readonly PlannedIssue[]): PlannerPlan => ({
 const failSandcastleWorker: ChildTaskPromptRunner = () =>
   Promise.reject(new Error('Sandcastle worker failed'))
 
-const failReviewAfterImplementation: ChildTaskPromptRunner = ({ phase }) => {
-  if (phase === 'review') {
+const failReviewAfterImplementation: ChildTaskPromptRunner = ({ taskKind }) => {
+  if (taskKind === 'review') {
     return Promise.reject(new Error('Review failed'))
   }
 

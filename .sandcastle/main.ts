@@ -54,7 +54,7 @@ export interface ChildTaskPromptInput {
   readonly parentIssue: PlannedIssue
   readonly child: PlannedIssue
   readonly promptFile: string
-  readonly phase: 'implement' | 'review'
+  readonly taskKind: 'implement' | 'review'
 }
 
 export interface ChildTaskPromptResult {
@@ -177,19 +177,19 @@ export interface CreateOrReusePrdDraftPullRequestInput {
 
 export type PlannerPromptRunner = () => Promise<PlannerOutput>
 
-export interface PhaseOneWorkflowIterationResult {
+export interface WorkflowIterationResult {
   readonly plannerOutput: Extract<PlannerOutput, { readonly kind: 'plan' }>
   readonly childResults: readonly ChildTaskExecutionResult[]
   readonly mergeResult: MergeCompletedBranchesResult
   readonly draftPullRequestResult: DraftPullRequestLifecycleResult
 }
 
-export interface PhaseOneWorkflowResult {
+export interface WorkflowResult {
   readonly status: 'no-work' | 'iteration-limit-reached'
-  readonly iterations: readonly PhaseOneWorkflowIterationResult[]
+  readonly iterations: readonly WorkflowIterationResult[]
 }
 
-export interface RunPhaseOneWorkflowInput {
+export interface RunWorkflowInput {
   readonly runPlanner?: PlannerPromptRunner
   readonly executeChild?: ChildTaskExecutor
   readonly runMergePrompt?: MergePromptRunner
@@ -203,12 +203,12 @@ export interface CreateCodexDockerOptionsInput {
   readonly hostCodexHome?: string
 }
 
-export interface PhaseOneDryRunResult {
+export interface WorkflowDryRunResult {
   readonly plannerOutput: PlannerOutput
   readonly childResults: readonly ChildTaskExecutionResult[]
   readonly mergeResult: MergeCompletedBranchesResult
   readonly draftPullRequestResult: DraftPullRequestLifecycleResult
-  readonly phases: readonly string[]
+  readonly steps: readonly string[]
 }
 
 export const createPrdBranchName = (issueNumber: number, title: string): string =>
@@ -233,17 +233,17 @@ export const parsePlannerOutput = (output: string): PlannerOutput => {
   }
 }
 
-export const runPhaseOneWorkflow = async ({
+export const runWorkflow = async ({
   draftPullRequestGateway = githubCliDraftPullRequestGateway,
   executeChild,
   maxIterations = MAX_ITERATIONS,
   maxParallel = MAX_PARALLEL_CHILDREN,
   runMergePrompt,
   runPlanner = runPlannerPrompt,
-}: RunPhaseOneWorkflowInput = {}): Promise<PhaseOneWorkflowResult> => {
+}: RunWorkflowInput = {}): Promise<WorkflowResult> => {
   const runNextIteration = async (
-    iterations: readonly PhaseOneWorkflowIterationResult[],
-  ): Promise<PhaseOneWorkflowResult> => {
+    iterations: readonly WorkflowIterationResult[],
+  ): Promise<WorkflowResult> => {
     if (iterations.length >= maxIterations) {
       return {
         iterations,
@@ -350,8 +350,8 @@ export const executeChildTask = async ({
     const implementationResult = await runPrompt({
       child,
       parentIssue,
-      phase: 'implement',
       promptFile: IMPLEMENT_PROMPT_FILE,
+      taskKind: 'implement',
     })
 
     const implementationLogFilePaths = compactOptionalString([implementationResult.logFilePath])
@@ -371,8 +371,8 @@ export const executeChildTask = async ({
     const reviewResult = await runPrompt({
       child,
       parentIssue,
-      phase: 'review',
       promptFile: REVIEW_PROMPT_FILE,
+      taskKind: 'review',
     })
     collectedLogFilePaths = compactOptionalString([
       implementationResult.logFilePath,
@@ -401,8 +401,8 @@ export const executeChildTask = async ({
 export const runChildPrompt: ChildTaskPromptRunner = async ({
   child,
   parentIssue,
-  phase,
   promptFile,
+  taskKind,
 }) => {
   const result = await run({
     agent: codex(process.env.SANDCASTLE_CODEX_MODEL ?? DEFAULT_CODEX_MODEL, {
@@ -414,7 +414,7 @@ export const runChildPrompt: ChildTaskPromptRunner = async ({
     },
     completionSignal: COMPLETION_SIGNAL,
     maxIterations: MAX_ITERATIONS,
-    name: `${phase}-${String(child.number)}`,
+    name: `${taskKind}-${String(child.number)}`,
     promptArgs: createChildPromptArguments({
       child,
       parentIssue,
@@ -635,9 +635,9 @@ export const createCodexDockerOptions = ({
 
 const createCodexDockerSandbox = () => docker(createCodexDockerOptions())
 
-export const runPhaseOneDryRun = async (): Promise<PhaseOneDryRunResult> => {
+export const runDryRun = async (): Promise<WorkflowDryRunResult> => {
   let hasPlanned = false
-  const workflowResult = await runPhaseOneWorkflow({
+  const workflowResult = await runWorkflow({
     draftPullRequestGateway: createDryRunDraftPullRequestGateway(),
     executeChild: runDryRunChildTask,
     maxIterations: 2,
@@ -646,7 +646,7 @@ export const runPhaseOneDryRun = async (): Promise<PhaseOneDryRunResult> => {
       await Promise.resolve()
 
       return {
-        branchName: createPhaseOneDryRunPlan().parentIssue.branchName,
+        branchName: createDryRunPlan().parentIssue.branchName,
         logFilePath: '.sandcastle/logs/dry-run-merge.log',
       }
     },
@@ -662,22 +662,22 @@ export const runPhaseOneDryRun = async (): Promise<PhaseOneDryRunResult> => {
       hasPlanned = true
 
       return parsePlannerOutput(
-        `${PLAN_START_SIGNAL}${JSON.stringify(createPhaseOneDryRunPlan())}${PLAN_END_SIGNAL}`,
+        `${PLAN_START_SIGNAL}${JSON.stringify(createDryRunPlan())}${PLAN_END_SIGNAL}`,
       )
     },
   })
   const iteration = workflowResult.iterations[0]
 
   if (iteration === undefined) {
-    throw new Error('Phase 1 dry run must produce one workflow iteration.')
+    throw new Error('Dry run must produce one workflow iteration.')
   }
 
   return {
     childResults: iteration.childResults,
     draftPullRequestResult: iteration.draftPullRequestResult,
     mergeResult: iteration.mergeResult,
-    phases: ['planner', 'implementer', 'reviewer', 'merger', 'draft-pr'],
     plannerOutput: iteration.plannerOutput,
+    steps: ['planner', 'implementer', 'reviewer', 'merger', 'draft-pr'],
   }
 }
 
@@ -808,7 +808,7 @@ const isDefined = <Value>(value: Value | undefined): value is Value => value !==
 const formatErrorMessage = (error: unknown): string =>
   error instanceof Error ? error.message : String(error)
 
-const createPhaseOneDryRunPlan = (): PlannerPlan => {
+const createDryRunPlan = (): PlannerPlan => {
   const parentIssue: PlannedIssue = {
     branchName: createPrdBranchName(
       117,
@@ -818,12 +818,9 @@ const createPhaseOneDryRunPlan = (): PlannerPlan => {
     title: 'PRD: Replace PRD orchestrator with Sandcastle-native workflow',
   }
   const child: PlannedIssue = {
-    branchName: createChildBranchName(
-      124,
-      'Document and verify the Sandcastle-native Phase 1 workflow',
-    ),
+    branchName: createChildBranchName(124, 'Document and verify the Sandcastle-native workflow'),
     number: 124,
-    title: 'Document and verify the Sandcastle-native Phase 1 workflow',
+    title: 'Document and verify the Sandcastle-native workflow',
   }
 
   return {
@@ -944,7 +941,7 @@ const parseDraftPullRequest = (value: unknown): DraftPullRequest => {
 
 const main = async (): Promise<void> => {
   if (process.argv.includes('--dry-run')) {
-    const result = await runPhaseOneDryRun()
+    const result = await runDryRun()
 
     console.info(JSON.stringify(result, null, 2))
 
@@ -952,7 +949,7 @@ const main = async (): Promise<void> => {
   }
 
   console.info('Sandcastle PRD workflow scaffold is installed.')
-  console.info('Planner, implementer, reviewer, and merger phases land in child slices.')
+  console.info('Planner, implementer, reviewer, and merger steps land in child slices.')
 }
 
 if (process.argv[1]?.endsWith('/.sandcastle/main.ts') === true) {
