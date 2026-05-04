@@ -19,6 +19,7 @@ These rules always apply. Follow project-local rules first when they are more sp
 - Respect `.editorconfig`, repository tooling, and established conventions.
 - Use ES Modules only (`import` / `export`), not CommonJS.
 - Do not create unsolicited notes or analysis files. Keep transient reasoning in chat.
+- Do not let internal implementation discussion details, exploratory references, or temporary planning context leak into durable outputs such as code, tests, docs, prompts, PRDs, issues, pull request text, or user-facing summaries. Durable outputs should describe the final project-relevant decision or behavior, not the path taken to arrive there.
 - When new project-specific conventions are discovered, record them in `AGENTS.md`.
 
 ### Project-Specific Conventions

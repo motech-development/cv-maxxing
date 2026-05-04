@@ -5,10 +5,6 @@ import { describe, expect, it } from 'vitest'
 import {
   DEFAULT_CODEX_EFFORT,
   DEFAULT_CODEX_MODEL,
-  IMPLEMENT_PROMPT_FILE,
-  MERGE_PROMPT_FILE,
-  PLANNER_PROMPT_FILE,
-  REVIEW_PROMPT_FILE,
   createCodexDockerOptions,
   runDryRun,
   runWorkflow,
@@ -18,25 +14,16 @@ import {
   type PlannerPlan,
 } from '../main.js'
 
-const packageManifestPaths = ['package.json', 'apps/desktop/package.json'] as const
-const runtimeWorkflowFiles = [
-  '.sandcastle/main.ts',
-  PLANNER_PROMPT_FILE,
-  IMPLEMENT_PROMPT_FILE,
-  REVIEW_PROMPT_FILE,
-  MERGE_PROMPT_FILE,
-] as const
-
 const parentIssue = {
-  branchName: 'prd-117-replace-prd-orchestrator',
-  number: 117,
-  title: 'PRD: Replace PRD orchestrator with Sandcastle-native workflow',
+  branchName: 'prd-100-automate-prd-issue-workflow',
+  number: 100,
+  title: 'PRD: Automate PRD issue workflow',
 } satisfies PlannerPlan['parentIssue']
 
 const childIssue = {
-  branchName: 'child-124-document-workflow',
-  number: 124,
-  title: 'Document and verify the Sandcastle-native workflow',
+  branchName: 'child-101-implement-first-workflow-slice',
+  number: 101,
+  title: 'Implement the first workflow slice',
 } satisfies PlannerPlan['children'][number]
 
 const plan: PlannerPlan = {
@@ -232,93 +219,3 @@ describe('runWorkflow', () => {
     })
   })
 })
-
-describe('repository guardrails', () => {
-  it('keeps workspace scripts and dependencies free of the removed orchestrator package', async () => {
-    const manifests = await Promise.all(
-      packageManifestPaths.map(async (path) => ({
-        manifest: parsePackageManifest(await readFile(path, 'utf8')),
-        path,
-      })),
-    )
-
-    for (const { manifest, path } of manifests) {
-      expect(Object.values(manifest.scripts ?? {}), path).not.toContain(
-        '@cv-maxxing/prd-orchestrator',
-      )
-      expect(readDependencyNames(manifest), path).not.toContain('@cv-maxxing/prd-orchestrator')
-    }
-  })
-
-  it('keeps old resume, ledger, and child-commit rewrite concepts out of runtime workflow files', async () => {
-    const contents = await Promise.all(
-      runtimeWorkflowFiles.map(async (path) => ({
-        content: await readFile(path, 'utf8'),
-        path,
-      })),
-    )
-
-    for (const { content, path } of contents) {
-      expect(content, path).not.toContain('ledger')
-      expect(content, path).not.toContain('run-state')
-      expect(content, path).not.toContain('resume')
-      expect(content, path).not.toContain('child-commit rewrite')
-      expect(content, path).not.toContain('child commit rewrite')
-    }
-  })
-})
-
-interface PackageManifest {
-  readonly scripts?: Record<string, string>
-  readonly dependencies?: Record<string, string>
-  readonly devDependencies?: Record<string, string>
-  readonly peerDependencies?: Record<string, string>
-  readonly optionalDependencies?: Record<string, string>
-}
-
-const parsePackageManifest = (content: string): PackageManifest => {
-  const parsed: unknown = JSON.parse(content)
-
-  if (!isRecord(parsed)) {
-    throw new TypeError('Package manifest must be a JSON object.')
-  }
-
-  return {
-    dependencies: parseStringRecord(parsed.dependencies),
-    devDependencies: parseStringRecord(parsed.devDependencies),
-    optionalDependencies: parseStringRecord(parsed.optionalDependencies),
-    peerDependencies: parseStringRecord(parsed.peerDependencies),
-    scripts: parseStringRecord(parsed.scripts),
-  }
-}
-
-const readDependencyNames = ({
-  dependencies = {},
-  devDependencies = {},
-  optionalDependencies = {},
-  peerDependencies = {},
-}: PackageManifest): readonly string[] => [
-  ...Object.keys(dependencies),
-  ...Object.keys(devDependencies),
-  ...Object.keys(optionalDependencies),
-  ...Object.keys(peerDependencies),
-]
-
-const parseStringRecord = (value: unknown): Record<string, string> | undefined => {
-  if (value === undefined) {
-    return undefined
-  }
-
-  if (!isRecord(value)) {
-    throw new TypeError('Package manifest field must be an object when present.')
-  }
-
-  return Object.fromEntries(
-    Object.entries(value).filter(
-      (entry): entry is [string, string] => typeof entry[1] === 'string',
-    ),
-  )
-}
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)

@@ -1,19 +1,7 @@
 # Sandcastle PRD Workflow
 
-This directory holds the repo-native Sandcastle workflow for PRD issue automation.
-It replaces the removed `tools/prd-orchestrator` package with a thin
-Sandcastle entrypoint and prompt-driven agents.
-
-## References
-
-- Sandcastle: https://github.com/mattpocock/sandcastle
-- Course Video Manager: https://github.com/mattpocock/course-video-manager
-- Reference entrypoint: https://github.com/mattpocock/course-video-manager/blob/main/.sandcastle/main.ts
-- Reference planner prompt: https://github.com/mattpocock/course-video-manager/blob/main/.sandcastle/plan-prompt.md
-- Reference implementer prompt: https://github.com/mattpocock/course-video-manager/blob/main/.sandcastle/implement-prompt.md
-- Reference reviewer prompt: https://github.com/mattpocock/course-video-manager/blob/main/.sandcastle/review-prompt.md
-- Reference merger prompt: https://github.com/mattpocock/course-video-manager/blob/main/.sandcastle/merge-prompt.md
-- Reference Dockerfile: https://github.com/mattpocock/course-video-manager/blob/main/.sandcastle/Dockerfile
+This directory holds the repo-native Sandcastle workflow for PRD issue automation
+using a thin Sandcastle entrypoint and prompt-driven agents.
 
 ## Setup
 
@@ -38,7 +26,7 @@ pnpm exec sandcastle docker build-image --image-name sandcastle:cv-maxxing
 pnpm sandcastle:dry-run
 ```
 
-Run the scaffold entrypoint without side effects:
+Run the workflow entrypoint without side effects:
 
 ```sh
 pnpm sandcastle

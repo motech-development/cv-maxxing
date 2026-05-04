@@ -745,10 +745,6 @@ const parsePlannedIssue = (value: unknown, label: string): PlannedIssue => {
     throw new TypeError(`Planner output field ${label}.branchName must be a string.`)
   }
 
-  if (branchName.includes('agent/prd-orchestrator')) {
-    throw new Error('Planner output must not use old PRD orchestrator branch naming.')
-  }
-
   return {
     number: issueNumber,
     title,
@@ -810,17 +806,14 @@ const formatErrorMessage = (error: unknown): string =>
 
 const createDryRunPlan = (): PlannerPlan => {
   const parentIssue: PlannedIssue = {
-    branchName: createPrdBranchName(
-      117,
-      'PRD: Replace PRD orchestrator with Sandcastle-native workflow',
-    ),
-    number: 117,
-    title: 'PRD: Replace PRD orchestrator with Sandcastle-native workflow',
+    branchName: createPrdBranchName(100, 'PRD: Automate PRD issue workflow'),
+    number: 100,
+    title: 'PRD: Automate PRD issue workflow',
   }
   const child: PlannedIssue = {
-    branchName: createChildBranchName(124, 'Document and verify the Sandcastle-native workflow'),
-    number: 124,
-    title: 'Document and verify the Sandcastle-native workflow',
+    branchName: createChildBranchName(101, 'Implement the first workflow slice'),
+    number: 101,
+    title: 'Implement the first workflow slice',
   }
 
   return {
@@ -948,7 +941,7 @@ const main = async (): Promise<void> => {
     return
   }
 
-  console.info('Sandcastle PRD workflow scaffold is installed.')
+  console.info('Sandcastle PRD workflow is installed.')
   console.info('Planner, implementer, reviewer, and merger steps land in child slices.')
 }
 
