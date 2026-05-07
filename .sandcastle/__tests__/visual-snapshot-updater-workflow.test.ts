@@ -68,4 +68,22 @@ describe('desktop visual snapshot updater workflow', () => {
     expect(updateIndex).toBeGreaterThan(checkoutIndex)
     expect(commitIndex).toBeGreaterThan(updateIndex)
   })
+
+  it('uploads failure diagnostics without PR comments required by issue 129', async () => {
+    const workflow = await readFile(WORKFLOW_FILE, 'utf8')
+    const updateIndex = workflow.indexOf('Run desktop visual snapshot update')
+    const uploadIndex = workflow.indexOf('Upload Playwright artifacts')
+
+    expect(workflow).toContain('if: failure()')
+    expect(workflow).toContain('uses: actions/upload-artifact@v7')
+    expect(workflow).toContain('if-no-files-found: ignore')
+    expect(workflow).toContain('apps/desktop/playwright-report')
+    expect(workflow).toContain('apps/desktop/test-results')
+    expect(workflow).not.toContain('gh pr comment')
+    expect(workflow).not.toContain('gh issue comment')
+    expect(workflow).not.toContain('actions/github-script')
+    expect(updateIndex).toBeGreaterThan(-1)
+    expect(uploadIndex).toBeGreaterThan(-1)
+    expect(uploadIndex).toBeGreaterThan(updateIndex)
+  })
 })
