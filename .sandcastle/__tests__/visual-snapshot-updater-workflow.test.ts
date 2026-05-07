@@ -9,7 +9,13 @@ describe('desktop visual snapshot updater workflow', () => {
   it('is valid formatted YAML', async () => {
     const workflow = await readFile(WORKFLOW_FILE, 'utf8')
 
-    await expect(check(workflow, { parser: 'yaml' })).resolves.toBe(true)
+    await expect(
+      check(workflow, {
+        filepath: WORKFLOW_FILE,
+        parser: 'yaml',
+        singleQuote: true,
+      }),
+    ).resolves.toBe(true)
   })
 
   it('defines the guarded manual dispatch required by issue 127', async () => {
@@ -34,5 +40,32 @@ describe('desktop visual snapshot updater workflow', () => {
     expect(forkGuardIndex).toBeGreaterThan(-1)
     expect(checkoutIndex).toBeGreaterThan(-1)
     expect(forkGuardIndex).toBeLessThan(checkoutIndex)
+  })
+
+  it('commits only desktop visual snapshot PNG updates required by issue 128', async () => {
+    const workflow = await readFile(WORKFLOW_FILE, 'utf8')
+    const checkoutIndex = workflow.indexOf('Check out pull request branch')
+    const updateIndex = workflow.indexOf('Run desktop visual snapshot update')
+    const commitIndex = workflow.indexOf('Commit desktop visual snapshot updates')
+
+    expect(workflow).toContain('uses: pnpm/action-setup@v5')
+    expect(workflow).toContain('uses: actions/setup-node@v6')
+    expect(workflow).toContain('node-version-file: .nvmrc')
+    expect(workflow).toContain('cache: pnpm')
+    expect(workflow).toContain('pnpm install --frozen-lockfile')
+    expect(workflow).toContain('pnpm --filter @cv-maxxing/desktop test:visual:update')
+    expect(workflow).toContain("git add -- 'apps/desktop/tests/e2e/*-snapshots/*.png'")
+    expect(workflow).toContain('git diff --cached --quiet --exit-code')
+    expect(workflow).toContain('test(desktop): update visual snapshots')
+    expect(workflow).toMatch(
+      /git push origin "HEAD:\$\{\{ steps\.pull-request\.outputs\.head_ref_name \}\}"/u,
+    )
+    expect(workflow).not.toContain('git merge')
+    expect(workflow).not.toContain('git rebase')
+    expect(checkoutIndex).toBeGreaterThan(-1)
+    expect(updateIndex).toBeGreaterThan(-1)
+    expect(commitIndex).toBeGreaterThan(-1)
+    expect(updateIndex).toBeGreaterThan(checkoutIndex)
+    expect(commitIndex).toBeGreaterThan(updateIndex)
   })
 })
