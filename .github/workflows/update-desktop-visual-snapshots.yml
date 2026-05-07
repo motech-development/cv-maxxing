@@ -1,0 +1,67 @@
+name: Update Desktop Visual Snapshots
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: Pull request number to update
+        required: true
+        type: number
+
+permissions:
+  contents: write
+  pull-requests: read
+
+jobs:
+  update-desktop-visual-snapshots:
+    name: Update Desktop Visual Snapshots
+    runs-on: macos-15
+    timeout-minutes: 45
+
+    steps:
+      - name: Resolve pull request metadata
+        id: pull-request
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          pr_metadata="$(
+            gh pr view "${{ inputs.pr_number }}" \
+              --repo "${{ github.repository }}" \
+              --json headRefName,headRefOid,headRepository,headRepositoryOwner
+          )"
+
+          {
+            echo "head_repository_name=$(echo "${pr_metadata}" | jq --raw-output '.headRepository.name')"
+            echo "head_repository_owner=$(echo "${pr_metadata}" | jq --raw-output '.headRepositoryOwner.login')"
+            echo "head_ref_name=$(echo "${pr_metadata}" | jq --raw-output '.headRefName')"
+            echo "head_ref_oid=$(echo "${pr_metadata}" | jq --raw-output '.headRefOid')"
+          } >> "${GITHUB_OUTPUT}"
+
+      - name: Refuse fork pull requests
+        run: |
+          if [[ "${{ steps.pull-request.outputs.head_repository_owner }}" != "${{ github.repository_owner }}" ]]; then
+            echo "::error::Refusing to update snapshots for fork pull request #${{ inputs.pr_number }}."
+            exit 1
+          fi
+
+          if [[ "${{ steps.pull-request.outputs.head_repository_name }}" != "${{ github.event.repository.name }}" ]]; then
+            echo "::error::Refusing to update snapshots for fork pull request #${{ inputs.pr_number }}."
+            exit 1
+          fi
+
+      - name: Check out pull request branch
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          ref: ${{ steps.pull-request.outputs.head_ref_name }}
+          repository: ${{ github.repository }}
+          token: ${{ github.token }}
+
+      - name: Verify checked out head SHA
+        run: |
+          checked_out_sha="$(git rev-parse HEAD)"
+
+          if [[ "${checked_out_sha}" != "${{ steps.pull-request.outputs.head_ref_oid }}" ]]; then
+            echo "::error::Checked out ${checked_out_sha}, expected ${{ steps.pull-request.outputs.head_ref_oid }}."
+            exit 1
+          fi
