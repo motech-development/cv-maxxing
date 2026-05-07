@@ -65,3 +65,46 @@ jobs:
             echo "::error::Checked out ${checked_out_sha}, expected ${{ steps.pull-request.outputs.head_ref_oid }}."
             exit 1
           fi
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          cache: pnpm
+          node-version-file: .nvmrc
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run desktop visual snapshot update
+        env:
+          CI: 'true'
+        run: pnpm --filter @cv-maxxing/desktop test:visual:update
+
+      - name: Commit desktop visual snapshot updates
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add -- 'apps/desktop/tests/e2e/*-snapshots/*.png'
+
+          if git diff --cached --quiet --exit-code; then
+            echo "No desktop visual snapshot updates to commit."
+            exit 0
+          fi
+
+          unexpected_staged_paths="$(
+            git diff --cached --name-only |
+              grep --invert-match --extended-regexp '^apps/desktop/tests/e2e/[^/]+-snapshots/[^/]+\.png$' || true
+          )"
+
+          if [[ -n "${unexpected_staged_paths}" ]]; then
+            echo "::error::Refusing to commit non-snapshot files."
+            echo "${unexpected_staged_paths}"
+            exit 1
+          fi
+
+          git commit -m "test(desktop): update visual snapshots"
+          git push origin "HEAD:${{ steps.pull-request.outputs.head_ref_name }}"
