@@ -29,7 +29,8 @@ describe('desktop visual snapshot updater workflow', () => {
     expect(workflow).toContain('runs-on: macos-15')
     expect(workflow).toContain('pull-requests: read')
     expect(workflow).toContain('contents: write')
-    expect(workflow).toMatch(/gh pr view "\$\{\{ inputs\.pr_number \}\}"/u)
+    expect(workflow).toMatch(/PR_NUMBER: \$\{\{ inputs\.pr_number \}\}/u)
+    expect(workflow).toMatch(/gh pr view "\$\{PR_NUMBER\}"/u)
     expect(workflow).toContain('--json headRefName,headRefOid,headRepository,headRepositoryOwner')
     expect(workflow).toContain('head_repository_name')
     expect(workflow).toContain('head_repository_owner')
@@ -58,8 +59,9 @@ describe('desktop visual snapshot updater workflow', () => {
     expect(workflow).toContain('git diff --cached --quiet --exit-code')
     expect(workflow).toContain('test(desktop): update visual snapshots')
     expect(workflow).toMatch(
-      /git push origin "HEAD:\$\{\{ steps\.pull-request\.outputs\.head_ref_name \}\}"/u,
+      /PULL_HEAD_REF: \$\{\{ steps\.pull-request\.outputs\.head_ref_name \}\}/u,
     )
+    expect(workflow).toMatch(/git push origin "HEAD:\$\{PULL_HEAD_REF\}"/u)
     expect(workflow).not.toContain('git merge')
     expect(workflow).not.toContain('git rebase')
     expect(checkoutIndex).toBeGreaterThan(-1)

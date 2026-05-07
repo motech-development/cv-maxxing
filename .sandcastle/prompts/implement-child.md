@@ -34,5 +34,28 @@ changing code.
 - Do not mutate GitHub issue or pull request state.
 - Do not close issues manually.
 
+## macOS Visual Snapshot Updates
+
+Use the `Update Desktop Visual Snapshots` workflow when your branch has expected
+desktop UI visual snapshot changes that require Darwin baselines.
+
+Trigger it with the current pull request number:
+
+```sh
+pr_number="$(gh pr view --json number --jq .number)"
+gh workflow run update-desktop-visual-snapshots.yml -f pr_number="${pr_number}"
+```
+
+Then watch the run and pull the resulting snapshot commit:
+
+```sh
+gh run list --workflow update-desktop-visual-snapshots.yml --limit 1
+gh run watch
+git pull --rebase
+```
+
+Use the workflow output and committed snapshot diff as the audit trail. Do not
+add new repo automation, retry loops, or PR comments for this flow.
+
 End by printing `</task>` only after implementation, tests, checks, and
 CodeRabbit review are complete.

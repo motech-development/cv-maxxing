@@ -23,10 +23,12 @@ jobs:
         id: pull-request
         env:
           GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ inputs.pr_number }}
+          REPOSITORY: ${{ github.repository }}
         run: |
           pr_metadata="$(
-            gh pr view "${{ inputs.pr_number }}" \
-              --repo "${{ github.repository }}" \
+            gh pr view "${PR_NUMBER}" \
+              --repo "${REPOSITORY}" \
               --json headRefName,headRefOid,headRepository,headRepositoryOwner
           )"
 
@@ -38,14 +40,20 @@ jobs:
           } >> "${GITHUB_OUTPUT}"
 
       - name: Refuse fork pull requests
+        env:
+          PR_NUMBER: ${{ inputs.pr_number }}
+          PULL_HEAD_OWNER: ${{ steps.pull-request.outputs.head_repository_owner }}
+          PULL_HEAD_REPO: ${{ steps.pull-request.outputs.head_repository_name }}
+          REPOSITORY_NAME: ${{ github.event.repository.name }}
+          REPOSITORY_OWNER: ${{ github.repository_owner }}
         run: |
-          if [[ "${{ steps.pull-request.outputs.head_repository_owner }}" != "${{ github.repository_owner }}" ]]; then
-            echo "::error::Refusing to update snapshots for fork pull request #${{ inputs.pr_number }}."
+          if [[ "${PULL_HEAD_OWNER}" != "${REPOSITORY_OWNER}" ]]; then
+            echo "::error::Refusing to update snapshots for fork pull request #${PR_NUMBER}."
             exit 1
           fi
 
-          if [[ "${{ steps.pull-request.outputs.head_repository_name }}" != "${{ github.event.repository.name }}" ]]; then
-            echo "::error::Refusing to update snapshots for fork pull request #${{ inputs.pr_number }}."
+          if [[ "${PULL_HEAD_REPO}" != "${REPOSITORY_NAME}" ]]; then
+            echo "::error::Refusing to update snapshots for fork pull request #${PR_NUMBER}."
             exit 1
           fi
 
@@ -58,11 +66,13 @@ jobs:
           token: ${{ github.token }}
 
       - name: Verify checked out head SHA
+        env:
+          EXPECTED_HEAD_SHA: ${{ steps.pull-request.outputs.head_ref_oid }}
         run: |
           checked_out_sha="$(git rev-parse HEAD)"
 
-          if [[ "${checked_out_sha}" != "${{ steps.pull-request.outputs.head_ref_oid }}" ]]; then
-            echo "::error::Checked out ${checked_out_sha}, expected ${{ steps.pull-request.outputs.head_ref_oid }}."
+          if [[ "${checked_out_sha}" != "${EXPECTED_HEAD_SHA}" ]]; then
+            echo "::error::Checked out ${checked_out_sha}, expected ${EXPECTED_HEAD_SHA}."
             exit 1
           fi
 
@@ -84,6 +94,8 @@ jobs:
         run: pnpm --filter @cv-maxxing/desktop test:visual:update
 
       - name: Commit desktop visual snapshot updates
+        env:
+          PULL_HEAD_REF: ${{ steps.pull-request.outputs.head_ref_name }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -107,7 +119,7 @@ jobs:
           fi
 
           git commit -m "test(desktop): update visual snapshots"
-          git push origin "HEAD:${{ steps.pull-request.outputs.head_ref_name }}"
+          git push origin "HEAD:${PULL_HEAD_REF}"
 
       - name: Upload Playwright artifacts
         if: failure()
