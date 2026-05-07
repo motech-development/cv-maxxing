@@ -48,6 +48,10 @@ describe('desktop visual snapshot updater workflow', () => {
     const checkoutIndex = workflow.indexOf('Check out pull request branch')
     const updateIndex = workflow.indexOf('Run desktop visual snapshot update')
     const commitIndex = workflow.indexOf('Commit desktop visual snapshot updates')
+    const worktreeCheckIndex = workflow.indexOf('git ls-files --modified --deleted --others')
+    const snapshotStagingIndex = workflow.indexOf(
+      "git add -- 'apps/desktop/tests/e2e/*-snapshots/*.png'",
+    )
 
     expect(workflow).toContain('uses: pnpm/action-setup@v5')
     expect(workflow).toContain('uses: actions/setup-node@v6')
@@ -56,6 +60,7 @@ describe('desktop visual snapshot updater workflow', () => {
     expect(workflow).toContain('pnpm install --frozen-lockfile')
     expect(workflow).toContain('pnpm --filter @cv-maxxing/desktop test:visual:update')
     expect(workflow).toContain("git add -- 'apps/desktop/tests/e2e/*-snapshots/*.png'")
+    expect(workflow).toContain('git ls-files --modified --deleted --others --exclude-standard')
     expect(workflow).toContain('git diff --cached --quiet --exit-code')
     expect(workflow).toContain('test(desktop): update visual snapshots')
     expect(workflow).toMatch(
@@ -69,6 +74,8 @@ describe('desktop visual snapshot updater workflow', () => {
     expect(commitIndex).toBeGreaterThan(-1)
     expect(updateIndex).toBeGreaterThan(checkoutIndex)
     expect(commitIndex).toBeGreaterThan(updateIndex)
+    expect(worktreeCheckIndex).toBeGreaterThan(commitIndex)
+    expect(snapshotStagingIndex).toBeGreaterThan(worktreeCheckIndex)
   })
 
   it('uploads failure diagnostics without PR comments required by issue 129', async () => {
