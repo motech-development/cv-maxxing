@@ -49,8 +49,8 @@ gh workflow run update-desktop-visual-snapshots.yml -f pr_number="${pr_number}"
 Then watch the run and pull the resulting snapshot commit:
 
 ```sh
-gh run list --workflow update-desktop-visual-snapshots.yml --limit 1
-gh run watch
+run_id="$(gh run list --workflow update-desktop-visual-snapshots.yml --limit 1 --json databaseId --jq '.[0].databaseId')"
+gh run watch "${run_id}"
 git pull --rebase
 ```
 

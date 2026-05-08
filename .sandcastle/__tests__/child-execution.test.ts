@@ -185,9 +185,11 @@ describe('child execution prompt contracts', () => {
     expect(implementPrompt).toMatch(
       /gh workflow run update-desktop-visual-snapshots\.yml -f pr_number="\$\{pr_number\}"/u,
     )
-    expect(reviewPrompt).toContain('gh run list')
-    expect(reviewPrompt).toContain('gh run watch')
-    expect(reviewPrompt).toContain('gh run view')
+    expect(combinedPrompts).toContain(
+      "gh run list --workflow update-desktop-visual-snapshots.yml --limit 1 --json databaseId --jq '.[0].databaseId'",
+    )
+    expect(combinedPrompts).toMatch(/gh run watch "\$\{run_id\}"/u)
+    expect(reviewPrompt).toMatch(/gh run view "\$\{run_id\}" --log/u)
     expect(combinedPrompts).toContain('git pull --rebase')
     expect(combinedPrompts).toContain('expected desktop UI visual snapshot changes')
     expect(combinedPrompts).toContain('Darwin baselines')

@@ -35,9 +35,9 @@ Inspect and watch the updater with raw GitHub CLI commands:
 ```sh
 pr_number="$(gh pr view --json number --jq .number)"
 gh workflow run update-desktop-visual-snapshots.yml -f pr_number="${pr_number}"
-gh run list --workflow update-desktop-visual-snapshots.yml --limit 3
-gh run watch
-gh run view --log
+run_id="$(gh run list --workflow update-desktop-visual-snapshots.yml --limit 1 --json databaseId --jq '.[0].databaseId')"
+gh run watch "${run_id}"
+gh run view "${run_id}" --log
 git pull --rebase
 ```
 
