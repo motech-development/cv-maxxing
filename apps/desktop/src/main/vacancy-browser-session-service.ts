@@ -52,40 +52,42 @@ interface ElectronRuntime {
 
 const require = createRequire(import.meta.url)
 
-const browserCaptureScript = String.raw`(() => {
-  const embeddedFrameHtml = Array.from(document.querySelectorAll('iframe'))
-    .map((frame, index) => {
-      const style = window.getComputedStyle(frame)
-      const isHidden =
-        frame.hidden ||
-        style.display === 'none' ||
-        style.visibility === 'hidden' ||
-        style.opacity === '0'
+const browserCaptureScript = `(() => {
+  const pageBody = document.body?.cloneNode(true)
 
-      if (isHidden) {
-        return ''
+  if (pageBody instanceof HTMLElement) {
+    Array.from(document.querySelectorAll('iframe')).forEach((frame, index) => {
+      const clonedFrame = pageBody.querySelectorAll('iframe')[index]
+
+      if (!(clonedFrame instanceof HTMLElement) || !isVisibleFrame(frame)) {
+        return
       }
 
       try {
-        const frameBodyHtml = frame.contentDocument?.body?.innerHTML ?? ''
+        const frameBody = frame.contentDocument?.body
 
-        if (frameBodyHtml.trim() === '') {
-          return ''
+        if (frameBody === undefined || frameBody === null) {
+          return
         }
 
-        return '<section data-cv-maxxing-embedded-frame="' + String(index) + '">' + frameBodyHtml + '</section>'
+        const embeddedContent = document.createElement('section')
+        embeddedContent.setAttribute('data-cv-maxxing-embedded-frame', 'true')
+        embeddedContent.innerHTML = frameBody.innerHTML
+        clonedFrame.replaceWith(embeddedContent)
       } catch {
-        return ''
+        return
       }
     })
-    .filter((html) => {
-      return html !== ''
-    })
-    .join('\n')
-  const bodyHtml = document.body?.innerHTML ?? ''
+  }
+
+  function isVisibleFrame(frame) {
+    const bounds = frame.getBoundingClientRect()
+
+    return bounds.width > 0 && bounds.height > 0
+  }
 
   return {
-    html: embeddedFrameHtml === '' ? bodyHtml : bodyHtml + '\n' + embeddedFrameHtml,
+    html: pageBody instanceof HTMLElement ? pageBody.innerHTML : '',
     pageTitle: document.title === '' ? null : document.title,
     resolvedUrl: window.location.href,
   }

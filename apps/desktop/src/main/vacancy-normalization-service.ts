@@ -38,7 +38,7 @@ export interface VacancyNormalizationService {
   normalizeVacancy: (input: VacancyNormalizationInput) => Promise<NormalizedVacancy>
 }
 
-const DEFAULT_VACANCY_NORMALIZATION_TIMEOUT_MS = 120_000
+const DEFAULT_VACANCY_NORMALIZATION_TIMEOUT_MS = 90_000
 const VACANCY_NORMALIZATION_TIMEOUT_REASON = Symbol('vacancy-normalization-timeout')
 
 const missingVacancyNormalizationWorker: VacancyNormalizationWorker = {
