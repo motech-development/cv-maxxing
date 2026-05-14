@@ -219,6 +219,73 @@ test('maps a no-job-content worker result to a typed vacancy-normalization failu
   )
 })
 
+test('preserves captured embedded board evidence when focusing rendered page content', async () => {
+  const runWorkspaceRootPath = await mkdtemp(
+    path.join(tmpdir(), 'cv-maxxing-vacancy-normalization-service-embedded-'),
+  )
+
+  temporaryDirectories.push(runWorkspaceRootPath)
+
+  const worker = {
+    runNormalization: vi.fn(
+      async ({ runDirectoryPath }: { runDirectoryPath: string; signal: AbortSignal }) => {
+        const [pageHtml, pageText] = await Promise.all([
+          readFile(path.join(runDirectoryPath, 'input', 'page.html'), 'utf8'),
+          readFile(path.join(runDirectoryPath, 'input', 'page.txt'), 'utf8'),
+        ])
+
+        expect(pageHtml).toContain('Senior Product Designer')
+        expect(pageHtml).toContain('Lead product design for embedded workflows.')
+        expect(pageText).toContain('Senior Product Designer')
+        expect(pageText).toContain('Lead product design for embedded workflows.')
+
+        return {
+          kind: 'success',
+          normalizedVacancy: {
+            bodyText:
+              'Lead product design for embedded workflows. Partner with engineering and research.',
+            employer: 'Example Labs',
+            location: 'Remote (UK)',
+            requirements: ['Experience shipping workflow software.'],
+            responsibilities: ['Lead product design for embedded workflows.'],
+            title: 'Senior Product Designer',
+          },
+        } satisfies VacancyNormalizationWorkerResult
+      },
+    ),
+  }
+  const service = createVacancyNormalizationService({
+    generateId: vi.fn(() => 'vacancy-normalization-run-embedded'),
+    runWorkspaceRootPath,
+    worker,
+  })
+
+  await expect(
+    service.normalizeVacancy({
+      html: [
+        '<main>',
+        '<h1>Careers</h1>',
+        '<iframe></iframe>',
+        '</main>',
+        '<section data-cv-maxxing-embedded-frame="0">',
+        '<article><h2>Senior Product Designer</h2><p>Lead product design for embedded workflows.</p></article>',
+        '</section>',
+      ].join(''),
+      originalUrl: 'https://jobs.example.com/roles/123',
+      pageTitle: 'Example Labs Careers',
+      resolvedUrl: 'https://jobs.example.com/roles/123',
+      source: 'jobs.example.com',
+    }),
+  ).resolves.toEqual({
+    bodyText: 'Lead product design for embedded workflows. Partner with engineering and research.',
+    employer: 'Example Labs',
+    location: 'Remote (UK)',
+    requirements: ['Experience shipping workflow software.'],
+    responsibilities: ['Lead product design for embedded workflows.'],
+    title: 'Senior Product Designer',
+  } satisfies NormalizedVacancy)
+})
+
 test('rejects semantically invalid normalized vacancy output after deterministic post-validation', async () => {
   const runWorkspaceRootPath = await mkdtemp(
     path.join(tmpdir(), 'cv-maxxing-vacancy-normalization-service-semantic-'),

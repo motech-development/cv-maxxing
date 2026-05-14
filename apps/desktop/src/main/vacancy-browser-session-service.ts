@@ -52,9 +52,40 @@ interface ElectronRuntime {
 
 const require = createRequire(import.meta.url)
 
-const browserCaptureScript = `(() => {
+const browserCaptureScript = String.raw`(() => {
+  const embeddedFrameHtml = Array.from(document.querySelectorAll('iframe'))
+    .map((frame, index) => {
+      const style = window.getComputedStyle(frame)
+      const isHidden =
+        frame.hidden ||
+        style.display === 'none' ||
+        style.visibility === 'hidden' ||
+        style.opacity === '0'
+
+      if (isHidden) {
+        return ''
+      }
+
+      try {
+        const frameBodyHtml = frame.contentDocument?.body?.innerHTML ?? ''
+
+        if (frameBodyHtml.trim() === '') {
+          return ''
+        }
+
+        return '<section data-cv-maxxing-embedded-frame="' + String(index) + '">' + frameBodyHtml + '</section>'
+      } catch {
+        return ''
+      }
+    })
+    .filter((html) => {
+      return html !== ''
+    })
+    .join('\n')
+  const bodyHtml = document.body?.innerHTML ?? ''
+
   return {
-    html: document.body?.innerHTML ?? '',
+    html: embeddedFrameHtml === '' ? bodyHtml : bodyHtml + '\n' + embeddedFrameHtml,
     pageTitle: document.title === '' ? null : document.title,
     resolvedUrl: window.location.href,
   }
