@@ -235,6 +235,23 @@ export interface WorkflowDryRunResult {
   readonly steps: readonly string[]
 }
 
+export interface PreflightResult {
+  readonly status: 'passed' | 'failed'
+  readonly checks: readonly PreflightCheckResult[]
+}
+
+export type PreflightCheckResult =
+  | {
+      readonly status: 'passed'
+      readonly name: string
+      readonly message: string
+    }
+  | {
+      readonly status: 'failed'
+      readonly name: string
+      readonly message: string
+    }
+
 export const createPrdBranchName = (issueNumber: number, title: string): string =>
   `prd-${String(issueNumber)}-${slugify(title)}`
 
@@ -678,7 +695,7 @@ export const githubCliDraftPullRequestGateway: DraftPullRequestGateway = {
 
 export const createCodexDockerOptions = ({
   fileExists = existsSync,
-  hostCodexHome = process.env.SANDCASTLE_HOST_CODEX_HOME ?? path.join(homedir(), '.codex'),
+  hostCodexHome = getHostCodexHome(),
 }: CreateCodexDockerOptionsInput = {}): DockerOptions => {
   const hostAuthPath = path.join(hostCodexHome, 'auth.json')
   const hostConfigPath = path.join(hostCodexHome, 'config.toml')
@@ -693,7 +710,7 @@ export const createCodexDockerOptions = ({
     env: {
       CODEX_HOME: SANDBOX_CODEX_HOME,
     },
-    imageName: process.env.SANDCASTLE_DOCKER_IMAGE ?? 'sandcastle:cv-maxxing',
+    imageName: getSandcastleDockerImageName(),
     mounts: [
       {
         hostPath: hostAuthPath,
@@ -714,6 +731,22 @@ export const createCodexDockerOptions = ({
 }
 
 const createCodexDockerSandbox = () => docker(createCodexDockerOptions())
+
+export const runPreflight = async (): Promise<PreflightResult> => {
+  const checks = [
+    await checkDockerAvailability(),
+    await checkSandcastleDockerImage(),
+    checkCodexAuthMounts(),
+    await checkGitHubCliAuth(),
+    await checkGitBranchReadiness(),
+  ]
+  const status = checks.every(({ status }) => status === 'passed') ? 'passed' : 'failed'
+
+  return {
+    checks,
+    status,
+  }
+}
 
 export const runDryRun = async (): Promise<WorkflowDryRunResult> => {
   let hasPlanned = false
@@ -974,6 +1007,113 @@ const extractLogFilePath = (error: unknown): string | undefined => {
   return typeof logFilePath === 'string' && logFilePath.length > 0 ? logFilePath : undefined
 }
 
+const getSandcastleDockerImageName = (): string =>
+  process.env.SANDCASTLE_DOCKER_IMAGE ?? 'sandcastle:cv-maxxing'
+
+const getHostCodexHome = (): string =>
+  process.env.SANDCASTLE_HOST_CODEX_HOME ?? path.join(homedir(), '.codex')
+
+const checkDockerAvailability = async (): Promise<PreflightCheckResult> => {
+  try {
+    await runCommand('docker', ['info', '--format', '{{json .ServerVersion}}'])
+
+    return {
+      message: 'Docker daemon is available.',
+      name: 'docker',
+      status: 'passed',
+    }
+  } catch (error: unknown) {
+    return {
+      message: `Docker is unavailable. Start Docker Desktop or a compatible Docker daemon, then rerun preflight. ${formatErrorMessage(error)}`,
+      name: 'docker',
+      status: 'failed',
+    }
+  }
+}
+
+const checkSandcastleDockerImage = async (): Promise<PreflightCheckResult> => {
+  const imageName = getSandcastleDockerImageName()
+
+  try {
+    await runCommand('docker', ['image', 'inspect', imageName])
+
+    return {
+      message: `Sandcastle image ${imageName} exists locally.`,
+      name: 'sandcastle-image',
+      status: 'passed',
+    }
+  } catch (error: unknown) {
+    return {
+      message: `Sandcastle image ${imageName} is missing. Build it with \`pnpm exec sandcastle docker build-image --image-name ${imageName}\`. ${formatErrorMessage(error)}`,
+      name: 'sandcastle-image',
+      status: 'failed',
+    }
+  }
+}
+
+const checkCodexAuthMounts = (): PreflightCheckResult => {
+  const hostCodexHome = getHostCodexHome()
+  const hostAuthPath = path.join(hostCodexHome, 'auth.json')
+  const hostConfigPath = path.join(hostCodexHome, 'config.toml')
+
+  if (!existsSync(hostAuthPath)) {
+    return {
+      message: `Codex auth file ${hostAuthPath} is missing. Run \`codex login\` locally or set SANDCASTLE_HOST_CODEX_HOME.`,
+      name: 'codex-auth',
+      status: 'failed',
+    }
+  }
+
+  const configMessage = existsSync(hostConfigPath)
+    ? ` Optional config ${hostConfigPath} will also be mounted.`
+    : ''
+
+  return {
+    message: `Codex auth file ${hostAuthPath} can be mounted into the sandbox.${configMessage}`,
+    name: 'codex-auth',
+    status: 'passed',
+  }
+}
+
+const checkGitHubCliAuth = async (): Promise<PreflightCheckResult> => {
+  try {
+    await runCommand('gh', ['auth', 'status', '--hostname', 'github.com'])
+
+    return {
+      message: 'GitHub CLI authentication is usable.',
+      name: 'github-cli',
+      status: 'passed',
+    }
+  } catch (error: unknown) {
+    return {
+      message: `GitHub CLI authentication is not usable. Run \`gh auth login\` or fix \`gh auth status\` before running the workflow. ${formatErrorMessage(error)}`,
+      name: 'github-cli',
+      status: 'failed',
+    }
+  }
+}
+
+const checkGitBranchReadiness = async (): Promise<PreflightCheckResult> => {
+  try {
+    await runCommand('git', ['rev-parse', '--is-inside-work-tree'])
+    await runCommand('git', ['rev-parse', '--verify', 'HEAD'])
+    await runCommand('git', ['check-ref-format', 'refs/heads/prd-0-sandcastle-preflight'])
+    await runCommand('git', ['check-ref-format', 'refs/heads/child-0-sandcastle-preflight'])
+
+    return {
+      message: 'Git repository and branch ref operations are available.',
+      name: 'git-branch-operations',
+      status: 'passed',
+    }
+  } catch (error: unknown) {
+    return {
+      message: `Git branch operations are not ready. Run from a valid repository with a checked-out HEAD before starting the workflow. ${formatErrorMessage(error)}`,
+      name: 'git-branch-operations',
+      status: 'failed',
+    }
+  }
+}
+
 const createDryRunPlan = (): PlannerPlan => {
   const parentIssue: PlannedIssue = {
     branchName: createPrdBranchName(100, 'PRD: Automate PRD issue workflow'),
@@ -1138,6 +1278,18 @@ const main = async (): Promise<void> => {
     const result = await runDryRun()
 
     console.info(JSON.stringify(result, null, 2))
+
+    return
+  }
+
+  if (process.argv.includes('--preflight')) {
+    const result = await runPreflight()
+
+    console.info(JSON.stringify(result, null, 2))
+
+    if (result.status === 'failed') {
+      process.exitCode = 1
+    }
 
     return
   }

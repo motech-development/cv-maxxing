@@ -13,7 +13,8 @@
     "lint-staged": "lint-staged",
     "prepare": "husky",
     "sandcastle": "node --experimental-strip-types .sandcastle/main.ts",
-    "sandcastle:dry-run": "node --experimental-strip-types .sandcastle/main.ts --dry-run"
+    "sandcastle:dry-run": "node --experimental-strip-types .sandcastle/main.ts --dry-run",
+    "sandcastle:preflight": "node --experimental-strip-types .sandcastle/main.ts --preflight"
   },
   "keywords": [],
   "author": "",
