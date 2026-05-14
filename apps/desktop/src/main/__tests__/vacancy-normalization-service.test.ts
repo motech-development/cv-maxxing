@@ -15,6 +15,9 @@ import {
 const temporaryDirectories: string[] = []
 
 afterEach(async () => {
+  vi.restoreAllMocks()
+  vi.useRealTimers()
+
   await Promise.all(
     temporaryDirectories.splice(0).map(async (directoryPath) => {
       await rm(directoryPath, {
@@ -127,6 +130,57 @@ test('writes a dedicated vacancy-normalization run workspace and removes it afte
     path.join(runWorkspaceRootPath, 'vacancy-normalization-run-001'),
   )
   expect(firstCall?.signal).toBeInstanceOf(AbortSignal)
+  await expect(readdir(runWorkspaceRootPath)).resolves.toEqual([])
+})
+
+test('uses the 90-second default vacancy-normalization time budget', async () => {
+  const runWorkspaceRootPath = await mkdtemp(
+    path.join(tmpdir(), 'cv-maxxing-vacancy-normalization-service-default-timeout-'),
+  )
+
+  temporaryDirectories.push(runWorkspaceRootPath)
+
+  const worker: VacancyNormalizationWorker = {
+    runNormalization: vi.fn(() => {
+      return Promise.resolve({
+        kind: 'success',
+        normalizedVacancy: {
+          bodyText:
+            'Lead product design for desktop workflows. Partner with engineering and research.',
+          employer: 'Example Labs',
+          location: 'London, United Kingdom',
+          requirements: ['Experience shipping workflow software.'],
+          responsibilities: ['Lead product design for desktop workflows.'],
+          title: 'Senior Product Designer',
+        },
+      } satisfies VacancyNormalizationWorkerResult)
+    }),
+  }
+  const service = createVacancyNormalizationService({
+    generateId: vi.fn(() => 'vacancy-normalization-run-default-timeout'),
+    runWorkspaceRootPath,
+    worker,
+  })
+  const setTimeoutSpy = vi.spyOn(globalThis, 'setTimeout')
+
+  await expect(
+    service.normalizeVacancy({
+      html: '<main><h1>Senior Product Designer</h1></main>',
+      originalUrl: 'https://jobs.example.com/roles/123',
+      pageTitle: 'Senior Product Designer',
+      resolvedUrl: 'https://jobs.example.com/roles/123',
+      source: 'jobs.example.com',
+    }),
+  ).resolves.toEqual({
+    bodyText: 'Lead product design for desktop workflows. Partner with engineering and research.',
+    employer: 'Example Labs',
+    location: 'London, United Kingdom',
+    requirements: ['Experience shipping workflow software.'],
+    responsibilities: ['Lead product design for desktop workflows.'],
+    title: 'Senior Product Designer',
+  })
+
+  expect(setTimeoutSpy).toHaveBeenCalledWith(expect.any(Function), 90_000)
   await expect(readdir(runWorkspaceRootPath)).resolves.toEqual([])
 })
 
