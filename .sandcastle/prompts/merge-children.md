@@ -31,6 +31,9 @@ Child issues:
   branch.
 - Leave branches that cannot be merged with clear terminal output.
 
-Do not apply patches. Do not amend commits. Do not rewrite branch history.
+Do not apply patches. Do not amend commits. Do not rebase. Do not rewrite branch
+history. Do not use patch stacks, custom resume flows, or opaque recovery
+machinery.
 
-End by printing `</task>` after the merge pass is complete.
+End by printing exactly `</task>` after the merge pass is complete. That tag is
+the Codex-compatible completion signal for this run.
