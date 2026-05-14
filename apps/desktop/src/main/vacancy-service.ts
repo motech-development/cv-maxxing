@@ -34,6 +34,7 @@ const VACANCY_DRAFT_SCOPE = 'vacancy-workspace'
 const VACANCY_FETCH_TIMEOUT_MS = 15_000
 const VACANCY_SCOPE = 'vacancies'
 const VACANCY_WORKSPACE_RECORD_ID = 'current'
+const PASTED_VACANCY_NORMALIZATION_REFERENCE = 'about:blank'
 const OPEN_JOB_PAGE_BLOCKING_REASON =
   'This job page may need more access. Open the job page or paste the job description instead.'
 const RELOAD_JOB_PAGE_BLOCKING_REASON =
@@ -152,8 +153,17 @@ export function createVacancyService({
       const source = normalizedUrl ? classifyVacancyUrl(normalizedUrl) : 'generic'
       const vacancyId = generateId()
       const fetchedAt = getCurrentTimestamp()
-      const normalizedVacancy = normalizeVacancyText(trimmedText)
-      const isLanguageBlocked = assessEnglishLanguageSupport(trimmedText).status === 'blocked'
+      const normalizedVacancy = await normalizationService.normalizeVacancy({
+        html: createPastedVacancyNormalizationHtml(trimmedText),
+        originalUrl: normalizedUrl ?? PASTED_VACANCY_NORMALIZATION_REFERENCE,
+        pageTitle: null,
+        resolvedUrl: normalizedUrl ?? PASTED_VACANCY_NORMALIZATION_REFERENCE,
+        source,
+      })
+      const extractedText = normalizedVacancy.bodyText.trim()
+      const isLanguageBlocked =
+        assessEnglishLanguageSupport(trimmedText).status === 'blocked' ||
+        assessEnglishLanguageSupport(extractedText).status === 'blocked'
       const canGenerate = !isLanguageBlocked && isVacancyReady(normalizedVacancy)
       let blockingReason: string | null = null
 
@@ -190,7 +200,7 @@ export function createVacancyService({
         value: toVacancyMetadataValue(vacancy),
       })
       await localAppData.artifacts.write({
-        content: Buffer.from(trimmedText, 'utf8'),
+        content: Buffer.from(extractedText, 'utf8'),
         id: vacancyId,
         name: 'extracted.txt',
         scope: VACANCY_SCOPE,
@@ -378,6 +388,19 @@ export function createVacancyService({
       })
     },
   }
+}
+
+function createPastedVacancyNormalizationHtml(text: string): string {
+  return `<main><pre>${escapeHtml(text)}</pre></main>`
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;')
 }
 
 async function createInteractiveBrowserFallbackResult({
@@ -855,107 +878,6 @@ async function fetchVacancyPageFromNetwork(url: string): Promise<{
   } finally {
     clearTimeout(timeoutId)
   }
-}
-
-function normalizeVacancyText(text: string): NormalizedVacancy {
-  const normalizedText = text.replaceAll('\r\n', '\n').trim()
-  const lines = normalizedText
-    .split('\n')
-    .map((line) => {
-      return line.trim()
-    })
-    .filter((line) => {
-      return line !== ''
-    })
-  const bodyLines: string[] = []
-  const requirements: string[] = []
-  const responsibilities: string[] = []
-  let activeSection: 'requirements' | 'responsibilities' | null = null
-
-  for (const line of lines.slice(3)) {
-    const normalizedLine = line.toLowerCase()
-
-    if (normalizedLine === 'requirements' || normalizedLine === 'qualifications') {
-      activeSection = 'requirements'
-
-      continue
-    }
-
-    if (
-      normalizedLine === 'responsibilities' ||
-      normalizedLine === 'what you will do' ||
-      normalizedLine === 'about the role'
-    ) {
-      activeSection = 'responsibilities'
-
-      continue
-    }
-
-    const cleanedLine = line.replace(/^[*-]\s*/, '')
-
-    if (activeSection === 'requirements') {
-      requirements.push(cleanedLine)
-      bodyLines.push(cleanedLine)
-
-      continue
-    }
-
-    if (activeSection === 'responsibilities') {
-      responsibilities.push(cleanedLine)
-      bodyLines.push(cleanedLine)
-
-      continue
-    }
-
-    bodyLines.push(cleanedLine)
-  }
-
-  const location = inferLocation(lines[2])
-
-  return {
-    bodyText: bodyLines.join(' ').trim(),
-    employer: normalizeNullableLine(lines[1]),
-    location,
-    requirements,
-    responsibilities,
-    title: normalizeNullableLine(lines[0]),
-  }
-}
-
-function inferLocation(line: string | undefined): string | null {
-  if (line === undefined) {
-    return null
-  }
-
-  const normalizedLine = line.trim()
-
-  if (normalizedLine === '') {
-    return null
-  }
-
-  if (
-    normalizedLine.includes(',') ||
-    normalizedLine.toLowerCase().includes('remote') ||
-    normalizedLine.toLowerCase().includes('hybrid')
-  ) {
-    return normalizedLine
-  }
-
-  return null
-}
-
-function normalizeNullableLine(line: string | undefined): string | null {
-  if (line === undefined) {
-    return null
-  }
-
-  const normalizedLine = line.trim()
-
-  if (normalizedLine === '') {
-    return null
-  }
-
-  return normalizedLine
 }
 
 function isVacancyReady(vacancy: NormalizedVacancy): boolean {

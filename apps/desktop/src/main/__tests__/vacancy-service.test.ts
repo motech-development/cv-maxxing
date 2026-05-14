@@ -63,32 +63,38 @@ test('ingests pasted vacancy text into a ready preview and persists encrypted va
     keychain: createKeychainBoundary(),
     paths,
   })
+  const normalizationService = createVacancyNormalizationServiceDouble()
   const vacancyService = createVacancyService({
     generateId: vi.fn(() => 'vacancy-001'),
     getCurrentTimestamp: vi.fn(() => '2026-04-08T21:00:00.000Z'),
     localAppData,
-    normalizationService: createVacancyNormalizationServiceDouble(),
+    normalizationService,
     openVacancyBrowserSession: vi.fn(() => Promise.resolve(null)),
   })
 
+  const pastedText = [
+    'Example Labs is hiring for a senior design role.',
+    'This pasted job description uses prose instead of predictable headings.',
+    'The role partners closely with engineering and research.',
+  ].join('\n')
+
   const result = await vacancyService.ingestPastedVacancy({
-    text: [
-      'Senior Product Designer',
-      'Example Labs',
-      'London, United Kingdom',
-      '',
-      'Responsibilities',
-      '- Lead product design for AI-assisted desktop workflows.',
-      '- Partner with engineering and research teams.',
-      '',
-      'Requirements',
-      '- Experience shipping workflow products.',
-      '- Strong written communication.',
-    ].join('\n'),
+    text: pastedText,
     url: 'https://jobs.example.com/senior-product-designer',
   })
 
   expect(result.kind).toBe('ingested')
+  expect(normalizationService.normalizeVacancy).toHaveBeenCalledWith({
+    html: [
+      '<main><pre>Example Labs is hiring for a senior design role.',
+      'This pasted job description uses prose instead of predictable headings.',
+      'The role partners closely with engineering and research.</pre></main>',
+    ].join('\n'),
+    originalUrl: 'https://jobs.example.com/senior-product-designer',
+    pageTitle: null,
+    resolvedUrl: 'https://jobs.example.com/senior-product-designer',
+    source: 'generic',
+  })
   expect(result.vacancy.id).toBe('vacancy-001')
   expect(result.vacancy.source).toBe('generic')
   expect(result.vacancy.inputType).toBe('pasted_text')
@@ -97,10 +103,8 @@ test('ingests pasted vacancy text into a ready preview and persists encrypted va
   expect(result.vacancy.location).toBe('London, United Kingdom')
   expect(result.vacancy.canGenerate).toBe(true)
   expect(result.vacancy.blockingReason).toBeNull()
-  expect(result.vacancy.requirements).toContain('Experience shipping workflow products.')
-  expect(result.vacancy.responsibilities).toContain(
-    'Lead product design for AI-assisted desktop workflows.',
-  )
+  expect(result.vacancy.requirements).toContain('Experience shipping workflow software.')
+  expect(result.vacancy.responsibilities).toContain('Lead product design for desktop workflows.')
 
   await expect(
     localAppData.metadata.get<{
@@ -126,19 +130,7 @@ test('ingests pasted vacancy text into a ready preview and persists encrypted va
     }),
   ).resolves.toEqual(
     Buffer.from(
-      [
-        'Senior Product Designer',
-        'Example Labs',
-        'London, United Kingdom',
-        '',
-        'Responsibilities',
-        '- Lead product design for AI-assisted desktop workflows.',
-        '- Partner with engineering and research teams.',
-        '',
-        'Requirements',
-        '- Experience shipping workflow products.',
-        '- Strong written communication.',
-      ].join('\n'),
+      'Lead product design for desktop workflows. Partner with engineering and research.',
       'utf8',
     ),
   )
@@ -150,6 +142,78 @@ test('ingests pasted vacancy text into a ready preview and persists encrypted va
 
   expect(normalizedArtifact?.toString('utf8')).toContain('"title":"Senior Product Designer"')
   expect(normalizedArtifact?.toString('utf8')).toContain('"employer":"Example Labs"')
+
+  await localAppData.close()
+})
+
+test('keeps pasted vacancy intake incomplete when AI extraction finds insufficient job detail', async () => {
+  const paths = await createTestPaths()
+  const localAppData = await openLocalAppData({
+    keychain: createKeychainBoundary(),
+    paths,
+  })
+  const normalizationService = {
+    normalizeVacancy: vi.fn(() => {
+      return Promise.resolve({
+        bodyText: 'This role summary is too thin to tailor against.',
+        employer: 'Example Labs',
+        location: null,
+        requirements: [],
+        responsibilities: [],
+        title: 'Product role',
+      })
+    }),
+  } satisfies VacancyNormalizationService
+  const vacancyService = createVacancyService({
+    generateId: vi.fn(() => 'vacancy-pasted-incomplete'),
+    getCurrentTimestamp: vi.fn(() => '2026-04-08T21:05:00.000Z'),
+    localAppData,
+    normalizationService,
+    openVacancyBrowserSession: vi.fn(() => Promise.resolve(null)),
+  })
+  const pastedText = [
+    'Senior Product Designer',
+    'Example Labs',
+    'London, United Kingdom',
+    '',
+    'Responsibilities',
+    '- Lead product design for AI-assisted desktop workflows.',
+    '- Partner with engineering and research teams.',
+    '',
+    'Requirements',
+    '- Experience shipping workflow products.',
+    '- Strong written communication.',
+  ].join('\n')
+
+  const result = await vacancyService.ingestPastedVacancy({
+    text: pastedText,
+  })
+
+  expect(result.kind).toBe('incomplete')
+  expect(normalizationService.normalizeVacancy).toHaveBeenCalledTimes(1)
+  expect(result.vacancy.canGenerate).toBe(false)
+  expect(result.vacancy.blockingReason).toBe(
+    'Add the full job responsibilities or requirements before tailoring your CV.',
+  )
+  expect(result.workspaceState).toMatchObject({
+    draft: {
+      text: pastedText,
+      url: '',
+    },
+    reviewState: 'editable',
+    vacancy: {
+      id: 'vacancy-pasted-incomplete',
+      status: 'incomplete',
+      title: 'Product role',
+    },
+  })
+  await expect(
+    localAppData.artifacts.read({
+      id: 'vacancy-pasted-incomplete',
+      name: 'extracted.txt',
+      scope: 'vacancies',
+    }),
+  ).resolves.toEqual(Buffer.from('This role summary is too thin to tailor against.', 'utf8'))
 
   await localAppData.close()
 })
@@ -967,11 +1031,24 @@ test('blocks a non-English pasted vacancy while preserving the entered draft', a
     keychain: createKeychainBoundary(),
     paths,
   })
+  const normalizationService = {
+    normalizeVacancy: vi.fn(() => {
+      return Promise.resolve({
+        bodyText:
+          'Diseñar productos para usuarios técnicos con equipos de ingeniería. Colaborar con investigación y operaciones.',
+        employer: 'Example Labs',
+        location: 'Madrid, España',
+        requirements: ['Experiencia enviando software de flujo de trabajo.'],
+        responsibilities: ['Diseñar productos para usuarios técnicos.'],
+        title: 'Ingeniero de plataforma',
+      })
+    }),
+  } satisfies VacancyNormalizationService
   const vacancyService = createVacancyService({
     generateId: vi.fn(() => 'vacancy-008'),
     getCurrentTimestamp: vi.fn(() => '2026-04-08T21:40:00.000Z'),
     localAppData,
-    normalizationService: createVacancyNormalizationServiceDouble(),
+    normalizationService,
     openVacancyBrowserSession: vi.fn(() => Promise.resolve(null)),
   })
 
@@ -995,6 +1072,7 @@ test('blocks a non-English pasted vacancy while preserving the entered draft', a
   })
 
   expect(result.kind).toBe('incomplete')
+  expect(normalizationService.normalizeVacancy).toHaveBeenCalledTimes(1)
   expect(result.vacancy.canGenerate).toBe(false)
   expect(result.vacancy.blockingReason).toBe(
     'CV Maxxing v1 supports British English only. Review an English job before tailoring your CV.',
@@ -1013,6 +1091,21 @@ test('blocks a non-English pasted vacancy while preserving the entered draft', a
     originalUrl: 'https://jobs.example.com/platform-engineer-es',
     status: 'incomplete',
   })
+  await expect(
+    localAppData.artifacts.read({
+      id: 'vacancy-008',
+      name: 'extracted.txt',
+      scope: 'vacancies',
+    }),
+  ).resolves.toEqual(
+    Buffer.from(
+      [
+        'Diseñar productos para usuarios técnicos con equipos de ingeniería.',
+        'Colaborar con investigación y operaciones.',
+      ].join(' '),
+      'utf8',
+    ),
+  )
 
   await localAppData.close()
 })
