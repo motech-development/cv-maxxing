@@ -60,7 +60,7 @@ provide a token through the environment used by the container.
 
 | Command                     | Semantics                                                                                                                                                  | Expected side effects                                                                                                                                                      |
 | --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `pnpm sandcastle:dry-run`   | Mocked wiring check. It exercises the host loop with injected no-op planner, child, merger, and draft PR handlers. It is not live end-to-end proof.        | None. It does not inspect GitHub, start Codex, create branches, merge, push, or open a PR.                                                                                 |
+| `pnpm sandcastle:dry-run`   | Live planning preview. It runs the real planner against GitHub issue state, then stops before mutating workflow steps.                                     | None. It starts Codex and inspects GitHub, but it does not create branches, run child implementation/review, merge, push, or open a PR.                                    |
 | `pnpm sandcastle:preflight` | Live prerequisite validation. It checks Docker, the configured local Sandcastle image, Codex auth files, GitHub CLI auth, and git branch readiness.        | None. It does not create implementation commits, merge branches, draft PRs, or issue changes.                                                                              |
 | `pnpm sandcastle`           | Live PRD workflow. It runs planner, bounded child implementation/review, merger, parent branch push, and draft PR handling until no work or iteration cap. | Creates or reuses child branches, creates or updates the parent PRD branch, merges completed child branches, pushes the parent branch, and creates or reuses one draft PR. |
 
@@ -83,10 +83,10 @@ draft pull request as durable workflow state. It deliberately excludes:
 - Custom resume or recovery machinery.
 - History rewriting, including child commit rewriting.
 
-The controlled dry run (`pnpm sandcastle:dry-run`) demonstrates the
-planner, implementer/reviewer, merger, and draft PR wiring with injected no-op
-executors. It does not inspect live GitHub issues, start Codex, create branches,
-merge branches, or create a real pull request.
+The controlled dry run (`pnpm sandcastle:dry-run`) demonstrates planner
+selection against live GitHub issue state without mutating durable workflow
+state. It starts Codex and inspects GitHub, then skips implementation, review,
+merge, push, and draft PR creation.
 
 ## Reference-Pattern Checklist
 

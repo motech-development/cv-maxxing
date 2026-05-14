@@ -227,13 +227,21 @@ export interface CreateCodexDockerOptionsInput {
   readonly hostCodexHome?: string
 }
 
-export interface WorkflowDryRunResult {
-  readonly plannerOutput: PlannerOutput
-  readonly childResults: readonly ChildTaskExecutionResult[]
-  readonly mergeResult: MergeCompletedBranchesResult
-  readonly draftPullRequestResult: DraftPullRequestLifecycleResult
-  readonly steps: readonly string[]
-}
+export type WorkflowDryRunResult =
+  | {
+      readonly status: 'no-work'
+      readonly plannerOutput: Extract<PlannerOutput, { readonly kind: 'no-work' }>
+      readonly sideEffects: 'none'
+      readonly executedSteps: readonly string[]
+      readonly skippedSteps: readonly string[]
+    }
+  | {
+      readonly status: 'planned'
+      readonly plannerOutput: Extract<PlannerOutput, { readonly kind: 'plan' }>
+      readonly sideEffects: 'none'
+      readonly executedSteps: readonly string[]
+      readonly skippedSteps: readonly string[]
+    }
 
 export interface PreflightResult {
   readonly status: 'passed' | 'failed'
@@ -748,49 +756,30 @@ export const runPreflight = async (): Promise<PreflightResult> => {
   }
 }
 
-export const runDryRun = async (): Promise<WorkflowDryRunResult> => {
-  let hasPlanned = false
-  const workflowResult = await runWorkflow({
-    draftPullRequestGateway: createDryRunDraftPullRequestGateway(),
-    executeChild: runDryRunChildTask,
-    maxIterations: 2,
-    maxParallel: 1,
-    runMergePrompt: async () => {
-      await Promise.resolve()
+export const runDryRun = async ({
+  runPlanner = runPlannerPrompt,
+}: {
+  readonly runPlanner?: PlannerPromptRunner
+} = {}): Promise<WorkflowDryRunResult> => {
+  const plannerOutput = await runPlanner()
+  const skippedSteps = ['implementer', 'reviewer', 'merger', 'draft-pr']
 
-      return {
-        branchName: createDryRunPlan().parentIssue.branchName,
-        logFilePath: '.sandcastle/logs/dry-run-merge.log',
-      }
-    },
-    runPlanner: async () => {
-      await Promise.resolve()
-
-      if (hasPlanned) {
-        return {
-          kind: 'no-work',
-        }
-      }
-
-      hasPlanned = true
-
-      return parsePlannerOutput(
-        `${PLAN_START_SIGNAL}${JSON.stringify(createDryRunPlan())}${PLAN_END_SIGNAL}`,
-      )
-    },
-  })
-  const iteration = workflowResult.iterations[0]
-
-  if (iteration === undefined) {
-    throw new Error('Dry run must produce one workflow iteration.')
+  if (plannerOutput.kind === 'no-work') {
+    return {
+      executedSteps: ['planner'],
+      plannerOutput,
+      sideEffects: 'none',
+      skippedSteps,
+      status: 'no-work',
+    }
   }
 
   return {
-    childResults: iteration.childResults,
-    draftPullRequestResult: iteration.draftPullRequestResult,
-    mergeResult: iteration.mergeResult,
-    plannerOutput: iteration.plannerOutput,
-    steps: ['planner', 'implementer', 'reviewer', 'merger', 'draft-pr'],
+    executedSteps: ['planner'],
+    plannerOutput,
+    sideEffects: 'none',
+    skippedSteps,
+    status: 'planned',
   }
 }
 
@@ -1113,64 +1102,6 @@ const checkGitBranchReadiness = async (): Promise<PreflightCheckResult> => {
     }
   }
 }
-
-const createDryRunPlan = (): PlannerPlan => {
-  const parentIssue: PlannedIssue = {
-    branchName: createPrdBranchName(100, 'PRD: Automate PRD issue workflow'),
-    number: 100,
-    title: 'PRD: Automate PRD issue workflow',
-  }
-  const child: PlannedIssue = {
-    branchName: createChildBranchName(101, 'Implement the first workflow slice'),
-    number: 101,
-    title: 'Implement the first workflow slice',
-  }
-
-  return {
-    children: [child],
-    parentIssue,
-  }
-}
-
-const runDryRunChildTask: ChildTaskExecutor = async ({ child }) => {
-  await Promise.resolve()
-
-  return {
-    branchName: child.branchName,
-    child,
-    implementationCommits: [{ sha: 'dry-run-implementation' }],
-    logFilePaths: [
-      `.sandcastle/logs/dry-run-implement-${String(child.number)}.log`,
-      `.sandcastle/logs/dry-run-review-${String(child.number)}.log`,
-    ],
-    reviewCommits: [{ sha: 'dry-run-review' }],
-    status: 'fulfilled',
-  }
-}
-
-const createDryRunDraftPullRequestGateway = (): DraftPullRequestGateway => ({
-  createDraftPullRequest: async ({ branchName }) => {
-    await Promise.resolve()
-
-    return {
-      isDraft: true,
-      number: 1,
-      url: `https://github.com/motech-development/cv-maxxing/pull/dry-run-${branchName}`,
-    }
-  },
-  ensureParentBranch: async () => {
-    await Promise.resolve()
-  },
-  findDraftPullRequest: async () => {
-    const pullRequests: readonly DraftPullRequest[] = []
-    await Promise.resolve()
-
-    return pullRequests.find(({ isDraft }) => isDraft)
-  },
-  pushParentBranch: async () => {
-    await Promise.resolve()
-  },
-})
 
 const localBranchExists = async (branchName: string): Promise<boolean> => {
   try {
