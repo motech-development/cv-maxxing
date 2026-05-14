@@ -17,15 +17,16 @@ gh issue view {{PARENT_ISSUE_NUMBER}} --json number,title,body,url,state
 gh issue view {{CHILD_ISSUE_NUMBER}} --json number,title,body,url,state
 ```
 
-Read the repository `AGENTS.md`, relevant package files, and existing tests before
-changing code.
+Read the repository `AGENTS.md`, relevant package files, and existing checks
+before changing code.
 
 ## Implementation Rules
 
 - Stay inside the assigned child issue scope.
 - Use pnpm for repository commands and dependency work.
-- Follow TDD for behavior changes: add or update a failing automated test first,
-  then implement the minimal change and keep the tests passing.
+- Follow the project testing rules in `AGENTS.md`: use TDD for
+  coverage-instrumented app behavior, and do not add unit tests for repo-owned
+  Sandcastle automation.
 - Run linting, type-checking, and relevant tests before committing.
 - Run `coderabbit review --agent` when available, and wait for a terminal result
   before considering the task complete.
@@ -33,6 +34,8 @@ changing code.
 - Do not skip git hooks. Never use `--no-verify`.
 - Do not mutate GitHub issue or pull request state.
 - Do not close issues manually.
+- Do not rewrite child branch history: no amend, rebase, reset-to-rewrite, patch
+  stacks, custom resume flows, or opaque recovery machinery.
 
 ## macOS Visual Snapshot Updates
 
@@ -51,11 +54,12 @@ Then watch the run and pull the resulting snapshot commit:
 ```sh
 run_id="$(gh run list --workflow update-desktop-visual-snapshots.yml --limit 1 --json databaseId --jq '.[0].databaseId')"
 gh run watch "${run_id}"
-git pull --rebase
+git pull --ff-only
 ```
 
 Use the workflow output and committed snapshot diff as the audit trail. Do not
 add new repo automation, retry loops, or PR comments for this flow.
 
-End by printing `</task>` only after implementation, tests, checks, and
-CodeRabbit review are complete.
+End by printing exactly `</task>` only after implementation, checks, and
+CodeRabbit review are complete. That tag is the Codex-compatible completion
+signal for this run.

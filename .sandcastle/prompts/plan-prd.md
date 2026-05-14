@@ -22,6 +22,10 @@ Use `## Parent PRD` to identify children for the selected PRD. Use `## Blocked b
 and issue state to reason about dependency order. Dependency selection belongs in
 this prompt, not in custom TypeScript parsing.
 
+The planner is responsible for selecting the next parent PRD and the unblocked
+child issues for the next iteration. Keep dependency reasoning here in the
+prompt contract; the host script should only parse the emitted plan.
+
 ## GitHub CLI Inspection
 
 Use commands like these:
@@ -73,4 +77,5 @@ Otherwise output only JSON between `<plan>` and `</plan>`:
 ```
 
 Keep the plan small and only include unblocked child issues that should be run in
-the next workflow iteration.
+the next workflow iteration. The `</plan>` tag is the Codex-compatible completion
+signal for planned work.
