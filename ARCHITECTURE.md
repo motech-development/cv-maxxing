@@ -167,7 +167,7 @@ Electron Desktop App
 | Package manager     | `pnpm`                                                                                                           |
 | Persistence         | SQLCipher-backed SQLite + encrypted local filesystem artifacts                                                   |
 | AI runtime          | Provider-neutral local AI worker port; v1 ships Codex CLI adapter only                                           |
-| Vacancy fetch       | app-owned fetch/browser capture plus AI-backed URL normalization; pasted text review stays deterministic         |
+| Vacancy fetch       | app-owned fetch/browser capture plus AI-backed URL and pasted-text normalization                                 |
 | CV rendering        | dynamic shared HTML renderer derived from `design/cv.html`                                                       |
 | PDF export          | Chromium `printToPDF()` from hidden render surface                                                               |
 | PDF preview         | preview the actual generated PDF artifact in-app                                                                 |
@@ -501,7 +501,7 @@ Use:
 - readability / article extraction
 - DOM text extraction
 - AI-worker-assisted field normalization for every successful URL review
-- deterministic pasted-text review without the AI normalization worker
+- AI-worker-assisted field normalization for pasted job descriptions
 
 ### 8.5 Failure and cancellation behavior
 
@@ -514,6 +514,8 @@ Generation requires a minimum useful vacancy model: substantive responsibilities
 The user should review a compact normalized vacancy preview before `Adapt CV` is enabled. Do not allow editing normalized vacancy fields in v1; if extraction is wrong, the fallback is pasted job text.
 
 URL normalization persists only semantically validated vacancy output. The app trims whitespace, removes trivial empties, deduplicates exact duplicate bullets, rejects obvious cookie/sign-in/feed junk, and derives language checks from the canonical normalized `bodyText`.
+
+Pasted-text normalization persists the AI-cleaned job-spec text as `extracted.txt` and the AI-extracted structured fields as `normalized.json`. The app still derives readiness and language-blocking decisions deterministically from the normalized vacancy model and pasted source text before generation is allowed.
 
 Browser vacancy fetch jobs should run one at a time in v1. Cancelling an active fetch should stop the page/fetch job, keep the URL in the intake field, discard incomplete vacancy artifacts, and return to the vacancy intake state.
 
