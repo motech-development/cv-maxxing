@@ -53,8 +53,41 @@ interface ElectronRuntime {
 const require = createRequire(import.meta.url)
 
 const browserCaptureScript = `(() => {
+  const pageBody = document.body?.cloneNode(true)
+
+  if (pageBody instanceof HTMLElement) {
+    Array.from(document.querySelectorAll('iframe')).forEach((frame, index) => {
+      const clonedFrame = pageBody.querySelectorAll('iframe')[index]
+
+      if (!(clonedFrame instanceof HTMLElement) || !isVisibleFrame(frame)) {
+        return
+      }
+
+      try {
+        const frameBody = frame.contentDocument?.body
+
+        if (frameBody === undefined || frameBody === null) {
+          return
+        }
+
+        const embeddedContent = document.createElement('section')
+        embeddedContent.setAttribute('data-cv-maxxing-embedded-frame', 'true')
+        embeddedContent.innerHTML = frameBody.innerHTML
+        clonedFrame.replaceWith(embeddedContent)
+      } catch {
+        return
+      }
+    })
+  }
+
+  function isVisibleFrame(frame) {
+    const bounds = frame.getBoundingClientRect()
+
+    return bounds.width > 0 && bounds.height > 0
+  }
+
   return {
-    html: document.body?.innerHTML ?? '',
+    html: pageBody instanceof HTMLElement ? pageBody.innerHTML : '',
     pageTitle: document.title === '' ? null : document.title,
     resolvedUrl: window.location.href,
   }

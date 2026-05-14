@@ -58,11 +58,11 @@ test('writes a dedicated vacancy-normalization run workspace and removes it afte
           },
           vacancyPage: {
             extractedTextPath: 'input/page.txt',
-            originalUrl: 'https://boards.greenhouse.io/example/jobs/123',
-            pageTitle: 'Senior Product Designer at Example Labs - Greenhouse',
-            resolvedUrl: 'https://boards.greenhouse.io/example/jobs/123?gh_jid=123',
+            originalUrl: 'https://careers.example.com/jobs/123',
+            pageTitle: 'Senior Product Designer at Example Labs',
+            resolvedUrl: 'https://careers.example.com/jobs/123',
             sanitizedHtmlPath: 'input/page.html',
-            source: 'greenhouse',
+            source: 'careers.example.com',
           },
         })
         expect(Array.isArray(parsedExamples)).toBe(true)
@@ -107,10 +107,10 @@ test('writes a dedicated vacancy-normalization run workspace and removes it afte
         '</body>',
         '</html>',
       ].join(''),
-      originalUrl: 'https://boards.greenhouse.io/example/jobs/123',
-      pageTitle: 'Senior Product Designer at Example Labs - Greenhouse',
-      resolvedUrl: 'https://boards.greenhouse.io/example/jobs/123?gh_jid=123',
-      source: 'greenhouse',
+      originalUrl: 'https://careers.example.com/jobs/123',
+      pageTitle: 'Senior Product Designer at Example Labs',
+      resolvedUrl: 'https://careers.example.com/jobs/123',
+      source: 'careers.example.com',
     }),
   ).resolves.toEqual({
     bodyText: 'Lead product design for desktop workflows. Partner with engineering and research.',
@@ -252,7 +252,7 @@ test('rejects semantically invalid normalized vacancy output after deterministic
       originalUrl: 'https://www.linkedin.com/jobs/view/123456',
       pageTitle: 'Sign in to view this job | LinkedIn',
       resolvedUrl: 'https://www.linkedin.com/jobs/view/123456',
-      source: 'linkedin',
+      source: 'linkedin.com',
     }),
   ).rejects.toEqual(
     new VacancyNormalizationError({
@@ -262,9 +262,9 @@ test('rejects semantically invalid normalized vacancy output after deterministic
   )
 })
 
-test('focuses authenticated LinkedIn normalization input on the main vacancy content and bounds oversized artifacts', async () => {
+test('bounds rendered vacancy normalization input without provider-specific page focusing', async () => {
   const runWorkspaceRootPath = await mkdtemp(
-    path.join(tmpdir(), 'cv-maxxing-vacancy-normalization-service-linkedin-focus-'),
+    path.join(tmpdir(), 'cv-maxxing-vacancy-normalization-service-rendered-input-'),
   )
 
   temporaryDirectories.push(runWorkspaceRootPath)
@@ -279,12 +279,8 @@ test('focuses authenticated LinkedIn normalization input on the main vacancy con
 
         expect(pageHtml).toContain('<main>')
         expect(pageHtml).toContain('Senior Product Designer')
-        expect(pageHtml).not.toContain('People you may know')
-        expect(pageHtml).not.toContain('Recommended jobs')
         expect(pageHtml.length).toBeLessThan(60_001)
         expect(pageText).toContain('Lead product design for authenticated desktop workflows.')
-        expect(pageText).not.toContain('People you may know')
-        expect(pageText).not.toContain('Recommended jobs')
         expect(pageText.length).toBeLessThan(24_001)
 
         return {
@@ -303,35 +299,33 @@ test('focuses authenticated LinkedIn normalization input on the main vacancy con
     ),
   }
   const service = createVacancyNormalizationService({
-    generateId: vi.fn(() => 'vacancy-normalization-run-linkedin-focus'),
+    generateId: vi.fn(() => 'vacancy-normalization-run-rendered-input'),
     runWorkspaceRootPath,
     worker,
   })
-  const profileNoise = '<div>People you may know</div>'.repeat(4000)
-  const relatedJobNoise =
-    '<section><h2>Recommended jobs</h2><p>More jobs for you.</p></section>'.repeat(2000)
+  const trailingPageNoise =
+    '<section><h2>More open roles</h2><p>Designer role</p></section>'.repeat(2000)
 
   await expect(
     service.normalizeVacancy({
       html: [
         '<html>',
         '<body>',
-        `<aside>${profileNoise}</aside>`,
         '<main>',
         '<h1>Senior Product Designer</h1>',
         '<p>Example Labs</p>',
         '<p>London, United Kingdom</p>',
         '<section><h2>Responsibilities</h2><ul><li>Lead product design for authenticated desktop workflows.</li><li>Partner with engineering and research.</li></ul></section>',
         '<section><h2>Requirements</h2><ul><li>Experience shipping workflow software.</li><li>Excellent written communication.</li></ul></section>',
-        relatedJobNoise,
         '</main>',
+        trailingPageNoise,
         '</body>',
         '</html>',
       ].join(''),
-      originalUrl: 'https://www.linkedin.com/jobs/view/123456',
-      pageTitle: 'Senior Product Designer | LinkedIn',
-      resolvedUrl: 'https://www.linkedin.com/jobs/view/123456',
-      source: 'linkedin',
+      originalUrl: 'https://careers.example.com/jobs/123',
+      pageTitle: 'Senior Product Designer at Example Labs',
+      resolvedUrl: 'https://careers.example.com/jobs/123',
+      source: 'careers.example.com',
     }),
   ).resolves.toEqual({
     bodyText:

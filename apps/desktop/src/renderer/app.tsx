@@ -2822,7 +2822,7 @@ function resolveAutoBrowserSessionUrl(result: VacancyIngestResult): string | nul
     return null
   }
 
-  if (result.vacancy.source !== 'indeed' && result.vacancy.source !== 'linkedin') {
+  if (result.workspaceState.vacancy !== null) {
     return null
   }
 

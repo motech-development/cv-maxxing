@@ -14,7 +14,7 @@ export const VACANCY_NORMALIZATION_EXAMPLES: readonly {
       responsibilities: ['Lead product design for AI-assisted desktop workflows.'],
       title: 'Senior Product Designer',
     },
-    title: 'Main vacancy body recovered from Greenhouse page chrome',
+    title: 'Main vacancy body recovered from rendered page chrome',
   },
   {
     normalizedVacancy: {

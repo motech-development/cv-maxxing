@@ -171,11 +171,7 @@ function PreviewList({ emptyState, items, title }: PreviewListProperties) {
 }
 
 function isBrowserSessionAvailable(preview: VacancySummary): boolean {
-  return (
-    preview.originalUrl !== null &&
-    !preview.canGenerate &&
-    (preview.source === 'indeed' || preview.source === 'linkedin')
-  )
+  return preview.originalUrl !== null && !preview.canGenerate && preview.resolvedUrl === null
 }
 
 function getPreviewStatusPill(preview: VacancySummary): {
