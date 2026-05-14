@@ -4,9 +4,9 @@ import { homedir } from 'node:os'
 import path from 'node:path'
 import { promisify } from 'node:util'
 
-import { codex, run } from '@ai-hero/sandcastle'
+import { codex, createSandbox, run } from '@ai-hero/sandcastle'
 import { docker } from '@ai-hero/sandcastle/sandboxes/docker'
-import type { PromptArgs, RunResult } from '@ai-hero/sandcastle'
+import type { PromptArgs, Sandbox, SandboxHooks, SandboxRunResult } from '@ai-hero/sandcastle'
 import type { DockerOptions } from '@ai-hero/sandcastle/sandboxes/docker'
 
 const execFileAsync = promisify(execFile)
@@ -50,24 +50,9 @@ export type PlannerOutput =
       readonly kind: 'no-work'
     }
 
-export interface ChildTaskPromptInput {
-  readonly parentIssue: PlannedIssue
-  readonly child: PlannedIssue
-  readonly promptFile: string
-  readonly taskKind: 'implement' | 'review'
-}
-
-export interface ChildTaskPromptResult {
-  readonly branchName: string
-  readonly commits: readonly CommitReference[]
-  readonly logFilePath?: string
-}
-
 export interface CommitReference {
   readonly sha: string
 }
-
-export type ChildTaskPromptRunner = (input: ChildTaskPromptInput) => Promise<ChildTaskPromptResult>
 
 export type ChildTaskExecutionResult =
   | {
@@ -89,7 +74,6 @@ export type ChildTaskExecutionResult =
 export interface ExecuteChildTaskInput {
   readonly parentIssue: PlannedIssue
   readonly child: PlannedIssue
-  readonly runPrompt?: ChildTaskPromptRunner
 }
 
 export type ChildTaskExecutor = (input: {
@@ -342,15 +326,24 @@ export const runPlannedChildTasks = async ({
 export const executeChildTask = async ({
   child,
   parentIssue,
-  runPrompt = runChildPrompt,
 }: ExecuteChildTaskInput): Promise<ChildTaskExecutionResult> => {
+  let branchName = child.branchName
   let collectedLogFilePaths: readonly string[] = []
+  let sandbox: Sandbox | undefined
 
   try {
-    const implementationResult = await runPrompt({
+    sandbox = await createSandbox({
+      branch: child.branchName,
+      hooks: createSandboxSetupHooks(),
+      sandbox: createCodexDockerSandbox(),
+    })
+    branchName = sandbox.branch
+
+    const implementationResult = await runChildPromptInSandbox({
       child,
       parentIssue,
       promptFile: IMPLEMENT_PROMPT_FILE,
+      sandbox,
       taskKind: 'implement',
     })
 
@@ -359,7 +352,7 @@ export const executeChildTask = async ({
 
     if (implementationResult.commits.length === 0) {
       return {
-        branchName: implementationResult.branchName,
+        branchName,
         child,
         implementationCommits: [],
         logFilePaths: implementationLogFilePaths,
@@ -368,10 +361,11 @@ export const executeChildTask = async ({
       }
     }
 
-    const reviewResult = await runPrompt({
+    const reviewResult = await runChildPromptInSandbox({
       child,
       parentIssue,
       promptFile: REVIEW_PROMPT_FILE,
+      sandbox,
       taskKind: 'review',
     })
     collectedLogFilePaths = compactOptionalString([
@@ -380,7 +374,7 @@ export const executeChildTask = async ({
     ])
 
     return {
-      branchName: reviewResult.branchName,
+      branchName,
       child,
       implementationCommits: implementationResult.commits,
       logFilePaths: collectedLogFilePaths,
@@ -388,30 +382,40 @@ export const executeChildTask = async ({
       status: 'fulfilled',
     }
   } catch (error: unknown) {
+    collectedLogFilePaths = compactOptionalString([
+      ...collectedLogFilePaths,
+      extractLogFilePath(error),
+    ])
+
     return {
-      branchName: child.branchName,
+      branchName,
       child,
       error: formatErrorMessage(error),
       logFilePaths: collectedLogFilePaths,
       status: 'failed',
     }
+  } finally {
+    await sandbox?.close()
   }
 }
 
-export const runChildPrompt: ChildTaskPromptRunner = async ({
+const runChildPromptInSandbox = async ({
   child,
   parentIssue,
   promptFile,
+  sandbox,
   taskKind,
-}) => {
-  const result = await run({
+}: {
+  readonly child: PlannedIssue
+  readonly parentIssue: PlannedIssue
+  readonly promptFile: string
+  readonly sandbox: Sandbox
+  readonly taskKind: 'implement' | 'review'
+}): Promise<SandboxRunResult> =>
+  await sandbox.run({
     agent: codex(process.env.SANDCASTLE_CODEX_MODEL ?? DEFAULT_CODEX_MODEL, {
       effort: DEFAULT_CODEX_EFFORT,
     }),
-    branchStrategy: {
-      branch: child.branchName,
-      type: 'branch',
-    },
     completionSignal: COMPLETION_SIGNAL,
     maxIterations: MAX_ITERATIONS,
     name: `${taskKind}-${String(child.number)}`,
@@ -420,11 +424,7 @@ export const runChildPrompt: ChildTaskPromptRunner = async ({
       parentIssue,
     }),
     promptFile,
-    sandbox: createCodexDockerSandbox(),
   })
-
-  return toChildTaskPromptResult(result)
-}
 
 export const collectCompletedChildBranches = (
   childResults: readonly ChildTaskExecutionResult[],
@@ -784,10 +784,17 @@ const createMergePromptArguments = ({
   COMPLETED_BRANCHES: JSON.stringify(completedBranches.map(({ branchName }) => branchName)),
 })
 
-const toChildTaskPromptResult = (result: RunResult): ChildTaskPromptResult => ({
-  branchName: result.branch,
-  commits: result.commits,
-  logFilePath: result.logFilePath,
+const createSandboxSetupHooks = (): SandboxHooks => ({
+  sandbox: {
+    onSandboxReady: [
+      {
+        command: 'corepack enable pnpm',
+      },
+      {
+        command: 'pnpm install --frozen-lockfile',
+      },
+    ],
+  },
 })
 
 const isFulfilledChildWithCommits = (
@@ -803,6 +810,16 @@ const isDefined = <Value>(value: Value | undefined): value is Value => value !==
 
 const formatErrorMessage = (error: unknown): string =>
   error instanceof Error ? error.message : String(error)
+
+const extractLogFilePath = (error: unknown): string | undefined => {
+  if (!isRecord(error)) {
+    return undefined
+  }
+
+  const logFilePath = error.logFilePath
+
+  return typeof logFilePath === 'string' && logFilePath.length > 0 ? logFilePath : undefined
+}
 
 const createDryRunPlan = (): PlannerPlan => {
   const parentIssue: PlannedIssue = {
