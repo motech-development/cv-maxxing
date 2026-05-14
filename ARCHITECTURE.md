@@ -443,71 +443,42 @@ If generation succeeds but the app exits before deterministic PDF rendering fini
 
 The app should support:
 
-1. live URL fetch
+1. live URL intake
 2. pasted text
 
-Live URL fetch is the primary path. Pasted text is the resilience path and may include an optional URL for reference. Do not support saved page, HTML, TXT, PDF, or DOCX vacancy imports in v1.
+Live URL intake is the primary path. Pasted text is the resilience path and may include an optional URL for reference. Do not support saved page, HTML, TXT, PDF, or DOCX vacancy imports in v1.
 
-### 8.2 Fetch pipeline
+### 8.2 URL intake pipeline
 
-Use a layered ingestion strategy:
-
-```text
-1. URL classification
-2. Deterministic fetch adapter
-3. Browser-assisted fetch when needed
-4. Text extraction and cleanup
-5. AI-worker-assisted structuring when deterministic normalization is insufficient
-6. Persist snapshot and structured vacancy model
-```
-
-### 8.3 Vacancy fetch adapters
+Use one generic browser-mediated ingestion strategy for every submitted job link:
 
 ```text
-VacancyFetcherPort
-├── GreenhouseFetcher
-├── LinkedInFetcher
-├── IndeedFetcher
-└── GenericFetcher
+1. Persist the submitted URL draft
+2. Load the submitted URL in the app-managed Electron browser session
+3. Capture sanitized rendered page evidence, including readable embedded frame content
+4. Send rendered evidence to the AI worker for cleaned text and structured fields
+5. Validate language, readiness, and semantic usefulness in the app
+6. Persist snapshot, cleaned text, and structured vacancy artifacts
 ```
 
-### 8.4 Fetch strategy by vacancy site
+The URL-intake path must not branch by job-board provider, hostname, URL parameters, embedded-board convention, or static-fetch fallback. The submitted URL hostname is normalized to lower case, with a leading `www.` removed, and stored as the vacancy `source`.
 
-#### Greenhouse
-
-Use deterministic HTTP fetch and DOM parsing first.
-
-#### LinkedIn and Indeed
-
-Use a browser-backed fetch path when static retrieval is incomplete or blocked.
-
-Recommended implementation:
+### 8.3 Browser session
 
 - app-managed browser session controlled by the main process
-- visible browser window when authentication or user interaction is needed
-- hidden/automated browser context only after the user has an authenticated app-managed session and the URL can be fetched reliably
+- hidden browser capture for the readable happy path
+- visible browser window when authentication or user interaction is needed in later retry flows
 - persistent local profile support for authenticated sessions
-- page snapshot persisted after successful extraction
-- current domain shown clearly; do not hard-block cross-domain auth redirects in v1
-- extraction allowed only when the final page is classified as a supported or generic vacancy source
+- sanitized rendered snapshot persisted after successful extraction
+- capture accepted only when the observed top-level hostname, path, and query still match the submitted URL; hash-only changes are allowed
 
 External browser fallback may open the URL in Safari/Chrome for the user to view or copy manually, but extraction must never depend on reading external browser cookies or sessions.
 
-#### Generic fallback
+### 8.4 Failure and cancellation behavior
 
-Use:
+If URL review fails because browser capture, AI normalization, or semantic validation cannot produce a trustworthy vacancy, do not proceed to generation. Keep the entered URL in the intake draft, do not persist reviewed vacancy artifacts, throw through the existing review-failure path, and offer internal browser retry or pasted job text fallback.
 
-- standard HTTP fetch
-- readability / article extraction
-- DOM text extraction
-- AI-worker-assisted field normalization for every successful URL review
-- AI-worker-assisted field normalization for pasted job descriptions
-
-### 8.5 Failure and cancellation behavior
-
-If URL review fails because fetch, browser capture, AI normalization, or semantic validation cannot produce a trustworthy vacancy, do not proceed to generation. Keep the entered URL in the intake draft, do not persist reviewed vacancy artifacts, throw through the existing review-failure path, and offer internal browser sign-in for LinkedIn/Indeed or pasted job text fallback.
-
-Browser-navigation failures such as never reaching the requested LinkedIn/Indeed vacancy URL or closing off-target remain incomplete-review states instead of thrown errors. The browser session only decides whether the requested vacancy page was actually observed; AI normalization owns field extraction.
+Browser-navigation failures such as never reaching the requested job URL or closing off-target remain incomplete-review states instead of thrown errors. The browser session only decides whether the requested vacancy page was actually observed; AI normalization owns field extraction.
 
 Generation requires a minimum useful vacancy model: substantive responsibilities or requirements text, plus title/employer/location when available.
 
@@ -515,15 +486,15 @@ The user should review a compact normalized vacancy preview before `Adapt CV` is
 
 URL normalization persists only semantically validated vacancy output. The app trims whitespace, removes trivial empties, deduplicates exact duplicate bullets, rejects obvious cookie/sign-in/feed junk, and derives language checks from the canonical normalized `bodyText`.
 
-Browser vacancy fetch jobs should run one at a time in v1. Cancelling an active fetch should stop the page/fetch job, keep the URL in the intake field, discard incomplete vacancy artifacts, and return to the vacancy intake state.
+Browser vacancy intake jobs should run one at a time in v1. Cancelling an active intake should stop the page capture, keep the URL in the intake field, discard incomplete vacancy artifacts, and return to the vacancy intake state.
 
-### 8.6 Persisted vacancy artifacts
+### 8.5 Persisted vacancy artifacts
 
 Always persist:
 
 - original URL
 - final resolved URL
-- job board classification
+- source hostname
 - fetch timestamp
 - page title when available
 - raw HTML or sanitized browser DOM snapshot
@@ -633,7 +604,7 @@ The AI worker now produces this profile during original-CV normalization. Tailor
 - id
 - inputType: `url | pasted_text`
 - url
-- jobBoard: `linkedin | indeed | greenhouse | generic | unknown`
+- source hostname
 - rawHtmlPath
 - rawTextPath
 - normalizedVacancyPath
@@ -1312,10 +1283,8 @@ Baseline packaging requirements:
 
 ### Phase 3. Vacancy ingestion
 
-- classify job board by URL
-- implement Greenhouse deterministic fetcher
-- implement LinkedIn and Indeed browser-backed fetchers
-- implement generic fallback fetcher
+- implement generic browser-mediated URL intake
+- persist normalized submitted hostnames as vacancy sources
 - persist vacancy snapshots and normalized vacancy models
 - implement pasted job text fallback with optional URL reference
 - implement vacancy preview before `Adapt CV`

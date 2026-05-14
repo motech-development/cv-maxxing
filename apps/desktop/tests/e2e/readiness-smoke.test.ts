@@ -312,7 +312,7 @@ test('rejects an unreadable original CV replacement without leaving the workspac
   await electronApp.close()
 })
 
-test('captures a LinkedIn vacancy through the internal browser session and restores a ready preview in the app shell', async () => {
+test('captures a job URL through the internal browser session and restores a ready preview in the app shell', async () => {
   const testPaths = await createOriginalCvTestPaths()
 
   await writeFile(
@@ -362,7 +362,7 @@ test('captures a LinkedIn vacancy through the internal browser session and resto
       '</body>',
       '</html>',
     ].join(''),
-    CV_MAXXING_VACANCY_BROWSER_SESSION_RESOLVED_URL: 'https://www.linkedin.com/jobs/view/123456',
+    CV_MAXXING_VACANCY_BROWSER_SESSION_RESOLVED_URL: 'https://jobs.example.com/roles/123456',
   })
 
   const page = await electronApp.firstWindow()
@@ -373,7 +373,7 @@ test('captures a LinkedIn vacancy through the internal browser session and resto
     page,
   })
   await openJobsFromYourCv(page)
-  await page.getByLabel('Job link').fill('https://www.linkedin.com/jobs/view/123456')
+  await page.getByLabel('Job link').fill('https://jobs.example.com/roles/123456')
   await page.getByRole('button', { name: 'Check job details' }).first().click()
   await expect(page.getByText('Senior Product Designer')).toBeVisible()
   await expect(page.getByText('About the job')).toBeVisible()
@@ -428,12 +428,12 @@ test('returns cleanly to the vacancy intake with blocking guidance when the inte
       '<body>',
       '<main>',
       '<h1>Sign in to view this job</h1>',
-      '<p>Join LinkedIn or sign in to continue.</p>',
+      '<p>Sign in to continue.</p>',
       '</main>',
       '</body>',
       '</html>',
     ].join(''),
-    CV_MAXXING_VACANCY_BROWSER_SESSION_RESOLVED_URL: 'https://www.linkedin.com/jobs/view/123456',
+    CV_MAXXING_VACANCY_BROWSER_SESSION_RESOLVED_URL: 'https://jobs.example.com/roles/123456',
   })
 
   const page = await electronApp.firstWindow()
@@ -444,7 +444,7 @@ test('returns cleanly to the vacancy intake with blocking guidance when the inte
     page,
   })
   await openJobsFromYourCv(page)
-  await page.getByLabel('Job link').fill('https://www.linkedin.com/jobs/view/123456')
+  await page.getByLabel('Job link').fill('https://jobs.example.com/roles/123456')
   await page.getByRole('button', { name: 'Check job details' }).first().click()
   await expect
     .poll(
@@ -463,7 +463,7 @@ test('returns cleanly to the vacancy intake with blocking guidance when the inte
   })
   await expect(page.getByRole('button', { name: 'Open the job page' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Tailor your CV' })).toBeDisabled()
-  await expect(page.getByLabel('Job link')).toHaveValue('https://www.linkedin.com/jobs/view/123456')
+  await expect(page.getByLabel('Job link')).toHaveValue('https://jobs.example.com/roles/123456')
 
   await electronApp.close()
 })

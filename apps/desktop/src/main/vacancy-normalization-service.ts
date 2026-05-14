@@ -128,7 +128,6 @@ async function writeRunWorkspaceInput({
 }): Promise<void> {
   const normalizationArtifacts = prepareVacancyNormalizationArtifacts({
     html: input.html,
-    source: input.source,
   })
   const inputDirectoryPath = path.join(runDirectoryPath, 'input')
   const taskJson = JSON.stringify({
@@ -250,11 +249,7 @@ function looksLikeSemanticJunk(value: string): boolean {
     return true
   }
 
-  if (
-    normalizedValue.includes('sign in') ||
-    normalizedValue.includes('log in') ||
-    normalizedValue.includes('join linkedin')
-  ) {
+  if (normalizedValue.includes('sign in') || normalizedValue.includes('log in')) {
     return true
   }
 

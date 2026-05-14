@@ -1,14 +1,12 @@
-import type { VacancySource } from '../shared/vacancy.js'
-
 const MAX_NORMALIZATION_HTML_LENGTH = 60_000
 const MAX_NORMALIZATION_TEXT_LENGTH = 24_000
-const PRIMARY_CONTENT_BLOCK_PATTERN = /<(main|article)\b[^>]*>[\s\S]*?<\/\1>/gi
+const PRIMARY_CONTENT_BLOCK_PATTERN = /<(main|article)\b[^>]*>[\s\S]*?<\/\1>/giu
 const TRAILING_RELATED_CONTENT_MARKERS = [
-  /recommended jobs/i,
-  /similar jobs/i,
-  /people also viewed/i,
-  /more jobs/i,
-  /jobs you may be interested in/i,
+  /recommended jobs/iu,
+  /similar jobs/iu,
+  /people also viewed/iu,
+  /more jobs/iu,
+  /jobs you may be interested in/iu,
 ] as const
 
 export interface VacancyNormalizationArtifacts {
@@ -53,16 +51,11 @@ export function sanitizeSnapshotHtml(html: string): string {
 
 export function prepareVacancyNormalizationArtifacts({
   html,
-  source,
 }: {
   html: string
-  source: VacancySource
 }): VacancyNormalizationArtifacts {
   const sanitizedHtml = sanitizeSnapshotHtml(html)
-  const focusedHtml = focusNormalizationHtml({
-    html: sanitizedHtml,
-    source,
-  })
+  const focusedHtml = focusNormalizationHtml(sanitizedHtml)
   const boundedHtml = truncateContent(focusedHtml, MAX_NORMALIZATION_HTML_LENGTH)
   const extractedText = truncateContent(
     extractTextFromHtml(boundedHtml),
@@ -96,11 +89,7 @@ export function inferTitleFromPageTitle(pageTitle: string | null): string | null
     return null
   }
 
-  const normalizedTitle = pageTitle
-    .replace(/\s+-\s+Greenhouse$/i, '')
-    .replace(/\s+\|\s+Indeed$/i, '')
-    .replace(/\s+\|\s+LinkedIn$/i, '')
-    .split(/\s+(?:at|\|)\s+/i)[0]
+  const normalizedTitle = pageTitle.split(/\s+(?:at|\|)\s+/i)[0]
 
   if (normalizedTitle === undefined) {
     return null
@@ -109,22 +98,18 @@ export function inferTitleFromPageTitle(pageTitle: string | null): string | null
   return normalizedTitle.trim()
 }
 
-function focusNormalizationHtml({ html, source }: { html: string; source: VacancySource }): string {
-  if (!shouldFocusPrimaryContent(source)) {
-    return html
-  }
-
+function focusNormalizationHtml(html: string): string {
   const primaryContent = extractPrimaryContentBlock(html)
 
   if (primaryContent === null) {
     return html
   }
 
-  return trimTrailingRelatedContent(primaryContent)
-}
+  const embeddedFrameContent = extractEmbeddedFrameContent(html)
+  const focusedHtml =
+    embeddedFrameContent === '' ? primaryContent : `${primaryContent}\n${embeddedFrameContent}`
 
-function shouldFocusPrimaryContent(source: VacancySource): boolean {
-  return source === 'indeed' || source === 'linkedin'
+  return trimTrailingRelatedContent(focusedHtml)
 }
 
 function extractPrimaryContentBlock(html: string): string | null {
@@ -167,6 +152,21 @@ function trimTrailingRelatedContent(html: string): string {
   const cutIndex = containerCutIndex >= 0 ? containerCutIndex : markerIndex
 
   return html.slice(0, cutIndex).trim()
+}
+
+function extractEmbeddedFrameContent(html: string): string {
+  return [
+    ...html.matchAll(
+      /<section\b[^>]*\bdata-cv-maxxing-embedded-frame="[^"]*"[^>]*>[\s\S]*?<\/section>/giu,
+    ),
+  ]
+    .map((match) => {
+      return match[0].trim()
+    })
+    .filter((match) => {
+      return match !== ''
+    })
+    .join('\n')
 }
 
 function truncateContent(value: string, maxLength: number): string {
