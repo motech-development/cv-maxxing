@@ -167,7 +167,7 @@ Electron Desktop App
 | Package manager     | `pnpm`                                                                                                           |
 | Persistence         | SQLCipher-backed SQLite + encrypted local filesystem artifacts                                                   |
 | AI runtime          | Provider-neutral local AI worker port; v1 ships Codex CLI adapter only                                           |
-| Vacancy fetch       | app-owned fetch/browser capture plus AI-backed URL normalization; pasted text review stays deterministic         |
+| Vacancy fetch       | app-owned fetch/browser capture plus AI-backed normalization for URL and pasted-description intake               |
 | CV rendering        | dynamic shared HTML renderer derived from `design/cv.html`                                                       |
 | PDF export          | Chromium `printToPDF()` from hidden render surface                                                               |
 | PDF preview         | preview the actual generated PDF artifact in-app                                                                 |
@@ -501,7 +501,7 @@ Use:
 - readability / article extraction
 - DOM text extraction
 - AI-worker-assisted field normalization for every successful URL review
-- deterministic pasted-text review without the AI normalization worker
+- AI-worker-assisted field normalization for pasted job descriptions
 
 ### 8.5 Failure and cancellation behavior
 
