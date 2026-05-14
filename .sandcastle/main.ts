@@ -173,6 +173,43 @@ export interface WorkflowResult {
   readonly iterations: readonly WorkflowIterationResult[]
 }
 
+export interface WorkflowReport {
+  readonly mode: 'dry-run' | 'live'
+  readonly status: WorkflowResult['status']
+  readonly iterations: number
+  readonly completedBranches: readonly string[]
+  readonly failedBranches: readonly WorkflowFailedBranchReport[]
+  readonly mergeResults: readonly WorkflowMergeReport[]
+  readonly draftPullRequests: readonly WorkflowDraftPullRequestReport[]
+  readonly logFilePaths: readonly string[]
+}
+
+export interface WorkflowFailedBranchReport {
+  readonly branchName: string
+  readonly error: string
+  readonly issueNumber: number
+  readonly logFilePaths: readonly string[]
+}
+
+export type WorkflowMergeReport =
+  | {
+      readonly status: 'merged'
+      readonly branchName: string
+      readonly completedBranches: readonly string[]
+      readonly logFilePath?: string
+    }
+  | {
+      readonly status: 'skipped'
+      readonly completedBranches: readonly string[]
+    }
+
+export interface WorkflowDraftPullRequestReport {
+  readonly status: DraftPullRequestLifecycleResult['status']
+  readonly number: number
+  readonly url: string
+  readonly isDraft: boolean
+}
+
 export interface RunWorkflowInput {
   readonly runPlanner?: PlannerPromptRunner
   readonly executeChild?: ChildTaskExecutor
@@ -225,16 +262,9 @@ export const runWorkflow = async ({
   runMergePrompt,
   runPlanner = runPlannerPrompt,
 }: RunWorkflowInput = {}): Promise<WorkflowResult> => {
-  const runNextIteration = async (
-    iterations: readonly WorkflowIterationResult[],
-  ): Promise<WorkflowResult> => {
-    if (iterations.length >= maxIterations) {
-      return {
-        iterations,
-        status: 'iteration-limit-reached',
-      }
-    }
+  const iterations: WorkflowIterationResult[] = []
 
+  for (let iterationIndex = 0; iterationIndex < maxIterations; iterationIndex += 1) {
     const plannerOutput = await runPlanner()
 
     if (plannerOutput.kind === 'no-work') {
@@ -267,10 +297,13 @@ export const runWorkflow = async ({
       plannerOutput,
     }
 
-    return await runNextIteration([...iterations, iteration])
+    iterations.push(iteration)
   }
 
-  return await runNextIteration([])
+  return {
+    iterations,
+    status: 'iteration-limit-reached',
+  }
 }
 
 export const runPlannerPrompt: PlannerPromptRunner = async () => {
@@ -681,6 +714,46 @@ export const runDryRun = async (): Promise<WorkflowDryRunResult> => {
   }
 }
 
+export const createWorkflowReport = ({
+  mode,
+  result,
+}: {
+  readonly mode: WorkflowReport['mode']
+  readonly result: WorkflowResult
+}): WorkflowReport => {
+  const childResults = result.iterations.flatMap(({ childResults }) => childResults)
+  const mergeResults = result.iterations.map(({ mergeResult }) =>
+    toWorkflowMergeReport(mergeResult),
+  )
+  const draftPullRequests = result.iterations.map(({ draftPullRequestResult }) =>
+    toWorkflowDraftPullRequestReport(draftPullRequestResult),
+  )
+  const logFilePaths = [
+    ...childResults.flatMap(({ logFilePaths }) => logFilePaths),
+    ...result.iterations.flatMap(({ mergeResult }) =>
+      mergeResult.status === 'merged' ? compactOptionalString([mergeResult.logFilePath]) : [],
+    ),
+  ]
+
+  return {
+    completedBranches: result.iterations.flatMap(({ mergeResult }) =>
+      mergeResult.completedBranches.map(({ branchName }) => branchName),
+    ),
+    draftPullRequests,
+    failedBranches: childResults.filter(isFailedChildResult).map((childResult) => ({
+      branchName: childResult.branchName,
+      error: childResult.error,
+      issueNumber: childResult.child.number,
+      logFilePaths: childResult.logFilePaths,
+    })),
+    iterations: result.iterations.length,
+    logFilePaths,
+    mergeResults,
+    mode,
+    status: result.status,
+  }
+}
+
 const slugify = (value: string): string => {
   const slug = value
     .toLowerCase()
@@ -802,6 +875,39 @@ const isFulfilledChildWithCommits = (
 ): result is Extract<ChildTaskExecutionResult, { readonly status: 'fulfilled' }> =>
   result.status === 'fulfilled' &&
   result.implementationCommits.length + result.reviewCommits.length > 0
+
+const isFailedChildResult = (
+  result: ChildTaskExecutionResult,
+): result is Extract<ChildTaskExecutionResult, { readonly status: 'failed' }> =>
+  result.status === 'failed'
+
+const toWorkflowMergeReport = (result: MergeCompletedBranchesResult): WorkflowMergeReport => {
+  const completedBranches = result.completedBranches.map(({ branchName }) => branchName)
+
+  if (result.status === 'skipped') {
+    return {
+      completedBranches,
+      status: 'skipped',
+    }
+  }
+
+  return {
+    branchName: result.branchName,
+    completedBranches,
+    logFilePath: result.logFilePath,
+    status: 'merged',
+  }
+}
+
+const toWorkflowDraftPullRequestReport = ({
+  pullRequest,
+  status,
+}: DraftPullRequestLifecycleResult): WorkflowDraftPullRequestReport => ({
+  isDraft: pullRequest.isDraft,
+  number: pullRequest.number,
+  status,
+  url: pullRequest.url,
+})
 
 const compactOptionalString = (values: readonly (string | undefined)[]): readonly string[] =>
   values.filter(isDefined)
@@ -958,8 +1064,13 @@ const main = async (): Promise<void> => {
     return
   }
 
-  console.info('Sandcastle PRD workflow is installed.')
-  console.info('Planner, implementer, reviewer, and merger steps land in child slices.')
+  const result = await runWorkflow()
+  const report = createWorkflowReport({
+    mode: 'live',
+    result,
+  })
+
+  console.info(JSON.stringify(report, null, 2))
 }
 
 if (process.argv[1]?.endsWith('/.sandcastle/main.ts') === true) {
