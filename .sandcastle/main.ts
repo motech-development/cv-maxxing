@@ -12,6 +12,8 @@ import type { DockerOptions } from '@ai-hero/sandcastle/sandboxes/docker'
 const execFileAsync = promisify(execFile)
 const COMMAND_TIMEOUT_MS = 60_000
 const GIT_BRANCH_MISSING_EXIT_CODE = 1
+const GIT_REMOTE_REF_MISSING_EXIT_CODE = 2
+const GIT_REMOTE_NAME = 'origin'
 const SANDBOX_CODEX_HOME = '/home/agent/.codex'
 
 export const MAX_ITERATIONS = 10
@@ -139,6 +141,7 @@ export interface CreateDraftPullRequestInput {
 
 export interface DraftPullRequestGateway {
   readonly ensureParentBranch: (branchName: string) => Promise<void>
+  readonly pushParentBranch: (branchName: string) => Promise<void>
   readonly findDraftPullRequest: (branchName: string) => Promise<DraftPullRequest | undefined>
   readonly createDraftPullRequest: (input: CreateDraftPullRequestInput) => Promise<DraftPullRequest>
 }
@@ -531,6 +534,7 @@ export const createOrReusePrdDraftPullRequest = async ({
   plan,
 }: CreateOrReusePrdDraftPullRequestInput): Promise<DraftPullRequestLifecycleResult> => {
   await gateway.ensureParentBranch(plan.parentIssue.branchName)
+  await gateway.pushParentBranch(plan.parentIssue.branchName)
 
   const existingPullRequest = await gateway.findDraftPullRequest(plan.parentIssue.branchName)
 
@@ -586,22 +590,27 @@ export const createDraftPullRequestBody = ({
 
 export const githubCliDraftPullRequestGateway: DraftPullRequestGateway = {
   createDraftPullRequest: async ({ body, branchName, title }) => {
-    const createArguments = [
-      'pr',
-      'create',
-      '--head',
-      branchName,
-      '--title',
-      title,
-      '--body',
-      body,
-      '--draft',
-    ]
+    try {
+      const createArguments = [
+        'pr',
+        'create',
+        '--head',
+        branchName,
+        '--title',
+        title,
+        '--body',
+        body,
+        '--draft',
+      ]
+      const output = await runCommand('gh', createArguments)
+      const url = output.trim()
 
-    const output = await runCommand('gh', createArguments)
-    const url = output.trim()
-
-    return await viewPullRequest(url)
+      return await viewPullRequest(url)
+    } catch (error: unknown) {
+      throw new Error(
+        `Unable to create a draft pull request for ${branchName}. Run \`gh auth status\` and confirm GitHub CLI can access this repository. ${formatErrorMessage(error)}`,
+      )
+    }
   },
   ensureParentBranch: async (branchName) => {
     if (await localBranchExists(branchName)) {
@@ -610,22 +619,60 @@ export const githubCliDraftPullRequestGateway: DraftPullRequestGateway = {
       return
     }
 
+    if (await remoteBranchExists(branchName)) {
+      await runCommand('git', [
+        'switch',
+        '--track',
+        '--create',
+        branchName,
+        `${GIT_REMOTE_NAME}/${branchName}`,
+      ])
+
+      return
+    }
+
     await runCommand('git', ['switch', '--create', branchName])
   },
   findDraftPullRequest: async (branchName) => {
-    const output = await runCommand('gh', [
-      'pr',
-      'list',
-      '--head',
-      branchName,
-      '--state',
-      'open',
-      '--json',
-      'number,url,isDraft',
-    ])
-    const pullRequests = parsePullRequestList(output)
+    try {
+      const output = await runCommand('gh', [
+        'pr',
+        'list',
+        '--head',
+        branchName,
+        '--state',
+        'open',
+        '--json',
+        'number,url,isDraft',
+      ])
+      const pullRequests = parsePullRequestList(output)
 
-    return pullRequests.find(({ isDraft }) => isDraft)
+      return pullRequests.find(({ isDraft }) => isDraft)
+    } catch (error: unknown) {
+      throw new Error(
+        `Unable to list draft pull requests for ${branchName}. Run \`gh auth status\` and confirm GitHub CLI can access this repository. ${formatErrorMessage(error)}`,
+      )
+    }
+  },
+  pushParentBranch: async (branchName) => {
+    if (!(await remoteExists(GIT_REMOTE_NAME))) {
+      throw new Error(
+        `Missing Git remote '${GIT_REMOTE_NAME}'. Configure it before creating Sandcastle PRD draft pull requests.`,
+      )
+    }
+
+    try {
+      await runCommand('git', [
+        'push',
+        '--set-upstream',
+        GIT_REMOTE_NAME,
+        `${branchName}:${branchName}`,
+      ])
+    } catch (error: unknown) {
+      throw new Error(
+        `Unable to push parent PRD branch ${branchName} to ${GIT_REMOTE_NAME}. Check git credentials and remote permissions. ${formatErrorMessage(error)}`,
+      )
+    }
   },
 }
 
@@ -980,6 +1027,9 @@ const createDryRunDraftPullRequestGateway = (): DraftPullRequestGateway => ({
 
     return pullRequests.find(({ isDraft }) => isDraft)
   },
+  pushParentBranch: async () => {
+    await Promise.resolve()
+  },
 })
 
 const localBranchExists = async (branchName: string): Promise<boolean> => {
@@ -989,6 +1039,34 @@ const localBranchExists = async (branchName: string): Promise<boolean> => {
     return true
   } catch (error: unknown) {
     if (isCommandExitCode(error, GIT_BRANCH_MISSING_EXIT_CODE)) {
+      return false
+    }
+
+    throw error
+  }
+}
+
+const remoteExists = async (remoteName: string): Promise<boolean> => {
+  try {
+    await runCommand('git', ['remote', 'get-url', remoteName])
+
+    return true
+  } catch {
+    return false
+  }
+}
+
+const remoteBranchExists = async (branchName: string): Promise<boolean> => {
+  if (!(await remoteExists(GIT_REMOTE_NAME))) {
+    return false
+  }
+
+  try {
+    await runCommand('git', ['ls-remote', '--exit-code', '--heads', GIT_REMOTE_NAME, branchName])
+
+    return true
+  } catch (error: unknown) {
+    if (isCommandExitCode(error, GIT_REMOTE_REF_MISSING_EXIT_CODE)) {
       return false
     }
 
