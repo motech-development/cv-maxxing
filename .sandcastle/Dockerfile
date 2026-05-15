@@ -23,7 +23,13 @@ ARG AGENT_UID=1000
 ARG AGENT_GID=1000
 
 # Rename the base image's "node" user to "agent" and align UID/GID.
-RUN groupmod -g $AGENT_GID node && usermod -u $AGENT_UID -g $AGENT_GID -d /home/agent -m -l agent node
+RUN if getent group "$AGENT_GID" >/dev/null; then \
+    AGENT_GROUP="$(getent group "$AGENT_GID" | cut -d: -f1)"; \
+  else \
+    groupmod -g "$AGENT_GID" node; \
+    AGENT_GROUP=node; \
+  fi \
+  && usermod -u "$AGENT_UID" -g "$AGENT_GROUP" -d /home/agent -m -l agent node
 
 # Install Codex CLI.
 RUN npm install -g @openai/codex
