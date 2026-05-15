@@ -138,25 +138,18 @@ test('keeps pasted vacancy intake editable when AI finds no job content', async 
   ).resolves.toBeNull()
 })
 
-test('rejects non-web vacancy URLs before touching persistence or fetch adapters', async () => {
+test('rejects non-web vacancy URLs before touching persistence or browser adapters', async () => {
   const captureVacancyBrowserSessionPage = vi.fn(() => Promise.resolve(null))
-  const fetchVacancyPage = vi.fn(() =>
-    Promise.resolve({
-      html: '<main>Should not fetch.</main>',
-      pageTitle: null,
-      resolvedUrl: 'file:///tmp/job.html',
-    }),
-  )
+  const openVacancyBrowserSession = vi.fn(() => Promise.resolve(null))
   const vacancyService = createVacancyService({
     captureVacancyBrowserSessionPage,
-    fetchVacancyPage,
     localAppData: createRejectingLocalAppDataDouble(),
     normalizationService: {
       normalizeVacancy: vi.fn(() => {
         return Promise.reject(new Error('Expected URL validation before AI normalization.'))
       }),
     },
-    openVacancyBrowserSession: vi.fn(() => Promise.resolve(null)),
+    openVacancyBrowserSession,
   })
 
   await expect(
@@ -165,14 +158,13 @@ test('rejects non-web vacancy URLs before touching persistence or fetch adapters
     }),
   ).rejects.toThrow('A vacancy URL is required.')
   expect(captureVacancyBrowserSessionPage).not.toHaveBeenCalled()
-  expect(fetchVacancyPage).not.toHaveBeenCalled()
+  expect(openVacancyBrowserSession).not.toHaveBeenCalled()
 })
 
-test('treats lookalike LinkedIn hostnames as generic vacancy URLs', async () => {
+test('treats lookalike LinkedIn hostnames as normal browser-mediated vacancy URLs', async () => {
   const localAppData = createLocalAppDataDouble()
   const normalizationCalls: VacancyNormalizationInput[] = []
-  const captureVacancyBrowserSessionPage = vi.fn(() => Promise.resolve(null))
-  const fetchVacancyPage = vi.fn(() =>
+  const captureVacancyBrowserSessionPage = vi.fn(() =>
     Promise.resolve({
       html: '<main><h1>Senior Product Designer</h1><p>Lead design systems and product workflows.</p></main>',
       pageTitle: 'Senior Product Designer',
@@ -181,7 +173,6 @@ test('treats lookalike LinkedIn hostnames as generic vacancy URLs', async () => 
   )
   const vacancyService = createVacancyService({
     captureVacancyBrowserSessionPage,
-    fetchVacancyPage,
     generateId: vi.fn(() => 'vacancy-lookalike-host'),
     getCurrentTimestamp: vi.fn(() => '2026-04-08T21:45:00.000Z'),
     localAppData,
@@ -208,10 +199,9 @@ test('treats lookalike LinkedIn hostnames as generic vacancy URLs', async () => 
   })
 
   expect(result.kind).toBe('ingested')
-  expect(result.vacancy.source).toBe('generic')
-  expect(fetchVacancyPage).toHaveBeenCalledTimes(1)
-  expect(captureVacancyBrowserSessionPage).not.toHaveBeenCalled()
-  expect(normalizationCalls[0]?.source).toBe('generic')
+  expect(result.vacancy.source).toBe('linkedin.com.example')
+  expect(captureVacancyBrowserSessionPage).toHaveBeenCalledTimes(1)
+  expect(normalizationCalls[0]?.source).toBe('linkedin.com.example')
 })
 
 test('does not accept LinkedIn browser captures without a job id', async () => {
@@ -249,7 +239,7 @@ test('does not accept LinkedIn browser captures without a job id', async () => {
   })
 
   expect(result.kind).toBe('incomplete')
-  expect(result.vacancy.source).toBe('linkedin')
+  expect(result.vacancy.source).toBe('linkedin.com')
   expect(result.vacancy.blockingReason).toBe(
     'This job page may need more access. Open the job page or paste the job description instead.',
   )

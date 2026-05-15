@@ -180,7 +180,7 @@ test('structures pasted vacancy text through AI normalization and persists encry
   expect(normalizationCall.originalUrl).toBe('https://jobs.example.com/senior-product-designer')
   expect(normalizationCall.pageTitle).toBeNull()
   expect(normalizationCall.resolvedUrl).toBe('https://jobs.example.com/senior-product-designer')
-  expect(normalizationCall.source).toBe('generic')
+  expect(normalizationCall.source).toBe('jobs.example.com')
 
   await expect(
     localAppData.metadata.get<{
