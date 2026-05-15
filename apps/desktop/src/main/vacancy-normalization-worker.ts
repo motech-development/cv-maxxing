@@ -131,7 +131,7 @@ async function runCodexCliNormalization({
   await writeFile(schemaFilePath, JSON.stringify(OUTPUT_SCHEMA), 'utf8')
 
   const prompt = [
-    'Read input/task.json, input/examples.json, and the referenced vacancy page artifacts.',
+    'Read input/task.json, input/examples.json, and the referenced vacancy artifacts.',
     'Return JSON only.',
     'Use British English.',
     'Preserve source meaning and page order.',
