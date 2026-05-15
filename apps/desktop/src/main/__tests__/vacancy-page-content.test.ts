@@ -11,3 +11,12 @@ test('infers vacancy titles from generic job page titles without provider-specif
   )
   expect(inferTitleFromPageTitle('Principal Designer at Example Labs')).toBe('Principal Designer')
 })
+
+test('preserves dashed role qualifiers when inferring generic vacancy titles', () => {
+  expect(inferTitleFromPageTitle('Product Manager - AI Platform - Example Careers')).toBe(
+    'Product Manager - AI Platform',
+  )
+  expect(inferTitleFromPageTitle('Product Manager - AI Platform at Example Labs')).toBe(
+    'Product Manager - AI Platform',
+  )
+})

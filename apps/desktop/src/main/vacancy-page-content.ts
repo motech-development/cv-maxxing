@@ -89,12 +89,24 @@ export function inferTitleFromPageTitle(pageTitle: string | null): string | null
     return null
   }
 
-  const normalizedTitle = pageTitle.split(/\s+(?:at|\||-)\s+/iu)[0]
+  const atOrPipeDelimitedTitleParts = pageTitle.split(/\s+(?:at|\|)\s+/iu)
+  const atOrPipeDelimitedTitle = atOrPipeDelimitedTitleParts[0]
 
-  if (normalizedTitle === undefined) {
+  if (atOrPipeDelimitedTitle === undefined) {
     return null
   }
 
+  if (atOrPipeDelimitedTitleParts.length > 1) {
+    const trimmedTitle = atOrPipeDelimitedTitle.trim()
+
+    return trimmedTitle === '' ? null : trimmedTitle
+  }
+
+  const dashDelimitedTitleParts = atOrPipeDelimitedTitle.split(/\s+-\s+/u)
+  const normalizedTitle =
+    dashDelimitedTitleParts.length > 1
+      ? dashDelimitedTitleParts.slice(0, -1).join(' - ')
+      : atOrPipeDelimitedTitle
   const trimmedTitle = normalizedTitle.trim()
 
   return trimmedTitle === '' ? null : trimmedTitle
