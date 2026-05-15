@@ -1,5 +1,6 @@
 import { expect, test, vi } from 'vitest'
 
+import { VacancyNormalizationError } from '../vacancy-normalization-error.js'
 import { createVacancyService } from '../vacancy-service.js'
 import type {
   JsonValue,
@@ -165,6 +166,40 @@ test('waits for rendered vacancy evidence before accepting a browser-captured UR
 
   expect(result.kind).toBe('ingested')
   expect(captureVacancyBrowserSessionPage).toHaveBeenCalledTimes(1)
+  expect(normalizationCalls).toHaveLength(1)
+})
+
+test('accepts terminal rendered blockers so normalization can reject non-vacancy pages', async () => {
+  const localAppData = createLocalAppDataDouble()
+  const normalizationCalls: VacancyNormalizationInput[] = []
+  const semanticRejection = new VacancyNormalizationError({
+    code: 'semantic_rejection',
+    message: 'Vacancy normalization produced semantically invalid vacancy content.',
+  })
+  const vacancyService = createVacancyService({
+    captureVacancyBrowserSessionPage: vi.fn(() => {
+      return Promise.resolve({
+        html: '<main><h1>Accept cookies to continue</h1></main>',
+        pageTitle: 'Cookie settings',
+        resolvedUrl: 'https://careers.example.com/jobs/123',
+      })
+    }),
+    localAppData,
+    normalizationService: {
+      normalizeVacancy: vi.fn((input: VacancyNormalizationInput) => {
+        normalizationCalls.push(input)
+
+        return Promise.reject(semanticRejection)
+      }),
+    },
+    openVacancyBrowserSession: vi.fn(() => Promise.resolve(null)),
+  })
+
+  await expect(
+    vacancyService.ingestVacancyUrl({
+      url: 'https://careers.example.com/jobs/123',
+    }),
+  ).rejects.toBe(semanticRejection)
   expect(normalizationCalls).toHaveLength(1)
 })
 
