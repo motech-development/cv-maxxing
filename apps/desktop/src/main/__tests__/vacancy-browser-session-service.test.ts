@@ -59,6 +59,12 @@ class WebContentsDouble extends EventTarget {
     this.dispatchEvent(new Event('did-finish-load'))
   }
 
+  updateSnapshot(snapshot: Snapshot, frameSnapshots: (Error | Snapshot)[] = []): void {
+    this.currentSnapshot = snapshot
+    this.frameSnapshots = frameSnapshots
+    this.mainFrame = this.createMainFrame()
+  }
+
   on(eventName: string, listener: () => void): void {
     this.addEventListener(eventName, listener as EventListener)
   }
@@ -214,6 +220,65 @@ test('captures a vacancy page silently with the managed browser session before f
     resolvedUrl: 'https://www.linkedin.com/jobs/view/123456',
   })
   expect(createdWindow?.isDestroyed()).toBe(true)
+})
+
+test('keeps silent capture open long enough for JavaScript-rendered vacancy content', async () => {
+  vi.useFakeTimers()
+
+  try {
+    const constructor = vi.fn(function BrowserWindowConstructor(options: Record<string, unknown>) {
+      return new BrowserWindowDouble(options, {
+        html: '<main><h1>Loading job details</h1></main>',
+        pageTitle: 'Example Labs Careers',
+        resolvedUrl: 'https://careers.example.test/jobs/product-designer',
+      })
+    })
+    const vacancyBrowserSession = createVacancyBrowserSessionService({
+      browserWindowConstructor: constructor as never,
+      createSession: vi.fn(() => Promise.resolve({} as Session)),
+      profileRootPath: '/tmp/cv-maxxing/browser-sessions',
+    })
+
+    const resultPromise = vacancyBrowserSession.captureSessionPage({
+      shouldCapturePage: (snapshot) => {
+        return snapshot.html.includes('Senior Product Designer')
+      },
+      url: 'https://careers.example.test/jobs/product-designer',
+    })
+
+    await flushObservation()
+
+    const createdWindow = constructor.mock.results[0]?.value as BrowserWindowDouble | undefined
+
+    expect(createdWindow).toBeDefined()
+
+    createdWindow?.finishLoad({
+      html: '<main><h1>Loading job details</h1></main>',
+      pageTitle: 'Example Labs Careers',
+      resolvedUrl: 'https://careers.example.test/jobs/product-designer',
+    })
+    await flushObservation()
+    await vi.advanceTimersByTimeAsync(4000)
+
+    expect(createdWindow?.isDestroyed()).toBe(false)
+
+    createdWindow?.webContents.updateSnapshot({
+      html: '<main><h1>Senior Product Designer</h1><p>Lead browser-mediated intake work.</p></main>',
+      pageTitle: 'Senior Product Designer at Example Labs',
+      resolvedUrl: 'https://careers.example.test/jobs/product-designer',
+    })
+    await vi.advanceTimersByTimeAsync(250)
+    await flushObservation()
+    createdWindow?.close()
+
+    await expect(resultPromise).resolves.toEqual({
+      html: '<main><h1>Senior Product Designer</h1><p>Lead browser-mediated intake work.</p></main>',
+      pageTitle: 'Senior Product Designer at Example Labs',
+      resolvedUrl: 'https://careers.example.test/jobs/product-designer',
+    })
+  } finally {
+    vi.useRealTimers()
+  }
 })
 
 test('includes rendered embedded frame content in captured vacancy page evidence', async () => {

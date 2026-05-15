@@ -67,8 +67,9 @@ const browserCaptureScript = `(() => {
   }
 })()`
 const INTERACTIVE_OBSERVATION_INTERVAL_MS = 500
+const SILENT_CAPTURE_SETTLE_AFTER_VALID_MS = 500
 const SILENT_CAPTURE_OBSERVATION_INTERVAL_MS = 250
-const SILENT_CAPTURE_TIMEOUT_MS = 3000
+const SILENT_CAPTURE_TIMEOUT_MS = 90_000
 
 export function createVacancyBrowserSessionService({
   autoCloseAfterFirstObservation = false,
@@ -105,6 +106,7 @@ export function createVacancyBrowserSessionService({
       let hasSettled = false
       let latestValidSnapshot: VacancyBrowserPageSnapshot | null = null
       let observationIntervalId: ReturnType<typeof setInterval> | null = null
+      let validSnapshotSettleTimeoutId: ReturnType<typeof setTimeout> | null = null
       let observationTimeoutId: ReturnType<typeof setTimeout> | null = null
 
       return await new Promise<VacancyBrowserPageSnapshot | null>((resolve) => {
@@ -123,6 +125,11 @@ export function createVacancyBrowserSessionService({
           if (observationTimeoutId !== null) {
             clearTimeout(observationTimeoutId)
             observationTimeoutId = null
+          }
+
+          if (validSnapshotSettleTimeoutId !== null) {
+            clearTimeout(validSnapshotSettleTimeoutId)
+            validSnapshotSettleTimeoutId = null
           }
 
           resolve(snapshot)
@@ -150,8 +157,27 @@ export function createVacancyBrowserSessionService({
             return
           }
 
-          // Drop stale vacancy snapshots when later observations go off-target.
-          latestValidSnapshot = shouldCapturePage(snapshot) ? snapshot : null
+          if (!shouldCapturePage(snapshot)) {
+            latestValidSnapshot = null
+
+            if (validSnapshotSettleTimeoutId !== null) {
+              clearTimeout(validSnapshotSettleTimeoutId)
+              validSnapshotSettleTimeoutId = null
+            }
+
+            return
+          }
+
+          latestValidSnapshot = snapshot
+
+          if (validSnapshotSettleTimeoutId !== null) {
+            return
+          }
+
+          validSnapshotSettleTimeoutId = setTimeout(() => {
+            closeWindow()
+            settle(latestValidSnapshot)
+          }, SILENT_CAPTURE_SETTLE_AFTER_VALID_MS)
         }
 
         const startSilentObservation = (): void => {
