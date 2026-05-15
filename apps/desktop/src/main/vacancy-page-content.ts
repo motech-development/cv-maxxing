@@ -89,17 +89,15 @@ export function inferTitleFromPageTitle(pageTitle: string | null): string | null
     return null
   }
 
-  const normalizedTitle = pageTitle
-    .replace(/\s+-\s+Greenhouse$/i, '')
-    .replace(/\s+\|\s+Indeed$/i, '')
-    .replace(/\s+\|\s+LinkedIn$/i, '')
-    .split(/\s+(?:at|\|)\s+/i)[0]
+  const normalizedTitle = pageTitle.split(/\s+(?:at|\||-)\s+/iu)[0]
 
   if (normalizedTitle === undefined) {
     return null
   }
 
-  return normalizedTitle.trim()
+  const trimmedTitle = normalizedTitle.trim()
+
+  return trimmedTitle === '' ? null : trimmedTitle
 }
 
 function focusPrimaryContent(html: string): string {
