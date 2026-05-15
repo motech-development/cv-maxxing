@@ -413,22 +413,32 @@ async function captureEmbeddedFrameSnapshots(
 
   const frames = collectChildFrames(mainFrame)
   const capturedSnapshots = await Promise.all(
-    frames.map(async (frame) => {
-      if (frame.isDestroyed?.() === true) {
-        return null
-      }
-
-      return await capturePageSnapshot({
-        executeJavaScript: (code) => {
-          return frame.executeJavaScript(code)
-        },
-      })
+    frames.map((frame) => {
+      return captureEmbeddedFrameSnapshot(frame)
     }),
   )
 
   return capturedSnapshots.filter((snapshot): snapshot is VacancyBrowserPageSnapshot => {
     return snapshot !== null && snapshot.html.trim() !== ''
   })
+}
+
+async function captureEmbeddedFrameSnapshot(
+  frame: BrowserFrameLike,
+): Promise<VacancyBrowserPageSnapshot | null> {
+  if (frame.isDestroyed?.() === true) {
+    return null
+  }
+
+  try {
+    return await capturePageSnapshot({
+      executeJavaScript: (code) => {
+        return frame.executeJavaScript(code)
+      },
+    })
+  } catch {
+    return null
+  }
 }
 
 function collectChildFrames(frame: BrowserFrameLike): BrowserFrameLike[] {
