@@ -4,8 +4,9 @@ import { expect, test, vi } from 'vitest'
 import { createVacancyBrowserSessionService } from '../vacancy-browser-session-service.js'
 
 async function flushObservation(): Promise<void> {
-  await Promise.resolve()
-  await Promise.resolve()
+  for (let index = 0; index < 6; index += 1) {
+    await Promise.resolve()
+  }
 }
 
 interface Snapshot {
@@ -14,26 +15,56 @@ interface Snapshot {
   resolvedUrl: string
 }
 
-class WebContentsDouble extends EventTarget {
-  private currentSnapshot: Snapshot
+class WebFrameDouble {
+  constructor(
+    private readonly snapshot: Snapshot,
+    readonly frames: WebFrameDouble[] = [],
+  ) {}
 
-  constructor(snapshot: Snapshot) {
+  executeJavaScript(): Promise<Snapshot> {
+    return Promise.resolve(this.snapshot)
+  }
+
+  isDestroyed(): boolean {
+    return false
+  }
+}
+
+class WebContentsDouble extends EventTarget {
+  public mainFrame: WebFrameDouble
+
+  private currentSnapshot: Snapshot
+  private frameSnapshots: Snapshot[]
+
+  constructor(snapshot: Snapshot, frameSnapshots: Snapshot[] = []) {
     super()
 
     this.currentSnapshot = snapshot
+    this.frameSnapshots = frameSnapshots
+    this.mainFrame = this.createMainFrame()
   }
 
   executeJavaScript(): Promise<Snapshot> {
     return Promise.resolve(this.currentSnapshot)
   }
 
-  finishLoad(snapshot: Snapshot): void {
+  finishLoad(snapshot: Snapshot, frameSnapshots: Snapshot[] = []): void {
     this.currentSnapshot = snapshot
+    this.frameSnapshots = frameSnapshots
+    this.mainFrame = this.createMainFrame()
     this.dispatchEvent(new Event('did-finish-load'))
   }
 
   on(eventName: string, listener: () => void): void {
     this.addEventListener(eventName, listener as EventListener)
+  }
+
+  private createMainFrame(): WebFrameDouble {
+    const childFrames = this.frameSnapshots.map((snapshot) => {
+      return new WebFrameDouble(snapshot)
+    })
+
+    return new WebFrameDouble(this.currentSnapshot, childFrames)
   }
 }
 
@@ -179,6 +210,56 @@ test('captures a vacancy page silently with the managed browser session before f
     resolvedUrl: 'https://www.linkedin.com/jobs/view/123456',
   })
   expect(createdWindow?.isDestroyed()).toBe(true)
+})
+
+test('includes rendered embedded frame content in captured vacancy page evidence', async () => {
+  const constructor = vi.fn(function BrowserWindowConstructor(options: Record<string, unknown>) {
+    return new BrowserWindowDouble(options, {
+      html: '<main><h1>Careers</h1><iframe src="https://jobs.example.test/embed/123"></iframe></main>',
+      pageTitle: 'Example Labs Careers',
+      resolvedUrl: 'https://careers.example.test/jobs/product-designer',
+    })
+  })
+  const vacancyBrowserSession = createVacancyBrowserSessionService({
+    browserWindowConstructor: constructor as never,
+    createSession: vi.fn(() => Promise.resolve({} as Session)),
+    profileRootPath: '/tmp/cv-maxxing/browser-sessions',
+  })
+
+  const resultPromise = vacancyBrowserSession.captureSessionPage({
+    shouldCapturePage: () => true,
+    url: 'https://careers.example.test/jobs/product-designer',
+  })
+
+  await vi.waitFor(() => {
+    expect(constructor).toHaveBeenCalledTimes(1)
+  })
+
+  const createdWindow = constructor.mock.results[0]?.value as BrowserWindowDouble | undefined
+
+  createdWindow?.webContents.finishLoad(
+    {
+      html: '<main><h1>Careers</h1><iframe src="https://jobs.example.test/embed/123"></iframe></main>',
+      pageTitle: 'Example Labs Careers',
+      resolvedUrl: 'https://careers.example.test/jobs/product-designer',
+    },
+    [
+      {
+        html: '<article><h1>Senior Product Designer</h1><p>Lead browser-mediated intake work.</p></article>',
+        pageTitle: 'Senior Product Designer',
+        resolvedUrl: 'https://jobs.example.test/embed/123',
+      },
+    ],
+  )
+
+  const result = await resultPromise
+
+  expect(result?.html).toContain('<iframe')
+  expect(result?.html).toContain(
+    '<article data-cv-maxxing-frame-url="https://jobs.example.test/embed/123">',
+  )
+  expect(result?.html).toContain('Senior Product Designer')
+  expect(result?.html).toContain('Lead browser-mediated intake work.')
 })
 
 test('tracks the latest valid on-target snapshot across later page loads and returns it when the window closes', async () => {
