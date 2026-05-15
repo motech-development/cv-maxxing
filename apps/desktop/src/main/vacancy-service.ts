@@ -801,8 +801,12 @@ function isExpectedBrowserSessionVacancyPage({
 
     return (
       currentUrl.hostname.toLowerCase() === requestedUrl.hostname.toLowerCase() &&
-      currentUrl.pathname === requestedUrl.pathname &&
-      currentUrl.search === requestedUrl.search
+      normalizeComparablePathname(currentUrl.pathname) ===
+        normalizeComparablePathname(requestedUrl.pathname) &&
+      doResolvedQueryParametersPreserveSubmittedParameters({
+        currentUrl,
+        requestedUrl,
+      })
     )
   } catch {
     return false
@@ -853,6 +857,26 @@ function isHostnameOrSubdomain(hostname: string, domain: string): boolean {
   const normalizedHostname = hostname.toLowerCase()
 
   return normalizedHostname === domain || normalizedHostname.endsWith(`.${domain}`)
+}
+
+function normalizeComparablePathname(pathname: string): string {
+  const normalizedPathname = pathname.replace(/\/+$/u, '')
+
+  return normalizedPathname === '' ? '/' : normalizedPathname
+}
+
+function doResolvedQueryParametersPreserveSubmittedParameters({
+  currentUrl,
+  requestedUrl,
+}: {
+  currentUrl: URL
+  requestedUrl: URL
+}): boolean {
+  const requestedParameters = [...requestedUrl.searchParams.entries()]
+
+  return requestedParameters.every(([key, value]) => {
+    return currentUrl.searchParams.getAll(key).includes(value)
+  })
 }
 
 function resolveSubmittedUrlSource(url: string): VacancySource {
