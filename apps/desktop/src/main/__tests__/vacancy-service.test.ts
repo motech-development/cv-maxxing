@@ -7,7 +7,12 @@ import { afterEach, expect, test, vi } from 'vitest'
 import { createLocalAppDataPaths, openLocalAppData } from '../local-app-data-service.js'
 import { VacancyNormalizationError } from '../vacancy-normalization-error.js'
 import { createVacancyService } from '../vacancy-service.js'
-import type { KeychainBoundary, LocalAppDataPaths } from '../local-app-data-service.js'
+import type {
+  JsonValue,
+  KeychainBoundary,
+  LocalAppDataPaths,
+  LocalAppDataStore,
+} from '../local-app-data-service.js'
 import type {
   VacancyNormalizationInput,
   VacancyNormalizationService,
@@ -56,6 +61,54 @@ function createVacancyNormalizationServiceDouble(): VacancyNormalizationService 
     }),
   }
 }
+
+function rejectUnexpectedLocalAppDataAccess(): Promise<never> {
+  return Promise.reject(
+    new Error('Expected vacancy URL validation to fail before local app data access.'),
+  )
+}
+
+function rejectUnexpectedMetadataGet<
+  TValue extends JsonValue = JsonValue,
+>(): Promise<TValue | null> {
+  return rejectUnexpectedLocalAppDataAccess()
+}
+
+function createUnusedLocalAppData(): Pick<LocalAppDataStore, 'artifacts' | 'metadata'> {
+  return {
+    artifacts: {
+      delete: rejectUnexpectedLocalAppDataAccess,
+      list: rejectUnexpectedLocalAppDataAccess,
+      read: rejectUnexpectedLocalAppDataAccess,
+      write: rejectUnexpectedLocalAppDataAccess,
+    },
+    metadata: {
+      delete: rejectUnexpectedLocalAppDataAccess,
+      get: rejectUnexpectedMetadataGet,
+      list: rejectUnexpectedLocalAppDataAccess,
+      put: rejectUnexpectedLocalAppDataAccess,
+    },
+  }
+}
+
+test('rejects non-web vacancy URLs before opening the browser session', async () => {
+  const captureVacancyBrowserSessionPage = vi.fn(() => Promise.resolve(null))
+  const openVacancyBrowserSession = vi.fn(() => Promise.resolve(null))
+  const vacancyService = createVacancyService({
+    captureVacancyBrowserSessionPage,
+    localAppData: createUnusedLocalAppData(),
+    normalizationService: createVacancyNormalizationServiceDouble(),
+    openVacancyBrowserSession,
+  })
+
+  await expect(
+    vacancyService.ingestVacancyUrl({
+      url: 'file:///tmp/job.html',
+    }),
+  ).rejects.toThrow('A vacancy URL is required.')
+  expect(captureVacancyBrowserSessionPage).not.toHaveBeenCalled()
+  expect(openVacancyBrowserSession).not.toHaveBeenCalled()
+})
 
 test('structures pasted vacancy text through AI normalization and persists encrypted vacancy artifacts', async () => {
   const paths = await createTestPaths()
@@ -305,7 +358,8 @@ test('ingests a readable URL through generic browser-mediated AI intake and pers
         '</html>',
       ].join(''),
       pageTitle: 'Senior Product Designer at Example Labs',
-      resolvedUrl: 'https://www.careers.example.com/jobs/senior-product-designer?source=site',
+      resolvedUrl:
+        'https://www.careers.example.com/jobs/senior-product-designer?source=site#details',
     })
   })
   const normalizationService = {
@@ -356,7 +410,7 @@ test('ingests a readable URL through generic browser-mediated AI intake and pers
   )
   expect(normalizationCall.pageTitle).toBe('Senior Product Designer at Example Labs')
   expect(normalizationCall.resolvedUrl).toBe(
-    'https://www.careers.example.com/jobs/senior-product-designer?source=site',
+    'https://www.careers.example.com/jobs/senior-product-designer?source=site#details',
   )
   expect(normalizationCall.source).toBe('careers.example.com')
   await expect(vacancyService.getWorkspaceState()).resolves.toMatchObject({
