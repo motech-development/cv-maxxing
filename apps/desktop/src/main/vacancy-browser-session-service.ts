@@ -40,7 +40,14 @@ type BrowserWindowConstructor = new (options: Record<string, unknown>) => Browse
 
 interface BrowserWebContentsLike {
   executeJavaScript: (code: string) => Promise<unknown>
+  mainFrame?: BrowserFrameLike
   on: (eventName: string, listener: () => void) => void
+}
+
+interface BrowserFrameLike {
+  executeJavaScript: (code: string) => Promise<unknown>
+  frames?: BrowserFrameLike[]
+  isDestroyed?: () => boolean
 }
 
 interface ElectronRuntime {
@@ -348,28 +355,116 @@ async function captureCurrentPage({
   webContents: BrowserWebContentsLike
 }): Promise<VacancyBrowserPageSnapshot | null> {
   try {
-    const snapshot = (await webContents.executeJavaScript(
-      browserCaptureScript,
-    )) as VacancyBrowserPageSnapshot | null
+    const snapshot = await capturePageSnapshot({
+      executeJavaScript: (code) => {
+        return webContents.executeJavaScript(code)
+      },
+    })
 
-    if (
-      snapshot === null ||
-      typeof snapshot !== 'object' ||
-      typeof snapshot.html !== 'string' ||
-      typeof snapshot.resolvedUrl !== 'string' ||
-      ('pageTitle' in snapshot &&
-        snapshot.pageTitle !== null &&
-        typeof snapshot.pageTitle !== 'string')
-    ) {
+    if (snapshot === null) {
       return null
     }
 
+    const frameSnapshots = await captureEmbeddedFrameSnapshots(webContents.mainFrame)
+
     return {
-      html: snapshot.html,
+      html: appendEmbeddedFrameEvidence({
+        frameSnapshots,
+        html: snapshot.html,
+      }),
       pageTitle: snapshot.pageTitle,
       resolvedUrl: fallbackResolvedUrl ?? snapshot.resolvedUrl,
     }
   } catch {
     return null
   }
+}
+
+async function capturePageSnapshot({
+  executeJavaScript,
+}: {
+  executeJavaScript: (code: string) => Promise<unknown>
+}): Promise<VacancyBrowserPageSnapshot | null> {
+  const snapshot = (await executeJavaScript(
+    browserCaptureScript,
+  )) as VacancyBrowserPageSnapshot | null
+
+  if (
+    snapshot === null ||
+    typeof snapshot !== 'object' ||
+    typeof snapshot.html !== 'string' ||
+    typeof snapshot.resolvedUrl !== 'string' ||
+    ('pageTitle' in snapshot &&
+      snapshot.pageTitle !== null &&
+      typeof snapshot.pageTitle !== 'string')
+  ) {
+    return null
+  }
+
+  return snapshot
+}
+
+async function captureEmbeddedFrameSnapshots(
+  mainFrame: BrowserFrameLike | undefined,
+): Promise<VacancyBrowserPageSnapshot[]> {
+  if (mainFrame === undefined) {
+    return []
+  }
+
+  const frames = collectChildFrames(mainFrame)
+  const capturedSnapshots = await Promise.all(
+    frames.map(async (frame) => {
+      if (frame.isDestroyed?.() === true) {
+        return null
+      }
+
+      return await capturePageSnapshot({
+        executeJavaScript: (code) => {
+          return frame.executeJavaScript(code)
+        },
+      })
+    }),
+  )
+
+  return capturedSnapshots.filter((snapshot): snapshot is VacancyBrowserPageSnapshot => {
+    return snapshot !== null && snapshot.html.trim() !== ''
+  })
+}
+
+function collectChildFrames(frame: BrowserFrameLike): BrowserFrameLike[] {
+  const childFrames = frame.frames ?? []
+
+  return childFrames.flatMap((childFrame) => {
+    return [childFrame, ...collectChildFrames(childFrame)]
+  })
+}
+
+function appendEmbeddedFrameEvidence({
+  frameSnapshots,
+  html,
+}: {
+  frameSnapshots: VacancyBrowserPageSnapshot[]
+  html: string
+}): string {
+  if (frameSnapshots.length === 0) {
+    return html
+  }
+
+  const frameEvidenceHtml = frameSnapshots
+    .map((snapshot) => {
+      return `<article data-cv-maxxing-frame-url="${escapeHtmlAttribute(
+        snapshot.resolvedUrl,
+      )}">${snapshot.html}</article>`
+    })
+    .join('\n')
+
+  return `${html}\n<section data-cv-maxxing-embedded-frames="true">${frameEvidenceHtml}</section>`
+}
+
+function escapeHtmlAttribute(value: string): string {
+  return value
+    .replaceAll('&', '&amp;')
+    .replaceAll('"', '&quot;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
 }
