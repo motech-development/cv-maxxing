@@ -161,7 +161,7 @@ export function createVacancyService({
         source,
       })
       const extractedText = normalizedVacancy.bodyText.trim()
-      const isLanguageBlocked = assessEnglishLanguageSupport(extractedText).status === 'blocked'
+      const isLanguageBlocked = assessEnglishLanguageSupport(trimmedText).status === 'blocked'
       const canGenerate = !isLanguageBlocked && isVacancyReady(normalizedVacancy)
       let blockingReason: string | null = null
 
