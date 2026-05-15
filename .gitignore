@@ -13,6 +13,7 @@ coverage
 .playwright-mcp/
 .sandcastle/.env
 .sandcastle/.env.*
+!.sandcastle/.env.example
 .sandcastle/artifacts/
 .sandcastle/logs/
 .sandcastle/runs/

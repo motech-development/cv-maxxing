@@ -11,7 +11,10 @@
     "lint": "eslint . --max-warnings 0",
     "lint:fix": "eslint . --fix",
     "lint-staged": "lint-staged",
-    "prepare": "husky"
+    "prepare": "husky",
+    "sandcastle": "tsx ./.sandcastle/main.ts",
+    "sandcastle:build-image": "sandcastle docker build-image --image-name sandcastle:cv-maxxing",
+    "sandcastle:remove-image": "sandcastle docker remove-image --image-name sandcastle:cv-maxxing"
   },
   "keywords": [],
   "author": "",
@@ -29,6 +32,7 @@
     ]
   },
   "devDependencies": {
+    "@ai-hero/sandcastle": "^0.5.10",
     "@commitlint/cli": "^20.5.0",
     "@commitlint/config-conventional": "^20.5.0",
     "@eslint/js": "^9.39.4",
@@ -46,6 +50,7 @@
     "husky": "^9.1.7",
     "lint-staged": "^16.4.0",
     "prettier": "^3.8.1",
+    "tsx": "^4.22.0",
     "typescript": "^6.0.2",
     "typescript-eslint": "^8.58.1",
     "vitest": "^4.1.3"
