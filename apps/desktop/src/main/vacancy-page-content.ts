@@ -1,5 +1,3 @@
-import type { VacancySource } from '../shared/vacancy.js'
-
 const MAX_NORMALIZATION_HTML_LENGTH = 60_000
 const MAX_NORMALIZATION_TEXT_LENGTH = 24_000
 const PRIMARY_CONTENT_BLOCK_PATTERN = /<(main|article)\b[^>]*>[\s\S]*?<\/\1>/gi
@@ -53,16 +51,11 @@ export function sanitizeSnapshotHtml(html: string): string {
 
 export function prepareVacancyNormalizationArtifacts({
   html,
-  source,
 }: {
   html: string
-  source: VacancySource
 }): VacancyNormalizationArtifacts {
   const sanitizedHtml = sanitizeSnapshotHtml(html)
-  const focusedHtml = focusNormalizationHtml({
-    html: sanitizedHtml,
-    source,
-  })
+  const focusedHtml = focusPrimaryContent(sanitizedHtml)
   const boundedHtml = truncateContent(focusedHtml, MAX_NORMALIZATION_HTML_LENGTH)
   const extractedText = truncateContent(
     extractTextFromHtml(boundedHtml),
@@ -109,11 +102,7 @@ export function inferTitleFromPageTitle(pageTitle: string | null): string | null
   return normalizedTitle.trim()
 }
 
-function focusNormalizationHtml({ html, source }: { html: string; source: VacancySource }): string {
-  if (!shouldFocusPrimaryContent(source)) {
-    return html
-  }
-
+function focusPrimaryContent(html: string): string {
   const primaryContent = extractPrimaryContentBlock(html)
 
   if (primaryContent === null) {
@@ -121,10 +110,6 @@ function focusNormalizationHtml({ html, source }: { html: string; source: Vacanc
   }
 
   return trimTrailingRelatedContent(primaryContent)
-}
-
-function shouldFocusPrimaryContent(source: VacancySource): boolean {
-  return source === 'indeed' || source === 'linkedin'
 }
 
 function extractPrimaryContentBlock(html: string): string | null {
