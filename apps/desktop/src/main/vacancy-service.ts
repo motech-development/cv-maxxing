@@ -726,7 +726,13 @@ function normalizeUrl(url: string | undefined): string | null {
   }
 
   try {
-    return new URL(url).toString()
+    const parsedUrl = new URL(url)
+
+    if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') {
+      return null
+    }
+
+    return parsedUrl.toString()
   } catch {
     return null
   }
