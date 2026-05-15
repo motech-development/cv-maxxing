@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { mkdir, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 
-import type { VacancySource } from '../shared/vacancy.js'
+import type { VacancyInputType, VacancySource } from '../shared/vacancy.js'
 import { VacancyNormalizationError } from './vacancy-normalization-error.js'
 import { VACANCY_NORMALIZATION_EXAMPLES } from './vacancy-normalization-examples.js'
 import { prepareVacancyNormalizationArtifacts } from './vacancy-page-content.js'
@@ -19,9 +19,10 @@ export interface NormalizedVacancy {
 
 export interface VacancyNormalizationInput {
   html: string
-  originalUrl: string
+  inputType: VacancyInputType
+  originalUrl: string | null
   pageTitle: string | null
-  resolvedUrl: string
+  resolvedUrl: string | null
   source: VacancySource
 }
 
@@ -145,6 +146,7 @@ async function writeRunWorkspaceInput({
     },
     vacancyPage: {
       extractedTextPath: 'input/page.txt',
+      inputType: input.inputType,
       originalUrl: input.originalUrl,
       pageTitle: input.pageTitle,
       resolvedUrl: input.resolvedUrl,

@@ -58,6 +58,7 @@ test('writes a dedicated vacancy-normalization run workspace and removes it afte
           },
           vacancyPage: {
             extractedTextPath: 'input/page.txt',
+            inputType: 'url',
             originalUrl: 'https://boards.greenhouse.io/example/jobs/123',
             pageTitle: 'Senior Product Designer at Example Labs - Greenhouse',
             resolvedUrl: 'https://boards.greenhouse.io/example/jobs/123?gh_jid=123',
@@ -107,6 +108,7 @@ test('writes a dedicated vacancy-normalization run workspace and removes it afte
         '</body>',
         '</html>',
       ].join(''),
+      inputType: 'url',
       originalUrl: 'https://boards.greenhouse.io/example/jobs/123',
       pageTitle: 'Senior Product Designer at Example Labs - Greenhouse',
       resolvedUrl: 'https://boards.greenhouse.io/example/jobs/123?gh_jid=123',
@@ -167,6 +169,7 @@ test('aborts a stalled vacancy-normalization run after the timeout and removes t
   await expect(
     service.normalizeVacancy({
       html: '<main><h1>Senior Product Designer</h1></main>',
+      inputType: 'url',
       originalUrl: 'https://jobs.example.com/roles/123',
       pageTitle: 'Senior Product Designer',
       resolvedUrl: 'https://jobs.example.com/roles/123',
@@ -206,6 +209,7 @@ test('maps a no-job-content worker result to a typed vacancy-normalization failu
   await expect(
     service.normalizeVacancy({
       html: '<main><h1>Apply now</h1></main>',
+      inputType: 'url',
       originalUrl: 'https://jobs.example.com/roles/123',
       pageTitle: 'Apply now',
       resolvedUrl: 'https://jobs.example.com/roles/123',
@@ -249,6 +253,7 @@ test('rejects semantically invalid normalized vacancy output after deterministic
   await expect(
     service.normalizeVacancy({
       html: '<main><h1>Sign in to view this job</h1></main>',
+      inputType: 'url',
       originalUrl: 'https://www.linkedin.com/jobs/view/123456',
       pageTitle: 'Sign in to view this job | LinkedIn',
       resolvedUrl: 'https://www.linkedin.com/jobs/view/123456',
@@ -328,6 +333,7 @@ test('focuses authenticated LinkedIn normalization input on the main vacancy con
         '</body>',
         '</html>',
       ].join(''),
+      inputType: 'url',
       originalUrl: 'https://www.linkedin.com/jobs/view/123456',
       pageTitle: 'Senior Product Designer | LinkedIn',
       resolvedUrl: 'https://www.linkedin.com/jobs/view/123456',
