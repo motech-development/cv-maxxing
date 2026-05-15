@@ -11,10 +11,7 @@
     "lint": "eslint . --max-warnings 0",
     "lint:fix": "eslint . --fix",
     "lint-staged": "lint-staged",
-    "prepare": "husky",
-    "sandcastle": "node --experimental-strip-types .sandcastle/main.ts",
-    "sandcastle:dry-run": "node --experimental-strip-types .sandcastle/main.ts --dry-run",
-    "sandcastle:preflight": "node --experimental-strip-types .sandcastle/main.ts --preflight"
+    "prepare": "husky"
   },
   "keywords": [],
   "author": "",
@@ -32,7 +29,6 @@
     ]
   },
   "devDependencies": {
-    "@ai-hero/sandcastle": "^0.5.5",
     "@commitlint/cli": "^20.5.0",
     "@commitlint/config-conventional": "^20.5.0",
     "@eslint/js": "^9.39.4",
