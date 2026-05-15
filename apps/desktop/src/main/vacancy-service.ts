@@ -785,6 +785,20 @@ function isExpectedBrowserSessionVacancyPage({
     const requestedUrl = new URL(originalUrl)
     const currentUrl = new URL(resolvedUrl)
 
+    if (isHostnameOrSubdomain(requestedUrl.hostname, 'linkedin.com')) {
+      return doExtractedIdentifiersMatch({
+        currentIdentifier: extractLinkedInJobId(currentUrl),
+        requestedIdentifier: extractLinkedInJobId(requestedUrl),
+      })
+    }
+
+    if (isHostnameOrSubdomain(requestedUrl.hostname, 'indeed.com')) {
+      return doExtractedIdentifiersMatch({
+        currentIdentifier: extractIndeedJobKey(currentUrl),
+        requestedIdentifier: extractIndeedJobKey(requestedUrl),
+      })
+    }
+
     return (
       currentUrl.hostname.toLowerCase() === requestedUrl.hostname.toLowerCase() &&
       currentUrl.pathname === requestedUrl.pathname &&
@@ -793,6 +807,52 @@ function isExpectedBrowserSessionVacancyPage({
   } catch {
     return false
   }
+}
+
+function doExtractedIdentifiersMatch({
+  currentIdentifier,
+  requestedIdentifier,
+}: {
+  currentIdentifier: string | null
+  requestedIdentifier: string | null
+}): boolean {
+  return (
+    requestedIdentifier !== null &&
+    currentIdentifier !== null &&
+    currentIdentifier === requestedIdentifier
+  )
+}
+
+function extractLinkedInJobId(url: URL): string | null {
+  const pathMatch = /^\/jobs\/view\/(\d+)/.exec(url.pathname)
+
+  if (pathMatch?.[1] !== undefined) {
+    return pathMatch[1]
+  }
+
+  const currentJobId = url.searchParams.get('currentJobId')
+
+  if (currentJobId === null || currentJobId.trim() === '') {
+    return null
+  }
+
+  return currentJobId
+}
+
+function extractIndeedJobKey(url: URL): string | null {
+  const jobKey = url.searchParams.get('jk')
+
+  if (jobKey === null || jobKey.trim() === '') {
+    return null
+  }
+
+  return jobKey
+}
+
+function isHostnameOrSubdomain(hostname: string, domain: string): boolean {
+  const normalizedHostname = hostname.toLowerCase()
+
+  return normalizedHostname === domain || normalizedHostname.endsWith(`.${domain}`)
 }
 
 function resolveSubmittedUrlSource(url: string): VacancySource {
