@@ -17,11 +17,15 @@ interface Snapshot {
 
 class WebFrameDouble {
   constructor(
-    private readonly snapshot: Snapshot,
+    private readonly snapshot: Error | Snapshot,
     readonly frames: WebFrameDouble[] = [],
   ) {}
 
   executeJavaScript(): Promise<Snapshot> {
+    if (this.snapshot instanceof Error) {
+      return Promise.reject(this.snapshot)
+    }
+
     return Promise.resolve(this.snapshot)
   }
 
@@ -34,9 +38,9 @@ class WebContentsDouble extends EventTarget {
   public mainFrame: WebFrameDouble
 
   private currentSnapshot: Snapshot
-  private frameSnapshots: Snapshot[]
+  private frameSnapshots: (Error | Snapshot)[]
 
-  constructor(snapshot: Snapshot, frameSnapshots: Snapshot[] = []) {
+  constructor(snapshot: Snapshot, frameSnapshots: (Error | Snapshot)[] = []) {
     super()
 
     this.currentSnapshot = snapshot
@@ -48,7 +52,7 @@ class WebContentsDouble extends EventTarget {
     return Promise.resolve(this.currentSnapshot)
   }
 
-  finishLoad(snapshot: Snapshot, frameSnapshots: Snapshot[] = []): void {
+  finishLoad(snapshot: Snapshot, frameSnapshots: (Error | Snapshot)[] = []): void {
     this.currentSnapshot = snapshot
     this.frameSnapshots = frameSnapshots
     this.mainFrame = this.createMainFrame()
@@ -260,6 +264,61 @@ test('includes rendered embedded frame content in captured vacancy page evidence
   )
   expect(result?.html).toContain('Senior Product Designer')
   expect(result?.html).toContain('Lead browser-mediated intake work.')
+})
+
+test('keeps readable vacancy page evidence when one embedded frame cannot be captured', async () => {
+  const constructor = vi.fn(function BrowserWindowConstructor(options: Record<string, unknown>) {
+    return new BrowserWindowDouble(options, {
+      html: '<main><h1>Careers</h1><iframe src="https://jobs.example.test/embed/123"></iframe></main>',
+      pageTitle: 'Example Labs Careers',
+      resolvedUrl: 'https://careers.example.test/jobs/product-designer',
+    })
+  })
+  const vacancyBrowserSession = createVacancyBrowserSessionService({
+    browserWindowConstructor: constructor as never,
+    createSession: vi.fn(() => Promise.resolve({} as Session)),
+    profileRootPath: '/tmp/cv-maxxing/browser-sessions',
+  })
+  const shouldCapturePage = vi.fn(() => true)
+
+  const resultPromise = vacancyBrowserSession.openSession({
+    shouldCapturePage,
+    url: 'https://careers.example.test/jobs/product-designer',
+  })
+
+  await vi.waitFor(() => {
+    expect(constructor).toHaveBeenCalledTimes(1)
+  })
+
+  const createdWindow = constructor.mock.results[0]?.value as BrowserWindowDouble | undefined
+
+  createdWindow?.webContents.finishLoad(
+    {
+      html: '<main><h1>Careers</h1><iframe src="https://jobs.example.test/embed/123"></iframe></main>',
+      pageTitle: 'Example Labs Careers',
+      resolvedUrl: 'https://careers.example.test/jobs/product-designer',
+    },
+    [
+      new Error('Frame navigated while capture was running.'),
+      {
+        html: '<article><h1>Senior Product Designer</h1><p>Lead browser-mediated intake work.</p></article>',
+        pageTitle: 'Senior Product Designer',
+        resolvedUrl: 'https://jobs.example.test/embed/123',
+      },
+    ],
+  )
+  await vi.waitFor(() => {
+    expect(shouldCapturePage).toHaveBeenCalled()
+  })
+  createdWindow?.close()
+
+  const result = await resultPromise
+
+  expect(result?.html).toContain('<main><h1>Careers</h1>')
+  expect(result?.html).toContain(
+    '<article data-cv-maxxing-frame-url="https://jobs.example.test/embed/123">',
+  )
+  expect(result?.html).toContain('Senior Product Designer')
 })
 
 test('tracks the latest valid on-target snapshot across later page loads and returns it when the window closes', async () => {
