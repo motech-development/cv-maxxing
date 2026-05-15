@@ -33,6 +33,8 @@ const OPEN_JOB_PAGE_BLOCKING_REASON =
   'This job page may need more access. Open the job page or paste the job description instead.'
 const RELOAD_JOB_PAGE_BLOCKING_REASON =
   'Open the job page and close it after the full details load, or paste the job description instead.'
+const INCOMPLETE_VACANCY_BLOCKING_REASON =
+  'Add the full job responsibilities or requirements before tailoring your CV.'
 
 interface VacancyServiceDependencies {
   captureVacancyBrowserSessionPage?: (input: {
@@ -141,14 +143,33 @@ export function createVacancyService({
       const source = normalizedUrl ? resolveSubmittedUrlSource(normalizedUrl) : 'generic'
       const vacancyId = generateId()
       const fetchedAt = getCurrentTimestamp()
-      const normalizedVacancy = await normalizationService.normalizeVacancy({
-        html: createPastedVacancyHtml(trimmedText),
-        inputType: 'pasted_text',
-        originalUrl: normalizedUrl,
-        pageTitle: null,
-        resolvedUrl: normalizedUrl,
-        source,
-      })
+      let normalizedVacancy: NormalizedVacancy
+
+      try {
+        normalizedVacancy = await normalizationService.normalizeVacancy({
+          html: createPastedVacancyHtml(trimmedText),
+          inputType: 'pasted_text',
+          originalUrl: normalizedUrl,
+          pageTitle: null,
+          resolvedUrl: normalizedUrl,
+          source,
+        })
+      } catch (error) {
+        if (!isNoJobContentNormalizationError(error)) {
+          throw error
+        }
+
+        return await createPastedNoJobContentResult({
+          fetchedAt,
+          localAppData,
+          normalizedUrl,
+          source,
+          text: trimmedText,
+          vacancyId,
+          workspaceSelectionStore,
+        })
+      }
+
       const extractedText = normalizedVacancy.bodyText.trim()
       const isLanguageBlocked = assessEnglishLanguageSupport(trimmedText).status === 'blocked'
       const canGenerate = !isLanguageBlocked && isVacancyReady(normalizedVacancy)
@@ -157,8 +178,7 @@ export function createVacancyService({
       if (isLanguageBlocked) {
         blockingReason = VACANCY_LANGUAGE_BLOCK_MESSAGE
       } else if (!canGenerate) {
-        blockingReason =
-          'Add the full job responsibilities or requirements before tailoring your CV.'
+        blockingReason = INCOMPLETE_VACANCY_BLOCKING_REASON
       }
 
       const vacancy = toVacancySummary({
@@ -347,6 +367,65 @@ export function createVacancyService({
   }
 }
 
+async function createPastedNoJobContentResult({
+  fetchedAt,
+  localAppData,
+  normalizedUrl,
+  source,
+  text,
+  vacancyId,
+  workspaceSelectionStore,
+}: {
+  fetchedAt: string
+  localAppData: Pick<LocalAppDataStore, 'metadata'>
+  normalizedUrl: string | null
+  source: VacancySource
+  text: string
+  vacancyId: string
+  workspaceSelectionStore?: Pick<WorkspaceSelectionStore, 'getSelection' | 'setSelection'>
+}): Promise<VacancyIngestResult> {
+  const vacancy: VacancySummary = {
+    blockingReason: INCOMPLETE_VACANCY_BLOCKING_REASON,
+    canGenerate: false,
+    employer: null,
+    fetchedAt,
+    id: vacancyId,
+    inputType: 'pasted_text',
+    location: null,
+    originalUrl: normalizedUrl,
+    requirements: [],
+    resolvedUrl: normalizedUrl,
+    responsibilities: [],
+    source,
+    status: 'incomplete',
+    textPreview: '',
+    title: null,
+  }
+
+  await localAppData.metadata.put({
+    id: VACANCY_WORKSPACE_RECORD_ID,
+    scope: VACANCY_DRAFT_SCOPE,
+    value: {
+      reviewState: 'editable',
+      text,
+      url: normalizedUrl ?? '',
+      vacancyId: null,
+    } satisfies VacancyDraftMetadataValue,
+  })
+  await persistJobsWorkspaceSelection({
+    jobs: {
+      kind: 'draft',
+    },
+    workspaceSelectionStore,
+  })
+
+  return {
+    kind: 'incomplete',
+    vacancy,
+    workspaceState: await thisGetWorkspaceState(localAppData),
+  }
+}
+
 async function createInteractiveBrowserFallbackResult({
   getCurrentTimestamp,
   localAppData,
@@ -414,7 +493,7 @@ async function persistFetchedVacancyPage({
   if (isLanguageBlocked) {
     blockingReason = VACANCY_LANGUAGE_BLOCK_MESSAGE
   } else if (!canGenerate) {
-    blockingReason = 'Add the full job responsibilities or requirements before tailoring your CV.'
+    blockingReason = INCOMPLETE_VACANCY_BLOCKING_REASON
   }
 
   const vacancy = toVacancySummary({
@@ -739,6 +818,10 @@ function normalizeUrl(url: string | undefined): string | null {
 }
 
 function isSilentCaptureFallbackError(error: unknown): boolean {
+  return isNoJobContentNormalizationError(error)
+}
+
+function isNoJobContentNormalizationError(error: unknown): boolean {
   return error instanceof VacancyNormalizationError && error.code === 'no_job_content'
 }
 
