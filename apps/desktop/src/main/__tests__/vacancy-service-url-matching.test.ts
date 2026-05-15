@@ -83,7 +83,12 @@ test('accepts browser-captured vacancy pages when the resolved URL preserves sub
   const vacancyService = createVacancyService({
     captureVacancyBrowserSessionPage: vi.fn(() => {
       return Promise.resolve({
-        html: '<main><h1>Senior Product Designer</h1></main>',
+        html: [
+          '<main>',
+          '<h1>Senior Product Designer</h1>',
+          '<p>Lead browser-mediated intake for desktop workflows.</p>',
+          '</main>',
+        ].join(''),
         pageTitle: 'Senior Product Designer at Example Labs',
         resolvedUrl:
           'https://careers.example.com/jobs/123?jobId=123&session=managed-browser#details',
@@ -108,6 +113,59 @@ test('accepts browser-captured vacancy pages when the resolved URL preserves sub
   expect(normalizationCalls[0]?.resolvedUrl).toBe(
     'https://careers.example.com/jobs/123?jobId=123&session=managed-browser#details',
   )
+})
+
+test('waits for rendered vacancy evidence before accepting a browser-captured URL match', async () => {
+  const localAppData = createLocalAppDataDouble()
+  const normalizationCalls: VacancyNormalizationInput[] = []
+  const captureVacancyBrowserSessionPage = vi.fn(
+    ({
+      shouldCapturePage,
+    }: {
+      shouldCapturePage: (snapshot: {
+        html: string
+        pageTitle: string | null
+        resolvedUrl: string
+      }) => boolean
+    }) => {
+      const loadingSnapshot = {
+        html: '<main><h1>Loading job details</h1></main>',
+        pageTitle: 'Example Labs Careers',
+        resolvedUrl: 'https://careers.example.com/jobs/123',
+      }
+      const renderedSnapshot = {
+        html: [
+          '<main>',
+          '<h1>Senior Product Designer</h1>',
+          '<p>Lead browser-mediated intake for desktop workflows.</p>',
+          '</main>',
+        ].join(''),
+        pageTitle: 'Senior Product Designer at Example Labs',
+        resolvedUrl: 'https://careers.example.com/jobs/123',
+      }
+
+      expect(shouldCapturePage(loadingSnapshot)).toBe(false)
+      expect(shouldCapturePage(renderedSnapshot)).toBe(true)
+
+      return Promise.resolve(renderedSnapshot)
+    },
+  )
+  const vacancyService = createVacancyService({
+    captureVacancyBrowserSessionPage,
+    generateId: vi.fn(() => 'vacancy-rendered-evidence'),
+    getCurrentTimestamp: vi.fn(() => '2026-05-15T20:20:00.000Z'),
+    localAppData,
+    normalizationService: createReadyNormalizationService(normalizationCalls),
+    openVacancyBrowserSession: vi.fn(() => Promise.resolve(null)),
+  })
+
+  const result = await vacancyService.ingestVacancyUrl({
+    url: 'https://careers.example.com/jobs/123',
+  })
+
+  expect(result.kind).toBe('ingested')
+  expect(captureVacancyBrowserSessionPage).toHaveBeenCalledTimes(1)
+  expect(normalizationCalls).toHaveLength(1)
 })
 
 test('rejects browser-captured vacancy pages when the resolved URL changes submitted query parameters', async () => {

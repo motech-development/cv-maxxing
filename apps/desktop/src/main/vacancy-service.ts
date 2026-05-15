@@ -19,7 +19,11 @@ import {
 import type { JsonValue, LocalAppDataStore } from './local-app-data-service.js'
 import type { VacancyBrowserPageSnapshot } from './vacancy-browser-session-service.js'
 import { VacancyNormalizationError } from './vacancy-normalization-error.js'
-import { inferTitleFromPageTitle, sanitizeSnapshotHtml } from './vacancy-page-content.js'
+import {
+  extractTextFromHtml,
+  inferTitleFromPageTitle,
+  sanitizeSnapshotHtml,
+} from './vacancy-page-content.js'
 import type {
   NormalizedVacancy,
   VacancyNormalizationService,
@@ -35,6 +39,26 @@ const RELOAD_JOB_PAGE_BLOCKING_REASON =
   'Open the job page and close it after the full details load, or paste the job description instead.'
 const INCOMPLETE_VACANCY_BLOCKING_REASON =
   'Add the full job responsibilities or requirements before tailoring your CV.'
+const MIN_RENDERED_PAGE_TEXT_LENGTH = 40
+const TERMINAL_RENDERED_PAGE_PATTERNS = [
+  /\b(?:captcha|verify you are human)\b/iu,
+  /\b(?:accept cookies|cookie consent|cookie settings)\b/iu,
+  /\b(?:log in|login|sign in|signin)\b/iu,
+  /\b(?:not found|page unavailable|access denied)\b/iu,
+] as const
+const TRANSIENT_RENDERED_PAGE_PATTERNS = [
+  /^\s*(?:loading|please wait|redirecting)(?:[\s.]+|$)/iu,
+  /\bloading\s+(?:job|role|vacancy|details)\b/iu,
+] as const
+const VACANCY_RENDERED_PAGE_EVIDENCE_PATTERNS = [
+  /\b(?:about the role|job description|requirements|responsibilities|qualifications)\b/iu,
+  /\b(?:what you(?:'|\u2019)ll do|what you will do|what we are looking for)\b/iu,
+] as const
+const GENERIC_CAREERS_SHELL_PATTERNS = [
+  /\bcareers?\b/iu,
+  /\b(?:available roles|job openings|open positions)\b/iu,
+  /\b(?:benefits|interview guidance|explore teams)\b/iu,
+] as const
 
 interface VacancyServiceDependencies {
   captureVacancyBrowserSessionPage?: (input: {
@@ -261,7 +285,9 @@ export function createVacancyService({
       const capturedBrowserSnapshot = await captureVacancyBrowserSessionPage({
         shouldCapturePage: (snapshot) => {
           return isExpectedBrowserSessionVacancyPage({
+            html: snapshot.html,
             originalUrl: normalizedUrl,
+            pageTitle: snapshot.pageTitle,
             resolvedUrl: snapshot.resolvedUrl,
           })
         },
@@ -271,7 +297,9 @@ export function createVacancyService({
       if (
         capturedBrowserSnapshot === null ||
         !isExpectedBrowserSessionVacancyPage({
+          html: capturedBrowserSnapshot.html,
           originalUrl: normalizedUrl,
+          pageTitle: capturedBrowserSnapshot.pageTitle,
           resolvedUrl: capturedBrowserSnapshot.resolvedUrl,
         })
       ) {
@@ -313,7 +341,9 @@ export function createVacancyService({
       const browserSnapshot = await openVacancyBrowserSession({
         shouldCapturePage: (snapshot) => {
           return isExpectedBrowserSessionVacancyPage({
+            html: snapshot.html,
             originalUrl: normalizedUrl,
+            pageTitle: snapshot.pageTitle,
             resolvedUrl: snapshot.resolvedUrl,
           })
         },
@@ -323,7 +353,9 @@ export function createVacancyService({
       if (
         browserSnapshot === null ||
         !isExpectedBrowserSessionVacancyPage({
+          html: browserSnapshot.html,
           originalUrl: normalizedUrl,
+          pageTitle: browserSnapshot.pageTitle,
           resolvedUrl: browserSnapshot.resolvedUrl,
         })
       ) {
@@ -775,37 +807,47 @@ function toVacancySummary({
 }
 
 function isExpectedBrowserSessionVacancyPage({
+  html,
   originalUrl,
+  pageTitle,
   resolvedUrl,
 }: {
+  html: string
   originalUrl: string
+  pageTitle: string | null
   resolvedUrl: string
 }): boolean {
   try {
     const requestedUrl = new URL(originalUrl)
     const currentUrl = new URL(resolvedUrl)
+    let isResolvedUrlMatch: boolean
 
     if (isHostnameOrSubdomain(requestedUrl.hostname, 'linkedin.com')) {
-      return doExtractedIdentifiersMatch({
+      isResolvedUrlMatch = doExtractedIdentifiersMatch({
         currentIdentifier: extractLinkedInJobId(currentUrl),
         requestedIdentifier: extractLinkedInJobId(requestedUrl),
       })
-    }
-
-    if (isHostnameOrSubdomain(requestedUrl.hostname, 'indeed.com')) {
-      return doExtractedIdentifiersMatch({
+    } else if (isHostnameOrSubdomain(requestedUrl.hostname, 'indeed.com')) {
+      isResolvedUrlMatch = doExtractedIdentifiersMatch({
         currentIdentifier: extractIndeedJobKey(currentUrl),
         requestedIdentifier: extractIndeedJobKey(requestedUrl),
       })
+    } else {
+      isResolvedUrlMatch =
+        currentUrl.hostname.toLowerCase() === requestedUrl.hostname.toLowerCase() &&
+        normalizeComparablePathname(currentUrl.pathname) ===
+          normalizeComparablePathname(requestedUrl.pathname) &&
+        doResolvedQueryParametersPreserveSubmittedParameters({
+          currentUrl,
+          requestedUrl,
+        })
     }
 
     return (
-      currentUrl.hostname.toLowerCase() === requestedUrl.hostname.toLowerCase() &&
-      normalizeComparablePathname(currentUrl.pathname) ===
-        normalizeComparablePathname(requestedUrl.pathname) &&
-      doResolvedQueryParametersPreserveSubmittedParameters({
-        currentUrl,
-        requestedUrl,
+      isResolvedUrlMatch &&
+      hasRenderedPageEvidence({
+        html,
+        pageTitle,
       })
     )
   } catch {
@@ -857,6 +899,55 @@ function isHostnameOrSubdomain(hostname: string, domain: string): boolean {
   const normalizedHostname = hostname.toLowerCase()
 
   return normalizedHostname === domain || normalizedHostname.endsWith(`.${domain}`)
+}
+
+function hasRenderedPageEvidence({
+  html,
+  pageTitle,
+}: {
+  html: string
+  pageTitle: string | null
+}): boolean {
+  const extractedText = extractTextFromHtml(sanitizeSnapshotHtml(html))
+
+  if (extractedText === '') {
+    return false
+  }
+
+  if (TERMINAL_RENDERED_PAGE_PATTERNS.some((pattern) => pattern.test(extractedText))) {
+    return true
+  }
+
+  if (
+    TRANSIENT_RENDERED_PAGE_PATTERNS.some((pattern) => {
+      return pattern.test(extractedText) || (pageTitle !== null && pattern.test(pageTitle))
+    })
+  ) {
+    return false
+  }
+
+  if (
+    looksLikeGenericCareersShell(extractedText) &&
+    !hasVacancyRenderedPageEvidence(extractedText)
+  ) {
+    return false
+  }
+
+  return extractedText.length >= MIN_RENDERED_PAGE_TEXT_LENGTH
+}
+
+function hasVacancyRenderedPageEvidence(extractedText: string): boolean {
+  return VACANCY_RENDERED_PAGE_EVIDENCE_PATTERNS.some((pattern) => {
+    return pattern.test(extractedText)
+  })
+}
+
+function looksLikeGenericCareersShell(extractedText: string): boolean {
+  const shellSignalsCount = GENERIC_CAREERS_SHELL_PATTERNS.filter((pattern) => {
+    return pattern.test(extractedText)
+  }).length
+
+  return shellSignalsCount >= 2
 }
 
 function normalizeComparablePathname(pathname: string): string {
