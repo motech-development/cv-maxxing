@@ -1116,6 +1116,71 @@ test('blocks a non-English pasted vacancy while preserving the entered draft', a
   await localAppData.close()
 })
 
+test('blocks a non-English pasted vacancy even when AI returns English normalized content', async () => {
+  const paths = await createTestPaths()
+  const localAppData = await openLocalAppData({
+    keychain: createKeychainBoundary(),
+    paths,
+  })
+  const normalizationService = {
+    normalizeVacancy: vi.fn(() => {
+      return Promise.resolve({
+        bodyText:
+          'Design products for technical users with engineering teams. Collaborate with research and operations.',
+        employer: 'Example Labs',
+        location: 'Madrid, Spain',
+        requirements: ['Experience shipping workflow software.'],
+        responsibilities: ['Design products for technical users.'],
+        title: 'Platform engineer',
+      })
+    }),
+  } satisfies VacancyNormalizationService
+  const vacancyService = createVacancyService({
+    generateId: vi.fn(() => 'vacancy-008-translated'),
+    getCurrentTimestamp: vi.fn(() => '2026-04-08T21:42:00.000Z'),
+    localAppData,
+    normalizationService,
+    openVacancyBrowserSession: vi.fn(() => Promise.resolve(null)),
+  })
+  const text = [
+    'Ingeniero de plataforma',
+    'Example Labs',
+    'Madrid, España',
+    '',
+    'Responsabilidades',
+    '- Diseñar productos para usuarios técnicos con equipos de ingeniería.',
+    '- Colaborar con investigación y operaciones.',
+    '',
+    'Requisitos',
+    '- Experiencia enviando software de flujo de trabajo.',
+    '- Comunicación escrita sólida.',
+  ].join('\n')
+
+  const result = await vacancyService.ingestPastedVacancy({
+    text,
+  })
+
+  expect(result.kind).toBe('incomplete')
+  expect(result.vacancy.canGenerate).toBe(false)
+  expect(result.vacancy.blockingReason).toBe(
+    'CV Maxxing v1 supports British English only. Review an English job before tailoring your CV.',
+  )
+  await expect(
+    localAppData.artifacts.read({
+      id: 'vacancy-008-translated',
+      name: 'extracted.txt',
+      scope: 'vacancies',
+    }),
+  ).resolves.toEqual(
+    Buffer.from(
+      'Design products for technical users with engineering teams. Collaborate with research and operations.',
+      'utf8',
+    ),
+  )
+
+  await localAppData.close()
+})
+
 test('blocks a non-English fetched vacancy page while preserving the entered URL', async () => {
   const paths = await createTestPaths()
   const localAppData = await openLocalAppData({
