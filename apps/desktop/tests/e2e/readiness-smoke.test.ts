@@ -11,6 +11,16 @@ import { createOriginalCvNormalizationFixtureOutput } from './original-cv-normal
 
 const temporaryDirectories: string[] = []
 const defaultOriginalCvNormalizationOutput = createOriginalCvNormalizationFixtureOutput()
+const defaultVacancyNormalizationOutput = createVacancyNormalizationFixtureOutput()
+
+interface VacancyNormalizationFixtureOverrides {
+  bodyText?: string
+  employer?: string | null
+  location?: string | null
+  requirements?: string[]
+  responsibilities?: string[]
+  title?: string | null
+}
 
 async function launchDesktopApp(environment: NodeJS.ProcessEnv = {}) {
   const combinedEnvironment = Object.fromEntries(
@@ -488,6 +498,30 @@ test('blocks a non-English pasted vacancy, preserves the draft, and keeps Tailor
 
   const electronApp = await launchDesktopApp({
     CV_MAXXING_AI_WORKER_PREFLIGHT_STATUS: 'ready',
+    CV_MAXXING_AI_WORKER_VACANCY_NORMALIZATION_OUTPUT: createVacancyNormalizationFixtureOutput({
+      bodyText: [
+        'Ingeniero de plataforma',
+        'Example Labs',
+        'Madrid, Espana',
+        'Responsabilidades',
+        'Disenar productos para usuarios tecnicos con equipos de ingenieria.',
+        'Colaborar con investigacion y operaciones.',
+        'Requisitos',
+        'Experiencia enviando software de flujo de trabajo.',
+        'Comunicacion escrita solida.',
+      ].join('\n'),
+      employer: 'Example Labs',
+      location: 'Madrid, Espana',
+      requirements: [
+        'Experiencia enviando software de flujo de trabajo.',
+        'Comunicacion escrita solida.',
+      ],
+      responsibilities: [
+        'Disenar productos para usuarios tecnicos con equipos de ingenieria.',
+        'Colaborar con investigacion y operaciones.',
+      ],
+      title: 'Ingeniero de plataforma',
+    }),
     CV_MAXXING_LOCAL_APP_DATA_ROOT: testPaths.appDataRoot,
     CV_MAXXING_STARTUP_DESTINATION: 'first_launch',
   })
@@ -574,6 +608,7 @@ test('returns to the workspace overlay after sign-in repair for a pending genera
     CV_MAXXING_AI_WORKER_PREFLIGHT_STATUS: 'ready',
     CV_MAXXING_AI_WORKER_RETRY_STATUS: 'auth_missing',
     CV_MAXXING_AI_WORKER_SIGN_IN_STATUS: 'ready',
+    CV_MAXXING_AI_WORKER_VACANCY_NORMALIZATION_OUTPUT: defaultVacancyNormalizationOutput,
     CV_MAXXING_LOCAL_APP_DATA_ROOT: testPaths.appDataRoot,
     CV_MAXXING_STARTUP_DESTINATION: 'first_launch',
   })
@@ -645,6 +680,7 @@ test('returns to the workspace with a visible error when generation fails contra
       }),
     ),
     CV_MAXXING_AI_WORKER_PREFLIGHT_STATUS: 'ready',
+    CV_MAXXING_AI_WORKER_VACANCY_NORMALIZATION_OUTPUT: defaultVacancyNormalizationOutput,
     CV_MAXXING_LOCAL_APP_DATA_ROOT: testPaths.appDataRoot,
     CV_MAXXING_STARTUP_DESTINATION: 'first_launch',
   })
@@ -709,6 +745,7 @@ test('persists pending generation before repair and clears it after completion',
   let electronApp = await launchDesktopApp({
     CV_MAXXING_AI_WORKER_PREFLIGHT_STATUS: 'ready',
     CV_MAXXING_AI_WORKER_RETRY_STATUS: 'auth_missing',
+    CV_MAXXING_AI_WORKER_VACANCY_NORMALIZATION_OUTPUT: defaultVacancyNormalizationOutput,
     CV_MAXXING_LOCAL_APP_DATA_ROOT: testPaths.appDataRoot,
     CV_MAXXING_STARTUP_DESTINATION: 'first_launch',
   })
@@ -804,6 +841,7 @@ test('renders the stored adapted CV PDF artifact and exports a readable non-over
   const electronApp = await launchDesktopApp({
     CV_MAXXING_AI_WORKER_GENERATION_OUTPUT: JSON.stringify(createGenerationResultFixture()),
     CV_MAXXING_AI_WORKER_PREFLIGHT_STATUS: 'ready',
+    CV_MAXXING_AI_WORKER_VACANCY_NORMALIZATION_OUTPUT: defaultVacancyNormalizationOutput,
     CV_MAXXING_LOCAL_APP_DATA_ROOT: testPaths.appDataRoot,
     CV_MAXXING_STARTUP_DESTINATION: 'first_launch',
     CV_MAXXING_TEST_ADAPTED_CV_EXPORT_PATH: requestedExportPath,
@@ -1217,6 +1255,32 @@ function createGenerationResultFixture(overrides?: {
     ...baseFixture,
     coverLetter,
   }
+}
+
+function createVacancyNormalizationFixtureOutput(
+  overrides: VacancyNormalizationFixtureOverrides = {},
+): string {
+  const normalizedVacancy = {
+    bodyText:
+      overrides.bodyText ??
+      'Build reliable desktop tooling for technical users. Partner with design and infrastructure teams. Experience shipping workflow software. Strong written communication.',
+    employer: overrides.employer ?? 'Example Labs',
+    location: overrides.location ?? 'London, United Kingdom',
+    requirements: overrides.requirements ?? [
+      'Experience shipping workflow software.',
+      'Strong written communication.',
+    ],
+    responsibilities: overrides.responsibilities ?? [
+      'Build reliable desktop tooling for technical users.',
+      'Partner with design and infrastructure teams.',
+    ],
+    title: overrides.title ?? 'Senior platform engineer',
+  }
+
+  return JSON.stringify({
+    kind: 'success',
+    normalizedVacancy,
+  })
 }
 
 function createDocxDocumentBuffer(lines: string[]): Buffer {
