@@ -76,6 +76,8 @@ const SILENT_CAPTURE_SETTLE_AFTER_VALID_MS = 500
 const SILENT_CAPTURE_OBSERVATION_INTERVAL_MS = 250
 const SILENT_CAPTURE_TIMEOUT_MS = 90_000
 
+type ReadingActionsState = 'complete' | 'pending' | 'rejected'
+
 export function createVacancyBrowserSessionService({
   autoCloseAfterFirstObservation = false,
   browserWindowConstructor,
@@ -113,7 +115,7 @@ export function createVacancyBrowserSessionService({
       let hasSettled = false
       let latestValidSnapshot: VacancyBrowserPageSnapshot | null = null
       let observationIntervalId: ReturnType<typeof setInterval> | null = null
-      let readingActionsState: 'complete' | 'pending' | 'rejected' =
+      let readingActionsState: ReadingActionsState =
         readingActions.length === 0 ? 'complete' : 'pending'
       let validSnapshotSettleTimeoutId: ReturnType<typeof setTimeout> | null = null
       let observationTimeoutId: ReturnType<typeof setTimeout> | null = null
@@ -260,7 +262,7 @@ export function createVacancyBrowserSessionService({
       let hasSettled = false
       let latestValidSnapshot: VacancyBrowserPageSnapshot | null = null
       let observationIntervalId: ReturnType<typeof setInterval> | null = null
-      let readingActionsState: 'complete' | 'pending' | 'rejected' =
+      let readingActionsState: ReadingActionsState =
         readingActions.length === 0 ? 'complete' : 'pending'
 
       return await new Promise<VacancyBrowserPageSnapshot | null>((resolve) => {
@@ -322,19 +324,25 @@ export function createVacancyBrowserSessionService({
           }
         }
 
-        const startInteractiveObservation = (): void => {
-          if (observationIntervalId !== null) {
-            return
-          }
-
+        const observeAndSettleOnFailure = (): void => {
           observeCurrentPage().catch(() => {
             settle(latestValidSnapshot)
           })
+        }
+
+        const startInteractiveObservation = (): void => {
+          if (observationIntervalId !== null) {
+            if (readingActionsState !== 'pending') {
+              observeAndSettleOnFailure()
+            }
+
+            return
+          }
+
+          observeAndSettleOnFailure()
 
           observationIntervalId = setInterval(() => {
-            observeCurrentPage().catch(() => {
-              settle(latestValidSnapshot)
-            })
+            observeAndSettleOnFailure()
           }, INTERACTIVE_OBSERVATION_INTERVAL_MS)
         }
 
@@ -343,10 +351,6 @@ export function createVacancyBrowserSessionService({
         })
         vacancyBrowserWindow.webContents.on('did-finish-load', () => {
           startInteractiveObservation()
-
-          observeCurrentPage().catch(() => {
-            settle(latestValidSnapshot)
-          })
         })
 
         vacancyBrowserWindow
@@ -370,19 +374,17 @@ async function resolveReadingActionsState({
   webContents,
 }: {
   readingActions: VacancyBrowserReadingActionRequest[]
-  readingActionsState: 'complete' | 'pending' | 'rejected'
+  readingActionsState: ReadingActionsState
   webContents: BrowserWebContentsLike
-}): Promise<'complete' | 'pending' | 'rejected'> {
+}): Promise<ReadingActionsState> {
   if (readingActionsState !== 'pending') {
     return readingActionsState
   }
 
-  return (await runSafeReadingActions({
+  return await runSafeReadingActions({
     readingActions,
     webContents,
-  }))
-    ? 'complete'
-    : 'rejected'
+  })
 }
 
 async function runSafeReadingActions({
@@ -391,16 +393,17 @@ async function runSafeReadingActions({
 }: {
   readingActions: VacancyBrowserReadingActionRequest[]
   webContents: BrowserWebContentsLike
-}): Promise<boolean> {
+}): Promise<ReadingActionsState> {
   for (const readingAction of readingActions) {
     const result = await webContents.executeJavaScript(createSafeReadingActionScript(readingAction))
+    const resultState = resolveSafeReadingActionState(result)
 
-    if (!isSafeReadingActionCompleted(result)) {
-      return false
+    if (resultState !== 'complete') {
+      return resultState
     }
   }
 
-  return true
+  return 'complete'
 }
 
 function createSafeReadingActionScript(action: VacancyBrowserReadingActionRequest): string {
@@ -416,10 +419,6 @@ function createSafeReadingActionScript(action: VacancyBrowserReadingActionReques
       marker,
       reason,
     });
-
-    if (action.kind !== 'click' && action.kind !== 'read') {
-      return reject('unsupported_action');
-    }
 
     const target = document.querySelector(action.selector);
 
@@ -484,15 +483,28 @@ function createSafeReadingActionScript(action: VacancyBrowserReadingActionReques
   })()`
 }
 
-function isSafeReadingActionCompleted(value: unknown): boolean {
-  return (
-    value !== null &&
-    typeof value === 'object' &&
-    'kind' in value &&
-    value.kind === 'completed' &&
-    'marker' in value &&
-    value.marker === SAFE_READING_ACTION_MARKER
-  )
+function resolveSafeReadingActionState(value: unknown): ReadingActionsState {
+  if (value === null || typeof value !== 'object') {
+    return 'rejected'
+  }
+
+  if (!('marker' in value) || value.marker !== SAFE_READING_ACTION_MARKER) {
+    return 'rejected'
+  }
+
+  if (!('kind' in value)) {
+    return 'rejected'
+  }
+
+  if (value.kind === 'completed') {
+    return 'complete'
+  }
+
+  if (value.kind !== 'rejected') {
+    return 'rejected'
+  }
+
+  return 'reason' in value && value.reason === 'missing_target' ? 'pending' : 'rejected'
 }
 
 async function createVacancyBrowserWindow({

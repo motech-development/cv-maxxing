@@ -113,6 +113,39 @@ test('accepts browser-captured vacancy pages when only the URL hash changes', as
   )
 })
 
+test('accepts browser-captured vacancy pages when a canonical redirect removes www', async () => {
+  const localAppData = createLocalAppDataDouble()
+  const normalizationCalls: VacancyNormalizationInput[] = []
+  const vacancyService = createVacancyService({
+    captureVacancyBrowserSessionPage: vi.fn(() => {
+      return Promise.resolve({
+        html: [
+          '<main>',
+          '<h1>Senior Product Designer</h1>',
+          '<p>Lead browser-mediated intake for desktop workflows.</p>',
+          '</main>',
+        ].join(''),
+        pageTitle: 'Senior Product Designer at Example Labs',
+        resolvedUrl: 'https://careers.example.com/jobs/123?jobId=123',
+      })
+    }),
+    generateId: vi.fn(() => 'vacancy-canonical-www'),
+    getCurrentTimestamp: vi.fn(() => '2026-05-15T20:12:00.000Z'),
+    localAppData,
+    normalizationService: createReadyNormalizationService(normalizationCalls),
+    openVacancyBrowserSession: vi.fn(() => Promise.resolve(null)),
+  })
+
+  const result = await vacancyService.ingestVacancyUrl({
+    url: 'https://www.careers.example.com/jobs/123/?jobId=123',
+  })
+
+  expect(result.kind).toBe('ingested')
+  expect(result.vacancy.source).toBe('careers.example.com')
+  expect(result.vacancy.resolvedUrl).toBe('https://careers.example.com/jobs/123?jobId=123')
+  expect(normalizationCalls).toHaveLength(1)
+})
+
 test('waits for rendered vacancy evidence before accepting a browser-captured URL match', async () => {
   const localAppData = createLocalAppDataDouble()
   const normalizationCalls: VacancyNormalizationInput[] = []

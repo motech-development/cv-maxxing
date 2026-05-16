@@ -79,6 +79,7 @@ const OUTPUT_SCHEMA = {
       type: ['object', 'null'],
     },
     readingActions: {
+      minItems: 1,
       items: {
         additionalProperties: false,
         properties: {
@@ -87,6 +88,8 @@ const OUTPUT_SCHEMA = {
             type: 'string',
           },
           selector: {
+            minLength: 1,
+            pattern: String.raw`\S`,
             type: 'string',
           },
         },

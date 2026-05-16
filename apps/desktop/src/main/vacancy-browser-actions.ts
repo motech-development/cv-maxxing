@@ -7,20 +7,3 @@ export type VacancyBrowserReadingActionRequest =
       kind: 'read'
       selector: string
     }
-  | {
-      kind: 'navigate'
-      url: string
-    }
-  | {
-      kind: 'submit'
-      selector: string
-    }
-  | {
-      kind: 'type'
-      selector: string
-      text: string
-    }
-  | {
-      kind: 'upload'
-      selector: string
-    }

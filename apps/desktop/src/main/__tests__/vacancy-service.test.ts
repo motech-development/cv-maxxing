@@ -1322,7 +1322,7 @@ test('blocks a non-English pasted vacancy while preserving the entered draft', a
   await localAppData.close()
 })
 
-test('blocks a non-English pasted vacancy even when AI returns English normalized content', async () => {
+test('uses normalized pasted vacancy text for language support checks', async () => {
   const paths = await createTestPaths()
   const localAppData = await openLocalAppData({
     keychain: createKeychainBoundary(),
@@ -1366,11 +1366,10 @@ test('blocks a non-English pasted vacancy even when AI returns English normalize
     text,
   })
 
-  expect(result.kind).toBe('incomplete')
-  expect(result.vacancy.canGenerate).toBe(false)
-  expect(result.vacancy.blockingReason).toBe(
-    'CV Maxxing v1 supports British English only. Review an English job before tailoring your CV.',
-  )
+  expect(result.kind).toBe('ingested')
+  expect(result.vacancy.canGenerate).toBe(true)
+  expect(result.vacancy.blockingReason).toBeNull()
+  expect(result.vacancy.status).toBe('ready')
   await expect(
     localAppData.artifacts.read({
       id: 'vacancy-008-translated',
