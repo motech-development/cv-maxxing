@@ -78,6 +78,11 @@ const SILENT_CAPTURE_TIMEOUT_MS = 90_000
 
 type ReadingActionsState = 'complete' | 'pending' | 'rejected'
 
+interface ReadingActionsProgress {
+  nextActionIndex: number
+  state: ReadingActionsState
+}
+
 export function createVacancyBrowserSessionService({
   autoCloseAfterFirstObservation = false,
   browserWindowConstructor,
@@ -115,6 +120,7 @@ export function createVacancyBrowserSessionService({
       let hasSettled = false
       let latestValidSnapshot: VacancyBrowserPageSnapshot | null = null
       let observationIntervalId: ReturnType<typeof setInterval> | null = null
+      let nextReadingActionIndex = 0
       let readingActionsState: ReadingActionsState =
         readingActions.length === 0 ? 'complete' : 'pending'
       let validSnapshotSettleTimeoutId: ReturnType<typeof setTimeout> | null = null
@@ -159,11 +165,15 @@ export function createVacancyBrowserSessionService({
             return
           }
 
-          readingActionsState = await resolveReadingActionsState({
+          const readingActionsProgress = await resolveReadingActionsState({
+            nextActionIndex: nextReadingActionIndex,
             readingActions,
             readingActionsState,
             webContents: vacancyBrowserWindow.webContents,
           })
+
+          nextReadingActionIndex = readingActionsProgress.nextActionIndex
+          readingActionsState = readingActionsProgress.state
 
           if (readingActionsState === 'rejected') {
             closeWindow()
@@ -261,6 +271,7 @@ export function createVacancyBrowserSessionService({
       })
       let hasSettled = false
       let latestValidSnapshot: VacancyBrowserPageSnapshot | null = null
+      let nextReadingActionIndex = 0
       let observationIntervalId: ReturnType<typeof setInterval> | null = null
       let readingActionsState: ReadingActionsState =
         readingActions.length === 0 ? 'complete' : 'pending'
@@ -294,11 +305,15 @@ export function createVacancyBrowserSessionService({
             return
           }
 
-          readingActionsState = await resolveReadingActionsState({
+          const readingActionsProgress = await resolveReadingActionsState({
+            nextActionIndex: nextReadingActionIndex,
             readingActions,
             readingActionsState,
             webContents: vacancyBrowserWindow.webContents,
           })
+
+          nextReadingActionIndex = readingActionsProgress.nextActionIndex
+          readingActionsState = readingActionsProgress.state
 
           if (readingActionsState === 'rejected') {
             closeWindow()
@@ -369,41 +384,64 @@ export function createVacancyBrowserSessionService({
 }
 
 async function resolveReadingActionsState({
+  nextActionIndex,
   readingActions,
   readingActionsState,
   webContents,
 }: {
+  nextActionIndex: number
   readingActions: VacancyBrowserReadingActionRequest[]
   readingActionsState: ReadingActionsState
   webContents: BrowserWebContentsLike
-}): Promise<ReadingActionsState> {
+}): Promise<ReadingActionsProgress> {
   if (readingActionsState !== 'pending') {
-    return readingActionsState
+    return {
+      nextActionIndex,
+      state: readingActionsState,
+    }
   }
 
   return await runSafeReadingActions({
+    nextActionIndex,
     readingActions,
     webContents,
   })
 }
 
 async function runSafeReadingActions({
+  nextActionIndex,
   readingActions,
   webContents,
 }: {
+  nextActionIndex: number
   readingActions: VacancyBrowserReadingActionRequest[]
   webContents: BrowserWebContentsLike
-}): Promise<ReadingActionsState> {
-  for (const readingAction of readingActions) {
+}): Promise<ReadingActionsProgress> {
+  for (let actionIndex = nextActionIndex; actionIndex < readingActions.length; actionIndex += 1) {
+    const readingAction = readingActions[actionIndex]
+
+    if (readingAction === undefined) {
+      return {
+        nextActionIndex: actionIndex,
+        state: 'rejected',
+      }
+    }
+
     const result = await webContents.executeJavaScript(createSafeReadingActionScript(readingAction))
     const resultState = resolveSafeReadingActionState(result)
 
     if (resultState !== 'complete') {
-      return resultState
+      return {
+        nextActionIndex: actionIndex,
+        state: resultState,
+      }
     }
   }
 
-  return 'complete'
+  return {
+    nextActionIndex: readingActions.length,
+    state: 'complete',
+  }
 }
 
 function createSafeReadingActionScript(action: VacancyBrowserReadingActionRequest): string {
@@ -436,11 +474,12 @@ function createSafeReadingActionScript(action: VacancyBrowserReadingActionReques
     const targetElement = target instanceof HTMLElement ? target : target.closest('*');
     const formControl = target.closest('input, textarea, select, form');
     const activationTarget = target.closest('a, button, [role="button"], [role="link"]');
-    const actionText = [target.textContent, target.getAttribute('aria-label'), target.getAttribute('title')]
-      .filter((value) => value !== null)
+    const actionTarget = activationTarget ?? targetElement;
+    const actionText = [actionTarget?.textContent, actionTarget?.getAttribute('aria-label'), actionTarget?.getAttribute('title')]
+      .filter((value) => value !== null && value !== undefined)
       .join(' ');
 
-    if (targetElement === null || formControl !== null) {
+    if (targetElement === null || actionTarget === null || formControl !== null) {
       return reject('form_action');
     }
 
@@ -462,7 +501,7 @@ function createSafeReadingActionScript(action: VacancyBrowserReadingActionReques
     }
 
     const beforeUrl = new URL(window.location.href);
-    targetElement.click();
+    actionTarget.click();
 
     return wait(200).then(() => {
       const afterUrl = new URL(window.location.href);
