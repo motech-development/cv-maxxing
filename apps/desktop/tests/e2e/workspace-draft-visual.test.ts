@@ -13,6 +13,7 @@ import {
   createEditableDraftVacancyFixture,
   createPdfDocumentBuffer,
   createPastedVacancyFixture,
+  createVacancyNormalizationFixtureOutput,
 } from './visual/fixtures.js'
 import {
   cleanupVisualTestArtifacts,
@@ -138,6 +139,24 @@ test('captures the workspace review error screen', async () => {
 
   const electronApp = await launchDesktopApp({
     CV_MAXXING_AI_WORKER_PREFLIGHT_STATUS: 'ready',
+    CV_MAXXING_AI_WORKER_VACANCY_NORMALIZATION_OUTPUT: createVacancyNormalizationFixtureOutput({
+      bodyText: [
+        'Ingeniero de plataforma',
+        'Example Labs',
+        'Madrid, España',
+        'Responsabilidades',
+        'Diseñar productos para usuarios técnicos con equipos de ingeniería.',
+        'Colaborar con investigación y operaciones.',
+        'Requisitos',
+        'Experiencia enviando software de flujo de trabajo.',
+        'Comunicación escrita sólida.',
+      ].join('\n'),
+      employer: 'Example Labs',
+      location: 'Madrid, España',
+      requirements: [],
+      responsibilities: [],
+      title: 'Ingeniero de plataforma',
+    }),
     CV_MAXXING_LOCAL_APP_DATA_ROOT: testPaths.appDataRoot,
     CV_MAXXING_STARTUP_DESTINATION: 'first_launch',
   })
