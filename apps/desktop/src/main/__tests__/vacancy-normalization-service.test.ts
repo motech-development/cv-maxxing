@@ -59,11 +59,11 @@ test('writes a dedicated vacancy-normalization run workspace and removes it afte
           vacancyPage: {
             extractedTextPath: 'input/page.txt',
             inputType: 'url',
-            originalUrl: 'https://boards.greenhouse.io/example/jobs/123',
-            pageTitle: 'Senior Product Designer at Example Labs - Greenhouse',
-            resolvedUrl: 'https://boards.greenhouse.io/example/jobs/123?gh_jid=123',
+            originalUrl: 'https://jobs.example.com/roles/123',
+            pageTitle: 'Senior Product Designer at Example Labs',
+            resolvedUrl: 'https://jobs.example.com/roles/123?source=careers',
             sanitizedHtmlPath: 'input/page.html',
-            source: 'boards.greenhouse.io',
+            source: 'jobs.example.com',
           },
         })
         expect(Array.isArray(parsedExamples)).toBe(true)
@@ -109,10 +109,10 @@ test('writes a dedicated vacancy-normalization run workspace and removes it afte
         '</html>',
       ].join(''),
       inputType: 'url',
-      originalUrl: 'https://boards.greenhouse.io/example/jobs/123',
-      pageTitle: 'Senior Product Designer at Example Labs - Greenhouse',
-      resolvedUrl: 'https://boards.greenhouse.io/example/jobs/123?gh_jid=123',
-      source: 'boards.greenhouse.io',
+      originalUrl: 'https://jobs.example.com/roles/123',
+      pageTitle: 'Senior Product Designer at Example Labs',
+      resolvedUrl: 'https://jobs.example.com/roles/123?source=careers',
+      source: 'jobs.example.com',
     }),
   ).resolves.toEqual({
     bodyText: 'Lead product design for desktop workflows. Partner with engineering and research.',
@@ -238,7 +238,7 @@ test('rejects semantically invalid normalized vacancy output after deterministic
         return Promise.resolve({
           kind: 'success',
           normalizedVacancy: {
-            bodyText: 'Join LinkedIn or sign in to continue.',
+            bodyText: 'Sign in to continue.',
             employer: null,
             location: null,
             requirements: [],
@@ -254,10 +254,10 @@ test('rejects semantically invalid normalized vacancy output after deterministic
     service.normalizeVacancy({
       html: '<main><h1>Sign in to view this job</h1></main>',
       inputType: 'url',
-      originalUrl: 'https://www.linkedin.com/jobs/view/123456',
-      pageTitle: 'Sign in to view this job | LinkedIn',
-      resolvedUrl: 'https://www.linkedin.com/jobs/view/123456',
-      source: 'linkedin.com',
+      originalUrl: 'https://jobs.example.com/private/123',
+      pageTitle: 'Sign in to view this job',
+      resolvedUrl: 'https://jobs.example.com/private/123',
+      source: 'jobs.example.com',
     }),
   ).rejects.toEqual(
     new VacancyNormalizationError({
@@ -267,9 +267,9 @@ test('rejects semantically invalid normalized vacancy output after deterministic
   )
 })
 
-test('focuses authenticated LinkedIn normalization input on the main vacancy content and bounds oversized artifacts', async () => {
+test('focuses authenticated normalization input on the main vacancy content and bounds oversized artifacts', async () => {
   const runWorkspaceRootPath = await mkdtemp(
-    path.join(tmpdir(), 'cv-maxxing-vacancy-normalization-service-linkedin-focus-'),
+    path.join(tmpdir(), 'cv-maxxing-vacancy-normalization-service-authenticated-focus-'),
   )
 
   temporaryDirectories.push(runWorkspaceRootPath)
@@ -284,11 +284,11 @@ test('focuses authenticated LinkedIn normalization input on the main vacancy con
 
         expect(pageHtml).toContain('<main>')
         expect(pageHtml).toContain('Senior Product Designer')
-        expect(pageHtml).not.toContain('People you may know')
+        expect(pageHtml).not.toContain('Account recommendations')
         expect(pageHtml).not.toContain('Recommended jobs')
         expect(pageHtml.length).toBeLessThan(60_001)
         expect(pageText).toContain('Lead product design for authenticated desktop workflows.')
-        expect(pageText).not.toContain('People you may know')
+        expect(pageText).not.toContain('Account recommendations')
         expect(pageText).not.toContain('Recommended jobs')
         expect(pageText.length).toBeLessThan(24_001)
 
@@ -308,11 +308,11 @@ test('focuses authenticated LinkedIn normalization input on the main vacancy con
     ),
   }
   const service = createVacancyNormalizationService({
-    generateId: vi.fn(() => 'vacancy-normalization-run-linkedin-focus'),
+    generateId: vi.fn(() => 'vacancy-normalization-run-authenticated-focus'),
     runWorkspaceRootPath,
     worker,
   })
-  const profileNoise = '<div>People you may know</div>'.repeat(4000)
+  const profileNoise = '<div>Account recommendations</div>'.repeat(4000)
   const relatedJobNoise =
     '<section><h2>Recommended jobs</h2><p>More jobs for you.</p></section>'.repeat(2000)
 
@@ -334,10 +334,10 @@ test('focuses authenticated LinkedIn normalization input on the main vacancy con
         '</html>',
       ].join(''),
       inputType: 'url',
-      originalUrl: 'https://www.linkedin.com/jobs/view/123456',
-      pageTitle: 'Senior Product Designer | LinkedIn',
-      resolvedUrl: 'https://www.linkedin.com/jobs/view/123456',
-      source: 'linkedin.com',
+      originalUrl: 'https://jobs.example.com/private/123',
+      pageTitle: 'Senior Product Designer',
+      resolvedUrl: 'https://jobs.example.com/private/123',
+      source: 'jobs.example.com',
     }),
   ).resolves.toEqual({
     bodyText:

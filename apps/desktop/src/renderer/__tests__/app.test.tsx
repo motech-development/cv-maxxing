@@ -210,11 +210,11 @@ function createVacancyApi(overrides?: Partial<(typeof globalThis.window.cvMaxxin
         id: 'vacancy-002',
         inputType: 'url',
         location: 'London, United Kingdom',
-        originalUrl: 'https://boards.greenhouse.io/example/jobs/123',
+        originalUrl: 'https://jobs.example.com/roles/123',
         requirements: ['Experience shipping workflow software.'],
-        resolvedUrl: 'https://boards.greenhouse.io/example/jobs/123',
+        resolvedUrl: 'https://jobs.example.com/roles/123',
         responsibilities: ['Lead product design for desktop workflows.'],
-        source: 'boards.greenhouse.io',
+        source: 'jobs.example.com',
         status: 'ready',
         textPreview: 'Lead product design for desktop workflows.',
         title: 'Senior Product Designer',
@@ -222,7 +222,7 @@ function createVacancyApi(overrides?: Partial<(typeof globalThis.window.cvMaxxin
       workspaceState: {
         draft: {
           text: '',
-          url: 'https://boards.greenhouse.io/example/jobs/123',
+          url: 'https://jobs.example.com/roles/123',
         },
         vacancy: {
           blockingReason: null,
@@ -232,11 +232,11 @@ function createVacancyApi(overrides?: Partial<(typeof globalThis.window.cvMaxxin
           id: 'vacancy-002',
           inputType: 'url',
           location: 'London, United Kingdom',
-          originalUrl: 'https://boards.greenhouse.io/example/jobs/123',
+          originalUrl: 'https://jobs.example.com/roles/123',
           requirements: ['Experience shipping workflow software.'],
-          resolvedUrl: 'https://boards.greenhouse.io/example/jobs/123',
+          resolvedUrl: 'https://jobs.example.com/roles/123',
           responsibilities: ['Lead product design for desktop workflows.'],
-          source: 'boards.greenhouse.io',
+          source: 'jobs.example.com',
           status: 'ready',
           textPreview: 'Lead product design for desktop workflows.',
           title: 'Senior Product Designer',
@@ -1662,7 +1662,7 @@ test('shows generic open-job-page fallback guidance for reviewed links that need
       getVacancyWorkspaceState: vi.fn().mockResolvedValue({
         draft: {
           text: '',
-          url: 'https://www.linkedin.com/jobs/view/123456',
+          url: 'https://jobs.example.com/private/123',
         },
         vacancy: {
           blockingReason:
@@ -1673,11 +1673,11 @@ test('shows generic open-job-page fallback guidance for reviewed links that need
           id: 'vacancy-pending-browser',
           inputType: 'url',
           location: null,
-          originalUrl: 'https://www.linkedin.com/jobs/view/123456',
+          originalUrl: 'https://jobs.example.com/private/123',
           requirements: [],
           resolvedUrl: null,
           responsibilities: [],
-          source: 'linkedin.com',
+          source: 'jobs.example.com',
           status: 'incomplete',
           textPreview: '',
           title: null,
@@ -1959,7 +1959,7 @@ test('reviews a ready vacancy URL and only starts tailoring after Tailor your CV
       vacancyId: 'vacancy-123',
       vacancyDraft: {
         text: '',
-        url: 'https://boards.greenhouse.io/example/jobs/123',
+        url: 'https://jobs.example.com/roles/123',
       },
     })
   const resumePendingGeneration = vi.fn().mockImplementation(() => {
@@ -2018,7 +2018,7 @@ test('reviews a ready vacancy URL and only starts tailoring after Tailor your CV
         .mockResolvedValueOnce({
           draft: {
             text: '',
-            url: 'https://boards.greenhouse.io/example/jobs/123',
+            url: 'https://jobs.example.com/roles/123',
           },
           vacancy: {
             blockingReason: null,
@@ -2028,11 +2028,11 @@ test('reviews a ready vacancy URL and only starts tailoring after Tailor your CV
             id: 'vacancy-002',
             inputType: 'url',
             location: 'London, United Kingdom',
-            originalUrl: 'https://boards.greenhouse.io/example/jobs/123',
+            originalUrl: 'https://jobs.example.com/roles/123',
             requirements: ['Experience shipping workflow software.'],
-            resolvedUrl: 'https://boards.greenhouse.io/example/jobs/123',
+            resolvedUrl: 'https://jobs.example.com/roles/123',
             responsibilities: ['Lead product design for desktop workflows.'],
-            source: 'boards.greenhouse.io',
+            source: 'jobs.example.com',
             status: 'ready',
             textPreview: 'Lead product design for desktop workflows.',
             title: 'Senior Product Designer',
@@ -2083,7 +2083,7 @@ test('reviews a ready vacancy URL and only starts tailoring after Tailor your CV
       originalCvLabel: 'ada-lovelace.pdf',
       vacancyDraft: {
         text: '',
-        url: 'https://boards.greenhouse.io/example/jobs/123',
+        url: 'https://jobs.example.com/roles/123',
       },
     })
   })
@@ -2142,7 +2142,7 @@ test('shows a shared draft alert when tailoring fails to start', async () => {
       getVacancyWorkspaceState: vi.fn().mockResolvedValue({
         draft: {
           text: '',
-          url: 'https://boards.greenhouse.io/example/jobs/123',
+          url: 'https://jobs.example.com/roles/123',
         },
         reviewState: 'ready',
         vacancy: {
@@ -2153,11 +2153,11 @@ test('shows a shared draft alert when tailoring fails to start', async () => {
           id: 'vacancy-002',
           inputType: 'url',
           location: 'London, United Kingdom',
-          originalUrl: 'https://boards.greenhouse.io/example/jobs/123',
+          originalUrl: 'https://jobs.example.com/roles/123',
           requirements: ['Experience shipping workflow software.'],
-          resolvedUrl: 'https://boards.greenhouse.io/example/jobs/123',
+          resolvedUrl: 'https://jobs.example.com/roles/123',
           responsibilities: ['Lead product design for desktop workflows.'],
-          source: 'boards.greenhouse.io',
+          source: 'jobs.example.com',
           status: 'ready',
           textPreview: 'Lead product design for desktop workflows.',
           title: 'Senior Product Designer',
@@ -2183,7 +2183,7 @@ test('shows a shared draft alert when tailoring fails to start', async () => {
       originalCvLabel: 'ada-lovelace.pdf',
       vacancyDraft: {
         text: '',
-        url: 'https://boards.greenhouse.io/example/jobs/123',
+        url: 'https://jobs.example.com/roles/123',
       },
     })
   })
@@ -2353,7 +2353,7 @@ test('shows the workspace overlay while reviewing a vacancy URL without surfacin
 
   fireEvent.change(screen.getByLabelText('Job link'), {
     target: {
-      value: 'https://boards.greenhouse.io/example/jobs/123',
+      value: 'https://jobs.example.com/roles/123',
     },
   })
   const { reviewUrlButton } = getReviewButtons()
@@ -2362,7 +2362,7 @@ test('shows the workspace overlay while reviewing a vacancy URL without surfacin
 
   await waitFor(() => {
     expect(ingestVacancyUrl).toHaveBeenCalledWith({
-      url: 'https://boards.greenhouse.io/example/jobs/123',
+      url: 'https://jobs.example.com/roles/123',
     })
   })
 
@@ -2381,11 +2381,11 @@ test('shows the workspace overlay while reviewing a vacancy URL without surfacin
       id: 'vacancy-002',
       inputType: 'url',
       location: 'London, United Kingdom',
-      originalUrl: 'https://boards.greenhouse.io/example/jobs/123',
+      originalUrl: 'https://jobs.example.com/roles/123',
       requirements: ['Experience shipping workflow software.'],
-      resolvedUrl: 'https://boards.greenhouse.io/example/jobs/123',
+      resolvedUrl: 'https://jobs.example.com/roles/123',
       responsibilities: ['Lead product design for desktop workflows.'],
-      source: 'boards.greenhouse.io',
+      source: 'jobs.example.com',
       status: 'ready',
       textPreview: 'Lead product design for desktop workflows.',
       title: 'Senior Product Designer',
@@ -2393,7 +2393,7 @@ test('shows the workspace overlay while reviewing a vacancy URL without surfacin
     workspaceState: {
       draft: {
         text: '',
-        url: 'https://boards.greenhouse.io/example/jobs/123',
+        url: 'https://jobs.example.com/roles/123',
       },
       reviewState: 'reviewed',
       vacancy: {
@@ -2404,11 +2404,11 @@ test('shows the workspace overlay while reviewing a vacancy URL without surfacin
         id: 'vacancy-002',
         inputType: 'url',
         location: 'London, United Kingdom',
-        originalUrl: 'https://boards.greenhouse.io/example/jobs/123',
+        originalUrl: 'https://jobs.example.com/roles/123',
         requirements: ['Experience shipping workflow software.'],
-        resolvedUrl: 'https://boards.greenhouse.io/example/jobs/123',
+        resolvedUrl: 'https://jobs.example.com/roles/123',
         responsibilities: ['Lead product design for desktop workflows.'],
-        source: 'boards.greenhouse.io',
+        source: 'jobs.example.com',
         status: 'ready',
         textPreview: 'Lead product design for desktop workflows.',
         title: 'Senior Product Designer',
@@ -2443,7 +2443,7 @@ test('routes to AI worker repair when starting adaptation returns a sign-in requ
       vacancyId: 'vacancy-002',
       vacancyDraft: {
         text: '',
-        url: 'https://boards.greenhouse.io/example/jobs/123',
+        url: 'https://jobs.example.com/roles/123',
       },
     })
 
@@ -2487,7 +2487,7 @@ test('routes to AI worker repair when starting adaptation returns a sign-in requ
       getVacancyWorkspaceState: vi.fn().mockResolvedValue({
         draft: {
           text: '',
-          url: 'https://boards.greenhouse.io/example/jobs/123',
+          url: 'https://jobs.example.com/roles/123',
         },
         vacancy: {
           blockingReason: null,
@@ -2497,11 +2497,11 @@ test('routes to AI worker repair when starting adaptation returns a sign-in requ
           id: 'vacancy-002',
           inputType: 'url',
           location: 'London, United Kingdom',
-          originalUrl: 'https://boards.greenhouse.io/example/jobs/123',
+          originalUrl: 'https://jobs.example.com/roles/123',
           requirements: ['Experience shipping workflow software.'],
-          resolvedUrl: 'https://boards.greenhouse.io/example/jobs/123',
+          resolvedUrl: 'https://jobs.example.com/roles/123',
           responsibilities: ['Lead product design for desktop workflows.'],
-          source: 'boards.greenhouse.io',
+          source: 'jobs.example.com',
           status: 'ready',
           textPreview: 'Lead product design for desktop workflows.',
           title: 'Senior Product Designer',
@@ -3115,8 +3115,9 @@ test('restores a reviewed vacancy draft as locked source inputs on startup', asy
   expect(ingestPastedVacancy).not.toHaveBeenCalled()
 })
 
-test('submitting a LinkedIn vacancy URL automatically continues into the internal browser session and restores adaptation when extraction succeeds', async () => {
-  const openVacancyBrowserSession = vi.fn().mockResolvedValue({
+test('submitting an authenticated vacancy URL stays in the generic intake path and restores adaptation when extraction succeeds', async () => {
+  const openVacancyBrowserSession = vi.fn()
+  const ingestVacancyUrl = vi.fn().mockResolvedValue({
     kind: 'ingested',
     vacancy: {
       blockingReason: null,
@@ -3126,11 +3127,11 @@ test('submitting a LinkedIn vacancy URL automatically continues into the interna
       id: 'vacancy-006',
       inputType: 'url',
       location: 'London, United Kingdom',
-      originalUrl: 'https://www.linkedin.com/jobs/view/123456',
+      originalUrl: 'https://jobs.example.com/private/123',
       requirements: ['Experience shipping workflow software.'],
-      resolvedUrl: 'https://www.linkedin.com/jobs/view/123456',
+      resolvedUrl: 'https://jobs.example.com/private/123',
       responsibilities: ['Lead product design for authenticated desktop workflows.'],
-      source: 'linkedin.com',
+      source: 'jobs.example.com',
       status: 'ready',
       textPreview: 'Lead product design for authenticated desktop workflows.',
       title: 'Senior Product Designer',
@@ -3138,7 +3139,7 @@ test('submitting a LinkedIn vacancy URL automatically continues into the interna
     workspaceState: {
       draft: {
         text: '',
-        url: 'https://www.linkedin.com/jobs/view/123456',
+        url: 'https://jobs.example.com/private/123',
       },
       vacancy: {
         blockingReason: null,
@@ -3148,11 +3149,11 @@ test('submitting a LinkedIn vacancy URL automatically continues into the interna
         id: 'vacancy-006',
         inputType: 'url',
         location: 'London, United Kingdom',
-        originalUrl: 'https://www.linkedin.com/jobs/view/123456',
+        originalUrl: 'https://jobs.example.com/private/123',
         requirements: ['Experience shipping workflow software.'],
-        resolvedUrl: 'https://www.linkedin.com/jobs/view/123456',
+        resolvedUrl: 'https://jobs.example.com/private/123',
         responsibilities: ['Lead product design for authenticated desktop workflows.'],
-        source: 'linkedin.com',
+        source: 'jobs.example.com',
         status: 'ready',
         textPreview: 'Lead product design for authenticated desktop workflows.',
         title: 'Senior Product Designer',
@@ -3204,7 +3205,7 @@ test('submitting a LinkedIn vacancy URL automatically continues into the interna
         .mockResolvedValueOnce({
           draft: {
             text: '',
-            url: 'https://www.linkedin.com/jobs/view/123456',
+            url: 'https://jobs.example.com/private/123',
           },
           vacancy: {
             blockingReason: null,
@@ -3214,44 +3215,17 @@ test('submitting a LinkedIn vacancy URL automatically continues into the interna
             id: 'vacancy-006',
             inputType: 'url',
             location: 'London, United Kingdom',
-            originalUrl: 'https://www.linkedin.com/jobs/view/123456',
+            originalUrl: 'https://jobs.example.com/private/123',
             requirements: ['Experience shipping workflow software.'],
-            resolvedUrl: 'https://www.linkedin.com/jobs/view/123456',
+            resolvedUrl: 'https://jobs.example.com/private/123',
             responsibilities: ['Lead product design for authenticated desktop workflows.'],
-            source: 'linkedin.com',
+            source: 'jobs.example.com',
             status: 'ready',
             textPreview: 'Lead product design for authenticated desktop workflows.',
             title: 'Senior Product Designer',
           },
         }),
-      ingestVacancyUrl: vi.fn().mockResolvedValue({
-        kind: 'incomplete',
-        vacancy: {
-          blockingReason:
-            'This job page may need more access. Open the job page or paste the job description instead.',
-          canGenerate: false,
-          employer: null,
-          fetchedAt: '2026-04-08T21:15:00.000Z',
-          id: 'vacancy-pending-browser',
-          inputType: 'url',
-          location: null,
-          originalUrl: 'https://www.linkedin.com/jobs/view/123456',
-          requirements: [],
-          resolvedUrl: null,
-          responsibilities: [],
-          source: 'linkedin.com',
-          status: 'incomplete',
-          textPreview: '',
-          title: null,
-        },
-        workspaceState: {
-          draft: {
-            text: '',
-            url: 'https://www.linkedin.com/jobs/view/123456',
-          },
-          vacancy: null,
-        },
-      }),
+      ingestVacancyUrl,
       openVacancyBrowserSession,
     }),
   })
@@ -3266,7 +3240,7 @@ test('submitting a LinkedIn vacancy URL automatically continues into the interna
 
   fireEvent.change(screen.getByLabelText('Job link'), {
     target: {
-      value: 'https://www.linkedin.com/jobs/view/123456',
+      value: 'https://jobs.example.com/private/123',
     },
   })
   const { reviewUrlButton } = getReviewButtons()
@@ -3274,10 +3248,12 @@ test('submitting a LinkedIn vacancy URL automatically continues into the interna
   fireEvent.click(reviewUrlButton)
 
   await waitFor(() => {
-    expect(openVacancyBrowserSession).toHaveBeenCalledWith({
-      url: 'https://www.linkedin.com/jobs/view/123456',
+    expect(ingestVacancyUrl).toHaveBeenCalledWith({
+      url: 'https://jobs.example.com/private/123',
     })
   })
+
+  expect(openVacancyBrowserSession).not.toHaveBeenCalled()
 
   await waitFor(() => {
     expect(screen.getByText('Senior Product Designer')).toBeDefined()
@@ -3285,9 +3261,108 @@ test('submitting a LinkedIn vacancy URL automatically continues into the interna
 
   expect(screen.getByLabelText('Job link')).toHaveProperty(
     'value',
-    'https://www.linkedin.com/jobs/view/123456',
+    'https://jobs.example.com/private/123',
   )
   expect(screen.getByRole('button', { name: 'Tailor your CV' })).toHaveProperty('disabled', false)
+})
+
+test('shows generic fallback guidance when the main-process browser intake needs user action', async () => {
+  renderApp({
+    aiWorker: createAiWorkerApi({
+      getAiWorkerPreflight: vi.fn().mockResolvedValue({
+        canResumeGeneration: true,
+        message: 'The local AI worker is ready.',
+        provider: 'codex',
+        status: 'ready',
+      }),
+      getStartupDestination: vi.fn().mockResolvedValue('workspace'),
+    }),
+    originalCv: createOriginalCvApi({
+      getOriginalCvWorkspaceState: vi.fn().mockResolvedValue({
+        activeOriginalCv: {
+          fileType: 'pdf',
+          headline: 'Principal Product Designer',
+          id: 'original-cv-123',
+          importedAt: '2026-04-08T14:30:00.000Z',
+          originalFilename: 'ada-lovelace.pdf',
+          pageCount: 1,
+          snapshotCount: 1,
+          summary: 'Design leader focused on complex workflow products.',
+          writingStyle: {
+            averageSentenceLength: 7,
+            clicheDetections: [],
+            firstPersonUsage: 'absent',
+            formality: 'direct',
+          },
+        },
+        snapshotCount: 1,
+      }),
+    }),
+    vacancy: createVacancyApi({
+      getVacancyWorkspaceState: vi.fn().mockResolvedValue({
+        draft: {
+          text: '',
+          url: '',
+        },
+        vacancy: null,
+      }),
+      ingestVacancyUrl: vi.fn().mockResolvedValue({
+        kind: 'incomplete',
+        vacancy: {
+          blockingReason:
+            'This job page may need more access. Open the job page or paste the job description instead.',
+          canGenerate: false,
+          employer: null,
+          fetchedAt: '2026-04-08T21:15:00.000Z',
+          id: 'vacancy-pending-browser',
+          inputType: 'url',
+          location: null,
+          originalUrl: 'https://jobs.example.com/private/123',
+          requirements: [],
+          resolvedUrl: null,
+          responsibilities: [],
+          source: 'jobs.example.com',
+          status: 'incomplete',
+          textPreview: '',
+          title: null,
+        },
+        workspaceState: {
+          draft: {
+            text: '',
+            url: 'https://jobs.example.com/private/123',
+          },
+          vacancy: null,
+        },
+      }),
+    }),
+  })
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
+  })
+  await waitForVacancyDraftValues({
+    text: '',
+    url: '',
+  })
+
+  fireEvent.change(screen.getByLabelText('Job link'), {
+    target: {
+      value: 'https://jobs.example.com/private/123',
+    },
+  })
+  const { reviewUrlButton } = getReviewButtons()
+
+  fireEvent.click(reviewUrlButton)
+
+  await waitFor(() => {
+    expect(
+      screen.getByText(
+        'This job page may need more access. Open the job page or paste the job description instead.',
+      ),
+    ).toBeDefined()
+  })
+
+  expect(screen.getByRole('button', { name: 'Tailor your CV' })).toHaveProperty('disabled', true)
 })
 
 test('resumes the pending flow into the workspace overlay after sign-in repair', async () => {

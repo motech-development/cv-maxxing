@@ -84,42 +84,6 @@ export function inferPageTitle(html: string): string | null {
   return title.trim()
 }
 
-export function inferTitleFromPageTitle(pageTitle: string | null): string | null {
-  if (pageTitle === null) {
-    return null
-  }
-
-  const atOrPipeDelimitedTitleParts = pageTitle.split(/\s+(?:at|\|)\s+/iu)
-  const atOrPipeDelimitedTitle = atOrPipeDelimitedTitleParts[0]
-
-  if (atOrPipeDelimitedTitle === undefined) {
-    return null
-  }
-
-  if (atOrPipeDelimitedTitleParts.length > 1) {
-    const trimmedTitle = atOrPipeDelimitedTitle.trim()
-
-    return trimmedTitle === '' ? null : trimmedTitle
-  }
-
-  const dashDelimitedTitleParts = atOrPipeDelimitedTitle.split(/\s+-\s+/u)
-  const dashSuffix = dashDelimitedTitleParts.at(-1)?.trim() ?? ''
-  const normalizedTitle =
-    dashDelimitedTitleParts.length > 1 && isPageTitleMetadataSuffix(dashSuffix)
-      ? dashDelimitedTitleParts.slice(0, -1).join(' - ')
-      : dashDelimitedTitleParts.join(' - ')
-  const trimmedTitle = normalizedTitle.trim()
-
-  return trimmedTitle === '' ? null : trimmedTitle
-}
-
-function isPageTitleMetadataSuffix(suffix: string): boolean {
-  return (
-    /^(?:apply|full[- ]time|hybrid|location|part[- ]time|remote)$/iu.test(suffix) ||
-    /(?:^|\b)(?:careers|greenhouse|indeed|jobs|lever|linkedin|workday)(?:\b|$)/iu.test(suffix)
-  )
-}
-
 function focusPrimaryContent(html: string): string {
   const primaryContent = extractPrimaryContentBlock(html)
 

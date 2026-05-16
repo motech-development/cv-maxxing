@@ -2,6 +2,8 @@ import { createRequire } from 'node:module'
 import path from 'node:path'
 import type { Session } from 'electron'
 
+import type { VacancyBrowserReadingActionRequest } from './vacancy-browser-actions.js'
+
 export interface VacancyBrowserPageSnapshot {
   html: string
   pageTitle: string | null
@@ -10,10 +12,12 @@ export interface VacancyBrowserPageSnapshot {
 
 export interface VacancyBrowserSessionService {
   captureSessionPage: (input: {
+    readingActions?: VacancyBrowserReadingActionRequest[]
     shouldCapturePage: (snapshot: VacancyBrowserPageSnapshot) => boolean
     url: string
   }) => Promise<VacancyBrowserPageSnapshot | null>
   openSession: (input: {
+    readingActions?: VacancyBrowserReadingActionRequest[]
     shouldCapturePage: (snapshot: VacancyBrowserPageSnapshot) => boolean
     url: string
   }) => Promise<VacancyBrowserPageSnapshot | null>
@@ -66,6 +70,7 @@ const browserCaptureScript = `(() => {
     resolvedUrl: window.location.href,
   }
 })()`
+const SAFE_READING_ACTION_MARKER = 'cvMaxxingVacancySafeReadingAction'
 const INTERACTIVE_OBSERVATION_INTERVAL_MS = 500
 const SILENT_CAPTURE_SETTLE_AFTER_VALID_MS = 500
 const SILENT_CAPTURE_OBSERVATION_INTERVAL_MS = 250
@@ -91,9 +96,11 @@ export function createVacancyBrowserSessionService({
 
   return {
     captureSessionPage: async ({
+      readingActions = [],
       shouldCapturePage,
       url,
     }: {
+      readingActions?: VacancyBrowserReadingActionRequest[]
       shouldCapturePage: (snapshot: VacancyBrowserPageSnapshot) => boolean
       url: string
     }): Promise<VacancyBrowserPageSnapshot | null> => {
@@ -106,6 +113,8 @@ export function createVacancyBrowserSessionService({
       let hasSettled = false
       let latestValidSnapshot: VacancyBrowserPageSnapshot | null = null
       let observationIntervalId: ReturnType<typeof setInterval> | null = null
+      let readingActionsState: 'complete' | 'pending' | 'rejected' =
+        readingActions.length === 0 ? 'complete' : 'pending'
       let validSnapshotSettleTimeoutId: ReturnType<typeof setTimeout> | null = null
       let observationTimeoutId: ReturnType<typeof setTimeout> | null = null
 
@@ -145,6 +154,19 @@ export function createVacancyBrowserSessionService({
 
         const observeCurrentPage = async (): Promise<void> => {
           if (hasSettled || vacancyBrowserWindow.isDestroyed()) {
+            return
+          }
+
+          readingActionsState = await resolveReadingActionsState({
+            readingActions,
+            readingActionsState,
+            webContents: vacancyBrowserWindow.webContents,
+          })
+
+          if (readingActionsState === 'rejected') {
+            closeWindow()
+            settle(null)
+
             return
           }
 
@@ -221,9 +243,11 @@ export function createVacancyBrowserSessionService({
       })
     },
     openSession: async ({
+      readingActions = [],
       shouldCapturePage,
       url,
     }: {
+      readingActions?: VacancyBrowserReadingActionRequest[]
       shouldCapturePage: (snapshot: VacancyBrowserPageSnapshot) => boolean
       url: string
     }): Promise<VacancyBrowserPageSnapshot | null> => {
@@ -236,6 +260,8 @@ export function createVacancyBrowserSessionService({
       let hasSettled = false
       let latestValidSnapshot: VacancyBrowserPageSnapshot | null = null
       let observationIntervalId: ReturnType<typeof setInterval> | null = null
+      let readingActionsState: 'complete' | 'pending' | 'rejected' =
+        readingActions.length === 0 ? 'complete' : 'pending'
 
       return await new Promise<VacancyBrowserPageSnapshot | null>((resolve) => {
         const settle = (snapshot: VacancyBrowserPageSnapshot | null): void => {
@@ -263,6 +289,19 @@ export function createVacancyBrowserSessionService({
 
         const observeCurrentPage = async (): Promise<void> => {
           if (hasSettled || vacancyBrowserWindow.isDestroyed()) {
+            return
+          }
+
+          readingActionsState = await resolveReadingActionsState({
+            readingActions,
+            readingActionsState,
+            webContents: vacancyBrowserWindow.webContents,
+          })
+
+          if (readingActionsState === 'rejected') {
+            closeWindow()
+            settle(null)
+
             return
           }
 
@@ -323,6 +362,137 @@ export function createVacancyBrowserSessionService({
       })
     },
   }
+}
+
+async function resolveReadingActionsState({
+  readingActions,
+  readingActionsState,
+  webContents,
+}: {
+  readingActions: VacancyBrowserReadingActionRequest[]
+  readingActionsState: 'complete' | 'pending' | 'rejected'
+  webContents: BrowserWebContentsLike
+}): Promise<'complete' | 'pending' | 'rejected'> {
+  if (readingActionsState !== 'pending') {
+    return readingActionsState
+  }
+
+  return (await runSafeReadingActions({
+    readingActions,
+    webContents,
+  }))
+    ? 'complete'
+    : 'rejected'
+}
+
+async function runSafeReadingActions({
+  readingActions,
+  webContents,
+}: {
+  readingActions: VacancyBrowserReadingActionRequest[]
+  webContents: BrowserWebContentsLike
+}): Promise<boolean> {
+  for (const readingAction of readingActions) {
+    const result = await webContents.executeJavaScript(createSafeReadingActionScript(readingAction))
+
+    if (!isSafeReadingActionCompleted(result)) {
+      return false
+    }
+  }
+
+  return true
+}
+
+function createSafeReadingActionScript(action: VacancyBrowserReadingActionRequest): string {
+  return String.raw`(() => {
+    const marker = ${JSON.stringify(SAFE_READING_ACTION_MARKER)};
+    const action = ${JSON.stringify(action)};
+    const forbiddenTextPattern = /\b(?:apply|submit|sign\s*in|log\s*in|account|upload|attach|delete|purchase|checkout)\b/iu;
+    const wait = (delayMs) => new Promise((resolve) => {
+      setTimeout(resolve, delayMs);
+    });
+    const reject = (reason) => ({
+      kind: 'rejected',
+      marker,
+      reason,
+    });
+
+    if (action.kind !== 'click' && action.kind !== 'read') {
+      return reject('unsupported_action');
+    }
+
+    const target = document.querySelector(action.selector);
+
+    if (target === null) {
+      return reject('missing_target');
+    }
+
+    if (action.kind === 'read') {
+      return {
+        kind: 'completed',
+        marker,
+      };
+    }
+
+    const targetElement = target instanceof HTMLElement ? target : target.closest('*');
+    const formControl = target.closest('input, textarea, select, form');
+    const activationTarget = target.closest('a, button, [role="button"], [role="link"]');
+    const actionText = [target.textContent, target.getAttribute('aria-label'), target.getAttribute('title')]
+      .filter((value) => value !== null)
+      .join(' ');
+
+    if (targetElement === null || formControl !== null) {
+      return reject('form_action');
+    }
+
+    if (forbiddenTextPattern.test(actionText)) {
+      return reject('application_action');
+    }
+
+    if (activationTarget instanceof HTMLAnchorElement && activationTarget.href !== '') {
+      const currentUrl = new URL(window.location.href);
+      const nextUrl = new URL(activationTarget.href, window.location.href);
+      const sameDocument =
+        currentUrl.hostname === nextUrl.hostname &&
+        currentUrl.pathname === nextUrl.pathname &&
+        currentUrl.search === nextUrl.search;
+
+      if (!sameDocument) {
+        return reject('external_or_off_target_link');
+      }
+    }
+
+    const beforeUrl = new URL(window.location.href);
+    targetElement.click();
+
+    return wait(200).then(() => {
+      const afterUrl = new URL(window.location.href);
+      const sameDocument =
+        beforeUrl.hostname === afterUrl.hostname &&
+        beforeUrl.pathname === afterUrl.pathname &&
+        beforeUrl.search === afterUrl.search;
+
+      if (!sameDocument) {
+        return reject('off_target_navigation');
+      }
+
+      return {
+        kind: 'completed',
+        marker,
+      };
+    });
+  })()`
+}
+
+function isSafeReadingActionCompleted(value: unknown): boolean {
+  return (
+    value !== null &&
+    typeof value === 'object' &&
+    'kind' in value &&
+    value.kind === 'completed' &&
+    'marker' in value &&
+    value.marker === SAFE_READING_ACTION_MARKER
+  )
 }
 
 async function createVacancyBrowserWindow({

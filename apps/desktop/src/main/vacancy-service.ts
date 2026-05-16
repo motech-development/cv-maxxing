@@ -17,13 +17,10 @@ import {
   type JobsWorkspaceSelection,
 } from '../shared/workspace-selection.js'
 import type { JsonValue, LocalAppDataStore } from './local-app-data-service.js'
+import type { VacancyBrowserReadingActionRequest } from './vacancy-browser-actions.js'
 import type { VacancyBrowserPageSnapshot } from './vacancy-browser-session-service.js'
 import { VacancyNormalizationError } from './vacancy-normalization-error.js'
-import {
-  extractTextFromHtml,
-  inferTitleFromPageTitle,
-  sanitizeSnapshotHtml,
-} from './vacancy-page-content.js'
+import { extractTextFromHtml, sanitizeSnapshotHtml } from './vacancy-page-content.js'
 import type {
   NormalizedVacancy,
   VacancyNormalizationService,
@@ -62,6 +59,7 @@ const GENERIC_CAREERS_SHELL_PATTERNS = [
 
 interface VacancyServiceDependencies {
   captureVacancyBrowserSessionPage?: (input: {
+    readingActions?: VacancyBrowserReadingActionRequest[]
     shouldCapturePage: (snapshot: VacancyBrowserPageSnapshot) => boolean
     url: string
   }) => Promise<VacancyBrowserPageSnapshot | null>
@@ -70,6 +68,7 @@ interface VacancyServiceDependencies {
   localAppData: Pick<LocalAppDataStore, 'artifacts' | 'metadata'>
   normalizationService: VacancyNormalizationService
   openVacancyBrowserSession: (input: {
+    readingActions?: VacancyBrowserReadingActionRequest[]
     shouldCapturePage: (snapshot: VacancyBrowserPageSnapshot) => boolean
     url: string
   }) => Promise<VacancyBrowserPageSnapshot | null>
@@ -270,6 +269,7 @@ export function createVacancyService({
     ingestVacancyUrl: async ({ url }: { url: string }): Promise<VacancyIngestResult> => {
       const normalizedUrl = requireUrl(url)
       const source = resolveSubmittedUrlSource(normalizedUrl)
+      const shouldCapturePage = createVacancyPageMatcher(normalizedUrl)
 
       await persistVacancyWorkspaceDraft({
         localAppData,
@@ -283,26 +283,19 @@ export function createVacancyService({
       })
 
       const capturedBrowserSnapshot = await captureVacancyBrowserSessionPage({
-        shouldCapturePage: (snapshot) => {
-          return isExpectedBrowserSessionVacancyPage({
-            html: snapshot.html,
-            originalUrl: normalizedUrl,
-            pageTitle: snapshot.pageTitle,
-            resolvedUrl: snapshot.resolvedUrl,
-          })
-        },
+        shouldCapturePage,
         url: normalizedUrl,
       })
 
-      if (
-        capturedBrowserSnapshot === null ||
-        !isExpectedBrowserSessionVacancyPage({
-          html: capturedBrowserSnapshot.html,
-          originalUrl: normalizedUrl,
-          pageTitle: capturedBrowserSnapshot.pageTitle,
-          resolvedUrl: capturedBrowserSnapshot.resolvedUrl,
-        })
-      ) {
+      const usableBrowserSnapshot = await resolveUsableBrowserSnapshot({
+        capturedBrowserSnapshot,
+        captureVacancyBrowserSessionPage,
+        normalizedUrl,
+        openVacancyBrowserSession,
+        shouldCapturePage,
+      })
+
+      if (usableBrowserSnapshot === null) {
         return await createInteractiveBrowserFallbackResult({
           getCurrentTimestamp,
           localAppData,
@@ -311,54 +304,51 @@ export function createVacancyService({
         })
       }
 
-      try {
-        return await persistFetchedVacancyPage({
-          fetchedPage: capturedBrowserSnapshot,
-          generateId,
+      const result = await persistFetchedVacancyPageWithAiReadingRetry({
+        captureVacancyBrowserSessionPage,
+        fetchedPage: usableBrowserSnapshot,
+        generateId,
+        getCurrentTimestamp,
+        localAppData,
+        normalizationService,
+        originalUrl: normalizedUrl,
+        shouldCapturePage,
+        source,
+        workspaceSelectionStore,
+      })
+
+      if (result === null) {
+        return await createInteractiveBrowserFallbackResult({
           getCurrentTimestamp,
           localAppData,
-          normalizationService,
           originalUrl: normalizedUrl,
           source,
-          workspaceSelectionStore,
         })
-      } catch (error) {
-        if (isSilentCaptureFallbackError(error)) {
-          return await createInteractiveBrowserFallbackResult({
-            getCurrentTimestamp,
-            localAppData,
-            originalUrl: normalizedUrl,
-            source,
-          })
-        }
-
-        throw error
       }
+
+      return result
     },
     openBrowserSession: async ({ url }: { url: string }): Promise<VacancyIngestResult> => {
       const normalizedUrl = requireUrl(url)
       const source = resolveSubmittedUrlSource(normalizedUrl)
-      const browserSnapshot = await openVacancyBrowserSession({
-        shouldCapturePage: (snapshot) => {
-          return isExpectedBrowserSessionVacancyPage({
-            html: snapshot.html,
-            originalUrl: normalizedUrl,
-            pageTitle: snapshot.pageTitle,
-            resolvedUrl: snapshot.resolvedUrl,
-          })
-        },
+      const shouldCapturePage = createVacancyPageMatcher(normalizedUrl)
+
+      await persistVacancyWorkspaceDraft({
+        localAppData,
         url: normalizedUrl,
       })
 
-      if (
-        browserSnapshot === null ||
-        !isExpectedBrowserSessionVacancyPage({
-          html: browserSnapshot.html,
-          originalUrl: normalizedUrl,
-          pageTitle: browserSnapshot.pageTitle,
-          resolvedUrl: browserSnapshot.resolvedUrl,
-        })
-      ) {
+      await openVacancyBrowserSession({
+        shouldCapturePage,
+        url: normalizedUrl,
+      })
+
+      const browserSnapshot = await captureVacancyBrowserSessionPage({
+        shouldCapturePage,
+        url: normalizedUrl,
+      })
+
+      if (browserSnapshot === null || !shouldCapturePage(browserSnapshot)) {
         const incompleteVacancy = createBlockedVacancySummary({
           blockingReason: RELOAD_JOB_PAGE_BLOCKING_REASON,
           fetchedAt: getCurrentTimestamp(),
@@ -367,10 +357,6 @@ export function createVacancyService({
           source,
         })
 
-        await persistVacancyWorkspaceDraft({
-          localAppData,
-          url: normalizedUrl,
-        })
         await persistJobsWorkspaceSelection({
           jobs: {
             kind: 'draft',
@@ -385,16 +371,47 @@ export function createVacancyService({
         }
       }
 
-      return await persistFetchedVacancyPage({
+      const result = await persistFetchedVacancyPageWithAiReadingRetry({
+        captureVacancyBrowserSessionPage,
         fetchedPage: browserSnapshot,
         generateId,
         getCurrentTimestamp,
         localAppData,
         normalizationService,
         originalUrl: normalizedUrl,
+        shouldCapturePage,
         source,
         workspaceSelectionStore,
       })
+
+      if (result !== null) {
+        return result
+      }
+
+      const incompleteVacancy = createBlockedVacancySummary({
+        blockingReason: RELOAD_JOB_PAGE_BLOCKING_REASON,
+        fetchedAt: getCurrentTimestamp(),
+        inputType: 'url',
+        originalUrl: normalizedUrl,
+        source,
+      })
+
+      await persistVacancyWorkspaceDraft({
+        localAppData,
+        url: normalizedUrl,
+      })
+      await persistJobsWorkspaceSelection({
+        jobs: {
+          kind: 'draft',
+        },
+        workspaceSelectionStore,
+      })
+
+      return {
+        kind: 'incomplete',
+        vacancy: incompleteVacancy,
+        workspaceState: await thisGetWorkspaceState(localAppData),
+      }
     },
   }
 }
@@ -484,6 +501,127 @@ async function createInteractiveBrowserFallbackResult({
   }
 }
 
+async function resolveUsableBrowserSnapshot({
+  capturedBrowserSnapshot,
+  captureVacancyBrowserSessionPage,
+  normalizedUrl,
+  openVacancyBrowserSession,
+  shouldCapturePage,
+}: {
+  capturedBrowserSnapshot: VacancyBrowserPageSnapshot | null
+  captureVacancyBrowserSessionPage: (input: {
+    readingActions?: VacancyBrowserReadingActionRequest[]
+    shouldCapturePage: (snapshot: VacancyBrowserPageSnapshot) => boolean
+    url: string
+  }) => Promise<VacancyBrowserPageSnapshot | null>
+  normalizedUrl: string
+  openVacancyBrowserSession: (input: {
+    readingActions?: VacancyBrowserReadingActionRequest[]
+    shouldCapturePage: (snapshot: VacancyBrowserPageSnapshot) => boolean
+    url: string
+  }) => Promise<VacancyBrowserPageSnapshot | null>
+  shouldCapturePage: (snapshot: VacancyBrowserPageSnapshot) => boolean
+}): Promise<VacancyBrowserPageSnapshot | null> {
+  if (capturedBrowserSnapshot !== null && shouldCapturePage(capturedBrowserSnapshot)) {
+    return capturedBrowserSnapshot
+  }
+
+  await openVacancyBrowserSession({
+    shouldCapturePage,
+    url: normalizedUrl,
+  })
+
+  const retriedBrowserSnapshot = await captureVacancyBrowserSessionPage({
+    shouldCapturePage,
+    url: normalizedUrl,
+  })
+
+  return retriedBrowserSnapshot !== null && shouldCapturePage(retriedBrowserSnapshot)
+    ? retriedBrowserSnapshot
+    : null
+}
+
+async function persistFetchedVacancyPageWithAiReadingRetry({
+  captureVacancyBrowserSessionPage,
+  fetchedPage,
+  generateId,
+  getCurrentTimestamp,
+  localAppData,
+  normalizationService,
+  originalUrl,
+  shouldCapturePage,
+  source,
+  workspaceSelectionStore,
+}: {
+  captureVacancyBrowserSessionPage: (input: {
+    readingActions?: VacancyBrowserReadingActionRequest[]
+    shouldCapturePage: (snapshot: VacancyBrowserPageSnapshot) => boolean
+    url: string
+  }) => Promise<VacancyBrowserPageSnapshot | null>
+  fetchedPage: VacancyBrowserPageSnapshot
+  generateId: () => string
+  getCurrentTimestamp: () => string
+  localAppData: Pick<LocalAppDataStore, 'artifacts' | 'metadata'>
+  normalizationService: VacancyNormalizationService
+  originalUrl: string
+  shouldCapturePage: (snapshot: VacancyBrowserPageSnapshot) => boolean
+  source: VacancySource
+  workspaceSelectionStore?: Pick<WorkspaceSelectionStore, 'getSelection' | 'setSelection'>
+}): Promise<VacancyIngestResult | null> {
+  try {
+    return await persistFetchedVacancyPage({
+      fetchedPage,
+      generateId,
+      getCurrentTimestamp,
+      localAppData,
+      normalizationService,
+      originalUrl,
+      source,
+      workspaceSelectionStore,
+    })
+  } catch (error) {
+    if (isNoJobContentNormalizationError(error)) {
+      return null
+    }
+
+    if (!isPageInteractionRequestedError(error)) {
+      throw error
+    }
+
+    const recapturedPage = await captureVacancyBrowserSessionPage({
+      readingActions: error.readingActions,
+      shouldCapturePage,
+      url: originalUrl,
+    })
+
+    if (recapturedPage === null || !shouldCapturePage(recapturedPage)) {
+      return null
+    }
+
+    try {
+      return await persistFetchedVacancyPage({
+        fetchedPage: recapturedPage,
+        generateId,
+        getCurrentTimestamp,
+        localAppData,
+        normalizationService,
+        originalUrl,
+        source,
+        workspaceSelectionStore,
+      })
+    } catch (recaptureError) {
+      if (
+        isNoJobContentNormalizationError(recaptureError) ||
+        isPageInteractionRequestedError(recaptureError)
+      ) {
+        return null
+      }
+
+      throw recaptureError
+    }
+  }
+}
+
 async function persistFetchedVacancyPage({
   fetchedPage,
   generateId,
@@ -544,7 +682,7 @@ async function persistFetchedVacancyPage({
       source,
       status: canGenerate ? 'ready' : 'incomplete',
       textPreview: normalizedVacancy.bodyText.slice(0, 280),
-      title: normalizedVacancy.title ?? inferTitleFromPageTitle(fetchedPage.pageTitle),
+      title: normalizedVacancy.title,
     },
   })
 
@@ -806,6 +944,19 @@ function toVacancySummary({
   }
 }
 
+function createVacancyPageMatcher(
+  originalUrl: string,
+): (snapshot: VacancyBrowserPageSnapshot) => boolean {
+  return (snapshot) => {
+    return isExpectedBrowserSessionVacancyPage({
+      html: snapshot.html,
+      originalUrl,
+      pageTitle: snapshot.pageTitle,
+      resolvedUrl: snapshot.resolvedUrl,
+    })
+  }
+}
+
 function isExpectedBrowserSessionVacancyPage({
   html,
   originalUrl,
@@ -820,32 +971,11 @@ function isExpectedBrowserSessionVacancyPage({
   try {
     const requestedUrl = new URL(originalUrl)
     const currentUrl = new URL(resolvedUrl)
-    let isResolvedUrlMatch: boolean
-
-    if (isHostnameOrSubdomain(requestedUrl.hostname, 'linkedin.com')) {
-      isResolvedUrlMatch =
-        isHostnameOrSubdomain(currentUrl.hostname, 'linkedin.com') &&
-        doExtractedIdentifiersMatch({
-          currentIdentifier: extractLinkedInJobId(currentUrl),
-          requestedIdentifier: extractLinkedInJobId(requestedUrl),
-        })
-    } else if (isHostnameOrSubdomain(requestedUrl.hostname, 'indeed.com')) {
-      isResolvedUrlMatch =
-        isHostnameOrSubdomain(currentUrl.hostname, 'indeed.com') &&
-        doExtractedIdentifiersMatch({
-          currentIdentifier: extractIndeedJobKey(currentUrl),
-          requestedIdentifier: extractIndeedJobKey(requestedUrl),
-        })
-    } else {
-      isResolvedUrlMatch =
-        currentUrl.hostname.toLowerCase() === requestedUrl.hostname.toLowerCase() &&
-        normalizeComparablePathname(currentUrl.pathname) ===
-          normalizeComparablePathname(requestedUrl.pathname) &&
-        doResolvedQueryParametersPreserveSubmittedParameters({
-          currentUrl,
-          requestedUrl,
-        })
-    }
+    const isResolvedUrlMatch =
+      currentUrl.hostname.toLowerCase() === requestedUrl.hostname.toLowerCase() &&
+      normalizeComparablePathname(currentUrl.pathname) ===
+        normalizeComparablePathname(requestedUrl.pathname) &&
+      currentUrl.search === requestedUrl.search
 
     return (
       isResolvedUrlMatch &&
@@ -857,52 +987,6 @@ function isExpectedBrowserSessionVacancyPage({
   } catch {
     return false
   }
-}
-
-function doExtractedIdentifiersMatch({
-  currentIdentifier,
-  requestedIdentifier,
-}: {
-  currentIdentifier: string | null
-  requestedIdentifier: string | null
-}): boolean {
-  return (
-    requestedIdentifier !== null &&
-    currentIdentifier !== null &&
-    currentIdentifier === requestedIdentifier
-  )
-}
-
-function extractLinkedInJobId(url: URL): string | null {
-  const pathMatch = /^\/jobs\/view\/(\d+)/.exec(url.pathname)
-
-  if (pathMatch?.[1] !== undefined) {
-    return pathMatch[1]
-  }
-
-  const currentJobId = url.searchParams.get('currentJobId')
-
-  if (currentJobId === null || currentJobId.trim() === '') {
-    return null
-  }
-
-  return currentJobId
-}
-
-function extractIndeedJobKey(url: URL): string | null {
-  const jobKey = url.searchParams.get('jk')
-
-  if (jobKey === null || jobKey.trim() === '') {
-    return null
-  }
-
-  return jobKey
-}
-
-function isHostnameOrSubdomain(hostname: string, domain: string): boolean {
-  const normalizedHostname = hostname.toLowerCase()
-
-  return normalizedHostname === domain || normalizedHostname.endsWith(`.${domain}`)
 }
 
 function hasRenderedPageEvidence({
@@ -960,20 +1044,6 @@ function normalizeComparablePathname(pathname: string): string {
   return normalizedPathname === '' ? '/' : normalizedPathname
 }
 
-function doResolvedQueryParametersPreserveSubmittedParameters({
-  currentUrl,
-  requestedUrl,
-}: {
-  currentUrl: URL
-  requestedUrl: URL
-}): boolean {
-  const requestedParameters = [...requestedUrl.searchParams.entries()]
-
-  return requestedParameters.every(([key, value]) => {
-    return currentUrl.searchParams.getAll(key).includes(value)
-  })
-}
-
 function resolveSubmittedUrlSource(url: string): VacancySource {
   return new URL(url).hostname.toLowerCase().replace(/^www\./u, '')
 }
@@ -996,12 +1066,18 @@ function normalizeUrl(url: string | undefined): string | null {
   }
 }
 
-function isSilentCaptureFallbackError(error: unknown): boolean {
-  return isNoJobContentNormalizationError(error)
-}
-
 function isNoJobContentNormalizationError(error: unknown): boolean {
   return error instanceof VacancyNormalizationError && error.code === 'no_job_content'
+}
+
+function isPageInteractionRequestedError(error: unknown): error is VacancyNormalizationError & {
+  readingActions: VacancyBrowserReadingActionRequest[]
+} {
+  return (
+    error instanceof VacancyNormalizationError &&
+    error.code === 'page_interaction_requested' &&
+    error.readingActions.length > 0
+  )
 }
 
 function requireUrl(url: string): string {

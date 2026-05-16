@@ -3,6 +3,7 @@ import { mkdir, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 
 import type { VacancyInputType, VacancySource } from '../shared/vacancy.js'
+import type { VacancyBrowserReadingActionRequest } from './vacancy-browser-actions.js'
 import { VacancyNormalizationError } from './vacancy-normalization-error.js'
 import { VACANCY_NORMALIZATION_EXAMPLES } from './vacancy-normalization-examples.js'
 import { prepareVacancyNormalizationArtifacts } from './vacancy-page-content.js'
@@ -29,6 +30,10 @@ export interface VacancyNormalizationInput {
 export type VacancyNormalizationWorkerResult =
   | {
       kind: 'no_job_content'
+    }
+  | {
+      kind: 'page_interaction_requested'
+      readingActions: VacancyBrowserReadingActionRequest[]
     }
   | {
       kind: 'success'
@@ -85,6 +90,14 @@ export function createVacancyNormalizationService({
           throw new VacancyNormalizationError({
             code: 'no_job_content',
             message: 'Vacancy normalization found no job content to persist.',
+          })
+        }
+
+        if (workerResult.kind === 'page_interaction_requested') {
+          throw new VacancyNormalizationError({
+            code: 'page_interaction_requested',
+            message: 'Vacancy normalization requested more same-page evidence.',
+            readingActions: workerResult.readingActions,
           })
         }
 

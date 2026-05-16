@@ -78,7 +78,7 @@ function createReadyNormalizationService(
   }
 }
 
-test('accepts browser-captured vacancy pages when the resolved URL preserves submitted query parameters and appends browser state', async () => {
+test('accepts browser-captured vacancy pages when only the URL hash changes', async () => {
   const localAppData = createLocalAppDataDouble()
   const normalizationCalls: VacancyNormalizationInput[] = []
   const vacancyService = createVacancyService({
@@ -91,8 +91,7 @@ test('accepts browser-captured vacancy pages when the resolved URL preserves sub
           '</main>',
         ].join(''),
         pageTitle: 'Senior Product Designer at Example Labs',
-        resolvedUrl:
-          'https://careers.example.com/jobs/123?jobId=123&session=managed-browser#details',
+        resolvedUrl: 'https://careers.example.com/jobs/123?jobId=123#details',
       })
     }),
     generateId: vi.fn(() => 'vacancy-canonical-query'),
@@ -107,12 +106,10 @@ test('accepts browser-captured vacancy pages when the resolved URL preserves sub
   })
 
   expect(result.kind).toBe('ingested')
-  expect(result.vacancy.resolvedUrl).toBe(
-    'https://careers.example.com/jobs/123?jobId=123&session=managed-browser#details',
-  )
+  expect(result.vacancy.resolvedUrl).toBe('https://careers.example.com/jobs/123?jobId=123#details')
   expect(normalizationCalls).toHaveLength(1)
   expect(normalizationCalls[0]?.resolvedUrl).toBe(
-    'https://careers.example.com/jobs/123?jobId=123&session=managed-browser#details',
+    'https://careers.example.com/jobs/123?jobId=123#details',
   )
 })
 
@@ -231,7 +228,7 @@ test('rejects browser-captured vacancy pages when the resolved URL changes submi
   expect(normalizationCalls).toHaveLength(0)
 })
 
-test('rejects LinkedIn captures when the resolved URL leaves the LinkedIn domain', async () => {
+test('applies generic URL matching to LinkedIn URLs without accepting provider-specific identifier redirects', async () => {
   const localAppData = createLocalAppDataDouble()
   const normalizationCalls: VacancyNormalizationInput[] = []
   const vacancyService = createVacancyService({
@@ -239,7 +236,7 @@ test('rejects LinkedIn captures when the resolved URL leaves the LinkedIn domain
       return Promise.resolve({
         html: '<main><h1>Senior Product Designer</h1><p>Lead browser-mediated intake.</p></main>',
         pageTitle: 'Senior Product Designer',
-        resolvedUrl: 'https://example.com/jobs/view/123456',
+        resolvedUrl: 'https://www.linkedin.com/jobs/collections/recommended?currentJobId=123456',
       })
     }),
     localAppData,
@@ -256,7 +253,7 @@ test('rejects LinkedIn captures when the resolved URL leaves the LinkedIn domain
   expect(normalizationCalls).toHaveLength(0)
 })
 
-test('rejects Indeed captures when the resolved URL leaves the Indeed domain', async () => {
+test('applies generic URL matching to Indeed URLs without accepting provider-specific job-key redirects', async () => {
   const localAppData = createLocalAppDataDouble()
   const normalizationCalls: VacancyNormalizationInput[] = []
   const vacancyService = createVacancyService({
@@ -264,7 +261,7 @@ test('rejects Indeed captures when the resolved URL leaves the Indeed domain', a
       return Promise.resolve({
         html: '<main><h1>Staff Product Designer</h1><p>Own vacancy review workflows.</p></main>',
         pageTitle: 'Staff Product Designer',
-        resolvedUrl: 'https://example.com/viewjob?jk=abc123',
+        resolvedUrl: 'https://www.indeed.com/jobs?q=designer&jk=abc123',
       })
     }),
     localAppData,
