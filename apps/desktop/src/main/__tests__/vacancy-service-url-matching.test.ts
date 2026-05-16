@@ -230,3 +230,53 @@ test('rejects browser-captured vacancy pages when the resolved URL changes submi
   )
   expect(normalizationCalls).toHaveLength(0)
 })
+
+test('rejects LinkedIn captures when the resolved URL leaves the LinkedIn domain', async () => {
+  const localAppData = createLocalAppDataDouble()
+  const normalizationCalls: VacancyNormalizationInput[] = []
+  const vacancyService = createVacancyService({
+    captureVacancyBrowserSessionPage: vi.fn(() => {
+      return Promise.resolve({
+        html: '<main><h1>Senior Product Designer</h1><p>Lead browser-mediated intake.</p></main>',
+        pageTitle: 'Senior Product Designer',
+        resolvedUrl: 'https://example.com/jobs/view/123456',
+      })
+    }),
+    localAppData,
+    normalizationService: createReadyNormalizationService(normalizationCalls),
+    openVacancyBrowserSession: vi.fn(() => Promise.resolve(null)),
+  })
+
+  const result = await vacancyService.ingestVacancyUrl({
+    url: 'https://www.linkedin.com/jobs/view/123456',
+  })
+
+  expect(result.kind).toBe('incomplete')
+  expect(result.vacancy.canGenerate).toBe(false)
+  expect(normalizationCalls).toHaveLength(0)
+})
+
+test('rejects Indeed captures when the resolved URL leaves the Indeed domain', async () => {
+  const localAppData = createLocalAppDataDouble()
+  const normalizationCalls: VacancyNormalizationInput[] = []
+  const vacancyService = createVacancyService({
+    captureVacancyBrowserSessionPage: vi.fn(() => {
+      return Promise.resolve({
+        html: '<main><h1>Staff Product Designer</h1><p>Own vacancy review workflows.</p></main>',
+        pageTitle: 'Staff Product Designer',
+        resolvedUrl: 'https://example.com/viewjob?jk=abc123',
+      })
+    }),
+    localAppData,
+    normalizationService: createReadyNormalizationService(normalizationCalls),
+    openVacancyBrowserSession: vi.fn(() => Promise.resolve(null)),
+  })
+
+  const result = await vacancyService.ingestVacancyUrl({
+    url: 'https://www.indeed.com/viewjob?jk=abc123',
+  })
+
+  expect(result.kind).toBe('incomplete')
+  expect(result.vacancy.canGenerate).toBe(false)
+  expect(normalizationCalls).toHaveLength(0)
+})

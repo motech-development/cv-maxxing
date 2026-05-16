@@ -386,6 +386,40 @@ test('keeps readable vacancy page evidence when one embedded frame cannot be cap
   expect(result?.html).toContain('Senior Product Designer')
 })
 
+test('rejects browser snapshots that omit the page title property', async () => {
+  const snapshotWithoutPageTitle = {
+    html: '<main><h1>Senior Product Designer</h1></main>',
+    resolvedUrl: 'https://careers.example.test/jobs/product-designer',
+  } as Snapshot
+  const constructor = vi.fn(function BrowserWindowConstructor(options: Record<string, unknown>) {
+    return new BrowserWindowDouble(options, snapshotWithoutPageTitle)
+  })
+  const vacancyBrowserSession = createVacancyBrowserSessionService({
+    browserWindowConstructor: constructor as never,
+    createSession: vi.fn(() => Promise.resolve({} as Session)),
+    profileRootPath: '/tmp/cv-maxxing/browser-sessions',
+  })
+  const shouldCapturePage = vi.fn(() => true)
+
+  const resultPromise = vacancyBrowserSession.openSession({
+    shouldCapturePage,
+    url: 'https://careers.example.test/jobs/product-designer',
+  })
+
+  await vi.waitFor(() => {
+    expect(constructor).toHaveBeenCalledTimes(1)
+  })
+
+  const createdWindow = constructor.mock.results[0]?.value as BrowserWindowDouble | undefined
+
+  createdWindow?.finishLoad(snapshotWithoutPageTitle)
+  await flushObservation()
+  createdWindow?.close()
+
+  await expect(resultPromise).resolves.toBeNull()
+  expect(shouldCapturePage).not.toHaveBeenCalled()
+})
+
 test('tracks the latest valid on-target snapshot across later page loads and returns it when the window closes', async () => {
   const constructor = vi.fn(function BrowserWindowConstructor(options: Record<string, unknown>) {
     return new BrowserWindowDouble(options, {

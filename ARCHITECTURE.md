@@ -455,6 +455,11 @@ Use one generic ingestion strategy:
 5. Persist snapshot.html, extracted.txt, and normalized.json with vacancy metadata
 ```
 
+Runtime constraints:
+
+- enforce a 90-second maximum capture budget per URL intake attempt
+- if authentication is required, open the managed browser for manual sign-in, then reload and retry intake once
+
 ### 8.3 Browser Session Rules
 
 Recommended implementation:
