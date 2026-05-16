@@ -423,11 +423,12 @@ test('runs safe same-page reading actions before capturing rendered vacancy evid
   expect(result?.resolvedUrl).toBe('https://careers.example.test/jobs/product-designer#details')
 })
 
-test('keeps retrying safe reading actions while the requested selector is still rendering', async () => {
+test('resumes safe reading actions from the first unfinished action while selectors render', async () => {
   vi.useFakeTimers()
 
   try {
-    let readingActionAttempts = 0
+    let clickAttempts = 0
+    let readAttempts = 0
     const constructor = vi.fn(function BrowserWindowConstructor(options: Record<string, unknown>) {
       const window = new BrowserWindowDouble(
         options,
@@ -443,9 +444,27 @@ test('keeps retrying safe reading actions while the requested selector is still 
             }
           }
 
-          readingActionAttempts += 1
+          if (code.includes('#show-details')) {
+            clickAttempts += 1
 
-          if (readingActionAttempts === 1) {
+            window.webContents.updateSnapshot({
+              html: '<main><button id="show-details">Show details</button><section><p>Loading details</p></section></main>',
+              pageTitle: 'Example Labs Careers',
+              resolvedUrl: 'https://careers.example.test/jobs/product-designer#details',
+            })
+
+            return {
+              handled: true,
+              value: {
+                kind: 'completed',
+                marker: 'cvMaxxingVacancySafeReadingAction',
+              },
+            }
+          }
+
+          readAttempts += 1
+
+          if (readAttempts === 1) {
             return {
               handled: true,
               value: {
@@ -486,6 +505,10 @@ test('keeps retrying safe reading actions while the requested selector is still 
           kind: 'click',
           selector: '#show-details',
         },
+        {
+          kind: 'read',
+          selector: '#details',
+        },
       ],
       shouldCapturePage: (snapshot) => {
         return snapshot.html.includes('Senior Product Designer')
@@ -507,7 +530,8 @@ test('keeps retrying safe reading actions while the requested selector is still 
     await flushObservation()
 
     expect(createdWindow?.isDestroyed()).toBe(false)
-    expect(readingActionAttempts).toBe(1)
+    expect(clickAttempts).toBe(1)
+    expect(readAttempts).toBe(1)
 
     await vi.advanceTimersByTimeAsync(250)
     await vi.advanceTimersByTimeAsync(500)
@@ -516,7 +540,8 @@ test('keeps retrying safe reading actions while the requested selector is still 
       pageTitle: 'Senior Product Designer',
       resolvedUrl: 'https://careers.example.test/jobs/product-designer#details',
     })
-    expect(readingActionAttempts).toBe(2)
+    expect(clickAttempts).toBe(1)
+    expect(readAttempts).toBe(2)
   } finally {
     vi.useRealTimers()
   }

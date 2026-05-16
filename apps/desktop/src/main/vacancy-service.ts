@@ -1081,6 +1081,7 @@ function isPageInteractionRequestedError(error: unknown): error is VacancyNormal
   return (
     error instanceof VacancyNormalizationError &&
     error.code === 'page_interaction_requested' &&
+    Array.isArray(error.readingActions) &&
     error.readingActions.length > 0
   )
 }
