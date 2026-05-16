@@ -823,15 +823,19 @@ function isExpectedBrowserSessionVacancyPage({
     let isResolvedUrlMatch: boolean
 
     if (isHostnameOrSubdomain(requestedUrl.hostname, 'linkedin.com')) {
-      isResolvedUrlMatch = doExtractedIdentifiersMatch({
-        currentIdentifier: extractLinkedInJobId(currentUrl),
-        requestedIdentifier: extractLinkedInJobId(requestedUrl),
-      })
+      isResolvedUrlMatch =
+        isHostnameOrSubdomain(currentUrl.hostname, 'linkedin.com') &&
+        doExtractedIdentifiersMatch({
+          currentIdentifier: extractLinkedInJobId(currentUrl),
+          requestedIdentifier: extractLinkedInJobId(requestedUrl),
+        })
     } else if (isHostnameOrSubdomain(requestedUrl.hostname, 'indeed.com')) {
-      isResolvedUrlMatch = doExtractedIdentifiersMatch({
-        currentIdentifier: extractIndeedJobKey(currentUrl),
-        requestedIdentifier: extractIndeedJobKey(requestedUrl),
-      })
+      isResolvedUrlMatch =
+        isHostnameOrSubdomain(currentUrl.hostname, 'indeed.com') &&
+        doExtractedIdentifiersMatch({
+          currentIdentifier: extractIndeedJobKey(currentUrl),
+          requestedIdentifier: extractIndeedJobKey(requestedUrl),
+        })
     } else {
       isResolvedUrlMatch =
         currentUrl.hostname.toLowerCase() === requestedUrl.hostname.toLowerCase() &&

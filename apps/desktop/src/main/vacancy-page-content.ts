@@ -103,13 +103,21 @@ export function inferTitleFromPageTitle(pageTitle: string | null): string | null
   }
 
   const dashDelimitedTitleParts = atOrPipeDelimitedTitle.split(/\s+-\s+/u)
+  const dashSuffix = dashDelimitedTitleParts.at(-1)?.trim() ?? ''
   const normalizedTitle =
-    dashDelimitedTitleParts.length > 1
+    dashDelimitedTitleParts.length > 1 && isPageTitleMetadataSuffix(dashSuffix)
       ? dashDelimitedTitleParts.slice(0, -1).join(' - ')
-      : atOrPipeDelimitedTitle
+      : dashDelimitedTitleParts.join(' - ')
   const trimmedTitle = normalizedTitle.trim()
 
   return trimmedTitle === '' ? null : trimmedTitle
+}
+
+function isPageTitleMetadataSuffix(suffix: string): boolean {
+  return (
+    /^(?:apply|full[- ]time|hybrid|location|part[- ]time|remote)$/iu.test(suffix) ||
+    /(?:^|\b)(?:careers|greenhouse|indeed|jobs|lever|linkedin|workday)(?:\b|$)/iu.test(suffix)
+  )
 }
 
 function focusPrimaryContent(html: string): string {

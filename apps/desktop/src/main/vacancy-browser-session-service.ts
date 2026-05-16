@@ -411,23 +411,26 @@ async function capturePageSnapshot({
 }: {
   executeJavaScript: (code: string) => Promise<unknown>
 }): Promise<VacancyBrowserPageSnapshot | null> {
-  const snapshot = (await executeJavaScript(
-    browserCaptureScript,
-  )) as VacancyBrowserPageSnapshot | null
+  const snapshot = await executeJavaScript(browserCaptureScript)
 
   if (
     snapshot === null ||
     typeof snapshot !== 'object' ||
+    !('html' in snapshot) ||
     typeof snapshot.html !== 'string' ||
+    !('resolvedUrl' in snapshot) ||
     typeof snapshot.resolvedUrl !== 'string' ||
-    ('pageTitle' in snapshot &&
-      snapshot.pageTitle !== null &&
-      typeof snapshot.pageTitle !== 'string')
+    !('pageTitle' in snapshot) ||
+    (snapshot.pageTitle !== null && typeof snapshot.pageTitle !== 'string')
   ) {
     return null
   }
 
-  return snapshot
+  return {
+    html: snapshot.html,
+    pageTitle: snapshot.pageTitle,
+    resolvedUrl: snapshot.resolvedUrl,
+  }
 }
 
 async function captureEmbeddedFrameSnapshots(

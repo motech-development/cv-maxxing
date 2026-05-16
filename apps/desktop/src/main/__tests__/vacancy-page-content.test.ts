@@ -16,6 +16,9 @@ test('preserves dashed role qualifiers when inferring generic vacancy titles', (
   expect(inferTitleFromPageTitle('Product Manager - AI Platform - Example Careers')).toBe(
     'Product Manager - AI Platform',
   )
+  expect(inferTitleFromPageTitle('Software Engineer - Platform')).toBe(
+    'Software Engineer - Platform',
+  )
   expect(inferTitleFromPageTitle('Product Manager - AI Platform at Example Labs')).toBe(
     'Product Manager - AI Platform',
   )
