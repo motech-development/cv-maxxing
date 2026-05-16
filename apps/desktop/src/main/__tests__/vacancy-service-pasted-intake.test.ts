@@ -161,14 +161,14 @@ test('rejects non-web vacancy URLs before touching persistence or browser adapte
   expect(openVacancyBrowserSession).not.toHaveBeenCalled()
 })
 
-test('treats lookalike LinkedIn hostnames as normal browser-mediated vacancy URLs', async () => {
+test('treats lookalike provider hostnames as normal browser-mediated vacancy URLs', async () => {
   const localAppData = createLocalAppDataDouble()
   const normalizationCalls: VacancyNormalizationInput[] = []
   const captureVacancyBrowserSessionPage = vi.fn(() =>
     Promise.resolve({
       html: '<main><h1>Senior Product Designer</h1><p>Lead design systems and product workflows.</p></main>',
       pageTitle: 'Senior Product Designer',
-      resolvedUrl: 'https://linkedin.com.example/jobs/view/123456',
+      resolvedUrl: 'https://jobs.example.com/jobs/view/123456',
     }),
   )
   const vacancyService = createVacancyService({
@@ -195,16 +195,16 @@ test('treats lookalike LinkedIn hostnames as normal browser-mediated vacancy URL
   })
 
   const result = await vacancyService.ingestVacancyUrl({
-    url: 'https://linkedin.com.example/jobs/view/123456',
+    url: 'https://jobs.example.com/jobs/view/123456',
   })
 
   expect(result.kind).toBe('ingested')
-  expect(result.vacancy.source).toBe('linkedin.com.example')
+  expect(result.vacancy.source).toBe('jobs.example.com')
   expect(captureVacancyBrowserSessionPage).toHaveBeenCalledTimes(1)
-  expect(normalizationCalls[0]?.source).toBe('linkedin.com.example')
+  expect(normalizationCalls[0]?.source).toBe('jobs.example.com')
 })
 
-test('does not accept LinkedIn browser captures without a job id', async () => {
+test('does not accept off-target browser captures as job pages', async () => {
   const localAppData = createLocalAppDataDouble()
   const normalizationService = {
     normalizeVacancy: vi.fn(() => {
@@ -222,12 +222,12 @@ test('does not accept LinkedIn browser captures without a job id', async () => {
   const vacancyService = createVacancyService({
     captureVacancyBrowserSessionPage: vi.fn(() => {
       return Promise.resolve({
-        html: '<main><h1>LinkedIn feed</h1></main>',
-        pageTitle: 'LinkedIn',
-        resolvedUrl: 'https://www.linkedin.com/feed/',
+        html: '<main><h1>Account feed</h1></main>',
+        pageTitle: 'Account feed',
+        resolvedUrl: 'https://jobs.example.com/feed/',
       })
     }),
-    generateId: vi.fn(() => 'vacancy-linkedin-feed'),
+    generateId: vi.fn(() => 'vacancy-authenticated-feed'),
     getCurrentTimestamp: vi.fn(() => '2026-04-08T21:50:00.000Z'),
     localAppData,
     normalizationService,
@@ -235,11 +235,11 @@ test('does not accept LinkedIn browser captures without a job id', async () => {
   })
 
   const result = await vacancyService.ingestVacancyUrl({
-    url: 'https://www.linkedin.com/feed/',
+    url: 'https://jobs.example.com/feed/',
   })
 
   expect(result.kind).toBe('incomplete')
-  expect(result.vacancy.source).toBe('linkedin.com')
+  expect(result.vacancy.source).toBe('jobs.example.com')
   expect(result.vacancy.blockingReason).toBe(
     'This job page may need more access. Open the job page or paste the job description instead.',
   )

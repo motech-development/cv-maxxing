@@ -2,6 +2,7 @@ import { spawn } from 'node:child_process'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 
+import type { VacancyBrowserReadingActionRequest } from './vacancy-browser-actions.js'
 import { VacancyNormalizationError } from './vacancy-normalization-error.js'
 import type {
   NormalizedVacancy,
@@ -12,10 +13,17 @@ type RawVacancyNormalizationWorkerResult =
   | {
       kind: 'no_job_content'
       normalizedVacancy?: null
+      readingActions?: null
+    }
+  | {
+      kind: 'page_interaction_requested'
+      normalizedVacancy?: null
+      readingActions: VacancyBrowserReadingActionRequest[]
     }
   | {
       kind: 'success'
       normalizedVacancy: NormalizedVacancy
+      readingActions?: null
     }
 
 export interface VacancyNormalizationWorker {
@@ -36,7 +44,7 @@ const OUTPUT_SCHEMA = {
   additionalProperties: false,
   properties: {
     kind: {
-      enum: ['no_job_content', 'success'],
+      enum: ['no_job_content', 'page_interaction_requested', 'success'],
       type: 'string',
     },
     normalizedVacancy: {
@@ -70,8 +78,25 @@ const OUTPUT_SCHEMA = {
       required: ['bodyText', 'employer', 'location', 'requirements', 'responsibilities', 'title'],
       type: ['object', 'null'],
     },
+    readingActions: {
+      items: {
+        additionalProperties: false,
+        properties: {
+          kind: {
+            enum: ['click', 'read'],
+            type: 'string',
+          },
+          selector: {
+            type: 'string',
+          },
+        },
+        required: ['kind', 'selector'],
+        type: 'object',
+      },
+      type: ['array', 'null'],
+    },
   },
-  required: ['kind', 'normalizedVacancy'],
+  required: ['kind', 'normalizedVacancy', 'readingActions'],
   type: 'object',
 } as const
 const VACANCY_NORMALIZATION_MODEL = 'gpt-5.4'
@@ -138,6 +163,9 @@ async function runCodexCliNormalization({
     'Ignore navigation chrome, cookie banners, account UI, and related-job content.',
     'Prefer the main vacancy body over summary snippets.',
     'Leave missing fields empty instead of guessing.',
+    'If more same-page evidence is needed, request only safe reading actions with kind "click" or "read" and CSS selectors.',
+    'Never request typing, form submission, file upload, application-start actions, account actions, or external navigation.',
+    'For success and no_job_content results, set readingActions to null.',
     'If no real job content exists, return kind "no_job_content" with normalizedVacancy set to null.',
   ].join(' ')
 
@@ -257,14 +285,27 @@ function isRawVacancyNormalizationWorkerResult(
   const candidate = value as Record<string, unknown>
 
   if (candidate.kind === 'no_job_content') {
-    return candidate.normalizedVacancy === undefined || candidate.normalizedVacancy === null
+    return (
+      (candidate.normalizedVacancy === undefined || candidate.normalizedVacancy === null) &&
+      (candidate.readingActions === undefined || candidate.readingActions === null)
+    )
+  }
+
+  if (candidate.kind === 'page_interaction_requested') {
+    return (
+      (candidate.normalizedVacancy === undefined || candidate.normalizedVacancy === null) &&
+      isSafeReadingActionArray(candidate.readingActions)
+    )
   }
 
   if (candidate.kind !== 'success') {
     return false
   }
 
-  return isNormalizedVacancy(candidate.normalizedVacancy)
+  return (
+    isNormalizedVacancy(candidate.normalizedVacancy) &&
+    (candidate.readingActions === undefined || candidate.readingActions === null)
+  )
 }
 
 function normalizeWorkerResult(
@@ -273,6 +314,13 @@ function normalizeWorkerResult(
   if (value.kind === 'no_job_content') {
     return {
       kind: 'no_job_content',
+    }
+  }
+
+  if (value.kind === 'page_interaction_requested') {
+    return {
+      kind: 'page_interaction_requested',
+      readingActions: value.readingActions,
     }
   }
 
@@ -287,6 +335,26 @@ function isStringArray(value: unknown): value is string[] {
     Array.isArray(value) &&
     value.every((entry) => {
       return typeof entry === 'string'
+    })
+  )
+}
+
+function isSafeReadingActionArray(value: unknown): value is VacancyBrowserReadingActionRequest[] {
+  return (
+    Array.isArray(value) &&
+    value.length > 0 &&
+    value.every((entry) => {
+      if (entry === null || typeof entry !== 'object' || Array.isArray(entry)) {
+        return false
+      }
+
+      const candidate = entry as Record<string, unknown>
+
+      return (
+        (candidate.kind === 'click' || candidate.kind === 'read') &&
+        typeof candidate.selector === 'string' &&
+        candidate.selector.trim() !== ''
+      )
     })
   )
 }

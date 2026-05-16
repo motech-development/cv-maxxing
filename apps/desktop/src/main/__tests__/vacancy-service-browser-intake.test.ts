@@ -1,6 +1,8 @@
 import { expect, test, vi } from 'vitest'
 
+import { VacancyNormalizationError } from '../vacancy-normalization-error.js'
 import { createVacancyService } from '../vacancy-service.js'
+import type { VacancyBrowserReadingActionRequest } from '../vacancy-browser-actions.js'
 import type {
   JsonValue,
   LocalAppDataStore,
@@ -196,6 +198,93 @@ test('waits for actual rendered vacancy evidence before normalizing a generic ca
   await expect(
     localAppData.artifacts.read({
       id: 'vacancy-rendered-evidence',
+      name: 'snapshot.html',
+      scope: 'vacancies',
+    }),
+  ).resolves.toEqual(expect.any(Buffer))
+})
+
+test('retries browser capture with AI-requested safe same-page reading actions', async () => {
+  const localAppData = createMemoryLocalAppData()
+  const normalizationCalls: VacancyNormalizationInput[] = []
+  const captureVacancyBrowserSessionPage = vi
+    .fn()
+    .mockResolvedValueOnce({
+      html: '<main><p>Job description is available after opening the details section.</p><button id="details">Show details</button></main>',
+      pageTitle: 'Example Labs Careers',
+      resolvedUrl: 'https://careers.example.com/jobs/senior-product-designer',
+    })
+    .mockResolvedValueOnce({
+      html: [
+        '<main>',
+        '<h1>Senior Product Designer</h1>',
+        '<section><h2>Responsibilities</h2><ul><li>Lead browser-mediated intake for desktop workflows.</li></ul></section>',
+        '<section><h2>Requirements</h2><ul><li>Experience shipping workflow software.</li></ul></section>',
+        '</main>',
+      ].join(''),
+      pageTitle: 'Senior Product Designer at Example Labs',
+      resolvedUrl: 'https://careers.example.com/jobs/senior-product-designer#details',
+    })
+  const normalizationService = {
+    normalizeVacancy: vi.fn((input: VacancyNormalizationInput) => {
+      normalizationCalls.push(input)
+
+      if (normalizationCalls.length === 1) {
+        return Promise.reject(
+          new VacancyNormalizationError({
+            code: 'page_interaction_requested',
+            message: 'Vacancy normalization requested more same-page evidence.',
+            readingActions: [
+              {
+                kind: 'click',
+                selector: '#details',
+              },
+            ],
+          }),
+        )
+      }
+
+      return Promise.resolve({
+        bodyText:
+          'Lead browser-mediated intake for desktop workflows. Partner with engineering and research.',
+        employer: 'Example Labs',
+        location: 'London, United Kingdom',
+        requirements: ['Experience shipping workflow software.'],
+        responsibilities: ['Lead browser-mediated intake for desktop workflows.'],
+        title: 'Senior Product Designer',
+      })
+    }),
+  } satisfies VacancyNormalizationService
+  const vacancyService = createVacancyService({
+    captureVacancyBrowserSessionPage,
+    generateId: vi.fn(() => 'vacancy-ai-reading-action'),
+    getCurrentTimestamp: vi.fn(() => '2026-05-15T22:10:00.000Z'),
+    localAppData,
+    normalizationService,
+    openVacancyBrowserSession: vi.fn(() => Promise.resolve(null)),
+  })
+
+  const result = await vacancyService.ingestVacancyUrl({
+    url: 'https://careers.example.com/jobs/senior-product-designer',
+  })
+  const secondCaptureInput = captureVacancyBrowserSessionPage.mock.calls[1]?.[0] as
+    | {
+        readingActions?: VacancyBrowserReadingActionRequest[]
+      }
+    | undefined
+
+  expect(result.kind).toBe('ingested')
+  expect(captureVacancyBrowserSessionPage).toHaveBeenCalledTimes(2)
+  expect(secondCaptureInput?.readingActions).toEqual([
+    {
+      kind: 'click',
+      selector: '#details',
+    },
+  ])
+  expect(normalizationCalls).toHaveLength(2)
+  await expect(
+    localAppData.artifacts.read({
+      id: 'vacancy-ai-reading-action',
       name: 'snapshot.html',
       scope: 'vacancies',
     }),

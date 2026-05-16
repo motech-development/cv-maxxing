@@ -605,9 +605,9 @@ The AI worker now produces this profile during original-CV normalization. Tailor
 - id
 - inputType: `url | pasted_text`
 - url
-- jobBoard: `linkedin | indeed | greenhouse | generic | unknown`
-- rawHtmlPath
-- rawTextPath
+- source
+- snapshotHtmlPath
+- extractedTextPath
 - normalizedVacancyPath
 - title
 - employer
@@ -1044,7 +1044,7 @@ If app data is copied to another Mac without the key, the app should show a loca
 
 ### Browser session handling
 
-For LinkedIn or Indeed paths that need authenticated viewing:
+For job pages that need authenticated viewing:
 
 - use a dedicated local browser profile
 - keep the profile under app-managed local storage
@@ -1284,10 +1284,9 @@ Baseline packaging requirements:
 
 ### Phase 3. Vacancy ingestion
 
-- classify job board by URL
-- implement Greenhouse deterministic fetcher
-- implement LinkedIn and Indeed browser-backed fetchers
-- implement generic fallback fetcher
+- implement generic browser-mediated URL intake through AI extraction
+- support authenticated job pages by reopening the submitted job link in an app-managed session
+- support safe AI-requested same-page reading actions without typing, submitting, uploads, account actions, external links, or URL changes beyond hash-only movement
 - persist vacancy snapshots and normalized vacancy models
 - implement pasted job text fallback with optional URL reference
 - implement vacancy preview before `Adapt CV`
@@ -1357,8 +1356,8 @@ Baseline packaging requirements:
 - first `Adapt CV` flow when AI worker readiness is still valid
 - `Adapt CV` retry flow when sign-in is required after readiness was lost
 - retry from AI worker unavailable state after local repair
-- create tailored application from Greenhouse URL
-- create tailored application from LinkedIn or Indeed with browser-assisted fetch
+- create tailored application from a public job link
+- create tailored application from an authenticated job link with browser-assisted fetch
 - browse saved tailored applications
 - download a specific PDF on demand
 - hard-delete a tailored application
