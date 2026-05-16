@@ -194,7 +194,7 @@ export function createVacancyService({
       }
 
       const extractedText = normalizedVacancy.bodyText.trim()
-      const isLanguageBlocked = assessEnglishLanguageSupport(trimmedText).status === 'blocked'
+      const isLanguageBlocked = assessEnglishLanguageSupport(extractedText).status === 'blocked'
       const canGenerate = !isLanguageBlocked && isVacancyReady(normalizedVacancy)
       let blockingReason: string | null = null
 
@@ -972,7 +972,8 @@ function isExpectedBrowserSessionVacancyPage({
     const requestedUrl = new URL(originalUrl)
     const currentUrl = new URL(resolvedUrl)
     const isResolvedUrlMatch =
-      currentUrl.hostname.toLowerCase() === requestedUrl.hostname.toLowerCase() &&
+      normalizeComparableHostname(currentUrl.hostname) ===
+        normalizeComparableHostname(requestedUrl.hostname) &&
       normalizeComparablePathname(currentUrl.pathname) ===
         normalizeComparablePathname(requestedUrl.pathname) &&
       currentUrl.search === requestedUrl.search
@@ -1036,6 +1037,10 @@ function looksLikeGenericCareersShell(extractedText: string): boolean {
   }).length
 
   return shellSignalsCount >= 2
+}
+
+function normalizeComparableHostname(hostname: string): string {
+  return hostname.toLowerCase().replace(/^www\./u, '')
 }
 
 function normalizeComparablePathname(pathname: string): string {

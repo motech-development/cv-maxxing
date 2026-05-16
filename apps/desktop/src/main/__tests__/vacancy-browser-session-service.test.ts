@@ -423,6 +423,105 @@ test('runs safe same-page reading actions before capturing rendered vacancy evid
   expect(result?.resolvedUrl).toBe('https://careers.example.test/jobs/product-designer#details')
 })
 
+test('keeps retrying safe reading actions while the requested selector is still rendering', async () => {
+  vi.useFakeTimers()
+
+  try {
+    let readingActionAttempts = 0
+    const constructor = vi.fn(function BrowserWindowConstructor(options: Record<string, unknown>) {
+      const window = new BrowserWindowDouble(
+        options,
+        {
+          html: '<main><p>Loading job details</p></main>',
+          pageTitle: 'Example Labs Careers',
+          resolvedUrl: 'https://careers.example.test/jobs/product-designer',
+        },
+        (code) => {
+          if (!code.includes('cvMaxxingVacancySafeReadingAction')) {
+            return {
+              handled: false,
+            }
+          }
+
+          readingActionAttempts += 1
+
+          if (readingActionAttempts === 1) {
+            return {
+              handled: true,
+              value: {
+                kind: 'rejected',
+                marker: 'cvMaxxingVacancySafeReadingAction',
+                reason: 'missing_target',
+              },
+            }
+          }
+
+          window.webContents.updateSnapshot({
+            html: '<main><h1>Senior Product Designer</h1><p>Lead browser-mediated intake work.</p></main>',
+            pageTitle: 'Senior Product Designer',
+            resolvedUrl: 'https://careers.example.test/jobs/product-designer#details',
+          })
+
+          return {
+            handled: true,
+            value: {
+              kind: 'completed',
+              marker: 'cvMaxxingVacancySafeReadingAction',
+            },
+          }
+        },
+      )
+
+      return window
+    })
+    const vacancyBrowserSession = createVacancyBrowserSessionService({
+      browserWindowConstructor: constructor as never,
+      createSession: vi.fn(() => Promise.resolve({} as Session)),
+      profileRootPath: '/tmp/cv-maxxing/browser-sessions',
+    })
+
+    const resultPromise = vacancyBrowserSession.captureSessionPage({
+      readingActions: [
+        {
+          kind: 'click',
+          selector: '#show-details',
+        },
+      ],
+      shouldCapturePage: (snapshot) => {
+        return snapshot.html.includes('Senior Product Designer')
+      },
+      url: 'https://careers.example.test/jobs/product-designer',
+    })
+
+    await vi.waitFor(() => {
+      expect(constructor).toHaveBeenCalledTimes(1)
+    })
+
+    const createdWindow = constructor.mock.results[0]?.value as BrowserWindowDouble | undefined
+
+    createdWindow?.finishLoad({
+      html: '<main><p>Loading job details</p></main>',
+      pageTitle: 'Example Labs Careers',
+      resolvedUrl: 'https://careers.example.test/jobs/product-designer',
+    })
+    await flushObservation()
+
+    expect(createdWindow?.isDestroyed()).toBe(false)
+    expect(readingActionAttempts).toBe(1)
+
+    await vi.advanceTimersByTimeAsync(250)
+    await vi.advanceTimersByTimeAsync(500)
+
+    await expect(resultPromise).resolves.toMatchObject({
+      pageTitle: 'Senior Product Designer',
+      resolvedUrl: 'https://careers.example.test/jobs/product-designer#details',
+    })
+    expect(readingActionAttempts).toBe(2)
+  } finally {
+    vi.useRealTimers()
+  }
+})
+
 test('rejects unsafe same-page reading actions without capturing job data', async () => {
   const constructor = vi.fn(function BrowserWindowConstructor(options: Record<string, unknown>) {
     const window = new BrowserWindowDouble(
