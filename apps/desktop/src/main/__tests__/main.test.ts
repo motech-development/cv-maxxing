@@ -196,10 +196,16 @@ test('rejects fixture-backed runtime overrides for packaged app launches', () =>
     assertPackagedRuntimeHasNoFixtureOverrides({
       environment: {
         CV_MAXXING_AI_WORKER_GENERATION_OUTPUT: '{"fixture":true}',
+        CV_MAXXING_DISABLE_APP_RELAUNCH_ON_RESET: 'true',
+        CV_MAXXING_PENDING_GENERATION_COMMAND: '{"commandId":"command-123"}',
+        CV_MAXXING_STARTUP_DESTINATION: 'workspace',
+        CV_MAXXING_TAILORED_APPLICATION_PREVIEW_DELAY_MS: '250',
       },
       isPackaged: true,
     })
-  }).toThrow(/CV_MAXXING_AI_WORKER_GENERATION_OUTPUT/u)
+  }).toThrow(
+    /CV_MAXXING_AI_WORKER_GENERATION_OUTPUT.*CV_MAXXING_DISABLE_APP_RELAUNCH_ON_RESET.*CV_MAXXING_PENDING_GENERATION_COMMAND.*CV_MAXXING_STARTUP_DESTINATION.*CV_MAXXING_TAILORED_APPLICATION_PREVIEW_DELAY_MS/u,
+  )
 })
 
 test('allows fixture-backed runtime overrides outside packaged app launches', () => {
