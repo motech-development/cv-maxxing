@@ -184,6 +184,37 @@ test('uses the same populated Your CV preview pane for DOCX original CVs', () =>
   })
 })
 
+test('shows unavailable page-count copy when a DOCX does not report page metadata', () => {
+  const originalCv = {
+    ...createOriginalCvDetailFixture().originalCv,
+    fileType: 'docx' as const,
+    originalFilename: 'ada-lovelace-revised.docx',
+    pageCount: 0,
+  }
+
+  render(
+    <OriginalCvScreen
+      activeOriginalCv={originalCv}
+      activeOriginalCvDetail={createOriginalCvDetailFixture({
+        originalCv,
+        preview: {
+          docxBytes: new Uint8Array([80, 75, 3, 4]),
+          kind: 'docx',
+        },
+      })}
+      isImportingOriginalCv={false}
+      onFileDrop={vi.fn()}
+      onFileSelection={vi.fn()}
+      onImportOriginalCv={vi.fn()}
+      onSelectOriginalCv={vi.fn()}
+      originalCvFile={null}
+      runtimeAlert={null}
+    />,
+  )
+
+  expect(screen.getAllByText(/Page count unavailable/u).length).toBeGreaterThan(0)
+})
+
 test('renders the populated add-a-cv replacement view from design/app.pen', () => {
   render(
     <OriginalCvScreen

@@ -81,6 +81,7 @@ export async function extractTextFromPdf(content: Buffer): Promise<ExtractedDocu
 export function extractTextFromDocx(content: Buffer): Promise<ExtractedDocumentText> {
   const archiveEntries = unzipSync(new Uint8Array(content))
   const documentXml = archiveEntries['word/document.xml']
+  const pageCount = readDocxExtendedPropertiesPageCount(archiveEntries)
 
   if (documentXml === undefined) {
     return Promise.resolve({
@@ -100,9 +101,26 @@ export function extractTextFromDocx(content: Buffer): Promise<ExtractedDocumentT
   )
 
   return Promise.resolve({
-    pageCount: text === '' ? 0 : 1,
+    pageCount: text === '' ? 0 : pageCount,
     text,
   })
+}
+
+function readDocxExtendedPropertiesPageCount(archiveEntries: Record<string, Uint8Array>): number {
+  const appPropertiesXml = archiveEntries['docProps/app.xml']
+
+  if (appPropertiesXml === undefined) {
+    return 0
+  }
+
+  const matchedPages = /<Pages>(\d+)<\/Pages>/u.exec(strFromU8(appPropertiesXml))
+  const parsedPageCount = Number.parseInt(matchedPages?.[1] ?? '', 10)
+
+  if (!Number.isSafeInteger(parsedPageCount) || parsedPageCount <= 0) {
+    return 0
+  }
+
+  return parsedPageCount
 }
 
 function decodeXmlText(value: string): string {

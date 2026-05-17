@@ -37,39 +37,79 @@ test('extracts readable text from DOCX original CV files', async () => {
     ]),
   )
 
-  expect(extractedDocument.pageCount).toBe(1)
+  expect(extractedDocument.pageCount).toBe(0)
   expect(extractedDocument.text).toContain('Ada Lovelace')
   expect(extractedDocument.text).toContain('Principal Product Designer')
   expect(extractedDocument.text).toContain('Product strategy, UX research, prototyping')
 })
 
-function createDocxDocumentBuffer(lines: string[]): Buffer {
-  const documentXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
-  <w:body>
-    ${lines
-      .map((line) => {
-        return `<w:p><w:r><w:t>${escapeXmlText(line)}</w:t></w:r></w:p>`
-      })
-      .join('')}
-  </w:body>
-</w:document>`
+test('extracts DOCX page count from extended document properties', async () => {
+  const extractedDocument = await extractTextFromDocx(
+    createDocxDocumentBuffer(
+      [
+        'Ada Lovelace',
+        'Principal Product Designer',
+        'Summary',
+        'Design leader focused on complex workflow products.',
+      ],
+      {
+        pageCount: 3,
+      },
+    ),
+  )
 
-  return Buffer.from(
-    zipSync({
-      '[Content_Types].xml': strToU8(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+  expect(extractedDocument.pageCount).toBe(3)
+  expect(extractedDocument.text).toContain('Ada Lovelace')
+})
+
+function createDocxDocumentBuffer(
+  lines: string[],
+  options: {
+    pageCount?: number
+  } = {},
+): Buffer {
+  const documentXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+    <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+      <w:body>
+        ${lines
+          .map((line) => {
+            return `<w:p><w:r><w:t>${escapeXmlText(line)}</w:t></w:r></w:p>`
+          })
+          .join('')}
+      </w:body>
+    </w:document>`
+  const appPropertiesXml =
+    options.pageCount === undefined
+      ? undefined
+      : `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties">
+  <Pages>${String(options.pageCount)}</Pages>
+</Properties>`
+  const archiveEntries = {
+    '[Content_Types].xml': strToU8(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
   <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml" />
   <Default Extension="xml" ContentType="application/xml" />
   <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml" />
+  ${
+    appPropertiesXml === undefined
+      ? ''
+      : '<Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml" />'
+  }
 </Types>`),
-      '_rels/.rels': strToU8(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+    '_rels/.rels': strToU8(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
   <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml" />
 </Relationships>`),
-      'word/document.xml': strToU8(documentXml),
-    }),
-  )
+    'word/document.xml': strToU8(documentXml),
+    ...(appPropertiesXml === undefined
+      ? {}
+      : {
+          'docProps/app.xml': strToU8(appPropertiesXml),
+        }),
+  }
+
+  return Buffer.from(zipSync(archiveEntries))
 }
 
 function createPdfDocumentBuffer(lines: string[]): Buffer {

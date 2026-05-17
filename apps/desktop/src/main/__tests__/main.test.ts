@@ -10,6 +10,7 @@ import {
   VACANCY_IPC_CHANNELS,
 } from '../../shared/ipc.js'
 import {
+  assertPackagedRuntimeHasNoFixtureOverrides,
   createDesktopAppBootstrap,
   createElectronRuntimeDependencies,
   handleOriginalCvImported,
@@ -188,6 +189,29 @@ test('abandon pending tailored-application state after an original CV import suc
   ).resolves.toBeUndefined()
 
   expect(tailoredApplication.abandonPendingGeneration).toHaveBeenCalledTimes(1)
+})
+
+test('rejects fixture-backed runtime overrides for packaged app launches', () => {
+  expect(() => {
+    assertPackagedRuntimeHasNoFixtureOverrides({
+      environment: {
+        CV_MAXXING_AI_WORKER_GENERATION_OUTPUT: '{"fixture":true}',
+      },
+      isPackaged: true,
+    })
+  }).toThrow(/CV_MAXXING_AI_WORKER_GENERATION_OUTPUT/u)
+})
+
+test('allows fixture-backed runtime overrides outside packaged app launches', () => {
+  expect(() => {
+    assertPackagedRuntimeHasNoFixtureOverrides({
+      environment: {
+        CV_MAXXING_AI_WORKER_GENERATION_OUTPUT: '{"fixture":true}',
+        CV_MAXXING_VACANCY_BROWSER_SESSION_HTML: '<main>Fixture</main>',
+      },
+      isPackaged: false,
+    })
+  }).not.toThrow()
 })
 
 test('bootstrap registers the full AI worker onboarding IPC surface and opens the packaged shell on startup', async () => {
