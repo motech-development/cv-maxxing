@@ -426,6 +426,10 @@ function ProfileSection({ children, title }: { children: ReactNode; title: strin
 }
 
 function formatPageCount(pageCount: number): string {
+  if (pageCount <= 0) {
+    return 'Page count unavailable'
+  }
+
   return `${String(pageCount)} page${pageCount === 1 ? '' : 's'}`
 }
 

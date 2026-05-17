@@ -181,7 +181,7 @@ export async function handleOriginalCvImported({
   await tailoredApplication.abandonPendingGeneration()
 }
 
-interface RuntimeEnvironment {
+export interface RuntimeEnvironment {
   CHECKING_TIMEOUT_MS?: string
   CV_MAXXING_AI_WORKER_PREFLIGHT_STATUS?: string
   CV_MAXXING_AI_WORKER_CODEX_COMMAND?: string
@@ -203,12 +203,39 @@ interface RuntimeEnvironment {
   CV_MAXXING_PENDING_GENERATION_COMMAND?: string
   CV_MAXXING_STARTUP_DESTINATION?: string
   CV_MAXXING_TAILORED_APPLICATION_PREVIEW_DELAY_MS?: string
+  CV_MAXXING_TEST_OPEN_AI_SETUP_GUIDE_ERROR?: string
   CV_MAXXING_TEST_ADAPTED_CV_EXPORT_PATH?: string
   CV_MAXXING_TEST_RESET_LOCAL_APP_DATA_ERROR?: string
   CV_MAXXING_VACANCY_BROWSER_SESSION_CLOSE_AFTER_LOAD?: string
   CV_MAXXING_VACANCY_BROWSER_SESSION_HTML?: string
   CV_MAXXING_VACANCY_BROWSER_SESSION_RESOLVED_URL?: string
 }
+
+interface PackagedRuntimeFixtureGuardInput {
+  environment: RuntimeEnvironment
+  isPackaged: boolean
+}
+
+const PACKAGED_RUNTIME_FIXTURE_OVERRIDE_KEYS = [
+  'CV_MAXXING_AI_WORKER_GENERATION_DELAY_MS',
+  'CV_MAXXING_AI_WORKER_GENERATION_FAILURE',
+  'CV_MAXXING_AI_WORKER_GENERATION_OUTPUT',
+  'CV_MAXXING_AI_WORKER_ORIGINAL_CV_NORMALIZATION_DELAY_MS',
+  'CV_MAXXING_AI_WORKER_ORIGINAL_CV_NORMALIZATION_FAILURE',
+  'CV_MAXXING_AI_WORKER_ORIGINAL_CV_NORMALIZATION_OUTPUT',
+  'CV_MAXXING_AI_WORKER_PREFLIGHT_STATUS',
+  'CV_MAXXING_AI_WORKER_RETRY_STATUS',
+  'CV_MAXXING_AI_WORKER_SIGN_IN_STATUS',
+  'CV_MAXXING_AI_WORKER_VACANCY_NORMALIZATION_DELAY_MS',
+  'CV_MAXXING_AI_WORKER_VACANCY_NORMALIZATION_FAILURE',
+  'CV_MAXXING_AI_WORKER_VACANCY_NORMALIZATION_OUTPUT',
+  'CV_MAXXING_TEST_ADAPTED_CV_EXPORT_PATH',
+  'CV_MAXXING_TEST_OPEN_AI_SETUP_GUIDE_ERROR',
+  'CV_MAXXING_TEST_RESET_LOCAL_APP_DATA_ERROR',
+  'CV_MAXXING_VACANCY_BROWSER_SESSION_CLOSE_AFTER_LOAD',
+  'CV_MAXXING_VACANCY_BROWSER_SESSION_HTML',
+  'CV_MAXXING_VACANCY_BROWSER_SESSION_RESOLVED_URL',
+] as const satisfies readonly (keyof RuntimeEnvironment)[]
 
 interface ElectronRuntimeModule {
   BrowserWindow: ElectronBrowserWindowConstructor
@@ -535,6 +562,29 @@ export function createElectronRuntimeDependencies({
   }
 }
 
+export function assertPackagedRuntimeHasNoFixtureOverrides({
+  environment,
+  isPackaged,
+}: PackagedRuntimeFixtureGuardInput): void {
+  if (!isPackaged) {
+    return
+  }
+
+  const configuredFixtureOverrideKeys = PACKAGED_RUNTIME_FIXTURE_OVERRIDE_KEYS.filter((key) => {
+    const value = environment[key]
+
+    return value !== undefined && value.trim() !== ''
+  })
+
+  if (configuredFixtureOverrideKeys.length === 0) {
+    return
+  }
+
+  throw new Error(
+    `Packaged app launch cannot use fixture-backed runtime overrides: ${configuredFixtureOverrideKeys.join(', ')}.`,
+  )
+}
+
 async function createRuntimeServices(electronRuntime: ElectronRuntimeModule): Promise<{
   aiWorker: AiWorkerPreflightService
   onOriginalCvImported: () => Promise<void>
@@ -544,6 +594,12 @@ async function createRuntimeServices(electronRuntime: ElectronRuntimeModule): Pr
   vacancy: VacancyService
 }> {
   const environment = process.env as RuntimeEnvironment
+
+  assertPackagedRuntimeHasNoFixtureOverrides({
+    environment,
+    isPackaged: electronRuntime.app.isPackaged,
+  })
+
   const [{ createElectronAdaptedCvRenderer }, { createElectronCoverLetterRenderer }] =
     await Promise.all([
       import('./adapted-cv-electron-renderer.js'),
