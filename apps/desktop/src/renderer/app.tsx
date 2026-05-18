@@ -60,6 +60,11 @@ import {
   type RuntimeAlertItem,
 } from './runtime-alerts.js'
 import { resolveRendererScreen, type RendererScreenKind } from './routing/renderer-screen.js'
+import {
+  resolveTailoredApplicationId,
+  resolveWorkspaceViewSelection,
+  type WorkspaceSelectionOverride,
+} from './routing/workspace-view-selection.js'
 import { Button } from './ui/button.js'
 import { Dialog } from './ui/dialog.js'
 
@@ -122,11 +127,6 @@ type OriginalCvRuntimeAlertView = 'detail' | 'empty' | 'replace'
 type OriginalCvSectionMode = 'detail' | 'replace'
 type RendererStartupDestinationOverride = OriginalCvImportDestination
 type PreviewDocumentKind = 'adapted_cv' | 'cover_letter'
-type WorkspaceSelectionOverride = JobsWorkspaceSelection | null
-type WorkspaceSelectionKind = 'draft' | 'tailored_application'
-interface ResolvedWorkspaceSelection {
-  kind: WorkspaceSelectionKind
-}
 type ImportOriginalCvMutationResult = OriginalCvImportResult
 type RuntimeAlertOwnerView =
   | OriginalCvRuntimeAlertView
@@ -489,7 +489,7 @@ export function App() {
     placeholderData: null,
   })
   const pendingGenerationCommand = pendingGenerationQuery.data ?? null
-  const workspaceSelection = resolveWorkspaceSelection({
+  const workspaceSelection = resolveWorkspaceViewSelection({
     forcedSelection: workspaceSelectionOverride,
     hasMeaningfulDraft: isCurrentDraftMeaningful,
     hasPendingGeneration: pendingGenerationCommand !== null,
@@ -2805,70 +2805,6 @@ function extractElectronInvokeMessage(errorMessage: string): string | null {
   }
 
   return wrappedMessageSummary
-}
-
-function resolveTailoredApplicationId({
-  preferredTailoredApplicationId,
-  workspaceState,
-}: {
-  preferredTailoredApplicationId: string | null
-  workspaceState: TailoredApplicationWorkspaceState
-}): string | null {
-  const preferredTailoredApplicationStillExists = workspaceState.applications.some(
-    (application) => {
-      return application.id === preferredTailoredApplicationId
-    },
-  )
-
-  if (preferredTailoredApplicationStillExists) {
-    return preferredTailoredApplicationId
-  }
-
-  return workspaceState.activeApplicationId
-}
-
-function resolveWorkspaceSelection({
-  forcedSelection,
-  hasMeaningfulDraft,
-  hasPendingGeneration,
-  resolvedTailoredApplicationId,
-}: {
-  forcedSelection: WorkspaceSelectionOverride
-  hasMeaningfulDraft: boolean
-  hasPendingGeneration: boolean
-  resolvedTailoredApplicationId: string | null
-}): ResolvedWorkspaceSelection {
-  if (forcedSelection?.kind === 'tailored_application') {
-    return {
-      kind: 'tailored_application',
-    }
-  }
-
-  if (forcedSelection?.kind === 'draft') {
-    return forcedSelection
-  }
-
-  if (hasPendingGeneration) {
-    return {
-      kind: 'draft',
-    }
-  }
-
-  if (resolvedTailoredApplicationId !== null) {
-    return {
-      kind: 'tailored_application',
-    }
-  }
-
-  if (hasMeaningfulDraft) {
-    return {
-      kind: 'draft',
-    }
-  }
-
-  return {
-    kind: 'draft',
-  }
 }
 
 function resolveWorkerStatusLabel(status: ReadinessRouteViewModel['status']): string {
