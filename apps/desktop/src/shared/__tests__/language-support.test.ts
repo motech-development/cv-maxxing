@@ -1,5 +1,4 @@
 import { expect, test } from 'vitest';
-
 import { assessEnglishLanguageSupport } from '../language-support.js';
 
 test('classifies structured English vacancy text as supported', () => {

@@ -1,9 +1,7 @@
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-
 import { afterEach, expect, test, vi } from 'vitest';
-
 import { createLocalAppDataPaths, openLocalAppData } from '../local-app-data-service.js';
 import { createWorkspaceSelectionStore } from '../workspace-selection-store.js';
 

@@ -1,8 +1,6 @@
 import { writeFile } from 'node:fs/promises';
 import path from 'node:path';
-
 import { expect, type Page, test } from '@playwright/test';
-
 import {
   createTailoredApplicationFromPastedVacancy,
   importOriginalCvFromFirstLaunch,

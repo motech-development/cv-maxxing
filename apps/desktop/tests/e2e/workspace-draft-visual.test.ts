@@ -1,7 +1,5 @@
 import { writeFile } from 'node:fs/promises';
-
 import { expect, test } from '@playwright/test';
-
 import {
   importOriginalCvFromFirstLaunch,
   openJobsFromYourCv,

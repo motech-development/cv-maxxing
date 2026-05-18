@@ -2,7 +2,6 @@
 
 import { render, screen } from '@testing-library/react';
 import { expect, test, vi } from 'vitest';
-
 import type { ReadinessRouteViewModel } from '../../../readiness/readiness-route.js';
 import type { RuntimeAlert } from '../../runtime-alerts.js';
 import { AiWorkerCheckingScreen } from '../ai-worker-checking-screen.js';

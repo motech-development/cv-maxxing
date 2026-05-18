@@ -1,5 +1,4 @@
 import { readFileSync } from 'node:fs';
-
 import { expect, test } from 'vitest';
 
 test('electron builder publishes the desktop app with the human-friendly product name', () => {

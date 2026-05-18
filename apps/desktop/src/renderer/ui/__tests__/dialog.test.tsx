@@ -2,7 +2,6 @@
 
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, expect, test, vi } from 'vitest';
-
 import type { RuntimeAlert } from '../../runtime-alerts.js';
 import { Dialog } from '../dialog.js';
 

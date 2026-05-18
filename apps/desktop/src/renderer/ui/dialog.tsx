@@ -1,5 +1,4 @@
 import { type ReactNode, type SyntheticEvent, useEffect, useId, useRef } from 'react';
-
 import type { RuntimeAlert } from '../runtime-alerts.js';
 import { RuntimeAlertBanner } from './runtime-alert.js';
 

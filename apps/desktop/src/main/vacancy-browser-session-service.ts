@@ -1,8 +1,6 @@
 import { createRequire } from 'node:module';
 import path from 'node:path';
-
 import type { Session } from 'electron';
-
 import type { VacancyBrowserReadingActionRequest } from './vacancy-browser-actions.js';
 
 export interface VacancyBrowserPageSnapshot {

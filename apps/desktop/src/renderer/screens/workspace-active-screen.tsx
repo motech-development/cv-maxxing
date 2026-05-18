@@ -1,5 +1,4 @@
 import type { ReactNode } from 'react';
-
 import type { TailoredApplicationPreview } from '../../shared/tailored-application.js';
 import { Button } from '../ui/button.js';
 import { PanelCard } from '../ui/panel-card.js';

@@ -1,9 +1,7 @@
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-
 import { afterEach, expect, test, vi } from 'vitest';
-
 import { createAiWorkerReadinessStore } from '../ai-worker-readiness-store.js';
 import type { KeychainBoundary, LocalAppDataPaths } from '../local-app-data-service.js';
 import { createLocalAppDataPaths, openLocalAppData } from '../local-app-data-service.js';

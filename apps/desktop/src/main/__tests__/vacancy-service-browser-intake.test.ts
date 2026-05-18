@@ -1,5 +1,4 @@
 import { expect, test, vi } from 'vitest';
-
 import type {
   JsonValue,
   LocalAppDataStore,

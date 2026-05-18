@@ -1,5 +1,4 @@
 import { expect, test } from '@playwright/test';
-
 import { visualScreenshotBudgets } from './visual/budgets.js';
 import {
   cleanupVisualTestArtifacts,

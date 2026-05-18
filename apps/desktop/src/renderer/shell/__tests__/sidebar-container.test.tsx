@@ -2,7 +2,6 @@
 
 import { render } from '@testing-library/react';
 import { expect, test } from 'vitest';
-
 import { SidebarContainer } from '../sidebar-container.js';
 
 test('renders the shared workspace sidebar chrome and scrollport', () => {

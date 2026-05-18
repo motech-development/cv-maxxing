@@ -1,5 +1,4 @@
 import { afterEach, expect, test, vi } from 'vitest';
-
 import {
   createAiWorkerPreflightService,
   resolveCheckingTimeoutMs,

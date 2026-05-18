@@ -1,5 +1,4 @@
 import { expect, test } from 'vitest';
-
 import type { TailoredApplicationWorkspaceState } from '../../../shared/tailored-application.js';
 import {
   resolveTailoredApplicationId,

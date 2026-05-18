@@ -1,5 +1,4 @@
 import type { ReactNode } from 'react';
-
 import type { ReadinessRouteViewModel } from '../../readiness/readiness-route.js';
 import type { RuntimeAlert } from '../runtime-alerts.js';
 import { DesktopShell } from '../shell/desktop-shell.js';

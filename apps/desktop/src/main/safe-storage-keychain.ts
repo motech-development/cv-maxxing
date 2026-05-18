@@ -1,7 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-
 import type { KeychainBoundary } from './local-app-data-service.js';
 
 export interface SafeStorageLike {

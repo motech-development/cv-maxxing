@@ -1,7 +1,6 @@
 import { spawn } from 'node:child_process';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-
 import type {
   AdaptedCvEducationEntry,
   AdaptedCvExperienceEntry,

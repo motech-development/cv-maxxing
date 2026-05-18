@@ -2,7 +2,6 @@
 
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, expect, test, vi } from 'vitest';
-
 import { SettingsScreen } from '../settings-screen.js';
 
 afterEach(() => {

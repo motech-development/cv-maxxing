@@ -272,7 +272,7 @@ export default tseslint.config(
       'simple-import-sort/imports': [
         'error',
         {
-          groups: [['^node:'], [String.raw`^@?\w`], ['^'], [String.raw`^\.`]],
+          groups: [[String.raw`^\u0000`, '^node:', String.raw`^@?\w`, '^', String.raw`^\.`]],
         },
       ],
       'unicorn/filename-case': [

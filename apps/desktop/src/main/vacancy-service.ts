@@ -1,5 +1,4 @@
 import { randomUUID } from 'node:crypto';
-
 import {
   assessEnglishLanguageSupport,
   VACANCY_LANGUAGE_BLOCK_MESSAGE,

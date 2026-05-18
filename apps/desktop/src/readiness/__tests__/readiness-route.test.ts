@@ -1,5 +1,4 @@
 import { expect, test } from 'vitest';
-
 import { createReadinessRouteViewModel } from '../readiness-route.js';
 
 test('startup keeps the AI worker readiness gate blocked while the preflight is still checking', async () => {

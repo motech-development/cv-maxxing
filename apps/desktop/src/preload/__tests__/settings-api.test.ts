@@ -1,5 +1,4 @@
 import { expect, test, vi } from 'vitest';
-
 import { SETTINGS_IPC_CHANNELS } from '../../shared/ipc.js';
 import { SETTINGS_RESET_CONFIRMATION_PHRASE } from '../../shared/settings.js';
 import { createDesktopApi } from '../create-desktop-api.js';

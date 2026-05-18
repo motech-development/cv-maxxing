@@ -1,7 +1,6 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-
 import { describe, expect, test } from 'vitest';
 
 const currentDirectoryPath = path.dirname(fileURLToPath(import.meta.url));

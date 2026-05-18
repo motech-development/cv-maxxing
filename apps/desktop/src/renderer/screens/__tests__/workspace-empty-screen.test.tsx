@@ -2,7 +2,6 @@
 
 import { render, screen } from '@testing-library/react';
 import { expect, test, vi } from 'vitest';
-
 import type { VacancySummary } from '../../../shared/vacancy.js';
 import { WorkspaceDraftView } from '../workspace-empty-screen.js';
 

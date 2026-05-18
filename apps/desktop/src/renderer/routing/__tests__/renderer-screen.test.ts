@@ -1,5 +1,4 @@
 import { expect, test } from 'vitest';
-
 import { resolveRendererScreen } from '../renderer-screen.js';
 
 test('falls back to first_launch when no active original CV is available', () => {
