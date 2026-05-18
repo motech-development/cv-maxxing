@@ -1,161 +1,164 @@
-import type { DesktopIpcChannel } from '../shared/ipc.js'
+import type { AiWorkerPreflightResult } from '../shared/ai-worker-preflight.js';
+import type { DesktopIpcChannel } from '../shared/ipc.js';
 import {
   AI_WORKER_IPC_CHANNELS,
   ORIGINAL_CV_IPC_CHANNELS,
   SETTINGS_IPC_CHANNELS,
   TAILORED_APPLICATION_IPC_CHANNELS,
   VACANCY_IPC_CHANNELS,
-} from '../shared/ipc.js'
-import type { AiWorkerPreflightResult } from '../shared/ai-worker-preflight.js'
+} from '../shared/ipc.js';
 import type {
   OriginalCvDetail,
   OriginalCvImportInput,
   OriginalCvImportResult,
   OriginalCvWorkspaceState,
-} from '../shared/original-cv.js'
+} from '../shared/original-cv.js';
 import type {
   CompletePendingGenerationResult,
   PendingGenerationCommand,
   ResumePendingGenerationResult,
   StartPendingGenerationInput,
-} from '../shared/pending-generation.js'
-import type { StartupDestination } from '../shared/startup-destination.js'
-import type { ResetLocalAppDataInput, SettingsSnapshot } from '../shared/settings.js'
+} from '../shared/pending-generation.js';
+import type { ResetLocalAppDataInput, SettingsSnapshot } from '../shared/settings.js';
+import type { StartupDestination } from '../shared/startup-destination.js';
 import type {
   TailoredApplicationExportResult,
   TailoredApplicationPreview,
   TailoredApplicationWorkspaceState,
-} from '../shared/tailored-application.js'
-import type { WorkspaceSelection } from '../shared/workspace-selection.js'
+} from '../shared/tailored-application.js';
 import type {
   PastedVacancyInput,
   VacancyIngestResult,
   VacancyUrlInput,
   VacancyWorkspaceState,
-} from '../shared/vacancy.js'
-import type { CvMaxxingWindowApi } from '../shared/window-api.js'
+} from '../shared/vacancy.js';
+import type { CvMaxxingWindowApi } from '../shared/window-api.js';
+import type { WorkspaceSelection } from '../shared/workspace-selection.js';
 
-type DesktopApiInvoke = <TResult>(channel: DesktopIpcChannel, payload?: unknown) => Promise<TResult>
+type DesktopApiInvoke = <TResult>(
+  channel: DesktopIpcChannel,
+  payload?: unknown,
+) => Promise<TResult>;
 
 export interface DesktopApiInvoker {
-  invoke: DesktopApiInvoke
+  invoke: DesktopApiInvoke;
 }
 
 export function createDesktopApi({ invoke }: DesktopApiInvoker): CvMaxxingWindowApi {
   return {
     aiWorker: {
       getAiWorkerPreflight: async (): Promise<AiWorkerPreflightResult> => {
-        return await invoke(AI_WORKER_IPC_CHANNELS.getPreflight)
+        return await invoke(AI_WORKER_IPC_CHANNELS.getPreflight);
       },
       getStartupDestination: async (): Promise<StartupDestination> => {
-        return await invoke(AI_WORKER_IPC_CHANNELS.getStartupDestination)
+        return await invoke(AI_WORKER_IPC_CHANNELS.getStartupDestination);
       },
       openAiWorkerSetupGuide: async (): Promise<void> => {
-        await invoke<undefined>(AI_WORKER_IPC_CHANNELS.openSetupGuide)
+        await invoke<undefined>(AI_WORKER_IPC_CHANNELS.openSetupGuide);
       },
       retryAiWorkerPreflight: async (): Promise<AiWorkerPreflightResult> => {
-        return await invoke(AI_WORKER_IPC_CHANNELS.retryPreflight)
+        return await invoke(AI_WORKER_IPC_CHANNELS.retryPreflight);
       },
       startAiWorkerSignIn: async (): Promise<AiWorkerPreflightResult> => {
-        return await invoke(AI_WORKER_IPC_CHANNELS.startSignIn)
+        return await invoke(AI_WORKER_IPC_CHANNELS.startSignIn);
       },
     },
     originalCv: {
       getActiveOriginalCvDetail: async (): Promise<OriginalCvDetail | null> => {
-        return await invoke(ORIGINAL_CV_IPC_CHANNELS.getActiveDetail)
+        return await invoke(ORIGINAL_CV_IPC_CHANNELS.getActiveDetail);
       },
       getOriginalCvWorkspaceState: async (): Promise<OriginalCvWorkspaceState> => {
-        return await invoke(ORIGINAL_CV_IPC_CHANNELS.getWorkspaceState)
+        return await invoke(ORIGINAL_CV_IPC_CHANNELS.getWorkspaceState);
       },
       importOriginalCv: async (input: OriginalCvImportInput): Promise<OriginalCvImportResult> => {
-        return await invoke(ORIGINAL_CV_IPC_CHANNELS.importOriginalCv, input)
+        return await invoke(ORIGINAL_CV_IPC_CHANNELS.importOriginalCv, input);
       },
     },
     settings: {
       clearJobSiteBrowserData: async (): Promise<void> => {
-        await invoke<undefined>(SETTINGS_IPC_CHANNELS.clearJobSiteBrowserData)
+        await invoke<undefined>(SETTINGS_IPC_CHANNELS.clearJobSiteBrowserData);
       },
       getSettingsSnapshot: async (): Promise<SettingsSnapshot> => {
-        return await invoke(SETTINGS_IPC_CHANNELS.getSnapshot)
+        return await invoke(SETTINGS_IPC_CHANNELS.getSnapshot);
       },
       resetLocalAppData: async (input: ResetLocalAppDataInput): Promise<void> => {
-        await invoke<undefined>(SETTINGS_IPC_CHANNELS.resetLocalAppData, input)
+        await invoke<undefined>(SETTINGS_IPC_CHANNELS.resetLocalAppData, input);
       },
     },
     tailoredApplication: {
       abandonPendingGeneration: async (): Promise<void> => {
-        await invoke<undefined>(TAILORED_APPLICATION_IPC_CHANNELS.abandonPendingGeneration)
+        await invoke<undefined>(TAILORED_APPLICATION_IPC_CHANNELS.abandonPendingGeneration);
       },
       completePendingGeneration: async (
         commandId: string,
       ): Promise<CompletePendingGenerationResult> => {
         return await invoke(TAILORED_APPLICATION_IPC_CHANNELS.completePendingGeneration, {
           commandId,
-        })
+        });
       },
       deleteTailoredApplication: async (tailoredApplicationId: string): Promise<void> => {
         await invoke<undefined>(TAILORED_APPLICATION_IPC_CHANNELS.delete, {
           tailoredApplicationId,
-        })
+        });
       },
       getPendingGenerationCommand: async (): Promise<PendingGenerationCommand | null> => {
-        return await invoke(TAILORED_APPLICATION_IPC_CHANNELS.getPendingGeneration)
+        return await invoke(TAILORED_APPLICATION_IPC_CHANNELS.getPendingGeneration);
       },
       getTailoredApplicationPreview: async (
         tailoredApplicationId: string,
       ): Promise<TailoredApplicationPreview | null> => {
         return await invoke(TAILORED_APPLICATION_IPC_CHANNELS.getPreview, {
           tailoredApplicationId,
-        })
+        });
       },
       getWorkspaceSelection: async (): Promise<WorkspaceSelection | null> => {
-        return await invoke(TAILORED_APPLICATION_IPC_CHANNELS.getWorkspaceSelection)
+        return await invoke(TAILORED_APPLICATION_IPC_CHANNELS.getWorkspaceSelection);
       },
       getWorkspaceState: async (): Promise<TailoredApplicationWorkspaceState> => {
-        return await invoke(TAILORED_APPLICATION_IPC_CHANNELS.getWorkspaceState)
+        return await invoke(TAILORED_APPLICATION_IPC_CHANNELS.getWorkspaceState);
       },
       resumePendingGeneration: async (): Promise<ResumePendingGenerationResult> => {
-        return await invoke(TAILORED_APPLICATION_IPC_CHANNELS.resumePendingGeneration)
+        return await invoke(TAILORED_APPLICATION_IPC_CHANNELS.resumePendingGeneration);
       },
       setWorkspaceSelection: async (selection: WorkspaceSelection): Promise<void> => {
-        await invoke<undefined>(TAILORED_APPLICATION_IPC_CHANNELS.setWorkspaceSelection, selection)
+        await invoke<undefined>(TAILORED_APPLICATION_IPC_CHANNELS.setWorkspaceSelection, selection);
       },
       startPendingGeneration: async (
         input: StartPendingGenerationInput,
       ): Promise<AiWorkerPreflightResult> => {
-        return await invoke(TAILORED_APPLICATION_IPC_CHANNELS.startPendingGeneration, input)
+        return await invoke(TAILORED_APPLICATION_IPC_CHANNELS.startPendingGeneration, input);
       },
       exportAdaptedCvPdf: async (
         tailoredApplicationId: string,
       ): Promise<TailoredApplicationExportResult | null> => {
         return await invoke(TAILORED_APPLICATION_IPC_CHANNELS.exportAdaptedCvPdf, {
           tailoredApplicationId,
-        })
+        });
       },
       exportCoverLetterPdf: async (
         tailoredApplicationId: string,
       ): Promise<TailoredApplicationExportResult | null> => {
         return await invoke(TAILORED_APPLICATION_IPC_CHANNELS.exportCoverLetterPdf, {
           tailoredApplicationId,
-        })
+        });
       },
     },
     vacancy: {
       clearVacancyWorkspaceState: async (): Promise<void> => {
-        await invoke<undefined>(VACANCY_IPC_CHANNELS.clearWorkspaceState)
+        await invoke<undefined>(VACANCY_IPC_CHANNELS.clearWorkspaceState);
       },
       getVacancyWorkspaceState: async (): Promise<VacancyWorkspaceState> => {
-        return await invoke(VACANCY_IPC_CHANNELS.getWorkspaceState)
+        return await invoke(VACANCY_IPC_CHANNELS.getWorkspaceState);
       },
       ingestPastedVacancy: async (input: PastedVacancyInput): Promise<VacancyIngestResult> => {
-        return await invoke(VACANCY_IPC_CHANNELS.ingestPasted, input)
+        return await invoke(VACANCY_IPC_CHANNELS.ingestPasted, input);
       },
       ingestVacancyUrl: async (input: VacancyUrlInput): Promise<VacancyIngestResult> => {
-        return await invoke(VACANCY_IPC_CHANNELS.ingestUrl, input)
+        return await invoke(VACANCY_IPC_CHANNELS.ingestUrl, input);
       },
       openVacancyBrowserSession: async (input: VacancyUrlInput): Promise<VacancyIngestResult> => {
-        return await invoke(VACANCY_IPC_CHANNELS.openBrowserSession, input)
+        return await invoke(VACANCY_IPC_CHANNELS.openBrowserSession, input);
       },
     },
-  }
+  };
 }

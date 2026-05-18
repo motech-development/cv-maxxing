@@ -1,44 +1,44 @@
-import type { ChangeEvent, DragEvent, KeyboardEvent, ReactNode } from 'react'
+import type { ChangeEvent, DragEvent, KeyboardEvent, ReactNode } from 'react';
 
-import type { OriginalCvDetail, OriginalCvSummary } from '../../shared/original-cv.js'
-import type { RuntimeAlert } from '../runtime-alerts.js'
-import { DesktopShell, type RailItemId } from '../shell/desktop-shell.js'
-import { SidebarContainer } from '../shell/sidebar-container.js'
-import { Button } from '../ui/button.js'
-import { OriginalCvPreviewCard } from '../ui/original-cv-preview-card.js'
-import { PanelCard } from '../ui/panel-card.js'
-import { RuntimeAlertBanner } from '../ui/runtime-alert.js'
-import { SectionLabel } from '../ui/section-label.js'
+import type { OriginalCvDetail, OriginalCvSummary } from '../../shared/original-cv.js';
+import type { RuntimeAlert } from '../runtime-alerts.js';
+import { DesktopShell, type RailItemId } from '../shell/desktop-shell.js';
+import { SidebarContainer } from '../shell/sidebar-container.js';
+import { Button } from '../ui/button.js';
+import { OriginalCvPreviewCard } from '../ui/original-cv-preview-card.js';
+import { PanelCard } from '../ui/panel-card.js';
+import { RuntimeAlertBanner } from '../ui/runtime-alert.js';
+import { SectionLabel } from '../ui/section-label.js';
 
-type OriginalCvScreenMode = 'detail' | 'replace'
+type OriginalCvScreenMode = 'detail' | 'replace';
 
 interface OriginalCvScreenProperties {
-  activeOriginalCvDetail?: OriginalCvDetail | null
-  activeOriginalCv: OriginalCvSummary | null
-  activeView?: OriginalCvScreenMode
-  ambientActivityLabel?: string | null
-  isImportingOriginalCv: boolean
-  onDetailPreviewErrorChange?: (message: string | null) => void
-  onFileDrop: (event: DragEvent<HTMLElement>) => void
-  onFileSelection: (event: ChangeEvent<HTMLInputElement>) => void
-  onImportOriginalCv: () => void
-  onSelectOriginalCv?: () => void
-  onSelectRailItem?: (item: RailItemId) => void
-  onStartAddCv?: () => void
-  originalCvFile: File | null
-  runtimeAlert: RuntimeAlert | null
-  workspaceOverlay?: ReactNode
+  activeOriginalCvDetail?: OriginalCvDetail | null;
+  activeOriginalCv: OriginalCvSummary | null;
+  activeView?: OriginalCvScreenMode;
+  ambientActivityLabel?: string | null;
+  isImportingOriginalCv: boolean;
+  onDetailPreviewErrorChange?: (message: string | null) => void;
+  onFileDrop: (event: DragEvent<HTMLElement>) => void;
+  onFileSelection: (event: ChangeEvent<HTMLInputElement>) => void;
+  onImportOriginalCv: () => void;
+  onSelectOriginalCv?: () => void;
+  onSelectRailItem?: (item: RailItemId) => void;
+  onStartAddCv?: () => void;
+  originalCvFile: File | null;
+  runtimeAlert: RuntimeAlert | null;
+  workspaceOverlay?: ReactNode;
 }
 
-const originalCvFileInputId = 'original-cv-file-input'
+const originalCvFileInputId = 'original-cv-file-input';
 
 function handleDropzoneKeyDown(event: KeyboardEvent<HTMLDivElement>): void {
   if (event.key !== 'Enter' && event.key !== ' ') {
-    return
+    return;
   }
 
-  event.preventDefault()
-  document.querySelector<HTMLInputElement>(`#${originalCvFileInputId}`)?.click()
+  event.preventDefault();
+  document.querySelector<HTMLInputElement>(`#${originalCvFileInputId}`)?.click();
 }
 
 export function OriginalCvScreen({
@@ -60,47 +60,47 @@ export function OriginalCvScreen({
 }: OriginalCvScreenProperties) {
   const handleSidebarAction = (): void => {
     if (isImportingOriginalCv) {
-      return
+      return;
     }
 
     if (activeOriginalCv !== null && activeView === 'detail') {
-      onStartAddCv?.()
+      onStartAddCv?.();
 
-      return
+      return;
     }
 
     if (originalCvFile === null) {
-      document.querySelector<HTMLInputElement>(`#${originalCvFileInputId}`)?.click()
+      document.querySelector<HTMLInputElement>(`#${originalCvFileInputId}`)?.click();
 
-      return
+      return;
     }
 
-    onImportOriginalCv()
-  }
+    onImportOriginalCv();
+  };
 
-  let content: ReactNode
-  let pageIntro: string | undefined
-  let pageTitle: string
+  let content: ReactNode;
+  let pageIntro: string | undefined;
+  let pageTitle: string;
 
   if (activeOriginalCv === null) {
-    pageTitle = 'Add a CV'
-    pageIntro = "Choose the PDF or DOCX copy of your CV you'd like to tailor for jobs."
-    content = <OriginalCvEmptyState onFileDrop={onFileDrop} originalCvFile={originalCvFile} />
+    pageTitle = 'Add a CV';
+    pageIntro = "Choose the PDF or DOCX copy of your CV you'd like to tailor for jobs.";
+    content = <OriginalCvEmptyState onFileDrop={onFileDrop} originalCvFile={originalCvFile} />;
   } else if (activeView === 'replace') {
-    pageTitle = 'Add a CV'
+    pageTitle = 'Add a CV';
     pageIntro =
-      "Choose the PDF or DOCX copy of your CV you'd like to use from now on. Your saved jobs won't change."
-    content = <OriginalCvReplaceState onFileDrop={onFileDrop} originalCvFile={originalCvFile} />
+      "Choose the PDF or DOCX copy of your CV you'd like to use from now on. Your saved jobs won't change.";
+    content = <OriginalCvReplaceState onFileDrop={onFileDrop} originalCvFile={originalCvFile} />;
   } else {
-    pageTitle = 'Your CV'
-    pageIntro = "Add a CV to use a different one for future jobs. Your saved jobs won't change."
+    pageTitle = 'Your CV';
+    pageIntro = "Add a CV to use a different one for future jobs. Your saved jobs won't change.";
     content = (
       <OriginalCvActiveState
         onPreviewErrorChange={onDetailPreviewErrorChange}
         originalCv={activeOriginalCv}
         originalCvDetail={activeOriginalCvDetail}
       />
-    )
+    );
   }
 
   return (
@@ -154,15 +154,15 @@ export function OriginalCvScreen({
       />
       {content}
     </DesktopShell>
-  )
+  );
 }
 
 function OriginalCvEmptyState({
   onFileDrop,
   originalCvFile,
 }: {
-  onFileDrop: (event: DragEvent<HTMLElement>) => void
-  originalCvFile: File | null
+  onFileDrop: (event: DragEvent<HTMLElement>) => void;
+  originalCvFile: File | null;
 }) {
   return (
     <>
@@ -174,15 +174,15 @@ function OriginalCvEmptyState({
         title="Drop a PDF or DOCX here or choose a file"
       />
     </>
-  )
+  );
 }
 
 function OriginalCvReplaceState({
   onFileDrop,
   originalCvFile,
 }: {
-  onFileDrop: (event: DragEvent<HTMLElement>) => void
-  originalCvFile: File | null
+  onFileDrop: (event: DragEvent<HTMLElement>) => void;
+  originalCvFile: File | null;
 }) {
   return (
     <>
@@ -205,7 +205,7 @@ function OriginalCvReplaceState({
         title="Drop a PDF or DOCX here or choose a file"
       />
     </>
-  )
+  );
 }
 
 function OriginalCvImportDropzone({
@@ -215,18 +215,18 @@ function OriginalCvImportDropzone({
   originalCvFile,
   title,
 }: {
-  className?: string
-  copy: string
-  onFileDrop: (event: DragEvent<HTMLElement>) => void
-  originalCvFile: File | null
-  title: string
+  className?: string;
+  copy: string;
+  onFileDrop: (event: DragEvent<HTMLElement>) => void;
+  originalCvFile: File | null;
+  title: string;
 }) {
   return (
     <label className="block cursor-pointer" htmlFor={originalCvFileInputId}>
       <div
         className={`flex flex-col items-center justify-center rounded-[var(--radius-card)] border border-[var(--color-border)] bg-[var(--color-surface-1)] px-7 py-10 text-center ${className ?? ''}`}
         onDragOver={(event) => {
-          event.preventDefault()
+          event.preventDefault();
         }}
         onDrop={onFileDrop}
         onKeyDown={handleDropzoneKeyDown}
@@ -250,7 +250,7 @@ function OriginalCvImportDropzone({
         ) : null}
       </div>
     </label>
-  )
+  );
 }
 
 function OriginalCvActiveState({
@@ -258,11 +258,11 @@ function OriginalCvActiveState({
   originalCv,
   originalCvDetail,
 }: {
-  onPreviewErrorChange?: (message: string | null) => void
-  originalCv: OriginalCvSummary
-  originalCvDetail: OriginalCvDetail | null | undefined
+  onPreviewErrorChange?: (message: string | null) => void;
+  originalCv: OriginalCvSummary;
+  originalCvDetail: OriginalCvDetail | null | undefined;
 }) {
-  const previewEmptyStateCopy = 'Your CV preview will appear here.'
+  const previewEmptyStateCopy = 'Your CV preview will appear here.';
 
   return (
     <>
@@ -324,7 +324,7 @@ function OriginalCvActiveState({
                     >
                       {skill}
                     </span>
-                  )
+                  );
                 })}
               </div>
             </ProfileSection>
@@ -347,7 +347,7 @@ function OriginalCvActiveState({
                         {entry.summary}
                       </p>
                     </div>
-                  )
+                  );
                 })}
               </div>
             </ProfileSection>
@@ -355,7 +355,7 @@ function OriginalCvActiveState({
         </div>
       )}
     </>
-  )
+  );
 }
 
 function OriginalCvMetadataRow({ label, value }: { label: string; value: string }) {
@@ -366,7 +366,7 @@ function OriginalCvMetadataRow({ label, value }: { label: string; value: string 
       </p>
       <p className="m-0 text-sm leading-6 text-[var(--color-copy-strong)]">{value}</p>
     </div>
-  )
+  );
 }
 
 function OriginalCvSidebarItem({
@@ -374,9 +374,9 @@ function OriginalCvSidebarItem({
   onSelect,
   originalCv,
 }: {
-  isSelected: boolean
-  onSelect?: () => void
-  originalCv: OriginalCvSummary
+  isSelected: boolean;
+  onSelect?: () => void;
+  originalCv: OriginalCvSummary;
 }) {
   return (
     <PanelCard className={`${isSelected ? 'bg-[var(--color-surface-3)]' : 'bg-white'} p-3`}>
@@ -396,12 +396,12 @@ function OriginalCvSidebarItem({
         </p>
       </button>
     </PanelCard>
-  )
+  );
 }
 
 function ProfileField({ label, value }: { label: string; value: string }) {
   if (value.trim() === '') {
-    return null
+    return null;
   }
 
   return (
@@ -411,7 +411,7 @@ function ProfileField({ label, value }: { label: string; value: string }) {
       </p>
       <p className="m-0 text-xs leading-5 text-[var(--color-copy-strong)]">{value}</p>
     </div>
-  )
+  );
 }
 
 function ProfileSection({ children, title }: { children: ReactNode; title: string }) {
@@ -422,15 +422,15 @@ function ProfileSection({ children, title }: { children: ReactNode; title: strin
       </h3>
       {children}
     </section>
-  )
+  );
 }
 
 function formatPageCount(pageCount: number): string {
   if (pageCount <= 0) {
-    return 'Page count unavailable'
+    return 'Page count unavailable';
   }
 
-  return `${String(pageCount)} page${pageCount === 1 ? '' : 's'}`
+  return `${String(pageCount)} page${pageCount === 1 ? '' : 's'}`;
 }
 
 function formatTimestamp(value: string): string {
@@ -438,5 +438,5 @@ function formatTimestamp(value: string): string {
     day: 'numeric',
     month: 'short',
     year: 'numeric',
-  }).format(new Date(value))
+  }).format(new Date(value));
 }

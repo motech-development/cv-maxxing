@@ -1,6 +1,6 @@
 interface StatusPillProperties {
-  label: string
-  tone: 'danger' | 'muted' | 'ready' | 'warning'
+  label: string;
+  tone: 'danger' | 'muted' | 'ready' | 'warning';
 }
 
 const toneClassNames: Record<StatusPillProperties['tone'], string> = {
@@ -8,22 +8,22 @@ const toneClassNames: Record<StatusPillProperties['tone'], string> = {
   muted: 'bg-[var(--color-chip-background)] text-[var(--color-surface-3)]',
   ready: 'bg-[var(--color-chip-background)] text-[var(--color-surface-0)]',
   warning: 'bg-[var(--color-chip-background)] text-[var(--color-surface-3)]',
-}
+};
 
 function getDotClassName(tone: StatusPillProperties['tone']): string {
   if (tone === 'ready') {
-    return 'bg-[var(--color-status-ready)]'
+    return 'bg-[var(--color-status-ready)]';
   }
 
   if (tone === 'warning') {
-    return 'bg-[var(--color-status-warning)]'
+    return 'bg-[var(--color-status-warning)]';
   }
 
   if (tone === 'danger') {
-    return 'bg-[var(--color-status-danger)]'
+    return 'bg-[var(--color-status-danger)]';
   }
 
-  return 'bg-[var(--color-status-muted)]'
+  return 'bg-[var(--color-status-muted)]';
 }
 
 export function StatusPill({ label, tone }: StatusPillProperties) {
@@ -34,5 +34,5 @@ export function StatusPill({ label, tone }: StatusPillProperties) {
       <span aria-hidden="true" className={`h-2 w-2 rounded-full ${getDotClassName(tone)}`} />
       {label}
     </span>
-  )
+  );
 }

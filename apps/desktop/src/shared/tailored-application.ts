@@ -1,94 +1,94 @@
-import type { OriginalCvSummary } from './original-cv.js'
-import type { VacancySummary } from './vacancy.js'
+import type { OriginalCvSummary } from './original-cv.js';
+import type { VacancySummary } from './vacancy.js';
 
 export interface GroundedText {
-  text: string
+  text: string;
 }
 
 export interface GeneratedAdaptedCvHeader {
-  intro: GroundedText
+  intro: GroundedText;
 }
 
 export interface AdaptedCvHeaderContact {
-  email: string | null
-  location: string | null
-  phone: string | null
-  professionalLink: string | null
+  email: string | null;
+  location: string | null;
+  phone: string | null;
+  professionalLink: string | null;
 }
 
 export interface AdaptedCvHeader extends GeneratedAdaptedCvHeader {
-  contact: AdaptedCvHeaderContact
+  contact: AdaptedCvHeaderContact;
 }
 
 export interface AdaptedCvExperienceEntry {
-  bullets: GroundedText[]
-  dateRange: string
-  employer: string
-  location: string | null
-  roleTitle: string
+  bullets: GroundedText[];
+  dateRange: string;
+  employer: string;
+  location: string | null;
+  roleTitle: string;
 }
 
 export interface AdaptedCvSkill {
-  text: string
+  text: string;
 }
 
 export interface AdaptedCvProfileSection {
-  kind: 'profile'
-  summary: GroundedText
+  kind: 'profile';
+  summary: GroundedText;
 }
 
 export interface AdaptedCvExperienceSection {
-  items: AdaptedCvExperienceEntry[]
-  kind: 'experience'
+  items: AdaptedCvExperienceEntry[];
+  kind: 'experience';
 }
 
 export interface AdaptedCvCoreSkillsSection {
-  items: AdaptedCvSkill[]
-  kind: 'core_skills'
+  items: AdaptedCvSkill[];
+  kind: 'core_skills';
 }
 
 export interface AdaptedCvSelectedWorkSection {
-  items: GroundedText[]
-  kind: 'selected_work'
+  items: GroundedText[];
+  kind: 'selected_work';
 }
 
 export interface AdaptedCvToolsSection {
-  items: GroundedText[]
-  kind: 'tools'
+  items: GroundedText[];
+  kind: 'tools';
 }
 
 export interface AdaptedCvEducationEntry {
-  meta: string
-  title: string
+  meta: string;
+  title: string;
 }
 
 export interface AdaptedCvEducationSection {
-  entry: AdaptedCvEducationEntry | null
-  kind: 'education'
+  entry: AdaptedCvEducationEntry | null;
+  kind: 'education';
 }
 
 export interface AdaptedCvCertificationsSection {
-  items: GroundedText[]
-  kind: 'certifications'
+  items: GroundedText[];
+  kind: 'certifications';
 }
 
 export interface AdaptedCvLanguagesSection {
-  items: GroundedText[]
-  kind: 'languages'
+  items: GroundedText[];
+  kind: 'languages';
 }
 
 export interface AdaptedCvFocusSection {
-  items: GroundedText[]
-  kind: 'focus'
+  items: GroundedText[];
+  kind: 'focus';
 }
 
 export interface AdaptedCvImpactHighlightsSection {
-  items: GroundedText[]
-  kind: 'impact_highlights'
+  items: GroundedText[];
+  kind: 'impact_highlights';
 }
 
 export interface AdaptedCvReferencesSection {
-  kind: 'references'
+  kind: 'references';
 }
 
 export type AdaptedCvSection =
@@ -102,88 +102,88 @@ export type AdaptedCvSection =
   | AdaptedCvProfileSection
   | AdaptedCvSelectedWorkSection
   | AdaptedCvToolsSection
-  | AdaptedCvReferencesSection
+  | AdaptedCvReferencesSection;
 
-export type GeneratedAdaptedCvSection = AdaptedCvSection
+export type GeneratedAdaptedCvSection = AdaptedCvSection;
 
 export interface GeneratedAdaptedCvModel {
-  candidateName: string
-  header: GeneratedAdaptedCvHeader
-  headline: GroundedText
-  sections: GeneratedAdaptedCvSection[]
+  candidateName: string;
+  header: GeneratedAdaptedCvHeader;
+  headline: GroundedText;
+  sections: GeneratedAdaptedCvSection[];
 }
 
 export interface AdaptedCvModel extends Omit<GeneratedAdaptedCvModel, 'header'> {
-  header: AdaptedCvHeader
+  header: AdaptedCvHeader;
 }
 
 export interface CoverLetterModel {
-  body: GroundedText[]
-  closing: GroundedText
-  date: string
-  greeting: string
-  opening: GroundedText
-  signature: string
+  body: GroundedText[];
+  closing: GroundedText;
+  date: string;
+  greeting: string;
+  opening: GroundedText;
+  signature: string;
 }
 
 export interface AdaptationSummaryModel {
-  emphasized: GroundedText[]
-  gaps: string[]
-  omitted: GroundedText[]
-  validationHints: string[]
+  emphasized: GroundedText[];
+  gaps: string[];
+  omitted: GroundedText[];
+  validationHints: string[];
 }
 
 export interface TailoredApplicationGenerationResult {
-  adaptationSummary: AdaptationSummaryModel
-  adaptedCv: GeneratedAdaptedCvModel
-  coverLetter: CoverLetterModel
+  adaptationSummary: AdaptationSummaryModel;
+  adaptedCv: GeneratedAdaptedCvModel;
+  coverLetter: CoverLetterModel;
   trace: {
-    model: string | null
-    provider: 'codex'
-    sessionId: string | null
-  }
+    model: string | null;
+    provider: 'codex';
+    sessionId: string | null;
+  };
 }
 
 export interface TailoredApplicationListItem {
-  createdAt: string
-  employer: string | null
-  id: string
-  pageCount: number
-  pageWarning: string | null
-  title: string
-  vacancyTitle: string | null
+  createdAt: string;
+  employer: string | null;
+  id: string;
+  pageCount: number;
+  pageWarning: string | null;
+  title: string;
+  vacancyTitle: string | null;
 }
 
 export interface TailoredApplicationWorkspaceState {
-  activeApplicationId: string | null
-  applications: TailoredApplicationListItem[]
+  activeApplicationId: string | null;
+  applications: TailoredApplicationListItem[];
 }
 
 export interface TailoredApplicationPdfPreview {
-  pageCount: number
-  pageWarning: string | null
-  pdfBytes: Uint8Array
+  pageCount: number;
+  pageWarning: string | null;
+  pdfBytes: Uint8Array;
 }
 
 export interface TailoredApplicationCoverLetterPreview extends TailoredApplicationPdfPreview {
-  plainText: string
+  plainText: string;
 }
 
 export interface TailoredApplicationPreview {
-  adaptedCv: TailoredApplicationPdfPreview
-  adaptationSummary: AdaptationSummaryModel
-  coverLetter: TailoredApplicationCoverLetterPreview
-  createdAt: string
-  employer: string | null
-  id: string
-  originalCv: OriginalCvSummary
-  title: string
-  vacancy: VacancySummary
-  vacancyTitle: string | null
+  adaptedCv: TailoredApplicationPdfPreview;
+  adaptationSummary: AdaptationSummaryModel;
+  coverLetter: TailoredApplicationCoverLetterPreview;
+  createdAt: string;
+  employer: string | null;
+  id: string;
+  originalCv: OriginalCvSummary;
+  title: string;
+  vacancy: VacancySummary;
+  vacancyTitle: string | null;
 }
 
 export interface TailoredApplicationExportResult {
-  filePath: string
-  overwriteAvoided: boolean
-  pageWarning: string | null
+  filePath: string;
+  overwriteAvoided: boolean;
+  pageWarning: string | null;
 }

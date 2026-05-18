@@ -1,4 +1,4 @@
-import type { VacancyBrowserReadingActionRequest } from './vacancy-browser-actions.js'
+import type { VacancyBrowserReadingActionRequest } from './vacancy-browser-actions.js';
 
 export type VacancyNormalizationErrorCode =
   | 'cancelled'
@@ -6,25 +6,25 @@ export type VacancyNormalizationErrorCode =
   | 'no_job_content'
   | 'page_interaction_requested'
   | 'semantic_rejection'
-  | 'timeout'
+  | 'timeout';
 
 export class VacancyNormalizationError extends Error {
-  readonly code: VacancyNormalizationErrorCode
-  readonly readingActions: VacancyBrowserReadingActionRequest[]
+  readonly code: VacancyNormalizationErrorCode;
+  readonly readingActions: VacancyBrowserReadingActionRequest[];
 
-  override name = 'VacancyNormalizationError'
+  override name = 'VacancyNormalizationError';
 
   constructor({
     code,
     message,
     readingActions = [],
   }: {
-    code: VacancyNormalizationErrorCode
-    message: string
-    readingActions?: VacancyBrowserReadingActionRequest[]
+    code: VacancyNormalizationErrorCode;
+    message: string;
+    readingActions?: VacancyBrowserReadingActionRequest[];
   }) {
-    super(message)
-    this.code = code
-    this.readingActions = readingActions
+    super(message);
+    this.code = code;
+    this.readingActions = readingActions;
   }
 }

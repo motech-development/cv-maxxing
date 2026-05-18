@@ -1,36 +1,36 @@
-import { mkdtemp, readFile, readdir, rm } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
-import path from 'node:path'
+import { mkdtemp, readdir, readFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 
-import { afterEach, expect, test, vi } from 'vitest'
+import { afterEach, expect, test, vi } from 'vitest';
 
-import { OriginalCvNormalizationError } from '../original-cv-normalization-error.js'
-import type { OriginalCvNormalizationWorker } from '../original-cv-normalization-worker.js'
+import { OriginalCvNormalizationError } from '../original-cv-normalization-error.js';
 import {
   createOriginalCvNormalizationService,
   type OriginalCvNormalizationResult,
-} from '../original-cv-normalization-service.js'
+} from '../original-cv-normalization-service.js';
+import type { OriginalCvNormalizationWorker } from '../original-cv-normalization-worker.js';
 
-const temporaryDirectories: string[] = []
+const temporaryDirectories: string[] = [];
 
 interface NormalizationExample {
   normalizedCv: {
     contact: {
-      email: string
-      location: string
-      phone: string
-      professionalLink: string
-    }
+      email: string;
+      location: string;
+      phone: string;
+      professionalLink: string;
+    };
     experience: {
-      dateRange: string
-      employer: string
-      roleTitle: string
-      summary: string
-    }[]
-    headline: string
-    summary: string
-  }
-  title: string
+      dateRange: string;
+      employer: string;
+      roleTitle: string;
+      summary: string;
+    }[];
+    headline: string;
+    summary: string;
+  };
+  title: string;
 }
 
 function createNormalizedOriginalCvExperienceEntry(
@@ -42,7 +42,7 @@ function createNormalizedOriginalCvExperienceEntry(
     roleTitle: 'Principal Product Designer',
     summary: 'Led product design for AI-assisted desktop tooling.',
     ...overrides,
-  }
+  };
 }
 
 afterEach(async () => {
@@ -51,17 +51,17 @@ afterEach(async () => {
       await rm(directoryPath, {
         force: true,
         recursive: true,
-      })
+      });
     }),
-  )
-})
+  );
+});
 
 test('writes a dedicated normalization run workspace with derived-field examples and removes it after the worker returns', async () => {
   const runWorkspaceRootPath = await mkdtemp(
     path.join(tmpdir(), 'cv-maxxing-original-cv-normalization-service-'),
-  )
+  );
 
-  temporaryDirectories.push(runWorkspaceRootPath)
+  temporaryDirectories.push(runWorkspaceRootPath);
 
   const worker = {
     runNormalization: vi.fn(
@@ -70,9 +70,9 @@ test('writes a dedicated normalization run workspace with derived-field examples
           readFile(path.join(runDirectoryPath, 'input', 'examples.json'), 'utf8'),
           readFile(path.join(runDirectoryPath, 'input', 'task.json'), 'utf8'),
           readFile(path.join(runDirectoryPath, 'input', 'original-cv.txt'), 'utf8'),
-        ])
-        const parsedTask = JSON.parse(taskJson) as unknown
-        const parsedExamples = JSON.parse(examplesJson) as unknown
+        ]);
+        const parsedTask = JSON.parse(taskJson) as unknown;
+        const parsedExamples = JSON.parse(examplesJson) as unknown;
 
         expect(parsedTask).toEqual({
           constraints: {
@@ -94,24 +94,24 @@ test('writes a dedicated normalization run workspace with derived-field examples
             normalizedArtifactName: 'normalized.json',
             writingStyleArtifactName: 'writing-style-profile.json',
           },
-        })
-        expect(Array.isArray(parsedExamples)).toBe(true)
+        });
+        expect(Array.isArray(parsedExamples)).toBe(true);
 
-        const examples = parsedExamples as NormalizationExample[]
+        const examples = parsedExamples as NormalizationExample[];
         const headingVariantExample = examples.find((example) => {
-          return example.title === 'Heading variants and faithful summary recovery'
-        })
+          return example.title === 'Heading variants and faithful summary recovery';
+        });
         const fragmentedExperienceExample = examples.find((example) => {
           return (
             example.title === 'Fragmented experience regrouping and conservative skills recovery'
-          )
-        })
+          );
+        });
 
-        expect(headingVariantExample?.normalizedCv.headline).toBe('Principal Product Designer')
-        expect(headingVariantExample?.normalizedCv.contact.email).toBe('ada@lovelace.dev')
+        expect(headingVariantExample?.normalizedCv.headline).toBe('Principal Product Designer');
+        expect(headingVariantExample?.normalizedCv.contact.email).toBe('ada@lovelace.dev');
         expect(headingVariantExample?.normalizedCv.summary).toBe(
           'Design leader focused on complex workflow products for technical users.',
-        )
+        );
         expect(fragmentedExperienceExample?.normalizedCv.experience).toContainEqual(
           createNormalizedOriginalCvExperienceEntry({
             dateRange: '',
@@ -120,8 +120,8 @@ test('writes a dedicated normalization run workspace with derived-field examples
             summary:
               'Built content systems and UX research practices for complex workflow products.',
           }),
-        )
-        expect(originalCvText).toBe('Ada Lovelace\nPrincipal Product Designer')
+        );
+        expect(originalCvText).toBe('Ada Lovelace\nPrincipal Product Designer');
 
         return {
           normalizedCv: {
@@ -143,15 +143,15 @@ test('writes a dedicated normalization run workspace with derived-field examples
             firstPersonUsage: 'absent' as const,
             formality: 'formal' as const,
           },
-        }
+        };
       },
     ),
-  }
+  };
   const service = createOriginalCvNormalizationService({
     generateId: vi.fn(() => 'normalization-run-001'),
     runWorkspaceRootPath,
     worker,
-  })
+  });
 
   await expect(
     service.normalizeOriginalCv({
@@ -180,22 +180,24 @@ test('writes a dedicated normalization run workspace with derived-field examples
       firstPersonUsage: 'absent',
       formality: 'formal',
     },
-  })
-  const firstCall = worker.runNormalization.mock.calls[0]?.[0]
+  });
+  const firstCall = worker.runNormalization.mock.calls[0]?.[0];
 
-  expect(firstCall?.runDirectoryPath).toBe(path.join(runWorkspaceRootPath, 'normalization-run-001'))
-  expect(firstCall?.signal).toBeInstanceOf(AbortSignal)
-  await expect(readdir(runWorkspaceRootPath)).resolves.toEqual([])
-})
+  expect(firstCall?.runDirectoryPath).toBe(
+    path.join(runWorkspaceRootPath, 'normalization-run-001'),
+  );
+  expect(firstCall?.signal).toBeInstanceOf(AbortSignal);
+  await expect(readdir(runWorkspaceRootPath)).resolves.toEqual([]);
+});
 
 test('aborts a stalled normalization run after the dedicated timeout and removes the transient workspace', async () => {
   const runWorkspaceRootPath = await mkdtemp(
     path.join(tmpdir(), 'cv-maxxing-original-cv-normalization-service-timeout-'),
-  )
+  );
 
-  temporaryDirectories.push(runWorkspaceRootPath)
+  temporaryDirectories.push(runWorkspaceRootPath);
 
-  let didAbort = false
+  let didAbort = false;
 
   const worker: OriginalCvNormalizationWorker = {
     runNormalization: vi.fn(
@@ -204,23 +206,23 @@ test('aborts a stalled normalization run after the dedicated timeout and removes
           signal.addEventListener(
             'abort',
             () => {
-              didAbort = true
-              reject(new Error('Original CV normalization cancelled.'))
+              didAbort = true;
+              reject(new Error('Original CV normalization cancelled.'));
             },
             {
               once: true,
             },
-          )
-        })
+          );
+        });
       },
     ),
-  }
+  };
   const service = createOriginalCvNormalizationService({
     generateId: vi.fn(() => 'normalization-run-timeout'),
     runWorkspaceRootPath,
     timeoutMs: 5,
     worker,
-  })
+  });
 
   await expect(
     service.normalizeOriginalCv({
@@ -234,9 +236,9 @@ test('aborts a stalled normalization run after the dedicated timeout and removes
       code: 'timeout',
       message: 'Original CV normalization timed out.',
     }),
-  )
+  );
 
-  expect(worker.runNormalization).toHaveBeenCalledTimes(1)
-  expect(didAbort).toBe(true)
-  await expect(readdir(runWorkspaceRootPath)).resolves.toEqual([])
-})
+  expect(worker.runNormalization).toHaveBeenCalledTimes(1);
+  expect(didAbort).toBe(true);
+  await expect(readdir(runWorkspaceRootPath)).resolves.toEqual([]);
+});

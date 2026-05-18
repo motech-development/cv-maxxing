@@ -1,6 +1,6 @@
-import { expect, test } from 'vitest'
+import { expect, test } from 'vitest';
 
-import { createReadinessRouteViewModel } from '../readiness-route.js'
+import { createReadinessRouteViewModel } from '../readiness-route.js';
 
 test('startup keeps the AI worker readiness gate blocked while the preflight is still checking', async () => {
   const viewModel = await createReadinessRouteViewModel({
@@ -12,7 +12,7 @@ test('startup keeps the AI worker readiness gate blocked while the preflight is 
         status: 'checking',
       }),
     getStartupDestination: () => Promise.resolve('first_launch'),
-  })
+  });
 
   expect(viewModel).toEqual({
     body: 'Getting AI ready before you enter the app.',
@@ -23,8 +23,8 @@ test('startup keeps the AI worker readiness gate blocked while the preflight is 
     secondaryActionLabel: undefined,
     startupDestination: undefined,
     status: 'checking',
-  })
-})
+  });
+});
 
 test('startup renders sign-in-required guidance with provider-neutral copy and diagnostics', async () => {
   const viewModel = await createReadinessRouteViewModel({
@@ -37,7 +37,7 @@ test('startup renders sign-in-required guidance with provider-neutral copy and d
         status: 'sign_in_required',
       }),
     getStartupDestination: () => Promise.resolve('workspace'),
-  })
+  });
 
   expect(viewModel).toEqual({
     body: 'Your AI sign-in has expired. Sign in again before CV Maxxing can continue.',
@@ -48,8 +48,8 @@ test('startup renders sign-in-required guidance with provider-neutral copy and d
     secondaryActionLabel: 'Get help',
     startupDestination: undefined,
     status: 'sign_in_required',
-  })
-})
+  });
+});
 
 test('startup restores the saved workspace destination after readiness succeeds', async () => {
   const viewModel = await createReadinessRouteViewModel({
@@ -61,7 +61,7 @@ test('startup restores the saved workspace destination after readiness succeeds'
         status: 'ready',
       }),
     getStartupDestination: () => Promise.resolve('workspace'),
-  })
+  });
 
   expect(viewModel).toEqual({
     body: 'AI is ready. Opening your jobs.',
@@ -72,8 +72,8 @@ test('startup restores the saved workspace destination after readiness succeeds'
     secondaryActionLabel: undefined,
     startupDestination: 'workspace',
     status: 'ready',
-  })
-})
+  });
+});
 
 test('timeout failures render retry-first local repair guidance', async () => {
   const viewModel = await createReadinessRouteViewModel({
@@ -86,7 +86,7 @@ test('timeout failures render retry-first local repair guidance', async () => {
         status: 'unavailable',
       }),
     getStartupDestination: () => Promise.resolve('first_launch'),
-  })
+  });
 
   expect(viewModel).toEqual({
     body: 'AI took too long to respond. Check the setup on this Mac, then try again.',
@@ -97,5 +97,5 @@ test('timeout failures render retry-first local repair guidance', async () => {
     secondaryActionLabel: 'Get help',
     startupDestination: undefined,
     status: 'unavailable',
-  })
-})
+  });
+});

@@ -1,238 +1,238 @@
-import type { AdaptedCvExperienceEntry } from '../shared/tailored-application.js'
+import type { AdaptedCvExperienceEntry } from '../shared/tailored-application.js';
 
 export interface AdaptedCvBrowserRenderPayload {
-  contactLines: string[]
-  continuableSections: AdaptedCvBrowserContinuableSection[]
-  introLabel: string
-  profileText: string
-  rightSections: AdaptedCvBrowserSidebarSection[]
-  roleLabel: string
-  title: string
+  contactLines: string[];
+  continuableSections: AdaptedCvBrowserContinuableSection[];
+  introLabel: string;
+  profileText: string;
+  rightSections: AdaptedCvBrowserSidebarSection[];
+  roleLabel: string;
+  title: string;
 }
 
 export type AdaptedCvBrowserContinuableSection =
   | {
-      items: AdaptedCvExperienceEntry[]
-      kind: 'experience'
-      label: 'EXPERIENCE'
+      items: AdaptedCvExperienceEntry[];
+      kind: 'experience';
+      label: 'EXPERIENCE';
     }
   | {
-      items: string[]
-      kind: 'impact_highlights' | 'selected_work'
-      label: 'IMPACT HIGHLIGHTS' | 'SELECTED WORK'
-    }
+      items: string[];
+      kind: 'impact_highlights' | 'selected_work';
+      label: 'IMPACT HIGHLIGHTS' | 'SELECTED WORK';
+    };
 
 export type AdaptedCvBrowserSidebarSection =
   | {
-      items: string[]
-      kind: 'list'
-      label: string
-      sectionKind: 'certifications' | 'core_skills' | 'focus' | 'languages' | 'tools'
+      items: string[];
+      kind: 'list';
+      label: string;
+      sectionKind: 'certifications' | 'core_skills' | 'focus' | 'languages' | 'tools';
     }
   | {
       entry: {
-        meta: string
-        title: string
-      }
-      kind: 'education'
-      label: 'EDUCATION'
+        meta: string;
+        title: string;
+      };
+      kind: 'education';
+      label: 'EDUCATION';
     }
   | {
-      kind: 'references'
-      label: 'REFERENCES'
-      text: 'Available on request'
-    }
+      kind: 'references';
+      label: 'REFERENCES';
+      text: 'Available on request';
+    };
 
 export interface AdaptedCvBrowserRenderResult {
-  pageCount: number
-  rightSections: AdaptedCvBrowserSidebarSection[]
+  pageCount: number;
+  rightSections: AdaptedCvBrowserSidebarSection[];
 }
 
 interface RenderAdaptedCvPagesInBrowserOptions {
-  document?: Document
-  isPageOverflowing?: (pageElement: HTMLElement, appendedElement: HTMLElement) => boolean
-  rootElementId?: string
+  document?: Document;
+  isPageOverflowing?: (pageElement: HTMLElement, appendedElement: HTMLElement) => boolean;
+  rootElementId?: string;
 }
 
-const PAGE_BOTTOM_CLEARANCE_PX = 24
+const PAGE_BOTTOM_CLEARANCE_PX = 24;
 
 export function renderAdaptedCvPagesInBrowser(
   payload: AdaptedCvBrowserRenderPayload,
   options: RenderAdaptedCvPagesInBrowserOptions = {},
 ): AdaptedCvBrowserRenderResult {
-  const documentReference = options.document ?? globalThis.document
-  const rootElementId = options.rootElementId ?? 'cv-document-root'
-  const pageBottomClearance = 24
+  const documentReference = options.document ?? globalThis.document;
+  const rootElementId = options.rootElementId ?? 'cv-document-root';
+  const pageBottomClearance = 24;
   const doesElementOverflowPage = (
     pageElement: HTMLElement,
     appendedElement: HTMLElement,
   ): boolean => {
-    const pageRectangle = pageElement.getBoundingClientRect()
-    const appendedRectangle = appendedElement.getBoundingClientRect()
+    const pageRectangle = pageElement.getBoundingClientRect();
+    const appendedRectangle = appendedElement.getBoundingClientRect();
 
     if (appendedRectangle.height === 0 && appendedRectangle.width === 0) {
-      return false
+      return false;
     }
 
-    const safeBottomBoundary = pageRectangle.bottom - pageBottomClearance
+    const safeBottomBoundary = pageRectangle.bottom - pageBottomClearance;
 
     return (
       appendedRectangle.bottom > safeBottomBoundary + 1 ||
       pageElement.scrollHeight - pageElement.clientHeight > 1
-    )
-  }
-  const rootElement = documentReference.querySelector<HTMLElement>(`#${rootElementId}`)
+    );
+  };
+  const rootElement = documentReference.querySelector<HTMLElement>(`#${rootElementId}`);
 
   if (!(rootElement instanceof HTMLElement)) {
-    throw new TypeError('Adapted CV root element was not found for browser pagination.')
+    throw new TypeError('Adapted CV root element was not found for browser pagination.');
   }
 
   const isPageOverflowing =
     options.isPageOverflowing ??
     ((pageElement: HTMLElement, appendedElement: HTMLElement) => {
-      return doesElementOverflowPage(pageElement, appendedElement)
-    })
+      return doesElementOverflowPage(pageElement, appendedElement);
+    });
 
-  rootElement.replaceChildren()
+  rootElement.replaceChildren();
 
-  let pageNumber = 0
+  let pageNumber = 0;
 
   const createSectionLabelElement = (label: string): HTMLHeadingElement => {
-    const labelElement = documentReference.createElement('h2')
-    labelElement.className = 'section-label'
-    labelElement.textContent = label
+    const labelElement = documentReference.createElement('h2');
+    labelElement.className = 'section-label';
+    labelElement.textContent = label;
 
-    return labelElement
-  }
+    return labelElement;
+  };
 
   const createMainPage = (): {
-    contentContainerElement: HTMLElement
-    pageElement: HTMLElement
-    sidebarElement: HTMLElement
+    contentContainerElement: HTMLElement;
+    pageElement: HTMLElement;
+    sidebarElement: HTMLElement;
   } => {
-    pageNumber += 1
+    pageNumber += 1;
 
-    const pageElement = documentReference.createElement('section')
-    pageElement.className = `cv-page page-${String(pageNumber)}`
-    pageElement.dataset.pageNumber = String(pageNumber)
+    const pageElement = documentReference.createElement('section');
+    pageElement.className = `cv-page page-${String(pageNumber)}`;
+    pageElement.dataset.pageNumber = String(pageNumber);
 
-    const headerElement = documentReference.createElement('header')
-    headerElement.className = 'header-main'
+    const headerElement = documentReference.createElement('header');
+    headerElement.className = 'header-main';
 
-    const identityElement = documentReference.createElement('section')
-    identityElement.className = 'identity-main'
+    const identityElement = documentReference.createElement('section');
+    identityElement.className = 'identity-main';
 
-    const nameElement = documentReference.createElement('h1')
-    nameElement.className = 'name-main'
-    nameElement.textContent = payload.title
+    const nameElement = documentReference.createElement('h1');
+    nameElement.className = 'name-main';
+    nameElement.textContent = payload.title;
 
-    const roleElement = documentReference.createElement('p')
-    roleElement.className = 'role-main'
-    roleElement.textContent = payload.roleLabel
+    const roleElement = documentReference.createElement('p');
+    roleElement.className = 'role-main';
+    roleElement.textContent = payload.roleLabel;
 
-    const introElement = documentReference.createElement('p')
-    introElement.className = 'intro-main'
-    introElement.textContent = payload.introLabel
+    const introElement = documentReference.createElement('p');
+    introElement.className = 'intro-main';
+    introElement.textContent = payload.introLabel;
 
-    identityElement.append(nameElement, roleElement, introElement)
+    identityElement.append(nameElement, roleElement, introElement);
 
-    const contactListElement = documentReference.createElement('section')
-    contactListElement.className = 'contact-list'
+    const contactListElement = documentReference.createElement('section');
+    contactListElement.className = 'contact-list';
 
     for (const line of payload.contactLines) {
-      const lineElement = documentReference.createElement('p')
-      lineElement.textContent = line
-      contactListElement.append(lineElement)
+      const lineElement = documentReference.createElement('p');
+      lineElement.textContent = line;
+      contactListElement.append(lineElement);
     }
 
-    headerElement.append(identityElement, contactListElement)
+    headerElement.append(identityElement, contactListElement);
 
-    const dividerElement = documentReference.createElement('div')
-    dividerElement.className = 'divider'
+    const dividerElement = documentReference.createElement('div');
+    dividerElement.className = 'divider';
 
-    const bodyElement = documentReference.createElement('section')
-    bodyElement.className = 'body-main'
+    const bodyElement = documentReference.createElement('section');
+    bodyElement.className = 'body-main';
 
-    const leftColumnElement = documentReference.createElement('section')
-    leftColumnElement.className = 'left-col'
+    const leftColumnElement = documentReference.createElement('section');
+    leftColumnElement.className = 'left-col';
 
-    const rightColumnElement = documentReference.createElement('aside')
-    rightColumnElement.className = 'right-col'
+    const rightColumnElement = documentReference.createElement('aside');
+    rightColumnElement.className = 'right-col';
 
-    bodyElement.append(leftColumnElement, rightColumnElement)
-    pageElement.append(headerElement, dividerElement, bodyElement)
-    rootElement.append(pageElement)
+    bodyElement.append(leftColumnElement, rightColumnElement);
+    pageElement.append(headerElement, dividerElement, bodyElement);
+    rootElement.append(pageElement);
 
     return {
       contentContainerElement: leftColumnElement,
       pageElement,
       sidebarElement: rightColumnElement,
-    }
-  }
+    };
+  };
 
   const createContinuedPage = (): {
-    contentContainerElement: HTMLElement
-    pageElement: HTMLElement
+    contentContainerElement: HTMLElement;
+    pageElement: HTMLElement;
   } => {
-    pageNumber += 1
+    pageNumber += 1;
 
-    const pageElement = documentReference.createElement('section')
-    pageElement.className = `cv-page page-${String(pageNumber)}`
-    pageElement.dataset.pageNumber = String(pageNumber)
+    const pageElement = documentReference.createElement('section');
+    pageElement.className = `cv-page page-${String(pageNumber)}`;
+    pageElement.dataset.pageNumber = String(pageNumber);
 
-    const headerElement = documentReference.createElement('header')
-    headerElement.className = 'header-continued'
+    const headerElement = documentReference.createElement('header');
+    headerElement.className = 'header-continued';
 
-    const nameElement = documentReference.createElement('p')
-    nameElement.className = 'name-continued'
-    nameElement.textContent = payload.title
+    const nameElement = documentReference.createElement('p');
+    nameElement.className = 'name-continued';
+    nameElement.textContent = payload.title;
 
-    const roleElement = documentReference.createElement('p')
-    roleElement.className = 'role-continued'
-    roleElement.textContent = payload.roleLabel
+    const roleElement = documentReference.createElement('p');
+    roleElement.className = 'role-continued';
+    roleElement.textContent = payload.roleLabel;
 
-    const introElement = documentReference.createElement('p')
-    introElement.className = 'intro-continued'
-    introElement.textContent = 'Curriculum Vitae - Continued'
+    const introElement = documentReference.createElement('p');
+    introElement.className = 'intro-continued';
+    introElement.textContent = 'Curriculum Vitae - Continued';
 
-    headerElement.append(nameElement, roleElement, introElement)
+    headerElement.append(nameElement, roleElement, introElement);
 
-    const dividerElement = documentReference.createElement('div')
-    dividerElement.className = 'divider'
+    const dividerElement = documentReference.createElement('div');
+    dividerElement.className = 'divider';
 
-    const bodyElement = documentReference.createElement('section')
-    bodyElement.className = 'body-continued'
+    const bodyElement = documentReference.createElement('section');
+    bodyElement.className = 'body-continued';
 
-    pageElement.append(headerElement, dividerElement, bodyElement)
-    rootElement.append(pageElement)
+    pageElement.append(headerElement, dividerElement, bodyElement);
+    rootElement.append(pageElement);
 
     return {
       contentContainerElement: bodyElement,
       pageElement,
-    }
-  }
+    };
+  };
 
   const createProfileSection = (profileText: string): HTMLElement => {
-    const sectionElement = documentReference.createElement('section')
-    sectionElement.className = 'section-profile'
+    const sectionElement = documentReference.createElement('section');
+    sectionElement.className = 'section-profile';
 
-    const labelElement = createSectionLabelElement('PROFILE')
+    const labelElement = createSectionLabelElement('PROFILE');
 
-    const textElement = documentReference.createElement('p')
-    textElement.className = 'profile-text'
-    textElement.textContent = profileText
+    const textElement = documentReference.createElement('p');
+    textElement.className = 'profile-text';
+    textElement.textContent = profileText;
 
-    sectionElement.append(labelElement, textElement)
+    sectionElement.append(labelElement, textElement);
 
-    return sectionElement
-  }
+    return sectionElement;
+  };
 
   /* eslint-disable unicorn/consistent-function-scoping -- these helpers must stay inside the serialized browser renderer. */
   const shouldRenderSidebarAsMultiline = (
     section: Extract<
       AdaptedCvBrowserSidebarSection,
       {
-        kind: 'list'
+        kind: 'list';
       }
     >,
   ): boolean => {
@@ -241,161 +241,161 @@ export function renderAdaptedCvPagesInBrowser(
       section.sectionKind === 'focus' ||
       section.sectionKind === 'languages' ||
       section.sectionKind === 'tools'
-    )
-  }
+    );
+  };
 
   const createSidebarSection = (section: AdaptedCvBrowserSidebarSection): HTMLElement => {
     if (section.kind === 'list') {
-      const sectionElement = documentReference.createElement('section')
+      const sectionElement = documentReference.createElement('section');
       sectionElement.className = shouldRenderSidebarAsMultiline(section)
         ? 'sidebar-section-gap-10'
-        : 'sidebar-section-gap-8'
-      sectionElement.append(createSectionLabelElement(section.label))
+        : 'sidebar-section-gap-8';
+      sectionElement.append(createSectionLabelElement(section.label));
 
       if (shouldRenderSidebarAsMultiline(section)) {
-        const itemElement = documentReference.createElement('p')
-        itemElement.className = 'sidebar-multiline'
-        itemElement.textContent = section.items.join('\n')
-        sectionElement.append(itemElement)
+        const itemElement = documentReference.createElement('p');
+        itemElement.className = 'sidebar-multiline';
+        itemElement.textContent = section.items.join('\n');
+        sectionElement.append(itemElement);
 
-        return sectionElement
+        return sectionElement;
       }
 
       for (const item of section.items) {
-        const itemElement = documentReference.createElement('p')
-        itemElement.className = 'sidebar-line'
-        itemElement.textContent = item
-        sectionElement.append(itemElement)
+        const itemElement = documentReference.createElement('p');
+        itemElement.className = 'sidebar-line';
+        itemElement.textContent = item;
+        sectionElement.append(itemElement);
       }
 
-      return sectionElement
+      return sectionElement;
     }
 
     if (section.kind === 'education') {
-      const sectionElement = documentReference.createElement('section')
-      sectionElement.className = 'sidebar-section-gap-8'
+      const sectionElement = documentReference.createElement('section');
+      sectionElement.className = 'sidebar-section-gap-8';
 
-      const titleElement = documentReference.createElement('p')
-      titleElement.className = 'edu-title'
-      titleElement.textContent = section.entry.title
+      const titleElement = documentReference.createElement('p');
+      titleElement.className = 'edu-title';
+      titleElement.textContent = section.entry.title;
 
-      const metaElement = documentReference.createElement('p')
-      metaElement.className = 'edu-meta'
-      metaElement.textContent = section.entry.meta
+      const metaElement = documentReference.createElement('p');
+      metaElement.className = 'edu-meta';
+      metaElement.textContent = section.entry.meta;
 
-      sectionElement.append(createSectionLabelElement(section.label), titleElement, metaElement)
+      sectionElement.append(createSectionLabelElement(section.label), titleElement, metaElement);
 
-      return sectionElement
+      return sectionElement;
     }
 
-    const sectionElement = documentReference.createElement('section')
-    sectionElement.className = 'sidebar-section-gap-8'
+    const sectionElement = documentReference.createElement('section');
+    sectionElement.className = 'sidebar-section-gap-8';
 
-    const textElement = documentReference.createElement('p')
-    textElement.className = 'sidebar-line'
-    textElement.textContent = section.text
+    const textElement = documentReference.createElement('p');
+    textElement.className = 'sidebar-line';
+    textElement.textContent = section.text;
 
-    sectionElement.append(createSectionLabelElement(section.label), textElement)
+    sectionElement.append(createSectionLabelElement(section.label), textElement);
 
-    return sectionElement
-  }
+    return sectionElement;
+  };
 
   const createExperienceSection = (
     label: string,
     isContinued: boolean,
   ): {
-    itemsContainerElement: HTMLElement
-    sectionElement: HTMLElement
+    itemsContainerElement: HTMLElement;
+    sectionElement: HTMLElement;
   } => {
-    const sectionElement = documentReference.createElement('section')
-    sectionElement.className = isContinued ? 'section-experience-continued' : 'section-experience'
+    const sectionElement = documentReference.createElement('section');
+    sectionElement.className = isContinued ? 'section-experience-continued' : 'section-experience';
 
-    const itemsContainerElement = documentReference.createElement('div')
-    itemsContainerElement.className = 'experience-list'
+    const itemsContainerElement = documentReference.createElement('div');
+    itemsContainerElement.className = 'experience-list';
 
     sectionElement.append(
       createSectionLabelElement(isContinued ? `${label} (CONTINUED)` : label),
       itemsContainerElement,
-    )
+    );
 
     return {
       itemsContainerElement,
       sectionElement,
-    }
-  }
+    };
+  };
 
   const createExperienceItem = (item: AdaptedCvExperienceEntry): HTMLElement => {
-    const itemElement = documentReference.createElement('article')
-    itemElement.className = 'experience-item'
+    const itemElement = documentReference.createElement('article');
+    itemElement.className = 'experience-item';
 
-    const titleElement = documentReference.createElement('p')
-    titleElement.className = 'exp-title'
+    const titleElement = documentReference.createElement('p');
+    titleElement.className = 'exp-title';
     titleElement.textContent = [item.roleTitle, item.employer]
       .filter((value) => {
-        return value.trim() !== ''
+        return value.trim() !== '';
       })
-      .join(' · ')
+      .join(' · ');
 
-    const metaElement = documentReference.createElement('p')
-    metaElement.className = 'exp-meta'
+    const metaElement = documentReference.createElement('p');
+    metaElement.className = 'exp-meta';
     metaElement.textContent = [item.location, item.dateRange]
       .filter((value): value is string => {
-        return value !== null && value.trim() !== ''
+        return value !== null && value.trim() !== '';
       })
-      .join(' · ')
+      .join(' · ');
 
-    itemElement.append(titleElement, metaElement)
+    itemElement.append(titleElement, metaElement);
 
     for (const bullet of item.bullets) {
-      const bulletRowElement = documentReference.createElement('div')
-      bulletRowElement.className = 'bullet-row'
+      const bulletRowElement = documentReference.createElement('div');
+      bulletRowElement.className = 'bullet-row';
 
-      const bulletMarkElement = documentReference.createElement('span')
-      bulletMarkElement.className = 'bullet-mark'
-      bulletMarkElement.textContent = '•'
+      const bulletMarkElement = documentReference.createElement('span');
+      bulletMarkElement.className = 'bullet-mark';
+      bulletMarkElement.textContent = '•';
 
-      const bulletTextElement = documentReference.createElement('span')
-      bulletTextElement.className = 'bullet-text'
-      bulletTextElement.textContent = bullet.text
+      const bulletTextElement = documentReference.createElement('span');
+      bulletTextElement.className = 'bullet-text';
+      bulletTextElement.textContent = bullet.text;
 
-      bulletRowElement.append(bulletMarkElement, bulletTextElement)
-      itemElement.append(bulletRowElement)
+      bulletRowElement.append(bulletMarkElement, bulletTextElement);
+      itemElement.append(bulletRowElement);
     }
 
-    return itemElement
-  }
+    return itemElement;
+  };
 
   const createTextBlockSection = (
     label: string,
     isContinued: boolean,
   ): {
-    itemsContainerElement: HTMLElement
-    sectionElement: HTMLElement
+    itemsContainerElement: HTMLElement;
+    sectionElement: HTMLElement;
   } => {
-    const sectionElement = documentReference.createElement('section')
-    sectionElement.className = 'section-text-block'
+    const sectionElement = documentReference.createElement('section');
+    sectionElement.className = 'section-text-block';
 
-    const itemsContainerElement = documentReference.createElement('div')
-    itemsContainerElement.className = 'text-block-list'
+    const itemsContainerElement = documentReference.createElement('div');
+    itemsContainerElement.className = 'text-block-list';
 
     sectionElement.append(
       createSectionLabelElement(isContinued ? `${label} (CONTINUED)` : label),
       itemsContainerElement,
-    )
+    );
 
     return {
       itemsContainerElement,
       sectionElement,
-    }
-  }
+    };
+  };
 
   const createTextBlockItem = (text: string): HTMLElement => {
-    const itemElement = documentReference.createElement('p')
-    itemElement.className = 'section-line'
-    itemElement.textContent = text
+    const itemElement = documentReference.createElement('p');
+    itemElement.className = 'section-line';
+    itemElement.textContent = text;
 
-    return itemElement
-  }
+    return itemElement;
+  };
 
   const cloneRightSections = (
     rightSections: AdaptedCvBrowserSidebarSection[],
@@ -405,7 +405,7 @@ export function renderAdaptedCvPagesInBrowser(
         return {
           ...section,
           items: [...section.items],
-        }
+        };
       }
 
       if (section.kind === 'education') {
@@ -414,53 +414,53 @@ export function renderAdaptedCvPagesInBrowser(
           entry: {
             ...section.entry,
           },
-        }
+        };
       }
 
       return {
         ...section,
-      }
-    })
-  }
+      };
+    });
+  };
 
   const sidebarOverflowsPage = (pageElement: HTMLElement, sidebarElement: HTMLElement): boolean => {
-    const sidebarElements = [sidebarElement, ...sidebarElement.querySelectorAll<HTMLElement>('*')]
+    const sidebarElements = [sidebarElement, ...sidebarElement.querySelectorAll<HTMLElement>('*')];
 
     return sidebarElements.some((sidebarElementNode) => {
-      return isPageOverflowing(pageElement, sidebarElementNode)
-    })
-  }
+      return isPageOverflowing(pageElement, sidebarElementNode);
+    });
+  };
 
   const trimSidebarListSection = (
     rightSections: AdaptedCvBrowserSidebarSection[],
     sectionKind: Extract<
       AdaptedCvBrowserSidebarSection,
       {
-        kind: 'list'
+        kind: 'list';
       }
     >['sectionKind'],
     minimumItems: number,
   ): boolean => {
     const section = rightSections.find((candidateSection) => {
-      return candidateSection.kind === 'list' && candidateSection.sectionKind === sectionKind
-    })
+      return candidateSection.kind === 'list' && candidateSection.sectionKind === sectionKind;
+    });
 
     if (section?.kind !== 'list' || section.items.length <= minimumItems) {
-      return false
+      return false;
     }
 
-    section.items.pop()
+    section.items.pop();
 
     if (section.items.length === 0) {
-      const sectionIndex = rightSections.indexOf(section)
+      const sectionIndex = rightSections.indexOf(section);
 
       if (sectionIndex !== -1) {
-        rightSections.splice(sectionIndex, 1)
+        rightSections.splice(sectionIndex, 1);
       }
     }
 
-    return true
-  }
+    return true;
+  };
 
   const removeSidebarSection = (
     rightSections: AdaptedCvBrowserSidebarSection[],
@@ -469,26 +469,26 @@ export function renderAdaptedCvPagesInBrowser(
       | Extract<
           AdaptedCvBrowserSidebarSection,
           {
-            kind: 'list'
+            kind: 'list';
           }
         >['sectionKind'],
   ): boolean => {
     const sectionIndex = rightSections.findIndex((section) => {
       if (section.kind === 'education') {
-        return sectionKind === 'education'
+        return sectionKind === 'education';
       }
 
-      return section.kind === 'list' && section.sectionKind === sectionKind
-    })
+      return section.kind === 'list' && section.sectionKind === sectionKind;
+    });
 
     if (sectionIndex === -1) {
-      return false
+      return false;
     }
 
-    rightSections.splice(sectionIndex, 1)
+    rightSections.splice(sectionIndex, 1);
 
-    return true
-  }
+    return true;
+  };
 
   const applySidebarOmissionStep = (rightSections: AdaptedCvBrowserSidebarSection[]): boolean => {
     return (
@@ -500,119 +500,119 @@ export function renderAdaptedCvPagesInBrowser(
       trimSidebarListSection(rightSections, 'languages', 1) ||
       removeSidebarSection(rightSections, 'languages') ||
       trimSidebarListSection(rightSections, 'core_skills', 3)
-    )
-  }
+    );
+  };
 
   const planRightSectionsForFit = ({
     pageElement,
     rightSections,
     sidebarElement,
   }: {
-    pageElement: HTMLElement
-    rightSections: AdaptedCvBrowserSidebarSection[]
-    sidebarElement: HTMLElement
+    pageElement: HTMLElement;
+    rightSections: AdaptedCvBrowserSidebarSection[];
+    sidebarElement: HTMLElement;
   }): AdaptedCvBrowserSidebarSection[] => {
-    const plannedRightSections = cloneRightSections(rightSections)
+    const plannedRightSections = cloneRightSections(rightSections);
 
     for (;;) {
-      sidebarElement.replaceChildren()
+      sidebarElement.replaceChildren();
 
       for (const section of plannedRightSections) {
-        sidebarElement.append(createSidebarSection(section))
+        sidebarElement.append(createSidebarSection(section));
       }
 
       if (!sidebarOverflowsPage(pageElement, sidebarElement)) {
-        return plannedRightSections
+        return plannedRightSections;
       }
 
       if (!applySidebarOmissionStep(plannedRightSections)) {
-        throw new Error('Adapted CV sidebar could not fit on page 1.')
+        throw new Error('Adapted CV sidebar could not fit on page 1.');
       }
     }
-  }
+  };
   /* eslint-enable unicorn/consistent-function-scoping */
 
-  const firstPage = createMainPage()
-  firstPage.contentContainerElement.append(createProfileSection(payload.profileText))
+  const firstPage = createMainPage();
+  firstPage.contentContainerElement.append(createProfileSection(payload.profileText));
   const plannedRightSections = planRightSectionsForFit({
     pageElement: firstPage.pageElement,
     rightSections: payload.rightSections,
     sidebarElement: firstPage.sidebarElement,
-  })
+  });
 
   let currentPage:
     | {
-        contentContainerElement: HTMLElement
-        pageElement: HTMLElement
+        contentContainerElement: HTMLElement;
+        pageElement: HTMLElement;
       }
     | {
-        contentContainerElement: HTMLElement
-        pageElement: HTMLElement
-        sidebarElement: HTMLElement
-      } = firstPage
+        contentContainerElement: HTMLElement;
+        pageElement: HTMLElement;
+        sidebarElement: HTMLElement;
+      } = firstPage;
 
   for (const section of payload.continuableSections) {
     if (section.kind === 'experience') {
-      let hasStarted = false
-      let currentSection = createExperienceSection(section.label, hasStarted)
-      currentPage.contentContainerElement.append(currentSection.sectionElement)
+      let hasStarted = false;
+      let currentSection = createExperienceSection(section.label, hasStarted);
+      currentPage.contentContainerElement.append(currentSection.sectionElement);
 
       for (const item of section.items) {
-        const itemElement = createExperienceItem(item)
-        currentSection.itemsContainerElement.append(itemElement)
+        const itemElement = createExperienceItem(item);
+        currentSection.itemsContainerElement.append(itemElement);
 
         if (isPageOverflowing(currentPage.pageElement, itemElement)) {
-          itemElement.remove()
+          itemElement.remove();
 
           if (currentSection.itemsContainerElement.childElementCount === 0) {
-            currentSection.sectionElement.remove()
+            currentSection.sectionElement.remove();
           }
 
-          currentPage = createContinuedPage()
-          currentSection = createExperienceSection(section.label, hasStarted)
-          currentPage.contentContainerElement.append(currentSection.sectionElement)
-          currentSection.itemsContainerElement.append(itemElement)
+          currentPage = createContinuedPage();
+          currentSection = createExperienceSection(section.label, hasStarted);
+          currentPage.contentContainerElement.append(currentSection.sectionElement);
+          currentSection.itemsContainerElement.append(itemElement);
         }
 
-        hasStarted = true
+        hasStarted = true;
       }
 
-      continue
+      continue;
     }
 
-    let hasStarted = false
-    let currentSection = createTextBlockSection(section.label, hasStarted)
-    currentPage.contentContainerElement.append(currentSection.sectionElement)
+    let hasStarted = false;
+    let currentSection = createTextBlockSection(section.label, hasStarted);
+    currentPage.contentContainerElement.append(currentSection.sectionElement);
 
     for (const item of section.items) {
-      const itemElement = createTextBlockItem(item)
-      currentSection.itemsContainerElement.append(itemElement)
+      const itemElement = createTextBlockItem(item);
+      currentSection.itemsContainerElement.append(itemElement);
 
       if (isPageOverflowing(currentPage.pageElement, itemElement)) {
-        itemElement.remove()
+        itemElement.remove();
 
         if (currentSection.itemsContainerElement.childElementCount === 0) {
-          currentSection.sectionElement.remove()
+          currentSection.sectionElement.remove();
         }
 
-        currentPage = createContinuedPage()
-        currentSection = createTextBlockSection(section.label, hasStarted)
-        currentPage.contentContainerElement.append(currentSection.sectionElement)
-        currentSection.itemsContainerElement.append(itemElement)
+        currentPage = createContinuedPage();
+        currentSection = createTextBlockSection(section.label, hasStarted);
+        currentPage.contentContainerElement.append(currentSection.sectionElement);
+        currentSection.itemsContainerElement.append(itemElement);
       }
 
-      hasStarted = true
+      hasStarted = true;
     }
   }
 
   return {
     pageCount: rootElement.querySelectorAll('.cv-page').length,
     rightSections: plannedRightSections,
-  }
+  };
 }
 
 export function doesPageOverflowWithBottomClearance(pageElement: HTMLElement): boolean {
-  const descendantElements = [...pageElement.querySelectorAll<HTMLElement>('*')]
+  const descendantElements = [...pageElement.querySelectorAll<HTMLElement>('*')];
 
   return (
     descendantElements.some((descendantElement) => {
@@ -620,9 +620,9 @@ export function doesPageOverflowWithBottomClearance(pageElement: HTMLElement): b
         pageElement,
         descendantElement,
         PAGE_BOTTOM_CLEARANCE_PX,
-      )
+      );
     }) || pageElement.scrollHeight - pageElement.clientHeight > 1
-  )
+  );
 }
 
 export function doesElementOverflowPageWithBottomClearance(
@@ -630,17 +630,17 @@ export function doesElementOverflowPageWithBottomClearance(
   appendedElement: HTMLElement,
   bottomClearance: number = PAGE_BOTTOM_CLEARANCE_PX,
 ): boolean {
-  const pageRectangle = pageElement.getBoundingClientRect()
-  const appendedRectangle = appendedElement.getBoundingClientRect()
+  const pageRectangle = pageElement.getBoundingClientRect();
+  const appendedRectangle = appendedElement.getBoundingClientRect();
 
   if (appendedRectangle.height === 0 && appendedRectangle.width === 0) {
-    return false
+    return false;
   }
 
-  const safeBottomBoundary = pageRectangle.bottom - bottomClearance
+  const safeBottomBoundary = pageRectangle.bottom - bottomClearance;
 
   return (
     appendedRectangle.bottom > safeBottomBoundary + 1 ||
     pageElement.scrollHeight - pageElement.clientHeight > 1
-  )
+  );
 }

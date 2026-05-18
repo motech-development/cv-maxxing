@@ -3,7 +3,7 @@ export default {
   bracketSameLine: false,
   bracketSpacing: true,
   printWidth: 100,
-  semi: false,
+  semi: true,
   singleQuote: true,
   trailingComma: 'all',
-}
+};

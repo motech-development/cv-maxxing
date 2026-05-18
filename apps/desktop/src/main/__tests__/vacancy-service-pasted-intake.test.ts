@@ -1,45 +1,45 @@
-import { expect, test, vi } from 'vitest'
+import { expect, test, vi } from 'vitest';
 
-import { VacancyNormalizationError } from '../vacancy-normalization-error.js'
-import { createVacancyService } from '../vacancy-service.js'
 import type {
   JsonValue,
   LocalAppDataStore,
   MetadataRecord,
   MetadataSelector,
-} from '../local-app-data-service.js'
+} from '../local-app-data-service.js';
+import { VacancyNormalizationError } from '../vacancy-normalization-error.js';
 import type {
   VacancyNormalizationInput,
   VacancyNormalizationService,
-} from '../vacancy-normalization-service.js'
+} from '../vacancy-normalization-service.js';
+import { createVacancyService } from '../vacancy-service.js';
 
-type TestLocalAppData = Pick<LocalAppDataStore, 'artifacts' | 'metadata'>
+type TestLocalAppData = Pick<LocalAppDataStore, 'artifacts' | 'metadata'>;
 
 function createLocalAppDataDouble(): TestLocalAppData {
-  const metadataRecords = new Map<string, JsonValue>()
-  const artifactWrite = vi.fn<LocalAppDataStore['artifacts']['write']>(() => Promise.resolve())
+  const metadataRecords = new Map<string, JsonValue>();
+  const artifactWrite = vi.fn<LocalAppDataStore['artifacts']['write']>(() => Promise.resolve());
   const metadataGet: LocalAppDataStore['metadata']['get'] = <TValue extends JsonValue = JsonValue>(
     selector: MetadataSelector,
   ) => {
-    const value = metadataRecords.get(createRecordKey(selector))
+    const value = metadataRecords.get(createRecordKey(selector));
 
-    return Promise.resolve(value === undefined ? null : (value as TValue))
-  }
+    return Promise.resolve(value === undefined ? null : (value as TValue));
+  };
   const metadataDelete: LocalAppDataStore['metadata']['delete'] = (selector) => {
-    metadataRecords.delete(createRecordKey(selector))
+    metadataRecords.delete(createRecordKey(selector));
 
-    return Promise.resolve()
-  }
+    return Promise.resolve();
+  };
   const metadataList: LocalAppDataStore['metadata']['list'] = <
     TValue extends JsonValue = JsonValue,
   >(): Promise<MetadataRecord<TValue>[]> => {
-    return Promise.resolve([])
-  }
+    return Promise.resolve([]);
+  };
   const metadataPut: LocalAppDataStore['metadata']['put'] = ({ id, scope, value }) => {
-    metadataRecords.set(createRecordKey({ id, scope }), value)
+    metadataRecords.set(createRecordKey({ id, scope }), value);
 
-    return Promise.resolve()
-  }
+    return Promise.resolve();
+  };
 
   return {
     artifacts: {
@@ -54,21 +54,21 @@ function createLocalAppDataDouble(): TestLocalAppData {
       list: metadataList,
       put: metadataPut,
     },
-  }
+  };
 }
 
 function createRecordKey({ id, scope }: { id: string; scope: string }): string {
-  return `${scope}:${id}`
+  return `${scope}:${id}`;
 }
 
 function rejectUnexpectedLocalAppDataAccess(): Promise<never> {
-  return Promise.reject(new Error('Expected URL validation to fail before local app data access.'))
+  return Promise.reject(new Error('Expected URL validation to fail before local app data access.'));
 }
 
 function rejectUnexpectedMetadataGet<
   TValue extends JsonValue = JsonValue,
 >(): Promise<TValue | null> {
-  return rejectUnexpectedLocalAppDataAccess()
+  return rejectUnexpectedLocalAppDataAccess();
 }
 
 function createRejectingLocalAppDataDouble(): TestLocalAppData {
@@ -85,11 +85,11 @@ function createRejectingLocalAppDataDouble(): TestLocalAppData {
       list: rejectUnexpectedLocalAppDataAccess,
       put: rejectUnexpectedLocalAppDataAccess,
     },
-  }
+  };
 }
 
 test('keeps pasted vacancy intake editable when AI finds no job content', async () => {
-  const localAppData = createLocalAppDataDouble()
+  const localAppData = createLocalAppDataDouble();
   const normalizationService = {
     normalizeVacancy: vi.fn(() => {
       return Promise.reject(
@@ -97,28 +97,28 @@ test('keeps pasted vacancy intake editable when AI finds no job content', async 
           code: 'no_job_content',
           message: 'Vacancy normalization found no job content to persist.',
         }),
-      )
+      );
     }),
-  } satisfies VacancyNormalizationService
+  } satisfies VacancyNormalizationService;
   const vacancyService = createVacancyService({
     generateId: vi.fn(() => 'vacancy-no-job-content-pasted'),
     getCurrentTimestamp: vi.fn(() => '2026-04-08T21:39:00.000Z'),
     localAppData,
     normalizationService,
     openVacancyBrowserSession: vi.fn(() => Promise.resolve(null)),
-  })
-  const text = 'We are hiring soon. Details to follow.'
+  });
+  const text = 'We are hiring soon. Details to follow.';
 
   const result = await vacancyService.ingestPastedVacancy({
     text,
     url: 'https://jobs.example.com/coming-soon',
-  })
+  });
 
-  expect(result.kind).toBe('incomplete')
-  expect(result.vacancy.canGenerate).toBe(false)
+  expect(result.kind).toBe('incomplete');
+  expect(result.vacancy.canGenerate).toBe(false);
   expect(result.vacancy.blockingReason).toBe(
     'Add the full job responsibilities or requirements before tailoring your CV.',
-  )
+  );
   expect(result.workspaceState).toEqual({
     draft: {
       text,
@@ -126,51 +126,51 @@ test('keeps pasted vacancy intake editable when AI finds no job content', async 
     },
     reviewState: 'editable',
     vacancy: null,
-  })
-  expect(normalizationService.normalizeVacancy).toHaveBeenCalledTimes(1)
-  expect(localAppData.artifacts.write).not.toHaveBeenCalled()
-  await expect(vacancyService.getWorkspaceState()).resolves.toEqual(result.workspaceState)
+  });
+  expect(normalizationService.normalizeVacancy).toHaveBeenCalledTimes(1);
+  expect(localAppData.artifacts.write).not.toHaveBeenCalled();
+  await expect(vacancyService.getWorkspaceState()).resolves.toEqual(result.workspaceState);
   await expect(
     localAppData.metadata.get({
       id: 'vacancy-no-job-content-pasted',
       scope: 'vacancies',
     }),
-  ).resolves.toBeNull()
-})
+  ).resolves.toBeNull();
+});
 
 test('rejects non-web vacancy URLs before touching persistence or browser adapters', async () => {
-  const captureVacancyBrowserSessionPage = vi.fn(() => Promise.resolve(null))
-  const openVacancyBrowserSession = vi.fn(() => Promise.resolve(null))
+  const captureVacancyBrowserSessionPage = vi.fn(() => Promise.resolve(null));
+  const openVacancyBrowserSession = vi.fn(() => Promise.resolve(null));
   const vacancyService = createVacancyService({
     captureVacancyBrowserSessionPage,
     localAppData: createRejectingLocalAppDataDouble(),
     normalizationService: {
       normalizeVacancy: vi.fn(() => {
-        return Promise.reject(new Error('Expected URL validation before AI normalization.'))
+        return Promise.reject(new Error('Expected URL validation before AI normalization.'));
       }),
     },
     openVacancyBrowserSession,
-  })
+  });
 
   await expect(
     vacancyService.ingestVacancyUrl({
       url: 'file:///tmp/job.html',
     }),
-  ).rejects.toThrow('A vacancy URL is required.')
-  expect(captureVacancyBrowserSessionPage).not.toHaveBeenCalled()
-  expect(openVacancyBrowserSession).not.toHaveBeenCalled()
-})
+  ).rejects.toThrow('A vacancy URL is required.');
+  expect(captureVacancyBrowserSessionPage).not.toHaveBeenCalled();
+  expect(openVacancyBrowserSession).not.toHaveBeenCalled();
+});
 
 test('treats lookalike provider hostnames as normal browser-mediated vacancy URLs', async () => {
-  const localAppData = createLocalAppDataDouble()
-  const normalizationCalls: VacancyNormalizationInput[] = []
+  const localAppData = createLocalAppDataDouble();
+  const normalizationCalls: VacancyNormalizationInput[] = [];
   const captureVacancyBrowserSessionPage = vi.fn(() =>
     Promise.resolve({
       html: '<main><h1>Senior Product Designer</h1><p>Lead design systems and product workflows.</p></main>',
       pageTitle: 'Senior Product Designer',
       resolvedUrl: 'https://jobs.example.com/jobs/view/123456',
     }),
-  )
+  );
   const vacancyService = createVacancyService({
     captureVacancyBrowserSessionPage,
     generateId: vi.fn(() => 'vacancy-lookalike-host'),
@@ -178,7 +178,7 @@ test('treats lookalike provider hostnames as normal browser-mediated vacancy URL
     localAppData,
     normalizationService: {
       normalizeVacancy: vi.fn((input: VacancyNormalizationInput) => {
-        normalizationCalls.push(input)
+        normalizationCalls.push(input);
 
         return Promise.resolve({
           bodyText:
@@ -188,24 +188,24 @@ test('treats lookalike provider hostnames as normal browser-mediated vacancy URL
           requirements: ['Experience shipping product design systems.'],
           responsibilities: ['Lead design systems and product workflows.'],
           title: 'Senior Product Designer',
-        })
+        });
       }),
     },
     openVacancyBrowserSession: vi.fn(() => Promise.resolve(null)),
-  })
+  });
 
   const result = await vacancyService.ingestVacancyUrl({
     url: 'https://jobs.example.com/jobs/view/123456',
-  })
+  });
 
-  expect(result.kind).toBe('ingested')
-  expect(result.vacancy.source).toBe('jobs.example.com')
-  expect(captureVacancyBrowserSessionPage).toHaveBeenCalledTimes(1)
-  expect(normalizationCalls[0]?.source).toBe('jobs.example.com')
-})
+  expect(result.kind).toBe('ingested');
+  expect(result.vacancy.source).toBe('jobs.example.com');
+  expect(captureVacancyBrowserSessionPage).toHaveBeenCalledTimes(1);
+  expect(normalizationCalls[0]?.source).toBe('jobs.example.com');
+});
 
 test('does not accept off-target browser captures as job pages', async () => {
-  const localAppData = createLocalAppDataDouble()
+  const localAppData = createLocalAppDataDouble();
   const normalizationService = {
     normalizeVacancy: vi.fn(() => {
       return Promise.resolve({
@@ -216,32 +216,32 @@ test('does not accept off-target browser captures as job pages', async () => {
         requirements: ['Experience shipping product design systems.'],
         responsibilities: ['Lead design systems and product workflows.'],
         title: 'Senior Product Designer',
-      })
+      });
     }),
-  } satisfies VacancyNormalizationService
+  } satisfies VacancyNormalizationService;
   const vacancyService = createVacancyService({
     captureVacancyBrowserSessionPage: vi.fn(() => {
       return Promise.resolve({
         html: '<main><h1>Account feed</h1></main>',
         pageTitle: 'Account feed',
         resolvedUrl: 'https://jobs.example.com/feed/',
-      })
+      });
     }),
     generateId: vi.fn(() => 'vacancy-authenticated-feed'),
     getCurrentTimestamp: vi.fn(() => '2026-04-08T21:50:00.000Z'),
     localAppData,
     normalizationService,
     openVacancyBrowserSession: vi.fn(() => Promise.resolve(null)),
-  })
+  });
 
   const result = await vacancyService.ingestVacancyUrl({
     url: 'https://jobs.example.com/feed/',
-  })
+  });
 
-  expect(result.kind).toBe('incomplete')
-  expect(result.vacancy.source).toBe('jobs.example.com')
+  expect(result.kind).toBe('incomplete');
+  expect(result.vacancy.source).toBe('jobs.example.com');
   expect(result.vacancy.blockingReason).toBe(
     'This job page may need more access. Open the job page or paste the job description instead.',
-  )
-  expect(normalizationService.normalizeVacancy).not.toHaveBeenCalled()
-})
+  );
+  expect(normalizationService.normalizeVacancy).not.toHaveBeenCalled();
+});

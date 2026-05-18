@@ -1,9 +1,9 @@
-import { expect, test } from 'vitest'
+import { expect, test } from 'vitest';
 
 import {
   resolveRendererLoadingState,
   type ResolveRendererLoadingStateInput,
-} from '../resolve-renderer-loading-state.js'
+} from '../resolve-renderer-loading-state.js';
 
 function createLoadingInput(
   overrides: Partial<ResolveRendererLoadingStateInput> = {},
@@ -17,7 +17,7 @@ function createLoadingInput(
     isResettingLocalAppData: false,
     isReviewingVacancy: false,
     ...overrides,
-  }
+  };
 }
 
 test('returns idle when no tracked loading sources are active', () => {
@@ -25,8 +25,8 @@ test('returns idle when no tracked loading sources are active', () => {
     kind: 'idle',
     label: null,
     scope: 'idle',
-  })
-})
+  });
+});
 
 test('prefers app-blocking loading over workspace-blocking and ambient activity', () => {
   expect(
@@ -41,8 +41,8 @@ test('prefers app-blocking loading over workspace-blocking and ambient activity'
     kind: 'ai_worker_readiness',
     label: 'Preparing app',
     scope: 'app_blocking',
-  })
-})
+  });
+});
 
 test('prefers workspace-blocking loading over ambient activity', () => {
   expect(
@@ -56,8 +56,8 @@ test('prefers workspace-blocking loading over ambient activity', () => {
     kind: 'vacancy_review',
     label: 'Checking job details...',
     scope: 'workspace_blocking',
-  })
-})
+  });
+});
 
 test('prefers reset app-blocking loading over workspace-blocking and ambient activity', () => {
   expect(
@@ -72,8 +72,8 @@ test('prefers reset app-blocking loading over workspace-blocking and ambient act
     kind: 'reset_local_app_data',
     label: 'Preparing app',
     scope: 'app_blocking',
-  })
-})
+  });
+});
 
 test('uses action-first copy when adding your first CV', () => {
   expect(
@@ -86,8 +86,8 @@ test('uses action-first copy when adding your first CV', () => {
     kind: 'original_cv_import',
     label: 'Adding a CV...',
     scope: 'workspace_blocking',
-  })
-})
+  });
+});
 
 test('uses action-first copy when updating an existing CV', () => {
   expect(
@@ -101,8 +101,8 @@ test('uses action-first copy when updating an existing CV', () => {
     kind: 'original_cv_import',
     label: 'Updating your CV...',
     scope: 'workspace_blocking',
-  })
-})
+  });
+});
 
 test('uses action-first copy while tailoring a CV', () => {
   expect(
@@ -115,8 +115,8 @@ test('uses action-first copy while tailoring a CV', () => {
     kind: 'tailored_application_generation',
     label: 'Tailoring your CV...',
     scope: 'workspace_blocking',
-  })
-})
+  });
+});
 
 test('surfaces ambient activity for tailored-application preview fetches', () => {
   expect(
@@ -129,5 +129,5 @@ test('surfaces ambient activity for tailored-application preview fetches', () =>
     kind: 'tailored_application_preview',
     label: 'Background activity',
     scope: 'ambient',
-  })
-})
+  });
+});

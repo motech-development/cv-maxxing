@@ -1,30 +1,30 @@
 export type JobsWorkspaceSelection =
   | {
-      kind: 'draft'
+      kind: 'draft';
     }
   | {
-      kind: 'none'
+      kind: 'none';
     }
   | {
-      kind: 'tailored_application'
-      tailoredApplicationId: string
-    }
+      kind: 'tailored_application';
+      tailoredApplicationId: string;
+    };
 
 export type OriginalCvWorkspaceSelection =
   | {
-      kind: 'active_original_cv'
-      originalCvId: string | null
+      kind: 'active_original_cv';
+      originalCvId: string | null;
     }
   | {
-      kind: 'none'
-    }
+      kind: 'none';
+    };
 
-export type WorkspaceTopLevelSection = 'job_vacancies' | 'original_cv' | 'settings'
+export type WorkspaceTopLevelSection = 'job_vacancies' | 'original_cv' | 'settings';
 
 export interface WorkspaceSelection {
-  jobs: JobsWorkspaceSelection
-  originalCv: OriginalCvWorkspaceSelection
-  topLevelSection: WorkspaceTopLevelSection
+  jobs: JobsWorkspaceSelection;
+  originalCv: OriginalCvWorkspaceSelection;
+  topLevelSection: WorkspaceTopLevelSection;
 }
 
 export function createDefaultWorkspaceSelection(): WorkspaceSelection {
@@ -36,5 +36,5 @@ export function createDefaultWorkspaceSelection(): WorkspaceSelection {
       kind: 'none',
     },
     topLevelSection: 'job_vacancies',
-  }
+  };
 }

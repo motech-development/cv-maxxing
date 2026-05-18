@@ -1,5 +1,9 @@
-import { randomUUID } from 'node:crypto'
+import { randomUUID } from 'node:crypto';
 
+import {
+  assessEnglishLanguageSupport,
+  VACANCY_LANGUAGE_BLOCK_MESSAGE,
+} from '../shared/language-support.js';
 import type {
   VacancyIngestResult,
   VacancyInputType,
@@ -7,111 +11,107 @@ import type {
   VacancySource,
   VacancySummary,
   VacancyWorkspaceState,
-} from '../shared/vacancy.js'
-import {
-  VACANCY_LANGUAGE_BLOCK_MESSAGE,
-  assessEnglishLanguageSupport,
-} from '../shared/language-support.js'
+} from '../shared/vacancy.js';
 import {
   createDefaultWorkspaceSelection,
   type JobsWorkspaceSelection,
-} from '../shared/workspace-selection.js'
-import type { JsonValue, LocalAppDataStore } from './local-app-data-service.js'
-import type { VacancyBrowserReadingActionRequest } from './vacancy-browser-actions.js'
-import type { VacancyBrowserPageSnapshot } from './vacancy-browser-session-service.js'
-import { VacancyNormalizationError } from './vacancy-normalization-error.js'
-import { extractTextFromHtml, sanitizeSnapshotHtml } from './vacancy-page-content.js'
+} from '../shared/workspace-selection.js';
+import type { JsonValue, LocalAppDataStore } from './local-app-data-service.js';
+import type { VacancyBrowserReadingActionRequest } from './vacancy-browser-actions.js';
+import type { VacancyBrowserPageSnapshot } from './vacancy-browser-session-service.js';
+import { VacancyNormalizationError } from './vacancy-normalization-error.js';
 import type {
   NormalizedVacancy,
   VacancyNormalizationService,
-} from './vacancy-normalization-service.js'
-import type { WorkspaceSelectionStore } from './workspace-selection-store.js'
+} from './vacancy-normalization-service.js';
+import { extractTextFromHtml, sanitizeSnapshotHtml } from './vacancy-page-content.js';
+import type { WorkspaceSelectionStore } from './workspace-selection-store.js';
 
-const VACANCY_DRAFT_SCOPE = 'vacancy-workspace'
-const VACANCY_SCOPE = 'vacancies'
-const VACANCY_WORKSPACE_RECORD_ID = 'current'
+const VACANCY_DRAFT_SCOPE = 'vacancy-workspace';
+const VACANCY_SCOPE = 'vacancies';
+const VACANCY_WORKSPACE_RECORD_ID = 'current';
 const OPEN_JOB_PAGE_BLOCKING_REASON =
-  'This job page may need more access. Open the job page or paste the job description instead.'
+  'This job page may need more access. Open the job page or paste the job description instead.';
 const RELOAD_JOB_PAGE_BLOCKING_REASON =
-  'Open the job page and close it after the full details load, or paste the job description instead.'
+  'Open the job page and close it after the full details load, or paste the job description instead.';
 const INCOMPLETE_VACANCY_BLOCKING_REASON =
-  'Add the full job responsibilities or requirements before tailoring your CV.'
-const MIN_RENDERED_PAGE_TEXT_LENGTH = 40
+  'Add the full job responsibilities or requirements before tailoring your CV.';
+const MIN_RENDERED_PAGE_TEXT_LENGTH = 40;
 const TERMINAL_RENDERED_PAGE_PATTERNS = [
   /\b(?:captcha|verify you are human)\b/iu,
   /\b(?:accept cookies|cookie consent|cookie settings)\b/iu,
   /\b(?:log in|login|sign in|signin)\b/iu,
   /\b(?:not found|page unavailable|access denied)\b/iu,
-] as const
+] as const;
 const TRANSIENT_RENDERED_PAGE_PATTERNS = [
   /^\s*(?:loading|please wait|redirecting)(?:[\s.]+|$)/iu,
   /\bloading\s+(?:job|role|vacancy|details)\b/iu,
-] as const
+] as const;
 const VACANCY_RENDERED_PAGE_EVIDENCE_PATTERNS = [
   /\b(?:about the role|job description|requirements|responsibilities|qualifications)\b/iu,
   /\b(?:what you(?:'|\u2019)ll do|what you will do|what we are looking for)\b/iu,
-] as const
+] as const;
 const GENERIC_CAREERS_SHELL_PATTERNS = [
   /\bcareers?\b/iu,
   /\b(?:available roles|job openings|open positions)\b/iu,
   /\b(?:benefits|interview guidance|explore teams)\b/iu,
-] as const
+] as const;
 
 interface VacancyServiceDependencies {
   captureVacancyBrowserSessionPage?: (input: {
-    readingActions?: VacancyBrowserReadingActionRequest[]
-    shouldCapturePage: (snapshot: VacancyBrowserPageSnapshot) => boolean
-    url: string
-  }) => Promise<VacancyBrowserPageSnapshot | null>
-  generateId?: () => string
-  getCurrentTimestamp?: () => string
-  localAppData: Pick<LocalAppDataStore, 'artifacts' | 'metadata'>
-  normalizationService: VacancyNormalizationService
+    readingActions?: VacancyBrowserReadingActionRequest[];
+    shouldCapturePage: (snapshot: VacancyBrowserPageSnapshot) => boolean;
+    url: string;
+  }) => Promise<VacancyBrowserPageSnapshot | null>;
+  generateId?: () => string;
+  getCurrentTimestamp?: () => string;
+  localAppData: Pick<LocalAppDataStore, 'artifacts' | 'metadata'>;
+  normalizationService: VacancyNormalizationService;
   openVacancyBrowserSession: (input: {
-    readingActions?: VacancyBrowserReadingActionRequest[]
-    shouldCapturePage: (snapshot: VacancyBrowserPageSnapshot) => boolean
-    url: string
-  }) => Promise<VacancyBrowserPageSnapshot | null>
-  workspaceSelectionStore?: Pick<WorkspaceSelectionStore, 'getSelection' | 'setSelection'>
+    readingActions?: VacancyBrowserReadingActionRequest[];
+    shouldCapturePage: (snapshot: VacancyBrowserPageSnapshot) => boolean;
+    url: string;
+  }) => Promise<VacancyBrowserPageSnapshot | null>;
+  workspaceSelectionStore?: Pick<WorkspaceSelectionStore, 'getSelection' | 'setSelection'>;
 }
 
 interface VacancyMetadataValue extends Record<string, JsonValue> {
-  blockingReason: string | null
-  canGenerate: boolean
-  employer: string | null
-  fetchedAt: string
-  inputType: VacancyInputType
-  location: string | null
-  originalUrl: string | null
-  requirements: string[]
-  resolvedUrl: string | null
-  responsibilities: string[]
-  source: VacancySource
-  status: 'incomplete' | 'ready'
-  textPreview: string
-  title: string | null
+  blockingReason: string | null;
+  canGenerate: boolean;
+  employer: string | null;
+  fetchedAt: string;
+  inputType: VacancyInputType;
+  location: string | null;
+  originalUrl: string | null;
+  requirements: string[];
+  resolvedUrl: string | null;
+  responsibilities: string[];
+  source: VacancySource;
+  status: 'incomplete' | 'ready';
+  textPreview: string;
+  title: string | null;
 }
 
 interface VacancyDraftMetadataValue extends Record<string, JsonValue> {
-  reviewState: VacancyReviewState | null
-  text: string
-  url: string
-  vacancyId: string | null
+  reviewState: VacancyReviewState | null;
+  text: string;
+  url: string;
+  vacancyId: string | null;
 }
 
 export interface VacancyService {
-  resetWorkspaceState: () => Promise<void>
-  getWorkspaceState: () => Promise<VacancyWorkspaceState>
-  ingestPastedVacancy: (input: { text: string; url?: string }) => Promise<VacancyIngestResult>
-  ingestVacancyUrl: (input: { url: string }) => Promise<VacancyIngestResult>
-  openBrowserSession: (input: { url: string }) => Promise<VacancyIngestResult>
+  resetWorkspaceState: () => Promise<void>;
+  getWorkspaceState: () => Promise<VacancyWorkspaceState>;
+  ingestPastedVacancy: (input: { text: string; url?: string }) => Promise<VacancyIngestResult>;
+  ingestVacancyUrl: (input: { url: string }) => Promise<VacancyIngestResult>;
+  openBrowserSession: (input: { url: string }) => Promise<VacancyIngestResult>;
 }
 
 export function createVacancyService({
   captureVacancyBrowserSessionPage = () => Promise.resolve(null),
   generateId = randomUUID,
   getCurrentTimestamp = () => {
-    return new Date().toISOString()
+    return new Date().toISOString();
   },
   localAppData,
   normalizationService,
@@ -123,20 +123,20 @@ export function createVacancyService({
       await localAppData.metadata.delete({
         id: VACANCY_WORKSPACE_RECORD_ID,
         scope: VACANCY_DRAFT_SCOPE,
-      })
+      });
 
       await persistJobsWorkspaceSelection({
         jobs: {
           kind: 'none',
         },
         workspaceSelectionStore,
-      })
+      });
     },
     getWorkspaceState: async (): Promise<VacancyWorkspaceState> => {
       const draftRecord = await localAppData.metadata.get<VacancyDraftMetadataValue>({
         id: VACANCY_WORKSPACE_RECORD_ID,
         scope: VACANCY_DRAFT_SCOPE,
-      })
+      });
 
       if (draftRecord?.vacancyId === null || draftRecord?.vacancyId === undefined) {
         return {
@@ -146,27 +146,27 @@ export function createVacancyService({
           },
           reviewState: 'editable',
           vacancy: null,
-        }
+        };
       }
 
       return await buildVacancyWorkspaceState({
         draftRecord,
         localAppData,
-      })
+      });
     },
     ingestPastedVacancy: async ({
       text,
       url,
     }: {
-      text: string
-      url?: string
+      text: string;
+      url?: string;
     }): Promise<VacancyIngestResult> => {
-      const trimmedText = text.trim()
-      const normalizedUrl = normalizeUrl(url)
-      const source = normalizedUrl ? resolveSubmittedUrlSource(normalizedUrl) : 'generic'
-      const vacancyId = generateId()
-      const fetchedAt = getCurrentTimestamp()
-      let normalizedVacancy: NormalizedVacancy
+      const trimmedText = text.trim();
+      const normalizedUrl = normalizeUrl(url);
+      const source = normalizedUrl ? resolveSubmittedUrlSource(normalizedUrl) : 'generic';
+      const vacancyId = generateId();
+      const fetchedAt = getCurrentTimestamp();
+      let normalizedVacancy: NormalizedVacancy;
 
       try {
         normalizedVacancy = await normalizationService.normalizeVacancy({
@@ -176,10 +176,10 @@ export function createVacancyService({
           pageTitle: null,
           resolvedUrl: normalizedUrl,
           source,
-        })
+        });
       } catch (error) {
         if (!isNoJobContentNormalizationError(error)) {
-          throw error
+          throw error;
         }
 
         return await createPastedNoJobContentResult({
@@ -190,18 +190,18 @@ export function createVacancyService({
           text: trimmedText,
           vacancyId,
           workspaceSelectionStore,
-        })
+        });
       }
 
-      const extractedText = normalizedVacancy.bodyText.trim()
-      const isLanguageBlocked = assessEnglishLanguageSupport(extractedText).status === 'blocked'
-      const canGenerate = !isLanguageBlocked && isVacancyReady(normalizedVacancy)
-      let blockingReason: string | null = null
+      const extractedText = normalizedVacancy.bodyText.trim();
+      const isLanguageBlocked = assessEnglishLanguageSupport(extractedText).status === 'blocked';
+      const canGenerate = !isLanguageBlocked && isVacancyReady(normalizedVacancy);
+      let blockingReason: string | null = null;
 
       if (isLanguageBlocked) {
-        blockingReason = VACANCY_LANGUAGE_BLOCK_MESSAGE
+        blockingReason = VACANCY_LANGUAGE_BLOCK_MESSAGE;
       } else if (!canGenerate) {
-        blockingReason = INCOMPLETE_VACANCY_BLOCKING_REASON
+        blockingReason = INCOMPLETE_VACANCY_BLOCKING_REASON;
       }
 
       const vacancy = toVacancySummary({
@@ -222,25 +222,25 @@ export function createVacancyService({
           textPreview: normalizedVacancy.bodyText.slice(0, 280),
           title: normalizedVacancy.title,
         },
-      })
+      });
 
       await localAppData.metadata.put({
         id: vacancyId,
         scope: VACANCY_SCOPE,
         value: toVacancyMetadataValue(vacancy),
-      })
+      });
       await localAppData.artifacts.write({
         content: Buffer.from(extractedText, 'utf8'),
         id: vacancyId,
         name: 'extracted.txt',
         scope: VACANCY_SCOPE,
-      })
+      });
       await localAppData.artifacts.write({
         content: Buffer.from(JSON.stringify(normalizedVacancy), 'utf8'),
         id: vacancyId,
         name: 'normalized.json',
         scope: VACANCY_SCOPE,
-      })
+      });
       await localAppData.metadata.put({
         id: VACANCY_WORKSPACE_RECORD_ID,
         scope: VACANCY_DRAFT_SCOPE,
@@ -250,42 +250,42 @@ export function createVacancyService({
           url: normalizedUrl ?? '',
           vacancyId,
         } satisfies VacancyDraftMetadataValue,
-      })
+      });
       await persistJobsWorkspaceSelection({
         jobs: {
           kind: 'draft',
         },
         workspaceSelectionStore,
-      })
+      });
 
-      const workspaceState = await thisGetWorkspaceState(localAppData)
+      const workspaceState = await thisGetWorkspaceState(localAppData);
 
       return {
         kind: canGenerate ? 'ingested' : 'incomplete',
         vacancy,
         workspaceState,
-      }
+      };
     },
     ingestVacancyUrl: async ({ url }: { url: string }): Promise<VacancyIngestResult> => {
-      const normalizedUrl = requireUrl(url)
-      const source = resolveSubmittedUrlSource(normalizedUrl)
-      const shouldCapturePage = createVacancyPageMatcher(normalizedUrl)
+      const normalizedUrl = requireUrl(url);
+      const source = resolveSubmittedUrlSource(normalizedUrl);
+      const shouldCapturePage = createVacancyPageMatcher(normalizedUrl);
 
       await persistVacancyWorkspaceDraft({
         localAppData,
         url: normalizedUrl,
-      })
+      });
       await persistJobsWorkspaceSelection({
         jobs: {
           kind: 'draft',
         },
         workspaceSelectionStore,
-      })
+      });
 
       const capturedBrowserSnapshot = await captureVacancyBrowserSessionPage({
         shouldCapturePage,
         url: normalizedUrl,
-      })
+      });
 
       const usableBrowserSnapshot = await resolveUsableBrowserSnapshot({
         capturedBrowserSnapshot,
@@ -293,7 +293,7 @@ export function createVacancyService({
         normalizedUrl,
         openVacancyBrowserSession,
         shouldCapturePage,
-      })
+      });
 
       if (usableBrowserSnapshot === null) {
         return await createInteractiveBrowserFallbackResult({
@@ -301,7 +301,7 @@ export function createVacancyService({
           localAppData,
           originalUrl: normalizedUrl,
           source,
-        })
+        });
       }
 
       const result = await persistFetchedVacancyPageWithAiReadingRetry({
@@ -315,7 +315,7 @@ export function createVacancyService({
         shouldCapturePage,
         source,
         workspaceSelectionStore,
-      })
+      });
 
       if (result === null) {
         return await createInteractiveBrowserFallbackResult({
@@ -323,30 +323,30 @@ export function createVacancyService({
           localAppData,
           originalUrl: normalizedUrl,
           source,
-        })
+        });
       }
 
-      return result
+      return result;
     },
     openBrowserSession: async ({ url }: { url: string }): Promise<VacancyIngestResult> => {
-      const normalizedUrl = requireUrl(url)
-      const source = resolveSubmittedUrlSource(normalizedUrl)
-      const shouldCapturePage = createVacancyPageMatcher(normalizedUrl)
+      const normalizedUrl = requireUrl(url);
+      const source = resolveSubmittedUrlSource(normalizedUrl);
+      const shouldCapturePage = createVacancyPageMatcher(normalizedUrl);
 
       await persistVacancyWorkspaceDraft({
         localAppData,
         url: normalizedUrl,
-      })
+      });
 
       await openVacancyBrowserSession({
         shouldCapturePage,
         url: normalizedUrl,
-      })
+      });
 
       const browserSnapshot = await captureVacancyBrowserSessionPage({
         shouldCapturePage,
         url: normalizedUrl,
-      })
+      });
 
       if (browserSnapshot === null || !shouldCapturePage(browserSnapshot)) {
         const incompleteVacancy = createBlockedVacancySummary({
@@ -355,20 +355,20 @@ export function createVacancyService({
           inputType: 'url',
           originalUrl: normalizedUrl,
           source,
-        })
+        });
 
         await persistJobsWorkspaceSelection({
           jobs: {
             kind: 'draft',
           },
           workspaceSelectionStore,
-        })
+        });
 
         return {
           kind: 'incomplete',
           vacancy: incompleteVacancy,
           workspaceState: await thisGetWorkspaceState(localAppData),
-        }
+        };
       }
 
       const result = await persistFetchedVacancyPageWithAiReadingRetry({
@@ -382,10 +382,10 @@ export function createVacancyService({
         shouldCapturePage,
         source,
         workspaceSelectionStore,
-      })
+      });
 
       if (result !== null) {
-        return result
+        return result;
       }
 
       const incompleteVacancy = createBlockedVacancySummary({
@@ -394,26 +394,26 @@ export function createVacancyService({
         inputType: 'url',
         originalUrl: normalizedUrl,
         source,
-      })
+      });
 
       await persistVacancyWorkspaceDraft({
         localAppData,
         url: normalizedUrl,
-      })
+      });
       await persistJobsWorkspaceSelection({
         jobs: {
           kind: 'draft',
         },
         workspaceSelectionStore,
-      })
+      });
 
       return {
         kind: 'incomplete',
         vacancy: incompleteVacancy,
         workspaceState: await thisGetWorkspaceState(localAppData),
-      }
+      };
     },
-  }
+  };
 }
 
 async function createPastedNoJobContentResult({
@@ -425,13 +425,13 @@ async function createPastedNoJobContentResult({
   vacancyId,
   workspaceSelectionStore,
 }: {
-  fetchedAt: string
-  localAppData: Pick<LocalAppDataStore, 'metadata'>
-  normalizedUrl: string | null
-  source: VacancySource
-  text: string
-  vacancyId: string
-  workspaceSelectionStore?: Pick<WorkspaceSelectionStore, 'getSelection' | 'setSelection'>
+  fetchedAt: string;
+  localAppData: Pick<LocalAppDataStore, 'metadata'>;
+  normalizedUrl: string | null;
+  source: VacancySource;
+  text: string;
+  vacancyId: string;
+  workspaceSelectionStore?: Pick<WorkspaceSelectionStore, 'getSelection' | 'setSelection'>;
 }): Promise<VacancyIngestResult> {
   const vacancy: VacancySummary = {
     blockingReason: INCOMPLETE_VACANCY_BLOCKING_REASON,
@@ -449,7 +449,7 @@ async function createPastedNoJobContentResult({
     status: 'incomplete',
     textPreview: '',
     title: null,
-  }
+  };
 
   await localAppData.metadata.put({
     id: VACANCY_WORKSPACE_RECORD_ID,
@@ -460,19 +460,19 @@ async function createPastedNoJobContentResult({
       url: normalizedUrl ?? '',
       vacancyId: null,
     } satisfies VacancyDraftMetadataValue,
-  })
+  });
   await persistJobsWorkspaceSelection({
     jobs: {
       kind: 'draft',
     },
     workspaceSelectionStore,
-  })
+  });
 
   return {
     kind: 'incomplete',
     vacancy,
     workspaceState: await thisGetWorkspaceState(localAppData),
-  }
+  };
 }
 
 async function createInteractiveBrowserFallbackResult({
@@ -481,10 +481,10 @@ async function createInteractiveBrowserFallbackResult({
   originalUrl,
   source,
 }: {
-  getCurrentTimestamp: () => string
-  localAppData: Pick<LocalAppDataStore, 'artifacts' | 'metadata'>
-  originalUrl: string
-  source: VacancySource
+  getCurrentTimestamp: () => string;
+  localAppData: Pick<LocalAppDataStore, 'artifacts' | 'metadata'>;
+  originalUrl: string;
+  source: VacancySource;
 }): Promise<VacancyIngestResult> {
   const incompleteVacancy = createBlockedVacancySummary({
     blockingReason: OPEN_JOB_PAGE_BLOCKING_REASON,
@@ -492,13 +492,13 @@ async function createInteractiveBrowserFallbackResult({
     inputType: 'url',
     originalUrl,
     source,
-  })
+  });
 
   return {
     kind: 'incomplete',
     vacancy: incompleteVacancy,
     workspaceState: await thisGetWorkspaceState(localAppData),
-  }
+  };
 }
 
 async function resolveUsableBrowserSnapshot({
@@ -508,37 +508,37 @@ async function resolveUsableBrowserSnapshot({
   openVacancyBrowserSession,
   shouldCapturePage,
 }: {
-  capturedBrowserSnapshot: VacancyBrowserPageSnapshot | null
+  capturedBrowserSnapshot: VacancyBrowserPageSnapshot | null;
   captureVacancyBrowserSessionPage: (input: {
-    readingActions?: VacancyBrowserReadingActionRequest[]
-    shouldCapturePage: (snapshot: VacancyBrowserPageSnapshot) => boolean
-    url: string
-  }) => Promise<VacancyBrowserPageSnapshot | null>
-  normalizedUrl: string
+    readingActions?: VacancyBrowserReadingActionRequest[];
+    shouldCapturePage: (snapshot: VacancyBrowserPageSnapshot) => boolean;
+    url: string;
+  }) => Promise<VacancyBrowserPageSnapshot | null>;
+  normalizedUrl: string;
   openVacancyBrowserSession: (input: {
-    readingActions?: VacancyBrowserReadingActionRequest[]
-    shouldCapturePage: (snapshot: VacancyBrowserPageSnapshot) => boolean
-    url: string
-  }) => Promise<VacancyBrowserPageSnapshot | null>
-  shouldCapturePage: (snapshot: VacancyBrowserPageSnapshot) => boolean
+    readingActions?: VacancyBrowserReadingActionRequest[];
+    shouldCapturePage: (snapshot: VacancyBrowserPageSnapshot) => boolean;
+    url: string;
+  }) => Promise<VacancyBrowserPageSnapshot | null>;
+  shouldCapturePage: (snapshot: VacancyBrowserPageSnapshot) => boolean;
 }): Promise<VacancyBrowserPageSnapshot | null> {
   if (capturedBrowserSnapshot !== null && shouldCapturePage(capturedBrowserSnapshot)) {
-    return capturedBrowserSnapshot
+    return capturedBrowserSnapshot;
   }
 
   await openVacancyBrowserSession({
     shouldCapturePage,
     url: normalizedUrl,
-  })
+  });
 
   const retriedBrowserSnapshot = await captureVacancyBrowserSessionPage({
     shouldCapturePage,
     url: normalizedUrl,
-  })
+  });
 
   return retriedBrowserSnapshot !== null && shouldCapturePage(retriedBrowserSnapshot)
     ? retriedBrowserSnapshot
-    : null
+    : null;
 }
 
 async function persistFetchedVacancyPageWithAiReadingRetry({
@@ -554,19 +554,19 @@ async function persistFetchedVacancyPageWithAiReadingRetry({
   workspaceSelectionStore,
 }: {
   captureVacancyBrowserSessionPage: (input: {
-    readingActions?: VacancyBrowserReadingActionRequest[]
-    shouldCapturePage: (snapshot: VacancyBrowserPageSnapshot) => boolean
-    url: string
-  }) => Promise<VacancyBrowserPageSnapshot | null>
-  fetchedPage: VacancyBrowserPageSnapshot
-  generateId: () => string
-  getCurrentTimestamp: () => string
-  localAppData: Pick<LocalAppDataStore, 'artifacts' | 'metadata'>
-  normalizationService: VacancyNormalizationService
-  originalUrl: string
-  shouldCapturePage: (snapshot: VacancyBrowserPageSnapshot) => boolean
-  source: VacancySource
-  workspaceSelectionStore?: Pick<WorkspaceSelectionStore, 'getSelection' | 'setSelection'>
+    readingActions?: VacancyBrowserReadingActionRequest[];
+    shouldCapturePage: (snapshot: VacancyBrowserPageSnapshot) => boolean;
+    url: string;
+  }) => Promise<VacancyBrowserPageSnapshot | null>;
+  fetchedPage: VacancyBrowserPageSnapshot;
+  generateId: () => string;
+  getCurrentTimestamp: () => string;
+  localAppData: Pick<LocalAppDataStore, 'artifacts' | 'metadata'>;
+  normalizationService: VacancyNormalizationService;
+  originalUrl: string;
+  shouldCapturePage: (snapshot: VacancyBrowserPageSnapshot) => boolean;
+  source: VacancySource;
+  workspaceSelectionStore?: Pick<WorkspaceSelectionStore, 'getSelection' | 'setSelection'>;
 }): Promise<VacancyIngestResult | null> {
   try {
     return await persistFetchedVacancyPage({
@@ -578,24 +578,24 @@ async function persistFetchedVacancyPageWithAiReadingRetry({
       originalUrl,
       source,
       workspaceSelectionStore,
-    })
+    });
   } catch (error) {
     if (isNoJobContentNormalizationError(error)) {
-      return null
+      return null;
     }
 
     if (!isPageInteractionRequestedError(error)) {
-      throw error
+      throw error;
     }
 
     const recapturedPage = await captureVacancyBrowserSessionPage({
       readingActions: error.readingActions,
       shouldCapturePage,
       url: originalUrl,
-    })
+    });
 
     if (recapturedPage === null || !shouldCapturePage(recapturedPage)) {
-      return null
+      return null;
     }
 
     try {
@@ -608,16 +608,16 @@ async function persistFetchedVacancyPageWithAiReadingRetry({
         originalUrl,
         source,
         workspaceSelectionStore,
-      })
+      });
     } catch (recaptureError) {
       if (
         isNoJobContentNormalizationError(recaptureError) ||
         isPageInteractionRequestedError(recaptureError)
       ) {
-        return null
+        return null;
       }
 
-      throw recaptureError
+      throw recaptureError;
     }
   }
 }
@@ -633,17 +633,17 @@ async function persistFetchedVacancyPage({
   workspaceSelectionStore,
 }: {
   fetchedPage: {
-    html: string
-    pageTitle: string | null
-    resolvedUrl: string
-  }
-  generateId: () => string
-  getCurrentTimestamp: () => string
-  localAppData: Pick<LocalAppDataStore, 'artifacts' | 'metadata'>
-  normalizationService: VacancyNormalizationService
-  originalUrl: string
-  source: VacancySource
-  workspaceSelectionStore?: Pick<WorkspaceSelectionStore, 'getSelection' | 'setSelection'>
+    html: string;
+    pageTitle: string | null;
+    resolvedUrl: string;
+  };
+  generateId: () => string;
+  getCurrentTimestamp: () => string;
+  localAppData: Pick<LocalAppDataStore, 'artifacts' | 'metadata'>;
+  normalizationService: VacancyNormalizationService;
+  originalUrl: string;
+  source: VacancySource;
+  workspaceSelectionStore?: Pick<WorkspaceSelectionStore, 'getSelection' | 'setSelection'>;
 }): Promise<VacancyIngestResult> {
   const normalizedVacancy = await normalizationService.normalizeVacancy({
     html: fetchedPage.html,
@@ -652,18 +652,18 @@ async function persistFetchedVacancyPage({
     pageTitle: fetchedPage.pageTitle,
     resolvedUrl: fetchedPage.resolvedUrl,
     source,
-  })
-  const vacancyId = generateId()
-  const fetchedAt = getCurrentTimestamp()
-  const extractedText = normalizedVacancy.bodyText.trim()
-  const isLanguageBlocked = assessEnglishLanguageSupport(extractedText).status === 'blocked'
-  const canGenerate = !isLanguageBlocked && isVacancyReady(normalizedVacancy)
-  let blockingReason: string | null = null
+  });
+  const vacancyId = generateId();
+  const fetchedAt = getCurrentTimestamp();
+  const extractedText = normalizedVacancy.bodyText.trim();
+  const isLanguageBlocked = assessEnglishLanguageSupport(extractedText).status === 'blocked';
+  const canGenerate = !isLanguageBlocked && isVacancyReady(normalizedVacancy);
+  let blockingReason: string | null = null;
 
   if (isLanguageBlocked) {
-    blockingReason = VACANCY_LANGUAGE_BLOCK_MESSAGE
+    blockingReason = VACANCY_LANGUAGE_BLOCK_MESSAGE;
   } else if (!canGenerate) {
-    blockingReason = INCOMPLETE_VACANCY_BLOCKING_REASON
+    blockingReason = INCOMPLETE_VACANCY_BLOCKING_REASON;
   }
 
   const vacancy = toVacancySummary({
@@ -684,31 +684,31 @@ async function persistFetchedVacancyPage({
       textPreview: normalizedVacancy.bodyText.slice(0, 280),
       title: normalizedVacancy.title,
     },
-  })
+  });
 
   await localAppData.metadata.put({
     id: vacancyId,
     scope: VACANCY_SCOPE,
     value: toVacancyMetadataValue(vacancy),
-  })
+  });
   await localAppData.artifacts.write({
     content: Buffer.from(sanitizeSnapshotHtml(fetchedPage.html), 'utf8'),
     id: vacancyId,
     name: 'snapshot.html',
     scope: VACANCY_SCOPE,
-  })
+  });
   await localAppData.artifacts.write({
     content: Buffer.from(extractedText, 'utf8'),
     id: vacancyId,
     name: 'extracted.txt',
     scope: VACANCY_SCOPE,
-  })
+  });
   await localAppData.artifacts.write({
     content: Buffer.from(JSON.stringify(normalizedVacancy), 'utf8'),
     id: vacancyId,
     name: 'normalized.json',
     scope: VACANCY_SCOPE,
-  })
+  });
   await localAppData.metadata.put({
     id: VACANCY_WORKSPACE_RECORD_ID,
     scope: VACANCY_DRAFT_SCOPE,
@@ -718,40 +718,40 @@ async function persistFetchedVacancyPage({
       url: originalUrl,
       vacancyId,
     } satisfies VacancyDraftMetadataValue,
-  })
+  });
   await persistJobsWorkspaceSelection({
     jobs: {
       kind: 'draft',
     },
     workspaceSelectionStore,
-  })
+  });
 
   return {
     kind: canGenerate ? 'ingested' : 'incomplete',
     vacancy,
     workspaceState: await thisGetWorkspaceState(localAppData),
-  }
+  };
 }
 
 async function persistJobsWorkspaceSelection({
   jobs,
   workspaceSelectionStore,
 }: {
-  jobs: JobsWorkspaceSelection
-  workspaceSelectionStore?: Pick<WorkspaceSelectionStore, 'getSelection' | 'setSelection'>
+  jobs: JobsWorkspaceSelection;
+  workspaceSelectionStore?: Pick<WorkspaceSelectionStore, 'getSelection' | 'setSelection'>;
 }): Promise<void> {
   if (workspaceSelectionStore === undefined) {
-    return
+    return;
   }
 
   const currentSelection =
-    (await workspaceSelectionStore.getSelection()) ?? createDefaultWorkspaceSelection()
+    (await workspaceSelectionStore.getSelection()) ?? createDefaultWorkspaceSelection();
 
   await workspaceSelectionStore.setSelection({
     ...currentSelection,
     jobs,
     topLevelSection: 'job_vacancies',
-  })
+  });
 }
 
 function createBlockedVacancySummary({
@@ -761,11 +761,11 @@ function createBlockedVacancySummary({
   originalUrl,
   source,
 }: {
-  blockingReason: string
-  fetchedAt: string
-  inputType: VacancyInputType
-  originalUrl: string
-  source: VacancySource
+  blockingReason: string;
+  fetchedAt: string;
+  inputType: VacancyInputType;
+  originalUrl: string;
+  source: VacancySource;
 }): VacancySummary {
   return {
     blockingReason,
@@ -783,7 +783,7 @@ function createBlockedVacancySummary({
     status: 'incomplete',
     textPreview: '',
     title: null,
-  }
+  };
 }
 
 async function thisGetWorkspaceState(
@@ -792,7 +792,7 @@ async function thisGetWorkspaceState(
   const draftRecord = await localAppData.metadata.get<VacancyDraftMetadataValue>({
     id: VACANCY_WORKSPACE_RECORD_ID,
     scope: VACANCY_DRAFT_SCOPE,
-  })
+  });
 
   if (draftRecord?.vacancyId === null || draftRecord?.vacancyId === undefined) {
     return {
@@ -802,21 +802,21 @@ async function thisGetWorkspaceState(
       },
       reviewState: 'editable',
       vacancy: null,
-    }
+    };
   }
 
   return await buildVacancyWorkspaceState({
     draftRecord,
     localAppData,
-  })
+  });
 }
 
 async function persistVacancyWorkspaceDraft({
   localAppData,
   url,
 }: {
-  localAppData: Pick<LocalAppDataStore, 'metadata'>
-  url: string
+  localAppData: Pick<LocalAppDataStore, 'metadata'>;
+  url: string;
 }): Promise<void> {
   await localAppData.metadata.put({
     id: VACANCY_WORKSPACE_RECORD_ID,
@@ -827,15 +827,15 @@ async function persistVacancyWorkspaceDraft({
       url,
       vacancyId: null,
     } satisfies VacancyDraftMetadataValue,
-  })
+  });
 }
 
 async function buildVacancyWorkspaceState({
   draftRecord,
   localAppData,
 }: {
-  draftRecord: VacancyDraftMetadataValue
-  localAppData: Pick<LocalAppDataStore, 'metadata'>
+  draftRecord: VacancyDraftMetadataValue;
+  localAppData: Pick<LocalAppDataStore, 'metadata'>;
 }): Promise<VacancyWorkspaceState> {
   if (draftRecord.vacancyId === null) {
     return {
@@ -845,20 +845,20 @@ async function buildVacancyWorkspaceState({
       },
       reviewState: 'editable',
       vacancy: null,
-    }
+    };
   }
 
   const vacancyRecord = await localAppData.metadata.get<VacancyMetadataValue>({
     id: draftRecord.vacancyId,
     scope: VACANCY_SCOPE,
-  })
+  });
   const vacancy =
     vacancyRecord === null
       ? null
       : toVacancySummary({
           id: draftRecord.vacancyId,
           metadata: vacancyRecord,
-        })
+        });
 
   return {
     draft: {
@@ -870,33 +870,33 @@ async function buildVacancyWorkspaceState({
       vacancyRecord,
     }),
     vacancy,
-  }
+  };
 }
 
 function resolveVacancyReviewState({
   draftRecord,
   vacancyRecord,
 }: {
-  draftRecord: VacancyDraftMetadataValue
-  vacancyRecord: VacancyMetadataValue | null
+  draftRecord: VacancyDraftMetadataValue;
+  vacancyRecord: VacancyMetadataValue | null;
 }): VacancyReviewState {
   if (vacancyRecord === null) {
-    return 'editable'
+    return 'editable';
   }
 
   if (draftRecord.reviewState === 'reviewed') {
-    return 'reviewed'
+    return 'reviewed';
   }
 
   if (draftRecord.reviewState === 'editable') {
-    return 'editable'
+    return 'editable';
   }
 
   if (vacancyRecord.canGenerate && vacancyRecord.status === 'ready') {
-    return 'reviewed'
+    return 'reviewed';
   }
 
-  return 'editable'
+  return 'editable';
 }
 
 function toVacancyMetadataValue(vacancy: VacancySummary): VacancyMetadataValue {
@@ -915,15 +915,15 @@ function toVacancyMetadataValue(vacancy: VacancySummary): VacancyMetadataValue {
     status: vacancy.status,
     textPreview: vacancy.textPreview,
     title: vacancy.title,
-  }
+  };
 }
 
 function toVacancySummary({
   id,
   metadata,
 }: {
-  id: string
-  metadata: VacancyMetadataValue
+  id: string;
+  metadata: VacancyMetadataValue;
 }): VacancySummary {
   return {
     blockingReason: metadata.blockingReason,
@@ -941,7 +941,7 @@ function toVacancySummary({
     status: metadata.status,
     textPreview: metadata.textPreview,
     title: metadata.title,
-  }
+  };
 }
 
 function createVacancyPageMatcher(
@@ -953,8 +953,8 @@ function createVacancyPageMatcher(
       originalUrl,
       pageTitle: snapshot.pageTitle,
       resolvedUrl: snapshot.resolvedUrl,
-    })
-  }
+    });
+  };
 }
 
 function isExpectedBrowserSessionVacancyPage({
@@ -963,20 +963,20 @@ function isExpectedBrowserSessionVacancyPage({
   pageTitle,
   resolvedUrl,
 }: {
-  html: string
-  originalUrl: string
-  pageTitle: string | null
-  resolvedUrl: string
+  html: string;
+  originalUrl: string;
+  pageTitle: string | null;
+  resolvedUrl: string;
 }): boolean {
   try {
-    const requestedUrl = new URL(originalUrl)
-    const currentUrl = new URL(resolvedUrl)
+    const requestedUrl = new URL(originalUrl);
+    const currentUrl = new URL(resolvedUrl);
     const isResolvedUrlMatch =
       normalizeComparableHostname(currentUrl.hostname) ===
         normalizeComparableHostname(requestedUrl.hostname) &&
       normalizeComparablePathname(currentUrl.pathname) ===
         normalizeComparablePathname(requestedUrl.pathname) &&
-      currentUrl.search === requestedUrl.search
+      currentUrl.search === requestedUrl.search;
 
     return (
       isResolvedUrlMatch &&
@@ -984,9 +984,9 @@ function isExpectedBrowserSessionVacancyPage({
         html,
         pageTitle,
       })
-    )
+    );
   } catch {
-    return false
+    return false;
   }
 }
 
@@ -994,110 +994,110 @@ function hasRenderedPageEvidence({
   html,
   pageTitle,
 }: {
-  html: string
-  pageTitle: string | null
+  html: string;
+  pageTitle: string | null;
 }): boolean {
-  const extractedText = extractTextFromHtml(sanitizeSnapshotHtml(html))
+  const extractedText = extractTextFromHtml(sanitizeSnapshotHtml(html));
 
   if (extractedText === '') {
-    return false
+    return false;
   }
 
   if (TERMINAL_RENDERED_PAGE_PATTERNS.some((pattern) => pattern.test(extractedText))) {
-    return true
+    return true;
   }
 
   if (
     TRANSIENT_RENDERED_PAGE_PATTERNS.some((pattern) => {
-      return pattern.test(extractedText) || (pageTitle !== null && pattern.test(pageTitle))
+      return pattern.test(extractedText) || (pageTitle !== null && pattern.test(pageTitle));
     })
   ) {
-    return false
+    return false;
   }
 
   if (
     looksLikeGenericCareersShell(extractedText) &&
     !hasVacancyRenderedPageEvidence(extractedText)
   ) {
-    return false
+    return false;
   }
 
-  return extractedText.length >= MIN_RENDERED_PAGE_TEXT_LENGTH
+  return extractedText.length >= MIN_RENDERED_PAGE_TEXT_LENGTH;
 }
 
 function hasVacancyRenderedPageEvidence(extractedText: string): boolean {
   return VACANCY_RENDERED_PAGE_EVIDENCE_PATTERNS.some((pattern) => {
-    return pattern.test(extractedText)
-  })
+    return pattern.test(extractedText);
+  });
 }
 
 function looksLikeGenericCareersShell(extractedText: string): boolean {
   const shellSignalsCount = GENERIC_CAREERS_SHELL_PATTERNS.filter((pattern) => {
-    return pattern.test(extractedText)
-  }).length
+    return pattern.test(extractedText);
+  }).length;
 
-  return shellSignalsCount >= 2
+  return shellSignalsCount >= 2;
 }
 
 function normalizeComparableHostname(hostname: string): string {
-  return hostname.toLowerCase().replace(/^www\./u, '')
+  return hostname.toLowerCase().replace(/^www\./u, '');
 }
 
 function normalizeComparablePathname(pathname: string): string {
-  const normalizedPathname = pathname.replace(/\/+$/u, '')
+  const normalizedPathname = pathname.replace(/\/+$/u, '');
 
-  return normalizedPathname === '' ? '/' : normalizedPathname
+  return normalizedPathname === '' ? '/' : normalizedPathname;
 }
 
 function resolveSubmittedUrlSource(url: string): VacancySource {
-  return new URL(url).hostname.toLowerCase().replace(/^www\./u, '')
+  return new URL(url).hostname.toLowerCase().replace(/^www\./u, '');
 }
 
 function normalizeUrl(url: string | undefined): string | null {
   if (url === undefined || url.trim() === '') {
-    return null
+    return null;
   }
 
   try {
-    const parsedUrl = new URL(url)
+    const parsedUrl = new URL(url);
 
     if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') {
-      return null
+      return null;
     }
 
-    return parsedUrl.toString()
+    return parsedUrl.toString();
   } catch {
-    return null
+    return null;
   }
 }
 
 function isNoJobContentNormalizationError(error: unknown): boolean {
-  return error instanceof VacancyNormalizationError && error.code === 'no_job_content'
+  return error instanceof VacancyNormalizationError && error.code === 'no_job_content';
 }
 
 function isPageInteractionRequestedError(error: unknown): error is VacancyNormalizationError & {
-  readingActions: VacancyBrowserReadingActionRequest[]
+  readingActions: VacancyBrowserReadingActionRequest[];
 } {
   return (
     error instanceof VacancyNormalizationError &&
     error.code === 'page_interaction_requested' &&
     Array.isArray(error.readingActions) &&
     error.readingActions.length > 0
-  )
+  );
 }
 
 function requireUrl(url: string): string {
-  const normalizedUrl = normalizeUrl(url)
+  const normalizedUrl = normalizeUrl(url);
 
   if (normalizedUrl === null) {
-    throw new TypeError('A vacancy URL is required.')
+    throw new TypeError('A vacancy URL is required.');
   }
 
-  return normalizedUrl
+  return normalizedUrl;
 }
 
 function createPastedVacancyHtml(text: string): string {
-  return `<main><pre>${escapeHtml(text)}</pre></main>`
+  return `<main><pre>${escapeHtml(text)}</pre></main>`;
 }
 
 function escapeHtml(value: string): string {
@@ -1106,15 +1106,15 @@ function escapeHtml(value: string): string {
     .replaceAll('<', '&lt;')
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#39;')
+    .replaceAll("'", '&#39;');
 }
 
 function isVacancyReady(vacancy: NormalizedVacancy): boolean {
-  const substantiveSectionsCount = vacancy.requirements.length + vacancy.responsibilities.length
+  const substantiveSectionsCount = vacancy.requirements.length + vacancy.responsibilities.length;
 
   if (substantiveSectionsCount >= 2 && vacancy.bodyText.length >= 80) {
-    return true
+    return true;
   }
 
-  return vacancy.bodyText.length >= 180
+  return vacancy.bodyText.length >= 180;
 }

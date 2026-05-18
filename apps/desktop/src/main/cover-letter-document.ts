@@ -1,35 +1,35 @@
-import type { CoverLetterModel } from '../shared/tailored-application.js'
+import type { CoverLetterModel } from '../shared/tailored-application.js';
 
-export { resolveUniqueExportFilePath } from './adapted-cv-document.js'
+export { resolveUniqueExportFilePath } from './adapted-cv-document.js';
 
-const PAGE_WARNING_THRESHOLD = 1
-const SAFE_FILENAME_CHARACTER = /[^a-z0-9]+/giu
+const PAGE_WARNING_THRESHOLD = 1;
+const SAFE_FILENAME_CHARACTER = /[^a-z0-9]+/giu;
 
 interface CoverLetterDocumentInput {
-  coverLetter: CoverLetterModel
-  employer: string | null
-  vacancyTitle: string | null
+  coverLetter: CoverLetterModel;
+  employer: string | null;
+  vacancyTitle: string | null;
 }
 
 type CoverLetterBlock =
   | {
-      kind: 'body' | 'closing' | 'opening'
-      text: string
+      kind: 'body' | 'closing' | 'opening';
+      text: string;
     }
   | {
-      kind: 'date' | 'greeting' | 'signature'
-      text: string
-    }
+      kind: 'date' | 'greeting' | 'signature';
+      text: string;
+    };
 
 export interface CoverLetterDocument {
-  html: string
+  html: string;
 }
 
 export function createCoverLetterDocument(input: CoverLetterDocumentInput): CoverLetterDocument {
   const documentTitle = buildDocumentTitle({
     employer: input.employer,
     vacancyTitle: input.vacancyTitle,
-  })
+  });
 
   return {
     html: buildDocumentHtml({
@@ -37,28 +37,28 @@ export function createCoverLetterDocument(input: CoverLetterDocumentInput): Cove
       documentTitle,
       title: input.coverLetter.signature,
     }),
-  }
+  };
 }
 
 export function buildCoverLetterPageWarning(pageCount: number): string | null {
   if (pageCount > PAGE_WARNING_THRESHOLD) {
-    return `This cover letter runs to ${String(pageCount)} pages. Export and copy remain available.`
+    return `This cover letter runs to ${String(pageCount)} pages. Export and copy remain available.`;
   }
 
-  return null
+  return null;
 }
 
 export function buildCoverLetterExportFilename({
   candidateName,
   vacancyTitle,
 }: {
-  candidateName: string
-  vacancyTitle: string | null
+  candidateName: string;
+  vacancyTitle: string | null;
 }): string {
-  const safeCandidateName = sanitizeFilenamePart(candidateName)
-  const safeVacancyTitle = sanitizeFilenamePart(vacancyTitle ?? 'cover letter')
+  const safeCandidateName = sanitizeFilenamePart(candidateName);
+  const safeVacancyTitle = sanitizeFilenamePart(vacancyTitle ?? 'cover letter');
 
-  return `${safeCandidateName} - ${safeVacancyTitle} - cover-letter.pdf`
+  return `${safeCandidateName} - ${safeVacancyTitle} - cover-letter.pdf`;
 }
 
 function buildBlocks(coverLetter: CoverLetterModel): CoverLetterBlock[] {
@@ -79,7 +79,7 @@ function buildBlocks(coverLetter: CoverLetterModel): CoverLetterBlock[] {
       return {
         kind: 'body' as const,
         text: paragraph.text,
-      }
+      };
     }),
     {
       kind: 'closing',
@@ -89,25 +89,25 @@ function buildBlocks(coverLetter: CoverLetterModel): CoverLetterBlock[] {
       kind: 'signature',
       text: coverLetter.signature,
     },
-  ]
+  ];
 }
 
 function buildDocumentTitle({
   employer,
   vacancyTitle,
 }: {
-  employer: string | null
-  vacancyTitle: string | null
+  employer: string | null;
+  vacancyTitle: string | null;
 }): string | null {
   if (vacancyTitle !== null && vacancyTitle.trim() !== '') {
-    return vacancyTitle
+    return vacancyTitle;
   }
 
   if (employer !== null && employer.trim() !== '') {
-    return employer
+    return employer;
   }
 
-  return null
+  return null;
 }
 
 function buildDocumentHtml({
@@ -115,9 +115,9 @@ function buildDocumentHtml({
   documentTitle,
   title,
 }: {
-  blocks: CoverLetterBlock[]
-  documentTitle: string | null
-  title: string
+  blocks: CoverLetterBlock[];
+  documentTitle: string | null;
+  title: string;
 }): string {
   return [
     '<!doctype html>',
@@ -147,35 +147,35 @@ function buildDocumentHtml({
     '</main>',
     '</body>',
     '</html>',
-  ].join('')
+  ].join('');
 }
 
 function buildBlocksMarkup(blocks: CoverLetterBlock[]): string {
   return blocks
     .map((block) => {
-      let className = 'letter-paragraph'
+      let className = 'letter-paragraph';
 
       switch (block.kind) {
         case 'date': {
-          className = 'letter-date'
-          break
+          className = 'letter-date';
+          break;
         }
         case 'greeting': {
-          className = 'letter-greeting'
-          break
+          className = 'letter-greeting';
+          break;
         }
         case 'signature': {
-          className = 'letter-signature'
-          break
+          className = 'letter-signature';
+          break;
         }
         default: {
-          break
+          break;
         }
       }
 
-      return `<p class="${className}">${escapeHtml(block.text)}</p>`
+      return `<p class="${className}">${escapeHtml(block.text)}</p>`;
     })
-    .join('')
+    .join('');
 }
 
 function sanitizeFilenamePart(value: string): string {
@@ -184,9 +184,9 @@ function sanitizeFilenamePart(value: string): string {
     .replaceAll(/\p{Diacritic}/gu, '')
     .replaceAll(SAFE_FILENAME_CHARACTER, ' ')
     .trim()
-    .replaceAll(/\s+/gu, ' ')
+    .replaceAll(/\s+/gu, ' ');
 
-  return collapsedWhitespace === '' ? 'cover-letter' : collapsedWhitespace
+  return collapsedWhitespace === '' ? 'cover-letter' : collapsedWhitespace;
 }
 
 function escapeHtml(value: string): string {
@@ -195,7 +195,7 @@ function escapeHtml(value: string): string {
     .replaceAll('<', '&lt;')
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#39;')
+    .replaceAll("'", '&#39;');
 }
 
 function buildDocumentStyles(): string {
@@ -313,5 +313,5 @@ function buildDocumentStyles(): string {
     .letter-signature {
       padding-top: 6px;
     }
-  `
+  `;
 }

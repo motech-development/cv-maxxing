@@ -18,6 +18,7 @@ These rules always apply. Follow project-local rules first when they are more sp
 - Match existing project patterns, architecture, naming, and style.
 - Respect `.editorconfig`, repository tooling, and established conventions.
 - Use ES Modules only (`import` / `export`), not CommonJS.
+- Keep `.js` extensions on relative TypeScript imports that compile to Node ESM, including Electron main, preload, shared, and tests compiled with `moduleResolution: NodeNext`.
 - Do not create unsolicited notes or analysis files. Keep transient reasoning in chat.
 - Do not let internal implementation discussion details, exploratory references, or temporary planning context leak into durable outputs such as code, tests, docs, prompts, PRDs, issues, pull request text, or user-facing summaries. Durable outputs should describe the final project-relevant decision or behavior.
 - When new project-specific conventions are discovered, record them in `AGENTS.md`.
@@ -33,6 +34,8 @@ These rules always apply. Follow project-local rules first when they are more sp
 - Keep native install scripts on the `pnpm` allowlist narrowly scoped. The workspace currently permits `@journeyapps/sqlcipher` for the encrypted metadata layer and `electron` for required smoke, visual, and packaged desktop verification binaries.
 - Put package-specific build, dev, test, smoke, and type-check scripts in the owning workspace package. Keep root scripts limited to repo-wide tooling instead of delegating app-specific commands.
 - Use ESLint and Prettier as the repository linting and formatting baseline. Husky runs `lint-staged` on `pre-commit`.
+- Use semicolons; `prettier.config.mjs` enforces them for code and formatted code snippets.
+- Keep imports and exports sorted with `eslint-plugin-simple-import-sort`.
 - Use Vitest for unit tests. Keep tests colocated in `__tests__` folders next to the source they cover.
 - Use Conventional Commits for commit messages. Husky runs commitlint on `commit-msg` to enforce this.
 - Keep commit messages within the repository's commitlint line-length constraints. Wrap commit body lines conservatively and avoid overlong subjects; when using `git commit -m`, pass body text as separate short `-m` paragraphs so no body line exceeds 100 characters.
@@ -142,7 +145,7 @@ Before planning or editing anything, perform a read-only scan to build an eviden
 - Import React types explicitly, for example:
 
   ```ts
-  import type { ReactNode } from 'react'
+  import type { ReactNode } from 'react';
   ```
 
 - Avoid bare `return;`. Use explicit control flow.

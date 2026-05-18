@@ -1,226 +1,262 @@
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
-import path from 'node:path'
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 
-import { afterEach, expect, test, vi } from 'vitest'
+import { afterEach, expect, test, vi } from 'vitest';
 
 const { spawnMock } = vi.hoisted(() => {
   return {
     spawnMock: vi.fn(),
-  }
-})
+  };
+});
 
 vi.mock('node:child_process', () => {
   return {
     spawn: spawnMock,
-  }
-})
+  };
+});
 
-import { createTailoredApplicationGenerationWorker } from '../tailored-application-generation-worker.js'
+import { createTailoredApplicationGenerationWorker } from '../tailored-application-generation-worker.js';
 
-const temporaryDirectories: string[] = []
+const temporaryDirectories: string[] = [];
 
 class MockEventTarget extends EventTarget {
   on(eventName: string, listener: (detail: unknown) => void): this {
     this.addEventListener(eventName, (event) => {
-      listener((event as CustomEvent<unknown>).detail)
-    })
+      listener((event as CustomEvent<unknown>).detail);
+    });
 
-    return this
+    return this;
+  }
+
+  once(eventName: string, listener: (detail: unknown) => void): this {
+    this.addEventListener(
+      eventName,
+      (event) => {
+        listener((event as CustomEvent<unknown>).detail);
+      },
+      {
+        once: true,
+      },
+    );
+
+    return this;
+  }
+
+  removeListener(eventName: string, listener: (detail: unknown) => void): this {
+    void eventName;
+    void listener;
+
+    return this;
   }
 
   emit(eventName: string, detail?: unknown): void {
-    this.dispatchEvent(new CustomEvent(eventName, { detail }))
+    this.dispatchEvent(new CustomEvent(eventName, { detail }));
   }
 }
 
 type MockChildProcess = MockEventTarget & {
-  kill: ReturnType<typeof vi.fn>
-  stderr: MockEventTarget
+  kill: ReturnType<typeof vi.fn>;
+  stderr: MockEventTarget;
   stdin: {
-    end: ReturnType<typeof vi.fn>
-  }
-  stdout: MockEventTarget
-}
+    end: ReturnType<typeof vi.fn>;
+  };
+  stdout: MockEventTarget;
+};
 
 function createMockChildProcess(): MockChildProcess {
-  const child = new MockEventTarget() as MockChildProcess
+  const child = new MockEventTarget() as MockChildProcess;
 
-  child.kill = vi.fn()
-  child.stderr = new MockEventTarget()
+  child.kill = vi.fn();
+  child.stderr = new MockEventTarget();
   child.stdin = {
     end: vi.fn(),
-  }
-  child.stdout = new MockEventTarget()
+  };
+  child.stdout = new MockEventTarget();
 
-  return child
+  return child;
 }
 
 afterEach(async () => {
-  vi.useRealTimers()
-  spawnMock.mockReset()
+  vi.useRealTimers();
+  spawnMock.mockReset();
 
   await Promise.all(
     temporaryDirectories.splice(0).map(async (directoryPath) => {
       await rm(directoryPath, {
         force: true,
         recursive: true,
-      })
+      });
     }),
-  )
-})
+  );
+});
 
 test('reports invalid fixture JSON with clear context', async () => {
   const worker = createTailoredApplicationGenerationWorker({
     environment: {
       CV_MAXXING_AI_WORKER_GENERATION_OUTPUT: '{"invalid"',
     },
-  })
+  });
 
   await expect(
     worker.runGeneration({
       runDirectoryPath: '/tmp/unused',
       signal: new AbortController().signal,
     }),
-  ).rejects.toThrow(/CV_MAXXING_AI_WORKER_GENERATION_OUTPUT produced invalid JSON/u)
-})
+  ).rejects.toThrow(/CV_MAXXING_AI_WORKER_GENERATION_OUTPUT produced invalid JSON/u);
+});
+
+test('reports invalid fixture shape with clear context', async () => {
+  const worker = createTailoredApplicationGenerationWorker({
+    environment: {
+      CV_MAXXING_AI_WORKER_GENERATION_OUTPUT: '{}',
+    },
+  });
+
+  await expect(
+    worker.runGeneration({
+      runDirectoryPath: '/tmp/unused',
+      signal: new AbortController().signal,
+    }),
+  ).rejects.toThrow(/CV_MAXXING_AI_WORKER_GENERATION_OUTPUT produced invalid generation result/u);
+});
 
 test('times out a stalled Codex CLI generation and logs lifecycle milestones', async () => {
   const runDirectoryPath = await mkdtemp(
     path.join(tmpdir(), 'cv-maxxing-generation-worker-timeout-'),
-  )
+  );
 
-  temporaryDirectories.push(runDirectoryPath)
-  await createRunWorkspaceInput(runDirectoryPath)
+  temporaryDirectories.push(runDirectoryPath);
+  await createRunWorkspaceInput(runDirectoryPath);
 
   const consoleInfoSpy = vi.spyOn(console, 'info').mockImplementation((message: string) => {
-    void message
-  })
+    void message;
+  });
   const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation((message: string) => {
-    void message
-  })
+    void message;
+  });
 
-  let childProcess: MockChildProcess | undefined
+  let childProcess: MockChildProcess | undefined;
 
   spawnMock.mockImplementation(() => {
-    const child = createMockChildProcess()
+    const child = createMockChildProcess();
 
     child.kill = vi.fn(() => {
-      child.emit('close', null)
-    })
-    childProcess = child
+      child.emit('close', null);
+    });
+    childProcess = child;
 
-    return child
-  })
+    return child;
+  });
 
   const worker = createTailoredApplicationGenerationWorker({
     environment: {
       CV_MAXXING_AI_WORKER_CODEX_COMMAND: 'codex',
       CV_MAXXING_AI_WORKER_GENERATION_TIMEOUT_MS: '25',
     },
-  })
+  });
 
   const runPromise = worker.runGeneration({
     runDirectoryPath,
     signal: new AbortController().signal,
-  })
+  });
 
-  await expect(runPromise).rejects.toThrow('Tailored application generation timed out.')
-  expect(childProcess?.kill).toHaveBeenCalledWith('SIGTERM')
+  await expect(runPromise).rejects.toThrow('Tailored application generation timed out.');
+  expect(childProcess?.kill).toHaveBeenCalledWith('SIGTERM');
   expect(consoleInfoSpy).toHaveBeenCalledWith(
     `Starting tailored application generation via Codex CLI in ${runDirectoryPath}.`,
-  )
+  );
   expect(consoleErrorSpy).toHaveBeenCalledWith(
     'Tailored application generation timed out after 25 ms.',
-  )
-})
+  );
+});
 
 test('does not time out by default and logs completion duration', async () => {
   const runDirectoryPath = await mkdtemp(
     path.join(tmpdir(), 'cv-maxxing-generation-worker-no-timeout-'),
-  )
+  );
 
-  temporaryDirectories.push(runDirectoryPath)
-  await createRunWorkspaceInput(runDirectoryPath)
+  temporaryDirectories.push(runDirectoryPath);
+  await createRunWorkspaceInput(runDirectoryPath);
 
   const consoleInfoSpy = vi.spyOn(console, 'info').mockImplementation((message: string) => {
-    void message
-  })
-  const setTimeoutSpy = vi.spyOn(globalThis, 'setTimeout')
-  const dateNowSpy = vi.spyOn(Date, 'now')
+    void message;
+  });
+  const setTimeoutSpy = vi.spyOn(globalThis, 'setTimeout');
+  const dateNowSpy = vi.spyOn(Date, 'now');
 
-  const childProcess = createMockChildProcess()
+  const childProcess = createMockChildProcess();
 
-  dateNowSpy.mockReturnValueOnce(1000).mockReturnValueOnce(9000)
+  dateNowSpy.mockReturnValueOnce(1000).mockReturnValueOnce(9000);
 
   spawnMock.mockImplementation((_command: string, args: string[]) => {
-    const outputFilePath = args[args.indexOf('--output-last-message') + 1]
+    const outputFilePath = args[args.indexOf('--output-last-message') + 1];
 
     if (outputFilePath === undefined) {
-      throw new Error('Expected Codex CLI output file path argument.')
+      throw new Error('Expected Codex CLI output file path argument.');
     }
 
     queueMicrotask(() => {
       void writeFile(outputFilePath, JSON.stringify(createValidGenerationResult()), 'utf8').then(
         () => {
-          childProcess.emit('close', 0)
+          childProcess.emit('close', 0);
         },
         (error: unknown) => {
-          childProcess.emit('error', error)
+          childProcess.emit('error', error);
         },
-      )
-    })
+      );
+    });
 
-    return childProcess
-  })
+    return childProcess;
+  });
 
   const worker = createTailoredApplicationGenerationWorker({
     environment: {
       CV_MAXXING_AI_WORKER_CODEX_COMMAND: 'codex',
     },
-  })
+  });
 
   const runPromise = worker.runGeneration({
     runDirectoryPath,
     signal: new AbortController().signal,
-  })
+  });
 
-  await expect(runPromise).resolves.toEqual(createValidGenerationResult())
-  expect(setTimeoutSpy).not.toHaveBeenCalledWith(expect.any(Function), 300_000)
-  expect(childProcess.kill).not.toHaveBeenCalled()
+  await expect(runPromise).resolves.toEqual(createValidGenerationResult());
+  expect(setTimeoutSpy).not.toHaveBeenCalledWith(expect.any(Function), 300_000);
+  expect(childProcess.kill).not.toHaveBeenCalled();
   expect(consoleInfoSpy).toHaveBeenCalledWith(
     `Starting tailored application generation via Codex CLI in ${runDirectoryPath}.`,
-  )
+  );
   expect(consoleInfoSpy).toHaveBeenCalledWith(
     'Tailored application generation completed in 8000 ms.',
-  )
-})
+  );
+});
 
 test('writes a typed trace provider field in the Codex CLI output schema', async () => {
   const runDirectoryPath = await mkdtemp(
     path.join(tmpdir(), 'cv-maxxing-generation-worker-output-schema-'),
-  )
+  );
 
-  temporaryDirectories.push(runDirectoryPath)
-  await createRunWorkspaceInput(runDirectoryPath)
+  temporaryDirectories.push(runDirectoryPath);
+  await createRunWorkspaceInput(runDirectoryPath);
 
   let capturedSchema:
     | {
         properties?: {
           trace?: {
             properties?: {
-              provider?: unknown
-            }
-          }
-        }
+              provider?: unknown;
+            };
+          };
+        };
       }
-    | undefined
+    | undefined;
 
   spawnMock.mockImplementation((_command: string, args: string[]) => {
-    const child = createMockChildProcess()
+    const child = createMockChildProcess();
 
-    const schemaFlagIndex = args.indexOf('--output-schema')
-    const outputFlagIndex = args.indexOf('--output-last-message')
+    const schemaFlagIndex = args.indexOf('--output-schema');
+    const outputFlagIndex = args.indexOf('--output-last-message');
 
     if (
       schemaFlagIndex === -1 ||
@@ -228,59 +264,59 @@ test('writes a typed trace provider field in the Codex CLI output schema', async
       schemaFlagIndex + 1 >= args.length ||
       outputFlagIndex + 1 >= args.length
     ) {
-      throw new Error('Expected Codex CLI schema and output file path arguments.')
+      throw new Error('Expected Codex CLI schema and output file path arguments.');
     }
 
-    const schemaFilePath = args[schemaFlagIndex + 1]
-    const outputFilePath = args[outputFlagIndex + 1]
+    const schemaFilePath = args[schemaFlagIndex + 1];
+    const outputFilePath = args[outputFlagIndex + 1];
 
     if (schemaFilePath === undefined || outputFilePath === undefined) {
-      throw new Error('Expected Codex CLI schema and output file path arguments.')
+      throw new Error('Expected Codex CLI schema and output file path arguments.');
     }
 
     void Promise.all([
       readFile(schemaFilePath, 'utf8').then((schemaText) => {
-        capturedSchema = JSON.parse(schemaText) as typeof capturedSchema
+        capturedSchema = JSON.parse(schemaText) as typeof capturedSchema;
       }),
       writeFile(outputFilePath, JSON.stringify(createValidGenerationResult()), 'utf8'),
     ]).then(
       () => {
-        child.emit('close', 0)
+        child.emit('close', 0);
       },
       (error: unknown) => {
-        child.emit('error', error)
+        child.emit('error', error);
       },
-    )
+    );
 
-    return child
-  })
+    return child;
+  });
 
   const worker = createTailoredApplicationGenerationWorker({
     environment: {
       CV_MAXXING_AI_WORKER_CODEX_COMMAND: 'codex',
     },
-  })
+  });
 
   await expect(
     worker.runGeneration({
       runDirectoryPath,
       signal: new AbortController().signal,
     }),
-  ).resolves.toEqual(createValidGenerationResult())
+  ).resolves.toEqual(createValidGenerationResult());
 
   expect(capturedSchema?.properties?.trace?.properties?.provider).toEqual({
     const: 'codex',
     type: 'string',
-  })
-})
+  });
+});
 
 test('writes a concise adapted-CV header intro field in the Codex CLI output schema', async () => {
   const runDirectoryPath = await mkdtemp(
     path.join(tmpdir(), 'cv-maxxing-generation-worker-output-schema-'),
-  )
+  );
 
-  temporaryDirectories.push(runDirectoryPath)
-  await createRunWorkspaceInput(runDirectoryPath)
+  temporaryDirectories.push(runDirectoryPath);
+  await createRunWorkspaceInput(runDirectoryPath);
 
   let capturedSchema:
     | {
@@ -291,22 +327,22 @@ test('writes a concise adapted-CV header intro field in the Codex CLI output sch
                 properties?: {
                   intro?: {
                     properties?: {
-                      text?: unknown
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
+                      text?: unknown;
+                    };
+                  };
+                };
+              };
+            };
+          };
+        };
       }
-    | undefined
+    | undefined;
 
   spawnMock.mockImplementation((_command: string, args: string[]) => {
-    const child = createMockChildProcess()
+    const child = createMockChildProcess();
 
-    const schemaFlagIndex = args.indexOf('--output-schema')
-    const outputFlagIndex = args.indexOf('--output-last-message')
+    const schemaFlagIndex = args.indexOf('--output-schema');
+    const outputFlagIndex = args.indexOf('--output-last-message');
 
     if (
       schemaFlagIndex === -1 ||
@@ -314,43 +350,43 @@ test('writes a concise adapted-CV header intro field in the Codex CLI output sch
       schemaFlagIndex + 1 >= args.length ||
       outputFlagIndex + 1 >= args.length
     ) {
-      throw new Error('Expected Codex CLI schema and output file path arguments.')
+      throw new Error('Expected Codex CLI schema and output file path arguments.');
     }
 
-    const schemaFilePath = args[schemaFlagIndex + 1]
-    const outputFilePath = args[outputFlagIndex + 1]
+    const schemaFilePath = args[schemaFlagIndex + 1];
+    const outputFilePath = args[outputFlagIndex + 1];
 
     if (schemaFilePath === undefined || outputFilePath === undefined) {
-      throw new Error('Expected Codex CLI schema and output file path arguments.')
+      throw new Error('Expected Codex CLI schema and output file path arguments.');
     }
 
     void Promise.all([
       readFile(schemaFilePath, 'utf8').then((schemaText) => {
-        capturedSchema = JSON.parse(schemaText) as typeof capturedSchema
+        capturedSchema = JSON.parse(schemaText) as typeof capturedSchema;
       }),
       writeFile(outputFilePath, JSON.stringify(createValidGenerationResult()), 'utf8'),
     ]).then(
       () => {
-        child.emit('close', 0)
+        child.emit('close', 0);
       },
       (error: unknown) => {
-        child.emit('error', error)
+        child.emit('error', error);
       },
-    )
+    );
 
-    return child
-  })
+    return child;
+  });
 
   const worker = createTailoredApplicationGenerationWorker({
     environment: {
       CV_MAXXING_AI_WORKER_CODEX_COMMAND: 'codex',
     },
-  })
+  });
 
   await worker.runGeneration({
     runDirectoryPath,
     signal: new AbortController().signal,
-  })
+  });
 
   expect(capturedSchema?.properties?.adaptedCv?.properties?.header?.properties?.intro).toEqual({
     additionalProperties: false,
@@ -362,16 +398,16 @@ test('writes a concise adapted-CV header intro field in the Codex CLI output sch
     },
     required: ['text'],
     type: 'object',
-  })
-})
+  });
+});
 
 test('writes stricter sidebar-label descriptions for core skills and tools in the Codex CLI output schema', async () => {
   const runDirectoryPath = await mkdtemp(
     path.join(tmpdir(), 'cv-maxxing-generation-worker-output-schema-'),
-  )
+  );
 
-  temporaryDirectories.push(runDirectoryPath)
-  await createRunWorkspaceInput(runDirectoryPath)
+  temporaryDirectories.push(runDirectoryPath);
+  await createRunWorkspaceInput(runDirectoryPath);
 
   let capturedSchema:
     | {
@@ -379,22 +415,22 @@ test('writes stricter sidebar-label descriptions for core skills and tools in th
           adaptedCv?: {
             properties?: {
               coreSkills?: {
-                description?: string
-              }
+                description?: string;
+              };
               tools?: {
-                description?: string
-              }
-            }
-          }
-        }
+                description?: string;
+              };
+            };
+          };
+        };
       }
-    | undefined
+    | undefined;
 
   spawnMock.mockImplementation((_command: string, args: string[]) => {
-    const child = createMockChildProcess()
+    const child = createMockChildProcess();
 
-    const schemaFlagIndex = args.indexOf('--output-schema')
-    const outputFlagIndex = args.indexOf('--output-last-message')
+    const schemaFlagIndex = args.indexOf('--output-schema');
+    const outputFlagIndex = args.indexOf('--output-last-message');
 
     if (
       schemaFlagIndex === -1 ||
@@ -402,77 +438,77 @@ test('writes stricter sidebar-label descriptions for core skills and tools in th
       schemaFlagIndex + 1 >= args.length ||
       outputFlagIndex + 1 >= args.length
     ) {
-      throw new Error('Expected Codex CLI schema and output file path arguments.')
+      throw new Error('Expected Codex CLI schema and output file path arguments.');
     }
 
-    const schemaFilePath = args[schemaFlagIndex + 1]
-    const outputFilePath = args[outputFlagIndex + 1]
+    const schemaFilePath = args[schemaFlagIndex + 1];
+    const outputFilePath = args[outputFlagIndex + 1];
 
     if (schemaFilePath === undefined || outputFilePath === undefined) {
-      throw new Error('Expected Codex CLI schema and output file path arguments.')
+      throw new Error('Expected Codex CLI schema and output file path arguments.');
     }
 
     void Promise.all([
       readFile(schemaFilePath, 'utf8').then((schemaText) => {
-        capturedSchema = JSON.parse(schemaText) as typeof capturedSchema
+        capturedSchema = JSON.parse(schemaText) as typeof capturedSchema;
       }),
       writeFile(outputFilePath, JSON.stringify(createValidGenerationResult()), 'utf8'),
     ]).then(
       () => {
-        child.emit('close', 0)
+        child.emit('close', 0);
       },
       (error: unknown) => {
-        child.emit('error', error)
+        child.emit('error', error);
       },
-    )
+    );
 
-    return child
-  })
+    return child;
+  });
 
   const worker = createTailoredApplicationGenerationWorker({
     environment: {
       CV_MAXXING_AI_WORKER_CODEX_COMMAND: 'codex',
     },
-  })
+  });
 
   await worker.runGeneration({
     runDirectoryPath,
     signal: new AbortController().signal,
-  })
+  });
 
   expect(capturedSchema?.properties?.adaptedCv?.properties?.coreSkills?.description).toContain(
     'Return concise sidebar labels only',
-  )
+  );
   expect(capturedSchema?.properties?.adaptedCv?.properties?.coreSkills?.description).toContain(
     'not sentences',
-  )
+  );
   expect(capturedSchema?.properties?.adaptedCv?.properties?.tools?.description).toContain(
     'Return ungrouped concise tool labels only',
-  )
+  );
   expect(capturedSchema?.properties?.adaptedCv?.properties?.tools?.description).toContain(
     'Do not combine multiple tools into one item',
-  )
-})
+  );
+});
 
 test('does not require cover-letter plain text in the Codex CLI output schema', async () => {
   const runDirectoryPath = await mkdtemp(
     path.join(tmpdir(), 'cv-maxxing-generation-worker-output-schema-'),
-  )
+  );
 
-  temporaryDirectories.push(runDirectoryPath)
-  await createRunWorkspaceInput(runDirectoryPath)
+  temporaryDirectories.push(runDirectoryPath);
+  await createRunWorkspaceInput(runDirectoryPath);
 
   let capturedSchema:
     | {
-        required?: string[]
+        required?: string[];
       }
-    | undefined
+    | undefined;
 
   spawnMock.mockImplementation((_command: string, args: string[]) => {
-    const child = createMockChildProcess()
+    const child = createMockChildProcess();
 
-    const schemaFlagIndex = args.indexOf('--output-schema')
-    const outputFlagIndex = args.indexOf('--output-last-message')
+    const schemaFlagIndex = args.indexOf('--output-schema');
+    const outputFlagIndex = args.indexOf('--output-last-message');
 
     if (
       schemaFlagIndex === -1 ||
@@ -480,62 +516,62 @@ test('does not require cover-letter plain text in the Codex CLI output schema', 
       schemaFlagIndex + 1 >= args.length ||
       outputFlagIndex + 1 >= args.length
     ) {
-      throw new Error('Expected Codex CLI schema and output file path arguments.')
+      throw new Error('Expected Codex CLI schema and output file path arguments.');
     }
 
-    const schemaFilePath = args[schemaFlagIndex + 1]
-    const outputFilePath = args[outputFlagIndex + 1]
+    const schemaFilePath = args[schemaFlagIndex + 1];
+    const outputFilePath = args[outputFlagIndex + 1];
 
     if (schemaFilePath === undefined || outputFilePath === undefined) {
-      throw new Error('Expected Codex CLI schema and output file path arguments.')
+      throw new Error('Expected Codex CLI schema and output file path arguments.');
     }
 
     void Promise.all([
       readFile(schemaFilePath, 'utf8').then((schemaText) => {
-        capturedSchema = JSON.parse(schemaText) as typeof capturedSchema
+        capturedSchema = JSON.parse(schemaText) as typeof capturedSchema;
       }),
       writeFile(outputFilePath, JSON.stringify(createValidGenerationResult()), 'utf8'),
     ]).then(
       () => {
-        child.emit('close', 0)
+        child.emit('close', 0);
       },
       (error: unknown) => {
-        child.emit('error', error)
+        child.emit('error', error);
       },
-    )
+    );
 
-    return child
-  })
+    return child;
+  });
 
   const worker = createTailoredApplicationGenerationWorker({
     environment: {
       CV_MAXXING_AI_WORKER_CODEX_COMMAND: 'codex',
     },
-  })
+  });
 
   await worker.runGeneration({
     runDirectoryPath,
     signal: new AbortController().signal,
-  })
+  });
 
-  expect(capturedSchema?.required).not.toContain('coverLetterPlainText')
-})
+  expect(capturedSchema?.required).not.toContain('coverLetterPlainText');
+});
 
 test('writes a Codex-compatible tailored-application schema without unsupported composition branches', async () => {
   const runDirectoryPath = await mkdtemp(
     path.join(tmpdir(), 'cv-maxxing-generation-worker-output-schema-'),
-  )
+  );
 
-  temporaryDirectories.push(runDirectoryPath)
-  await createRunWorkspaceInput(runDirectoryPath)
+  temporaryDirectories.push(runDirectoryPath);
+  await createRunWorkspaceInput(runDirectoryPath);
 
-  let capturedSchemaText = ''
+  let capturedSchemaText = '';
 
   spawnMock.mockImplementation((_command: string, args: string[]) => {
-    const child = createMockChildProcess()
+    const child = createMockChildProcess();
 
-    const schemaFlagIndex = args.indexOf('--output-schema')
-    const outputFlagIndex = args.indexOf('--output-last-message')
+    const schemaFlagIndex = args.indexOf('--output-schema');
+    const outputFlagIndex = args.indexOf('--output-last-message');
 
     if (
       schemaFlagIndex === -1 ||
@@ -543,131 +579,131 @@ test('writes a Codex-compatible tailored-application schema without unsupported 
       schemaFlagIndex + 1 >= args.length ||
       outputFlagIndex + 1 >= args.length
     ) {
-      throw new Error('Expected Codex CLI schema and output file path arguments.')
+      throw new Error('Expected Codex CLI schema and output file path arguments.');
     }
 
-    const schemaFilePath = args[schemaFlagIndex + 1]
-    const outputFilePath = args[outputFlagIndex + 1]
+    const schemaFilePath = args[schemaFlagIndex + 1];
+    const outputFilePath = args[outputFlagIndex + 1];
 
     if (schemaFilePath === undefined || outputFilePath === undefined) {
-      throw new Error('Expected Codex CLI schema and output file path arguments.')
+      throw new Error('Expected Codex CLI schema and output file path arguments.');
     }
 
     void Promise.all([
       readFile(schemaFilePath, 'utf8').then((schemaText) => {
-        capturedSchemaText = schemaText
+        capturedSchemaText = schemaText;
       }),
       writeFile(outputFilePath, JSON.stringify(createValidGenerationResult()), 'utf8'),
     ]).then(
       () => {
-        child.emit('close', 0)
+        child.emit('close', 0);
       },
       (error: unknown) => {
-        child.emit('error', error)
+        child.emit('error', error);
       },
-    )
+    );
 
-    return child
-  })
+    return child;
+  });
 
   const worker = createTailoredApplicationGenerationWorker({
     environment: {
       CV_MAXXING_AI_WORKER_CODEX_COMMAND: 'codex',
     },
-  })
+  });
 
   await worker.runGeneration({
     runDirectoryPath,
     signal: new AbortController().signal,
-  })
+  });
 
-  expect(capturedSchemaText).toContain('"adaptedCv"')
-  expect(capturedSchemaText).not.toContain('"oneOf"')
-  expect(capturedSchemaText).not.toContain('"allOf"')
-})
+  expect(capturedSchemaText).toContain('"adaptedCv"');
+  expect(capturedSchemaText).not.toContain('"oneOf"');
+  expect(capturedSchemaText).not.toContain('"allOf"');
+});
 
 test('requires explicit adapted-CV section objects in the Codex output schema', async () => {
   const runDirectoryPath = await mkdtemp(
     path.join(tmpdir(), 'cv-maxxing-generation-worker-required-sections-schema-'),
-  )
+  );
 
-  temporaryDirectories.push(runDirectoryPath)
-  await createRunWorkspaceInput(runDirectoryPath)
+  temporaryDirectories.push(runDirectoryPath);
+  await createRunWorkspaceInput(runDirectoryPath);
 
   let capturedSchema:
     | {
         properties?: {
           adaptedCv?: {
             properties?: {
-              certifications?: unknown
-              coreSkills?: unknown
-              education?: unknown
-              experience?: unknown
-              focus?: unknown
-              impactHighlights?: unknown
-              languages?: unknown
-              profile?: unknown
-              references?: unknown
-              selectedWork?: unknown
-              sections?: unknown
-              tools?: unknown
-            }
-            required?: string[]
-          }
-        }
+              certifications?: unknown;
+              coreSkills?: unknown;
+              education?: unknown;
+              experience?: unknown;
+              focus?: unknown;
+              impactHighlights?: unknown;
+              languages?: unknown;
+              profile?: unknown;
+              references?: unknown;
+              selectedWork?: unknown;
+              sections?: unknown;
+              tools?: unknown;
+            };
+            required?: string[];
+          };
+        };
       }
-    | undefined
+    | undefined;
 
   spawnMock.mockImplementation((_command: string, args: string[]) => {
-    const child = createMockChildProcess()
+    const child = createMockChildProcess();
 
-    const schemaFilePath = args[args.indexOf('--output-schema') + 1]
-    const outputFilePath = args[args.indexOf('--output-last-message') + 1]
+    const schemaFilePath = args[args.indexOf('--output-schema') + 1];
+    const outputFilePath = args[args.indexOf('--output-last-message') + 1];
 
     if (schemaFilePath === undefined || outputFilePath === undefined) {
-      throw new Error('Expected Codex CLI schema and output file path arguments.')
+      throw new Error('Expected Codex CLI schema and output file path arguments.');
     }
 
     void Promise.all([
       readFile(schemaFilePath, 'utf8').then((schemaText) => {
-        capturedSchema = JSON.parse(schemaText) as typeof capturedSchema
+        capturedSchema = JSON.parse(schemaText) as typeof capturedSchema;
       }),
       writeFile(outputFilePath, JSON.stringify(createValidGenerationResult()), 'utf8'),
     ]).then(
       () => {
-        child.emit('close', 0)
+        child.emit('close', 0);
       },
       (error: unknown) => {
-        child.emit('error', error)
+        child.emit('error', error);
       },
-    )
+    );
 
-    return child
-  })
+    return child;
+  });
 
   const worker = createTailoredApplicationGenerationWorker({
     environment: {
       CV_MAXXING_AI_WORKER_CODEX_COMMAND: 'codex',
     },
-  })
+  });
 
   await worker.runGeneration({
     runDirectoryPath,
     signal: new AbortController().signal,
-  })
+  });
 
-  expect(capturedSchema?.properties?.adaptedCv?.properties?.sections).toBeUndefined()
-  expect(capturedSchema?.properties?.adaptedCv?.properties?.profile).toBeDefined()
-  expect(capturedSchema?.properties?.adaptedCv?.properties?.experience).toBeDefined()
-  expect(capturedSchema?.properties?.adaptedCv?.properties?.selectedWork).toBeDefined()
-  expect(capturedSchema?.properties?.adaptedCv?.properties?.impactHighlights).toBeDefined()
-  expect(capturedSchema?.properties?.adaptedCv?.properties?.coreSkills).toBeDefined()
-  expect(capturedSchema?.properties?.adaptedCv?.properties?.tools).toBeDefined()
-  expect(capturedSchema?.properties?.adaptedCv?.properties?.education).toBeDefined()
-  expect(capturedSchema?.properties?.adaptedCv?.properties?.certifications).toBeDefined()
-  expect(capturedSchema?.properties?.adaptedCv?.properties?.languages).toBeDefined()
-  expect(capturedSchema?.properties?.adaptedCv?.properties?.focus).toBeDefined()
-  expect(capturedSchema?.properties?.adaptedCv?.properties?.references).toBeDefined()
+  expect(capturedSchema?.properties?.adaptedCv?.properties?.sections).toBeUndefined();
+  expect(capturedSchema?.properties?.adaptedCv?.properties?.profile).toBeDefined();
+  expect(capturedSchema?.properties?.adaptedCv?.properties?.experience).toBeDefined();
+  expect(capturedSchema?.properties?.adaptedCv?.properties?.selectedWork).toBeDefined();
+  expect(capturedSchema?.properties?.adaptedCv?.properties?.impactHighlights).toBeDefined();
+  expect(capturedSchema?.properties?.adaptedCv?.properties?.coreSkills).toBeDefined();
+  expect(capturedSchema?.properties?.adaptedCv?.properties?.tools).toBeDefined();
+  expect(capturedSchema?.properties?.adaptedCv?.properties?.education).toBeDefined();
+  expect(capturedSchema?.properties?.adaptedCv?.properties?.certifications).toBeDefined();
+  expect(capturedSchema?.properties?.adaptedCv?.properties?.languages).toBeDefined();
+  expect(capturedSchema?.properties?.adaptedCv?.properties?.focus).toBeDefined();
+  expect(capturedSchema?.properties?.adaptedCv?.properties?.references).toBeDefined();
   expect(capturedSchema?.properties?.adaptedCv?.required).toEqual(
     expect.arrayContaining([
       'profile',
@@ -682,250 +718,250 @@ test('requires explicit adapted-CV section objects in the Codex output schema', 
       'focus',
       'references',
     ]),
-  )
-})
+  );
+});
 
 test('normalizes explicit adapted-CV section fields into the legacy sections array', async () => {
   const worker = createTailoredApplicationGenerationWorker({
     environment: {
       CV_MAXXING_AI_WORKER_GENERATION_OUTPUT: JSON.stringify(createStructuredGenerationResult()),
     },
-  })
+  });
 
   await expect(
     worker.runGeneration({
       runDirectoryPath: '/tmp/unused',
       signal: new AbortController().signal,
     }),
-  ).resolves.toEqual(createValidGenerationResult())
-})
+  ).resolves.toEqual(createValidGenerationResult());
+});
 
 test('instructs Codex to emit a role-only adapted-CV headline', async () => {
   const runDirectoryPath = await mkdtemp(
     path.join(tmpdir(), 'cv-maxxing-generation-worker-headline-prompt-'),
-  )
+  );
 
-  temporaryDirectories.push(runDirectoryPath)
-  await createRunWorkspaceInput(runDirectoryPath)
+  temporaryDirectories.push(runDirectoryPath);
+  await createRunWorkspaceInput(runDirectoryPath);
 
-  let capturedPrompt = ''
+  let capturedPrompt = '';
 
   spawnMock.mockImplementation((_command: string, args: string[]) => {
-    const child = createMockChildProcess()
+    const child = createMockChildProcess();
 
-    const outputFilePath = args[args.indexOf('--output-last-message') + 1]
-    const prompt = args.at(-1)
+    const outputFilePath = args[args.indexOf('--output-last-message') + 1];
+    const prompt = args.at(-1);
 
     if (outputFilePath === undefined || prompt === undefined) {
-      throw new Error('Expected Codex CLI output file path and prompt arguments.')
+      throw new Error('Expected Codex CLI output file path and prompt arguments.');
     }
 
-    capturedPrompt = prompt
+    capturedPrompt = prompt;
 
     void writeFile(outputFilePath, JSON.stringify(createValidGenerationResult()), 'utf8').then(
       () => {
-        child.emit('close', 0)
+        child.emit('close', 0);
       },
       (error: unknown) => {
-        child.emit('error', error)
+        child.emit('error', error);
       },
-    )
+    );
 
-    return child
-  })
+    return child;
+  });
 
   const worker = createTailoredApplicationGenerationWorker({
     environment: {
       CV_MAXXING_AI_WORKER_CODEX_COMMAND: 'codex',
     },
-  })
+  });
 
   await worker.runGeneration({
     runDirectoryPath,
     signal: new AbortController().signal,
-  })
+  });
 
-  expect(capturedPrompt).toContain('Set adaptedCv.headline.text to the role name only.')
+  expect(capturedPrompt).toContain('Set adaptedCv.headline.text to the role name only.');
   expect(capturedPrompt).toContain(
     'Always include adaptedCv.profile, adaptedCv.experience, adaptedCv.coreSkills, and adaptedCv.references.',
-  )
+  );
   expect(capturedPrompt).toContain(
     'If tailoring evidence is thin, keep required sections concise and grounded in the original CV rather than omitting them.',
-  )
+  );
   expect(capturedPrompt).toContain(
     'Retain every source role from the original CV in adaptedCv.experience.items; do not omit earlier roles even when they are less relevant.',
-  )
+  );
   expect(capturedPrompt).toContain(
     'Return exactly one adaptedCv.experience.items entry for each role in originalCv.experience.',
-  )
+  );
   expect(capturedPrompt).toContain(
     'Do not merge multiple source roles into one adaptedCv.experience.items entry and do not drop any role because it feels less relevant.',
-  )
+  );
   expect(capturedPrompt).toContain(
     'Preserve each experience item roleTitle, employer, and dateRange from the original CV so every source role remains recognisable and mappable.',
-  )
+  );
   expect(capturedPrompt).toContain(
     'Preserve the source experience chronology in adaptedCv.experience.items, with the most recent roles first.',
-  )
+  );
   expect(capturedPrompt).toContain(
     'Keep older or less relevant roles briefer by using fewer bullets and tighter phrasing instead of dropping those roles.',
-  )
+  );
   expect(capturedPrompt).toContain(
     'Before returning JSON, check that adaptedCv.experience.items covers all original CV roles in order, from the newest role to the oldest role.',
-  )
+  );
   expect(capturedPrompt).toContain(
     'Return explicit adaptedCv fields for every template section: profile, experience, selectedWork, impactHighlights, coreSkills, tools, education, certifications, languages, focus, and references.',
-  )
+  );
   expect(capturedPrompt).toContain(
     'Return adaptedCv.coreSkills.items as concise vacancy-relevant skill labels only, not sentences, achievements, or responsibility statements.',
-  )
+  );
   expect(capturedPrompt).toContain(
     'Keep each adaptedCv.coreSkills.items entry brief, usually one to three words.',
-  )
+  );
   expect(capturedPrompt).toContain(
     "Good adaptedCv.coreSkills.items examples: 'Stakeholder management', 'Roadmapping', 'Service design'.",
-  )
+  );
   expect(capturedPrompt).toContain(
     "Bad adaptedCv.coreSkills.items examples: 'Led cross-functional teams to deliver roadmap outcomes.' and 'Improved stakeholder alignment across product and engineering teams'.",
-  )
+  );
   expect(capturedPrompt).toContain(
     'Always include adaptedCv.profile, adaptedCv.experience, adaptedCv.coreSkills, and adaptedCv.references.',
-  )
+  );
   expect(capturedPrompt).toContain(
     'Set optional section fields to null when they are weak, generic, duplicative, unsupported, or not needed.',
-  )
+  );
   expect(capturedPrompt).toContain(
     'Return adaptedCv.tools.items only for concise technology, framework, platform, database, or tooling labels that are explicit or conservatively inferable from the original CV.',
-  )
+  );
   expect(capturedPrompt).toContain(
     "Ungroup adaptedCv.tools.items; split combined labels such as 'NoSQL databases (MongoDB, AWS DynamoDB)' into separate items like 'MongoDB' and 'AWS DynamoDB'.",
-  )
+  );
   expect(capturedPrompt).toContain(
     "Bad adaptedCv.tools.items examples: 'MongoDB / DynamoDB', 'Figma and FigJam', and 'NoSQL databases (MongoDB, AWS DynamoDB)'.",
-  )
+  );
   expect(capturedPrompt).toContain(
     'Do not repeat the same label across adaptedCv.coreSkills.items and adaptedCv.tools.items.',
-  )
+  );
   expect(capturedPrompt).toContain(
     'Use adaptedCv.coreSkills.items for transferable capabilities, methods, and functional strengths such as stakeholder management, roadmapping, service design, mentoring, and experimentation.',
-  )
+  );
   expect(capturedPrompt).toContain(
     'Use adaptedCv.tools.items for named technologies, programming languages, frameworks, platforms, databases, and software such as TypeScript, React, Node.js, AWS, PostgreSQL, and Figma.',
-  )
+  );
   expect(capturedPrompt).toContain(
     'If a label is a named technology or product, keep it in adaptedCv.tools.items and do not also list it in adaptedCv.coreSkills.items.',
-  )
+  );
   expect(capturedPrompt).toContain(
     'Return adaptedCv.impactHighlights.items only for grounded achievement or outcome lines, not for skills or tooling lists.',
-  )
+  );
   expect(capturedPrompt).toContain(
     'Return adaptedCv.selectedWork.items only for grounded named projects, products, clients, or case-study style examples.',
-  )
+  );
   expect(capturedPrompt).toContain(
     'Return adaptedCv.education as the latest relevant completed education entry only, or null.',
-  )
+  );
   expect(capturedPrompt).toContain(
     'Keep adaptedCv.header.intro.text to a short recruiter-facing introduction, not a paragraph, and at most 180 characters.',
-  )
-})
+  );
+});
 
 test('passes inline structured inputs to Codex instead of asking it to read files itself', async () => {
   const runDirectoryPath = await mkdtemp(
     path.join(tmpdir(), 'cv-maxxing-generation-worker-inline-inputs-'),
-  )
+  );
 
-  temporaryDirectories.push(runDirectoryPath)
+  temporaryDirectories.push(runDirectoryPath);
 
-  await createRunWorkspaceInput(runDirectoryPath)
+  await createRunWorkspaceInput(runDirectoryPath);
 
-  let capturedPrompt = ''
+  let capturedPrompt = '';
 
   spawnMock.mockImplementation((_command: string, args: string[]) => {
-    const child = createMockChildProcess()
+    const child = createMockChildProcess();
 
-    const outputFilePath = args[args.indexOf('--output-last-message') + 1]
-    const prompt = args.at(-1)
+    const outputFilePath = args[args.indexOf('--output-last-message') + 1];
+    const prompt = args.at(-1);
 
     if (outputFilePath === undefined || prompt === undefined) {
-      throw new Error('Expected Codex CLI output file path and prompt arguments.')
+      throw new Error('Expected Codex CLI output file path and prompt arguments.');
     }
 
-    capturedPrompt = prompt
+    capturedPrompt = prompt;
 
     void writeFile(outputFilePath, JSON.stringify(createValidGenerationResult()), 'utf8').then(
       () => {
-        child.emit('close', 0)
+        child.emit('close', 0);
       },
       (error: unknown) => {
-        child.emit('error', error)
+        child.emit('error', error);
       },
-    )
+    );
 
-    return child
-  })
+    return child;
+  });
 
   const worker = createTailoredApplicationGenerationWorker({
     environment: {
       CV_MAXXING_AI_WORKER_CODEX_COMMAND: 'codex',
     },
-  })
+  });
 
   await worker.runGeneration({
     runDirectoryPath,
     signal: new AbortController().signal,
-  })
+  });
 
-  expect(capturedPrompt).toContain('Use only the inline inputs below.')
-  expect(capturedPrompt).toContain('<task-json>')
-  expect(capturedPrompt).toContain('"headline":"Senior Web Engineer"')
-  expect(capturedPrompt).toContain('Original CV text')
-  expect(capturedPrompt).toContain('Vacancy text')
+  expect(capturedPrompt).toContain('Use only the inline inputs below.');
+  expect(capturedPrompt).toContain('<task-json>');
+  expect(capturedPrompt).toContain('"headline":"Senior Web Engineer"');
+  expect(capturedPrompt).toContain('Original CV text');
+  expect(capturedPrompt).toContain('Vacancy text');
   expect(capturedPrompt).not.toContain(
     'Read input/task.json and the referenced structured input files.',
-  )
-})
+  );
+});
 
 test('reports invalid Codex CLI output JSON with the output file path', async () => {
   const runDirectoryPath = await mkdtemp(
     path.join(tmpdir(), 'cv-maxxing-generation-worker-invalid-json-'),
-  )
+  );
 
-  temporaryDirectories.push(runDirectoryPath)
-  await createRunWorkspaceInput(runDirectoryPath)
+  temporaryDirectories.push(runDirectoryPath);
+  await createRunWorkspaceInput(runDirectoryPath);
 
   spawnMock.mockImplementation((_command: string, args: string[]) => {
-    const child = createMockChildProcess()
+    const child = createMockChildProcess();
 
-    const outputFilePath = args[args.indexOf('--output-last-message') + 1]
+    const outputFilePath = args[args.indexOf('--output-last-message') + 1];
 
     if (outputFilePath === undefined) {
-      throw new Error('Expected Codex CLI output file path argument.')
+      throw new Error('Expected Codex CLI output file path argument.');
     }
 
     void writeFile(outputFilePath, '{"invalid"', 'utf8').then(
       () => {
-        child.emit('close', 0)
+        child.emit('close', 0);
       },
       (error: unknown) => {
-        child.emit('error', error)
+        child.emit('error', error);
       },
-    )
+    );
 
-    return child
-  })
+    return child;
+  });
 
   const worker = createTailoredApplicationGenerationWorker({
     environment: {
       CV_MAXXING_AI_WORKER_CODEX_COMMAND: 'codex',
     },
-  })
+  });
 
   await expect(
     worker.runGeneration({
       runDirectoryPath,
       signal: new AbortController().signal,
     }),
-  ).rejects.toThrow(/Codex CLI output at .*result\.json produced invalid JSON/u)
+  ).rejects.toThrow(/Codex CLI output at .*result\.json produced invalid JSON/u);
 
   expect(spawnMock).toHaveBeenCalledWith(
     'codex',
@@ -943,9 +979,9 @@ test('reports invalid Codex CLI output JSON with the output file path', async ()
       cwd: runDirectoryPath,
       stdio: ['pipe', 'pipe', 'pipe'],
     }),
-  )
-  expect(spawnMock.mock.calls[0]?.[1]).not.toContain('-a')
-})
+  );
+  expect(spawnMock.mock.calls[0]?.[1]).not.toContain('-a');
+});
 
 function createValidGenerationResult() {
   return {
@@ -1093,11 +1129,11 @@ function createValidGenerationResult() {
       provider: 'codex' as const,
       sessionId: 'session-123',
     },
-  }
+  };
 }
 
 function createStructuredGenerationResult() {
-  const result = createValidGenerationResult()
+  const result = createValidGenerationResult();
   const [
     profileSection,
     experienceSection,
@@ -1110,7 +1146,7 @@ function createStructuredGenerationResult() {
     languagesSection,
     focusSection,
     referencesSection,
-  ] = result.adaptedCv.sections
+  ] = result.adaptedCv.sections;
 
   if (
     profileSection?.kind !== 'profile' ||
@@ -1125,7 +1161,7 @@ function createStructuredGenerationResult() {
     focusSection?.kind !== 'focus' ||
     referencesSection?.kind !== 'references'
   ) {
-    throw new Error('Expected the valid generation result to contain the required section order.')
+    throw new Error('Expected the valid generation result to contain the required section order.');
   }
 
   return {
@@ -1166,13 +1202,13 @@ function createStructuredGenerationResult() {
       },
       references: referencesSection,
     },
-  }
+  };
 }
 
 async function createRunWorkspaceInput(runDirectoryPath: string): Promise<void> {
   await mkdir(path.join(runDirectoryPath, 'input'), {
     recursive: true,
-  })
+  });
 
   await Promise.all([
     writeFile(
@@ -1213,5 +1249,5 @@ async function createRunWorkspaceInput(runDirectoryPath: string): Promise<void> 
       }),
       'utf8',
     ),
-  ])
+  ]);
 }

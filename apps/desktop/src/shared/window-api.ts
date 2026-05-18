@@ -1,77 +1,79 @@
-import type { AiWorkerPreflightResult } from './ai-worker-preflight.js'
+import type { AiWorkerPreflightResult } from './ai-worker-preflight.js';
 import type {
   OriginalCvDetail,
   OriginalCvImportInput,
   OriginalCvImportResult,
   OriginalCvWorkspaceState,
-} from './original-cv.js'
+} from './original-cv.js';
 import type {
   CompletePendingGenerationInput,
   CompletePendingGenerationResult,
   PendingGenerationCommand,
   ResumePendingGenerationResult,
   StartPendingGenerationInput,
-} from './pending-generation.js'
-import type { StartupDestination } from './startup-destination.js'
+} from './pending-generation.js';
+import type { ResetLocalAppDataInput, SettingsSnapshot } from './settings.js';
+import type { StartupDestination } from './startup-destination.js';
 import type {
   TailoredApplicationExportResult,
   TailoredApplicationPreview,
   TailoredApplicationWorkspaceState,
-} from './tailored-application.js'
-import type { WorkspaceSelection } from './workspace-selection.js'
+} from './tailored-application.js';
 import type {
   PastedVacancyInput,
   VacancyIngestResult,
   VacancyUrlInput,
   VacancyWorkspaceState,
-} from './vacancy.js'
-import type { ResetLocalAppDataInput, SettingsSnapshot } from './settings.js'
+} from './vacancy.js';
+import type { WorkspaceSelection } from './workspace-selection.js';
 
 export interface CvMaxxingWindowApi {
   aiWorker: {
-    getAiWorkerPreflight: () => Promise<AiWorkerPreflightResult>
-    getStartupDestination: () => Promise<StartupDestination>
-    openAiWorkerSetupGuide: () => Promise<void>
-    retryAiWorkerPreflight: () => Promise<AiWorkerPreflightResult>
-    startAiWorkerSignIn: () => Promise<AiWorkerPreflightResult>
-  }
+    getAiWorkerPreflight: () => Promise<AiWorkerPreflightResult>;
+    getStartupDestination: () => Promise<StartupDestination>;
+    openAiWorkerSetupGuide: () => Promise<void>;
+    retryAiWorkerPreflight: () => Promise<AiWorkerPreflightResult>;
+    startAiWorkerSignIn: () => Promise<AiWorkerPreflightResult>;
+  };
   originalCv: {
-    getActiveOriginalCvDetail: () => Promise<OriginalCvDetail | null>
-    getOriginalCvWorkspaceState: () => Promise<OriginalCvWorkspaceState>
-    importOriginalCv: (input: OriginalCvImportInput) => Promise<OriginalCvImportResult>
-  }
+    getActiveOriginalCvDetail: () => Promise<OriginalCvDetail | null>;
+    getOriginalCvWorkspaceState: () => Promise<OriginalCvWorkspaceState>;
+    importOriginalCv: (input: OriginalCvImportInput) => Promise<OriginalCvImportResult>;
+  };
   settings: {
-    clearJobSiteBrowserData: () => Promise<void>
-    getSettingsSnapshot: () => Promise<SettingsSnapshot>
-    resetLocalAppData: (input: ResetLocalAppDataInput) => Promise<void>
-  }
+    clearJobSiteBrowserData: () => Promise<void>;
+    getSettingsSnapshot: () => Promise<SettingsSnapshot>;
+    resetLocalAppData: (input: ResetLocalAppDataInput) => Promise<void>;
+  };
   tailoredApplication: {
-    abandonPendingGeneration: () => Promise<void>
+    abandonPendingGeneration: () => Promise<void>;
     completePendingGeneration: (
       commandId: CompletePendingGenerationInput['commandId'],
-    ) => Promise<CompletePendingGenerationResult>
-    deleteTailoredApplication: (tailoredApplicationId: string) => Promise<void>
+    ) => Promise<CompletePendingGenerationResult>;
+    deleteTailoredApplication: (tailoredApplicationId: string) => Promise<void>;
     exportAdaptedCvPdf: (
       tailoredApplicationId: string,
-    ) => Promise<TailoredApplicationExportResult | null>
+    ) => Promise<TailoredApplicationExportResult | null>;
     exportCoverLetterPdf: (
       tailoredApplicationId: string,
-    ) => Promise<TailoredApplicationExportResult | null>
-    getPendingGenerationCommand: () => Promise<PendingGenerationCommand | null>
+    ) => Promise<TailoredApplicationExportResult | null>;
+    getPendingGenerationCommand: () => Promise<PendingGenerationCommand | null>;
     getTailoredApplicationPreview: (
       tailoredApplicationId: string,
-    ) => Promise<TailoredApplicationPreview | null>
-    getWorkspaceSelection: () => Promise<WorkspaceSelection | null>
-    getWorkspaceState: () => Promise<TailoredApplicationWorkspaceState>
-    resumePendingGeneration: () => Promise<ResumePendingGenerationResult>
-    setWorkspaceSelection: (selection: WorkspaceSelection) => Promise<void>
-    startPendingGeneration: (input: StartPendingGenerationInput) => Promise<AiWorkerPreflightResult>
-  }
+    ) => Promise<TailoredApplicationPreview | null>;
+    getWorkspaceSelection: () => Promise<WorkspaceSelection | null>;
+    getWorkspaceState: () => Promise<TailoredApplicationWorkspaceState>;
+    resumePendingGeneration: () => Promise<ResumePendingGenerationResult>;
+    setWorkspaceSelection: (selection: WorkspaceSelection) => Promise<void>;
+    startPendingGeneration: (
+      input: StartPendingGenerationInput,
+    ) => Promise<AiWorkerPreflightResult>;
+  };
   vacancy: {
-    clearVacancyWorkspaceState: () => Promise<void>
-    getVacancyWorkspaceState: () => Promise<VacancyWorkspaceState>
-    ingestPastedVacancy: (input: PastedVacancyInput) => Promise<VacancyIngestResult>
-    ingestVacancyUrl: (input: VacancyUrlInput) => Promise<VacancyIngestResult>
-    openVacancyBrowserSession: (input: VacancyUrlInput) => Promise<VacancyIngestResult>
-  }
+    clearVacancyWorkspaceState: () => Promise<void>;
+    getVacancyWorkspaceState: () => Promise<VacancyWorkspaceState>;
+    ingestPastedVacancy: (input: PastedVacancyInput) => Promise<VacancyIngestResult>;
+    ingestVacancyUrl: (input: VacancyUrlInput) => Promise<VacancyIngestResult>;
+    openVacancyBrowserSession: (input: VacancyUrlInput) => Promise<VacancyIngestResult>;
+  };
 }

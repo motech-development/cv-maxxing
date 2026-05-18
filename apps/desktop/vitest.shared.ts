@@ -8,9 +8,9 @@ export const desktopCoverageConfig = {
     'tests/e2e/**',
   ],
   include: ['src/**/*.ts', 'src/**/*.tsx'],
-}
+};
 
-export const desktopTestExclude = ['dist/**', 'tests/e2e/**']
+export const desktopTestExclude = ['dist/**', 'tests/e2e/**'];
 
 export const desktopIntegrationTestFiles = [
   'src/main/__tests__/local-app-data-service.test.ts',
@@ -22,4 +22,4 @@ export const desktopIntegrationTestFiles = [
   'src/main/__tests__/tailored-application-session-service.test.ts',
   'src/main/__tests__/vacancy-browser-session-service.test.ts',
   'src/main/__tests__/vacancy-service.test.ts',
-]
+];

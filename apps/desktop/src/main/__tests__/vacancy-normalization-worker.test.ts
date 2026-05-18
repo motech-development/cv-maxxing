@@ -1,70 +1,70 @@
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
-import path from 'node:path'
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 
-import { afterEach, expect, test, vi } from 'vitest'
+import { afterEach, expect, test, vi } from 'vitest';
 
 const { spawnMock } = vi.hoisted(() => {
   return {
     spawnMock: vi.fn(),
-  }
-})
+  };
+});
 
 vi.mock('node:child_process', () => {
   return {
     spawn: spawnMock,
-  }
-})
+  };
+});
 
-import { createVacancyNormalizationWorker } from '../vacancy-normalization-worker.js'
+import { createVacancyNormalizationWorker } from '../vacancy-normalization-worker.js';
 
-const temporaryDirectories: string[] = []
+const temporaryDirectories: string[] = [];
 
 class MockEventTarget extends EventTarget {
   on(eventName: string, listener: (detail: unknown) => void): this {
     this.addEventListener(eventName, (event) => {
-      listener((event as CustomEvent<unknown>).detail)
-    })
+      listener((event as CustomEvent<unknown>).detail);
+    });
 
-    return this
+    return this;
   }
 
   emit(eventName: string, detail?: unknown): void {
-    this.dispatchEvent(new CustomEvent(eventName, { detail }))
+    this.dispatchEvent(new CustomEvent(eventName, { detail }));
   }
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null
+  return typeof value === 'object' && value !== null;
 }
 
 afterEach(async () => {
-  spawnMock.mockReset()
+  spawnMock.mockReset();
 
   await Promise.all(
     temporaryDirectories.splice(0).map(async (directoryPath) => {
       await rm(directoryPath, {
         force: true,
         recursive: true,
-      })
+      });
     }),
-  )
-})
+  );
+});
 
 test('reports invalid fixture JSON with clear context for vacancy normalization', async () => {
   const worker = createVacancyNormalizationWorker({
     environment: {
       CV_MAXXING_AI_WORKER_VACANCY_NORMALIZATION_OUTPUT: '{"invalid"',
     },
-  })
+  });
 
   await expect(
     worker.runNormalization({
       runDirectoryPath: '/tmp/unused',
       signal: new AbortController().signal,
     }),
-  ).rejects.toThrow(/CV_MAXXING_AI_WORKER_VACANCY_NORMALIZATION_OUTPUT produced invalid JSON/u)
-})
+  ).rejects.toThrow(/CV_MAXXING_AI_WORKER_VACANCY_NORMALIZATION_OUTPUT produced invalid JSON/u);
+});
 
 test('rejects fixture output that does not match the vacancy-normalization contract', async () => {
   const worker = createVacancyNormalizationWorker({
@@ -77,15 +77,15 @@ test('rejects fixture output that does not match the vacancy-normalization contr
         },
       }),
     },
-  })
+  });
 
   await expect(
     worker.runNormalization({
       runDirectoryPath: '/tmp/unused',
       signal: new AbortController().signal,
     }),
-  ).rejects.toThrow(/produced invalid normalization output/u)
-})
+  ).rejects.toThrow(/produced invalid normalization output/u);
+});
 
 test('returns parsed normalization results from fixture output', async () => {
   const worker = createVacancyNormalizationWorker({
@@ -103,7 +103,7 @@ test('returns parsed normalization results from fixture output', async () => {
         },
       }),
     },
-  })
+  });
 
   await expect(
     worker.runNormalization({
@@ -120,8 +120,8 @@ test('returns parsed normalization results from fixture output', async () => {
       responsibilities: ['Lead product design for desktop workflows.'],
       title: 'Senior Product Designer',
     },
-  })
-})
+  });
+});
 
 test('returns the no-job-content tagged union from fixture output', async () => {
   const worker = createVacancyNormalizationWorker({
@@ -130,7 +130,7 @@ test('returns the no-job-content tagged union from fixture output', async () => 
         kind: 'no_job_content',
       }),
     },
-  })
+  });
 
   await expect(
     worker.runNormalization({
@@ -139,8 +139,8 @@ test('returns the no-job-content tagged union from fixture output', async () => 
     }),
   ).resolves.toEqual({
     kind: 'no_job_content',
-  })
-})
+  });
+});
 
 test('maps Codex no-job-content output with null normalized vacancy to the internal tagged union', async () => {
   const worker = createVacancyNormalizationWorker({
@@ -150,7 +150,7 @@ test('maps Codex no-job-content output with null normalized vacancy to the inter
         normalizedVacancy: null,
       }),
     },
-  })
+  });
 
   await expect(
     worker.runNormalization({
@@ -159,53 +159,65 @@ test('maps Codex no-job-content output with null normalized vacancy to the inter
     }),
   ).resolves.toEqual({
     kind: 'no_job_content',
-  })
-})
+  });
+});
 
 test('writes a root object schema for Codex vacancy normalization', async () => {
   const runDirectoryPath = await mkdtemp(
     path.join(tmpdir(), 'cv-maxxing-vacancy-normalization-worker-schema-'),
-  )
+  );
 
-  temporaryDirectories.push(runDirectoryPath)
+  temporaryDirectories.push(runDirectoryPath);
 
-  let observedSchema: unknown
+  let observedSchema: unknown;
 
   spawnMock.mockImplementation((_command: string, args: string[]) => {
     const child = new MockEventTarget() as MockEventTarget & {
-      stderr: MockEventTarget
-      stdout: MockEventTarget
+      stderr: MockEventTarget;
+      stdout: MockEventTarget;
+    };
+
+    child.stderr = new MockEventTarget();
+    child.stdout = new MockEventTarget();
+
+    const schemaFlagIndex = args.indexOf('--output-schema');
+    const outputFlagIndex = args.indexOf('--output-last-message');
+
+    if (
+      schemaFlagIndex === -1 ||
+      outputFlagIndex === -1 ||
+      schemaFlagIndex + 1 >= args.length ||
+      outputFlagIndex + 1 >= args.length
+    ) {
+      throw new Error('Expected Codex CLI schema and output file path arguments.');
     }
 
-    child.stderr = new MockEventTarget()
-    child.stdout = new MockEventTarget()
-
-    const schemaFilePath = args[args.indexOf('--output-schema') + 1]
-    const outputFilePath = args[args.indexOf('--output-last-message') + 1]
+    const schemaFilePath = args[schemaFlagIndex + 1];
+    const outputFilePath = args[outputFlagIndex + 1];
 
     if (schemaFilePath === undefined || outputFilePath === undefined) {
-      throw new Error('Expected Codex CLI schema and output file path arguments.')
+      throw new Error('Expected Codex CLI schema and output file path arguments.');
     }
 
     void readFile(schemaFilePath, 'utf8').then(
       async (schemaText) => {
-        observedSchema = JSON.parse(schemaText) as unknown
-        await writeFile(outputFilePath, JSON.stringify({ kind: 'no_job_content' }), 'utf8')
-        child.emit('close', 0)
+        observedSchema = JSON.parse(schemaText) as unknown;
+        await writeFile(outputFilePath, JSON.stringify({ kind: 'no_job_content' }), 'utf8');
+        child.emit('close', 0);
       },
       (error: unknown) => {
-        child.emit('error', error)
+        child.emit('error', error);
       },
-    )
+    );
 
-    return child
-  })
+    return child;
+  });
 
   const worker = createVacancyNormalizationWorker({
     environment: {
       CV_MAXXING_AI_WORKER_CODEX_COMMAND: 'codex',
     },
-  })
+  });
 
   await expect(
     worker.runNormalization({
@@ -214,63 +226,63 @@ test('writes a root object schema for Codex vacancy normalization', async () => 
     }),
   ).resolves.toEqual({
     kind: 'no_job_content',
-  })
+  });
 
-  expect(isRecord(observedSchema)).toBe(true)
+  expect(isRecord(observedSchema)).toBe(true);
 
   if (!isRecord(observedSchema)) {
-    throw new Error('Expected the written schema to be an object.')
+    throw new Error('Expected the written schema to be an object.');
   }
 
-  expect(observedSchema.type).toBe('object')
-  expect(Object.hasOwn(observedSchema, 'oneOf')).toBe(false)
-  expect(isRecord(observedSchema.properties)).toBe(true)
-})
+  expect(observedSchema.type).toBe('object');
+  expect(Object.hasOwn(observedSchema, 'oneOf')).toBe(false);
+  expect(isRecord(observedSchema.properties)).toBe(true);
+});
 
 test('kills the Codex CLI subprocess when vacancy normalization is aborted', async () => {
   const runDirectoryPath = await mkdtemp(
     path.join(tmpdir(), 'cv-maxxing-vacancy-normalization-worker-abort-'),
-  )
+  );
 
-  temporaryDirectories.push(runDirectoryPath)
+  temporaryDirectories.push(runDirectoryPath);
 
   const childProcesses: (MockEventTarget & {
-    kill: ReturnType<typeof vi.fn>
-    stderr: MockEventTarget
-    stdout: MockEventTarget
-  })[] = []
+    kill: ReturnType<typeof vi.fn>;
+    stderr: MockEventTarget;
+    stdout: MockEventTarget;
+  })[] = [];
 
   spawnMock.mockImplementation(() => {
     const child = new MockEventTarget() as MockEventTarget & {
-      kill: ReturnType<typeof vi.fn>
-      stderr: MockEventTarget
-      stdout: MockEventTarget
-    }
+      kill: ReturnType<typeof vi.fn>;
+      stderr: MockEventTarget;
+      stdout: MockEventTarget;
+    };
 
     child.kill = vi.fn(() => {
-      child.emit('close', null)
-    })
-    child.stderr = new MockEventTarget()
-    child.stdout = new MockEventTarget()
-    childProcesses.push(child)
+      child.emit('close', null);
+    });
+    child.stderr = new MockEventTarget();
+    child.stdout = new MockEventTarget();
+    childProcesses.push(child);
 
-    return child
-  })
+    return child;
+  });
 
   const worker = createVacancyNormalizationWorker({
     environment: {
       CV_MAXXING_AI_WORKER_CODEX_COMMAND: 'codex',
     },
-  })
-  const abortController = new AbortController()
+  });
+  const abortController = new AbortController();
   const runPromise = worker.runNormalization({
     runDirectoryPath,
     signal: abortController.signal,
-  })
+  });
 
   await vi.waitFor(() => {
-    expect(spawnMock).toHaveBeenCalledTimes(1)
-  })
+    expect(spawnMock).toHaveBeenCalledTimes(1);
+  });
 
   expect(spawnMock).toHaveBeenCalledWith(
     'codex',
@@ -288,11 +300,11 @@ test('kills the Codex CLI subprocess when vacancy normalization is aborted', asy
       cwd: runDirectoryPath,
       stdio: ['ignore', 'pipe', 'pipe'],
     }),
-  )
+  );
 
-  abortController.abort()
+  abortController.abort();
 
-  await expect(runPromise).rejects.toThrow('Vacancy normalization cancelled.')
-  expect(childProcesses).toHaveLength(1)
-  expect(childProcesses[0]?.kill).toHaveBeenCalledWith('SIGTERM')
-})
+  await expect(runPromise).rejects.toThrow('Vacancy normalization cancelled.');
+  expect(childProcesses).toHaveLength(1);
+  expect(childProcesses[0]?.kill).toHaveBeenCalledWith('SIGTERM');
+});

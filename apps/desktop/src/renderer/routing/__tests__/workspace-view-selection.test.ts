@@ -1,10 +1,10 @@
-import { expect, test } from 'vitest'
+import { expect, test } from 'vitest';
 
-import type { TailoredApplicationWorkspaceState } from '../../../shared/tailored-application.js'
+import type { TailoredApplicationWorkspaceState } from '../../../shared/tailored-application.js';
 import {
   resolveTailoredApplicationId,
   resolveWorkspaceViewSelection,
-} from '../workspace-view-selection.js'
+} from '../workspace-view-selection.js';
 
 function createTailoredApplicationWorkspaceState(
   overrides: Partial<TailoredApplicationWorkspaceState> = {},
@@ -32,26 +32,26 @@ function createTailoredApplicationWorkspaceState(
       },
     ],
     ...overrides,
-  }
+  };
 }
 
 test('keeps the preferred tailored application when it still exists', () => {
   const tailoredApplicationId = resolveTailoredApplicationId({
     preferredTailoredApplicationId: 'application-preferred',
     workspaceState: createTailoredApplicationWorkspaceState(),
-  })
+  });
 
-  expect(tailoredApplicationId).toBe('application-preferred')
-})
+  expect(tailoredApplicationId).toBe('application-preferred');
+});
 
 test('falls back to the active tailored application when the preferred one is gone', () => {
   const tailoredApplicationId = resolveTailoredApplicationId({
     preferredTailoredApplicationId: 'application-missing',
     workspaceState: createTailoredApplicationWorkspaceState(),
-  })
+  });
 
-  expect(tailoredApplicationId).toBe('application-active')
-})
+  expect(tailoredApplicationId).toBe('application-active');
+});
 
 test('shows the draft while generation is pending', () => {
   expect(
@@ -63,8 +63,8 @@ test('shows the draft while generation is pending', () => {
     }),
   ).toEqual({
     kind: 'draft',
-  })
-})
+  });
+});
 
 test('uses a forced draft selection before saved applications', () => {
   expect(
@@ -78,8 +78,8 @@ test('uses a forced draft selection before saved applications', () => {
     }),
   ).toEqual({
     kind: 'draft',
-  })
-})
+  });
+});
 
 test('shows a saved application when no draft route takes precedence', () => {
   expect(
@@ -91,8 +91,8 @@ test('shows a saved application when no draft route takes precedence', () => {
     }),
   ).toEqual({
     kind: 'tailored_application',
-  })
-})
+  });
+});
 
 test('defaults to the draft when there is no saved application', () => {
   expect(
@@ -104,5 +104,5 @@ test('defaults to the draft when there is no saved application', () => {
     }),
   ).toEqual({
     kind: 'draft',
-  })
-})
+  });
+});

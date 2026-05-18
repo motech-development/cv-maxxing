@@ -1,14 +1,14 @@
-import { expect, test, vi } from 'vitest'
+import { expect, test, vi } from 'vitest';
 
-import { AI_WORKER_IPC_CHANNELS, type DesktopIpcChannel } from '../../shared/ipc.js'
-import { exposeDesktopApi } from '../expose-desktop-api.js'
-import type { IpcRendererLike } from '../expose-desktop-api.js'
+import { AI_WORKER_IPC_CHANNELS, type DesktopIpcChannel } from '../../shared/ipc.js';
+import type { IpcRendererLike } from '../expose-desktop-api.js';
+import { exposeDesktopApi } from '../expose-desktop-api.js';
 
 test('preload exposes the desktop API in the renderer global', async () => {
-  const exposeInMainWorld = vi.fn()
+  const exposeInMainWorld = vi.fn();
   const invokeMock = vi.fn((channel: DesktopIpcChannel) => {
     if (channel === AI_WORKER_IPC_CHANNELS.getStartupDestination) {
-      return Promise.resolve('workspace')
+      return Promise.resolve('workspace');
     }
 
     return Promise.resolve({
@@ -16,11 +16,11 @@ test('preload exposes the desktop API in the renderer global', async () => {
       message: 'The local AI worker is ready.',
       provider: 'codex',
       status: 'ready',
-    })
-  })
+    });
+  });
   const invoke: IpcRendererLike['invoke'] = (channel) => {
-    return invokeMock(channel) as never
-  }
+    return invokeMock(channel) as never;
+  };
 
   const desktopApi = exposeDesktopApi({
     contextBridge: {
@@ -29,34 +29,34 @@ test('preload exposes the desktop API in the renderer global', async () => {
     ipcRenderer: {
       invoke,
     },
-  })
+  });
 
   await expect(desktopApi.aiWorker.getAiWorkerPreflight()).resolves.toEqual({
     canResumeGeneration: true,
     message: 'The local AI worker is ready.',
     provider: 'codex',
     status: 'ready',
-  })
+  });
   await expect(desktopApi.aiWorker.retryAiWorkerPreflight()).resolves.toEqual({
     canResumeGeneration: true,
     message: 'The local AI worker is ready.',
     provider: 'codex',
     status: 'ready',
-  })
+  });
   await expect(desktopApi.aiWorker.startAiWorkerSignIn()).resolves.toEqual({
     canResumeGeneration: true,
     message: 'The local AI worker is ready.',
     provider: 'codex',
     status: 'ready',
-  })
-  await expect(desktopApi.aiWorker.getStartupDestination()).resolves.toBe('workspace')
-  await expect(desktopApi.aiWorker.openAiWorkerSetupGuide()).resolves.toBeUndefined()
+  });
+  await expect(desktopApi.aiWorker.getStartupDestination()).resolves.toBe('workspace');
+  await expect(desktopApi.aiWorker.openAiWorkerSetupGuide()).resolves.toBeUndefined();
 
-  expect(exposeInMainWorld).toHaveBeenCalledTimes(1)
-  expect(exposeInMainWorld).toHaveBeenCalledWith('cvMaxxing', desktopApi)
-  expect(invokeMock).toHaveBeenCalledWith(AI_WORKER_IPC_CHANNELS.getPreflight)
-  expect(invokeMock).toHaveBeenCalledWith(AI_WORKER_IPC_CHANNELS.retryPreflight)
-  expect(invokeMock).toHaveBeenCalledWith(AI_WORKER_IPC_CHANNELS.startSignIn)
-  expect(invokeMock).toHaveBeenCalledWith(AI_WORKER_IPC_CHANNELS.getStartupDestination)
-  expect(invokeMock).toHaveBeenCalledWith(AI_WORKER_IPC_CHANNELS.openSetupGuide)
-})
+  expect(exposeInMainWorld).toHaveBeenCalledTimes(1);
+  expect(exposeInMainWorld).toHaveBeenCalledWith('cvMaxxing', desktopApi);
+  expect(invokeMock).toHaveBeenCalledWith(AI_WORKER_IPC_CHANNELS.getPreflight);
+  expect(invokeMock).toHaveBeenCalledWith(AI_WORKER_IPC_CHANNELS.retryPreflight);
+  expect(invokeMock).toHaveBeenCalledWith(AI_WORKER_IPC_CHANNELS.startSignIn);
+  expect(invokeMock).toHaveBeenCalledWith(AI_WORKER_IPC_CHANNELS.getStartupDestination);
+  expect(invokeMock).toHaveBeenCalledWith(AI_WORKER_IPC_CHANNELS.openSetupGuide);
+});

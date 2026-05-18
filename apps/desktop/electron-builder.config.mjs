@@ -23,4 +23,4 @@ export default {
   },
   nodeGypRebuild: false,
   npmRebuild: false,
-}
+};

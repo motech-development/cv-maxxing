@@ -1,8 +1,8 @@
-import type { NormalizedVacancy } from './vacancy-normalization-service.js'
+import type { NormalizedVacancy } from './vacancy-normalization-service.js';
 
 export const VACANCY_NORMALIZATION_EXAMPLES: readonly {
-  normalizedVacancy: NormalizedVacancy
-  title: string
+  normalizedVacancy: NormalizedVacancy;
+  title: string;
 }[] = [
   {
     normalizedVacancy: {
@@ -28,4 +28,4 @@ export const VACANCY_NORMALIZATION_EXAMPLES: readonly {
     },
     title: 'Missing employer stays empty while concrete vacancy fields remain grounded',
   },
-] as const
+] as const;

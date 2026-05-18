@@ -1,6 +1,6 @@
-import { expect, test } from 'vitest'
+import { expect, test } from 'vitest';
 
-import { resolveRendererScreen } from '../renderer-screen.js'
+import { resolveRendererScreen } from '../renderer-screen.js';
 
 test('falls back to first_launch when no active original CV is available', () => {
   expect(
@@ -20,8 +20,8 @@ test('falls back to first_launch when no active original CV is available', () =>
         status: 'ready',
       },
     }),
-  ).toBe('first_launch')
-})
+  ).toBe('first_launch');
+});
 
 test('resolves the post-import workspace to a single screen when an original CV is active', () => {
   expect(
@@ -56,5 +56,5 @@ test('resolves the post-import workspace to a single screen when an original CV 
         status: 'ready',
       },
     }),
-  ).toBe('workspace')
-})
+  ).toBe('workspace');
+});

@@ -1,30 +1,31 @@
-import { BrowserWindow } from 'electron'
-import { createRequire } from 'node:module'
-import { pathToFileURL } from 'node:url'
+import { createRequire } from 'node:module';
+import { pathToFileURL } from 'node:url';
 
-import type { AdaptedCvRenderer } from './tailored-application-session-service.js'
+import { BrowserWindow } from 'electron';
+
+import type { AdaptedCvBrowserSidebarSection } from './adapted-cv-browser-pagination.js';
 import {
   applyPlannedSidebarSectionsToAdaptedCv,
   buildAdaptedCvPageWarning,
   createAdaptedCvDocument,
-} from './adapted-cv-document.js'
-import type { AdaptedCvBrowserSidebarSection } from './adapted-cv-browser-pagination.js'
+} from './adapted-cv-document.js';
+import type { AdaptedCvRenderer } from './tailored-application-session-service.js';
 
-const require = createRequire(import.meta.url)
+const require = createRequire(import.meta.url);
 const manrope400Url = pathToFileURL(
   require.resolve('@fontsource/manrope/files/manrope-latin-400-normal.woff2'),
-).href
+).href;
 const manrope500Url = pathToFileURL(
   require.resolve('@fontsource/manrope/files/manrope-latin-500-normal.woff2'),
-).href
+).href;
 const manrope600Url = pathToFileURL(
   require.resolve('@fontsource/manrope/files/manrope-latin-600-normal.woff2'),
-).href
+).href;
 
 export function createElectronAdaptedCvRenderer(): AdaptedCvRenderer {
   return {
     renderAdaptedCvPdf: async (input) => {
-      const document = createAdaptedCvDocument(input)
+      const document = createAdaptedCvDocument(input);
       const renderWindow = new BrowserWindow({
         backgroundColor: '#ffffff',
         height: 1200,
@@ -35,13 +36,13 @@ export function createElectronAdaptedCvRenderer(): AdaptedCvRenderer {
           sandbox: false,
         },
         width: 900,
-      })
+      });
 
       try {
-        const html = injectFontFaceCss(document.html)
+        const html = injectFontFaceCss(document.html);
 
-        await renderWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`)
-        const renderResult = await waitForAdaptedCvPagination(renderWindow)
+        await renderWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+        const renderResult = await waitForAdaptedCvPagination(renderWindow);
 
         const pdfBytes = await renderWindow.webContents.printToPDF({
           landscape: false,
@@ -54,7 +55,7 @@ export function createElectronAdaptedCvRenderer(): AdaptedCvRenderer {
           pageSize: 'A4',
           printBackground: true,
           preferCSSPageSize: true,
-        })
+        });
 
         return {
           appliedAdaptedCv: applyPlannedSidebarSectionsToAdaptedCv(
@@ -64,12 +65,12 @@ export function createElectronAdaptedCvRenderer(): AdaptedCvRenderer {
           pageCount: renderResult.pageCount,
           pageWarning: buildAdaptedCvPageWarning(renderResult.pageCount),
           pdfBytes: new Uint8Array(pdfBytes),
-        }
+        };
       } finally {
-        renderWindow.destroy()
+        renderWindow.destroy();
       }
     },
-  }
+  };
 }
 
 function injectFontFaceCss(html: string): string {
@@ -94,14 +95,14 @@ function injectFontFaceCss(html: string): string {
       font-style: normal;
       font-weight: 600;
     }
-  `
+  `;
 
-  return html.replace('<style>', `<style>${fontFaceCss}`)
+  return html.replace('<style>', `<style>${fontFaceCss}`);
 }
 
 async function waitForAdaptedCvPagination(renderWindow: BrowserWindow): Promise<{
-  pageCount: number
-  rightSections: AdaptedCvBrowserSidebarSection[]
+  pageCount: number;
+  rightSections: AdaptedCvBrowserSidebarSection[];
 }> {
   const pageCountResult: unknown = await renderWindow.webContents.executeJavaScript(`
     (() => {
@@ -138,7 +139,7 @@ async function waitForAdaptedCvPagination(renderWindow: BrowserWindow): Promise<
         document.addEventListener('adapted-cv-error', handleError, { once: true })
       })
     })()
-  `)
+  `);
 
   if (
     pageCountResult === null ||
@@ -148,24 +149,24 @@ async function waitForAdaptedCvPagination(renderWindow: BrowserWindow): Promise<
   ) {
     throw new Error(
       `Expected adapted CV pagination to produce at least one page, received ${String(pageCountResult)}.`,
-    )
+    );
   }
 
-  const pageCount = (pageCountResult as { pageCount: unknown }).pageCount
-  const rightSections = (pageCountResult as { rightSections: unknown }).rightSections
+  const pageCount = (pageCountResult as { pageCount: unknown }).pageCount;
+  const rightSections = (pageCountResult as { rightSections: unknown }).rightSections;
 
   if (typeof pageCount !== 'number' || !Number.isInteger(pageCount) || pageCount < 1) {
     throw new Error(
       `Expected adapted CV pagination to produce at least one page, received ${String(pageCount)}.`,
-    )
+    );
   }
 
   if (!Array.isArray(rightSections)) {
-    throw new TypeError('Expected adapted CV pagination to return applied sidebar sections.')
+    throw new TypeError('Expected adapted CV pagination to return applied sidebar sections.');
   }
 
   return {
     pageCount,
     rightSections: rightSections as AdaptedCvBrowserSidebarSection[],
-  }
+  };
 }

@@ -1,16 +1,16 @@
-import type { VacancySummary } from '../../shared/vacancy.js'
-import { Button } from './button.js'
-import { PanelCard } from './panel-card.js'
-import { SectionLabel } from './section-label.js'
-import { StatusPill } from './status-pill.js'
+import type { VacancySummary } from '../../shared/vacancy.js';
+import { Button } from './button.js';
+import { PanelCard } from './panel-card.js';
+import { SectionLabel } from './section-label.js';
+import { StatusPill } from './status-pill.js';
 
 interface VacancyPreviewCardProperties {
-  isDraftReviewed: boolean
-  isAdaptingCv: boolean
-  isOpeningBrowserSession: boolean
-  onAdaptCv: () => void
-  onOpenBrowserSession: () => void
-  preview: VacancySummary | null
+  isDraftReviewed: boolean;
+  isAdaptingCv: boolean;
+  isOpeningBrowserSession: boolean;
+  onAdaptCv: () => void;
+  onOpenBrowserSession: () => void;
+  preview: VacancySummary | null;
 }
 
 export function VacancyPreviewCard({
@@ -49,15 +49,15 @@ export function VacancyPreviewCard({
           />
         </div>
       </PanelCard>
-    )
+    );
   }
 
-  const statusPill = getPreviewStatusPill(preview)
-  const browserSessionAvailable = isBrowserSessionAvailable(preview)
-  const resolvedUrl = preview.resolvedUrl ?? preview.originalUrl
+  const statusPill = getPreviewStatusPill(preview);
+  const browserSessionAvailable = isBrowserSessionAvailable(preview);
+  const resolvedUrl = preview.resolvedUrl ?? preview.originalUrl;
   const previewLines = [preview.employer, preview.location].filter((line): line is string => {
-    return line !== null
-  })
+    return line !== null;
+  });
 
   return (
     <PanelCard className="mt-6 p-5">
@@ -126,12 +126,12 @@ export function VacancyPreviewCard({
         </div>
       </div>
     </PanelCard>
-  )
+  );
 }
 
 interface PreviewHintProperties {
-  body: string
-  title: string
+  body: string;
+  title: string;
 }
 
 function PreviewHint({ body, title }: PreviewHintProperties) {
@@ -140,17 +140,17 @@ function PreviewHint({ body, title }: PreviewHintProperties) {
       <p className="m-0 text-sm font-extrabold text-[var(--color-copy-strong)]">{title}</p>
       <p className="m-0 mt-2">{body}</p>
     </div>
-  )
+  );
 }
 
 interface PreviewListProperties {
-  emptyState: string
-  items: string[]
-  title: string
+  emptyState: string;
+  items: string[];
+  title: string;
 }
 
 function PreviewList({ emptyState, items, title }: PreviewListProperties) {
-  const visibleItems = items.slice(0, 3)
+  const visibleItems = items.slice(0, 3);
 
   return (
     <div className="rounded-[var(--radius-card)] border border-[var(--color-border)] bg-white p-4">
@@ -160,40 +160,40 @@ function PreviewList({ emptyState, items, title }: PreviewListProperties) {
       {visibleItems.length > 0 ? (
         <ul className="mt-3 flex list-disc flex-col gap-2 pl-5 text-sm leading-6 text-[var(--color-copy-strong)]">
           {visibleItems.map((item) => {
-            return <li key={item}>{item}</li>
+            return <li key={item}>{item}</li>;
           })}
         </ul>
       ) : (
         <p className="mt-3 text-sm leading-6 text-[var(--color-copy-muted)]">{emptyState}</p>
       )}
     </div>
-  )
+  );
 }
 
 function isBrowserSessionAvailable(preview: VacancySummary): boolean {
-  return preview.inputType === 'url' && preview.originalUrl !== null && !preview.canGenerate
+  return preview.inputType === 'url' && preview.originalUrl !== null && !preview.canGenerate;
 }
 
 function getPreviewStatusPill(preview: VacancySummary): {
-  label: string
-  tone: 'danger' | 'muted' | 'ready' | 'warning'
+  label: string;
+  tone: 'danger' | 'muted' | 'ready' | 'warning';
 } {
   if (preview.canGenerate) {
     return {
       label: 'Ready to tailor',
       tone: 'ready',
-    }
+    };
   }
 
   if (isBrowserSessionAvailable(preview)) {
     return {
       label: 'Open the job page',
       tone: 'warning',
-    }
+    };
   }
 
   return {
     label: 'Needs more detail',
     tone: 'warning',
-  }
+  };
 }

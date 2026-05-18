@@ -1,12 +1,12 @@
-export type OriginalCvNormalizationErrorCode = 'invalid_normalization' | 'timeout'
+export type OriginalCvNormalizationErrorCode = 'invalid_normalization' | 'timeout';
 
 export class OriginalCvNormalizationError extends Error {
-  readonly code: OriginalCvNormalizationErrorCode
+  readonly code: OriginalCvNormalizationErrorCode;
 
-  override name = 'OriginalCvNormalizationError'
+  override name = 'OriginalCvNormalizationError';
 
   constructor({ code, message }: { code: OriginalCvNormalizationErrorCode; message: string }) {
-    super(message)
-    this.code = code
+    super(message);
+    this.code = code;
   }
 }

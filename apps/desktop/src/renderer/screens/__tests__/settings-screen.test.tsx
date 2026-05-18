@@ -1,21 +1,21 @@
 // @vitest-environment jsdom
 
-import { cleanup, render, screen } from '@testing-library/react'
-import { afterEach, expect, test, vi } from 'vitest'
+import { cleanup, render, screen } from '@testing-library/react';
+import { afterEach, expect, test, vi } from 'vitest';
 
-import { SettingsScreen } from '../settings-screen.js'
+import { SettingsScreen } from '../settings-screen.js';
 
 afterEach(() => {
-  cleanup()
-})
+  cleanup();
+});
 
-const noop = vi.fn()
+const noop = vi.fn();
 
 const settingsSnapshot = {
   appVersion: '1.0.0',
   workerCommand: 'codex',
   workerProvider: 'codex',
-} as const
+} as const;
 
 test('formats the connected AI provider and hides recovery actions', () => {
   render(
@@ -37,14 +37,14 @@ test('formats the connected AI provider and hides recovery actions', () => {
       workerStatusLabel="Connected"
       workerStatusTone="ready"
     />,
-  )
+  );
 
-  expect(screen.getByText('Using')).toBeDefined()
-  expect(screen.getByText('Codex')).toBeDefined()
-  expect(screen.queryByText('codex')).toBeNull()
-  expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull()
-  expect(screen.queryByRole('button', { name: 'Get help' })).toBeNull()
-})
+  expect(screen.getByText('Using')).toBeDefined();
+  expect(screen.getByText('Codex')).toBeDefined();
+  expect(screen.queryByText('codex')).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Get help' })).toBeNull();
+});
 
 test('keeps recovery actions visible when AI settings are not ready', () => {
   render(
@@ -66,11 +66,11 @@ test('keeps recovery actions visible when AI settings are not ready', () => {
       workerStatusLabel="Needs attention"
       workerStatusTone="danger"
     />,
-  )
+  );
 
-  expect(screen.getByRole('button', { name: 'Try again' })).toBeDefined()
-  expect(screen.getByRole('button', { name: 'Get help' })).toBeDefined()
-})
+  expect(screen.getByRole('button', { name: 'Try again' })).toBeDefined();
+  expect(screen.getByRole('button', { name: 'Get help' })).toBeDefined();
+});
 
 test('keeps app version visible without privacy guardrails in Local data settings', () => {
   render(
@@ -92,12 +92,12 @@ test('keeps app version visible without privacy guardrails in Local data setting
       workerStatusLabel="Connected"
       workerStatusTone="ready"
     />,
-  )
+  );
 
-  expect(screen.getByText('App version')).toBeDefined()
-  expect(screen.getByText('1.0.0')).toBeDefined()
-  expect(screen.queryByText('Privacy guardrails')).toBeNull()
-  expect(screen.queryByText('Telemetry')).toBeNull()
-  expect(screen.queryByText('Automatic update checks')).toBeNull()
-  expect(screen.queryByText('Blocked')).toBeNull()
-})
+  expect(screen.getByText('App version')).toBeDefined();
+  expect(screen.getByText('1.0.0')).toBeDefined();
+  expect(screen.queryByText('Privacy guardrails')).toBeNull();
+  expect(screen.queryByText('Telemetry')).toBeNull();
+  expect(screen.queryByText('Automatic update checks')).toBeNull();
+  expect(screen.queryByText('Blocked')).toBeNull();
+});

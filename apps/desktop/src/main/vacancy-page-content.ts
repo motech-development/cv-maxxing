@@ -1,17 +1,17 @@
-const MAX_NORMALIZATION_HTML_LENGTH = 60_000
-const MAX_NORMALIZATION_TEXT_LENGTH = 24_000
-const PRIMARY_CONTENT_BLOCK_PATTERN = /<(main|article)\b[^>]*>[\s\S]*?<\/\1>/gi
+const MAX_NORMALIZATION_HTML_LENGTH = 60_000;
+const MAX_NORMALIZATION_TEXT_LENGTH = 24_000;
+const PRIMARY_CONTENT_BLOCK_PATTERN = /<(main|article)\b[^>]*>[\s\S]*?<\/\1>/gi;
 const TRAILING_RELATED_CONTENT_MARKERS = [
   /recommended jobs/i,
   /similar jobs/i,
   /people also viewed/i,
   /more jobs/i,
   /jobs you may be interested in/i,
-] as const
+] as const;
 
 export interface VacancyNormalizationArtifacts {
-  extractedText: string
-  sanitizedHtml: string
+  extractedText: string;
+  sanitizedHtml: string;
 }
 
 export function extractTextFromHtml(html: string): string {
@@ -26,9 +26,9 @@ export function extractTextFromHtml(html: string): string {
     .replaceAll(/&quot;/gi, '"')
     .replaceAll(/&#39;/gi, "'")
     .replaceAll(/\s+\n/g, '\n')
-    .replaceAll(/\n{2,}/g, '\n')
+    .replaceAll(/\n{2,}/g, '\n');
 
-  return strippedHtml.trim()
+  return strippedHtml.trim();
 }
 
 export function sanitizeSnapshotHtml(html: string): string {
@@ -46,100 +46,100 @@ export function sanitizeSnapshotHtml(html: string): string {
       /localStorage|sessionStorage|document\.cookie|sessionToken|accessToken|refreshToken/gi,
       '',
     )
-    .replaceAll(/\b(?:authorization|set-cookie|cookie)\b/gi, '')
+    .replaceAll(/\b(?:authorization|set-cookie|cookie)\b/gi, '');
 }
 
 export function prepareVacancyNormalizationArtifacts({
   html,
 }: {
-  html: string
+  html: string;
 }): VacancyNormalizationArtifacts {
-  const sanitizedHtml = sanitizeSnapshotHtml(html)
-  const focusedHtml = focusPrimaryContent(sanitizedHtml)
-  const boundedHtml = truncateContent(focusedHtml, MAX_NORMALIZATION_HTML_LENGTH)
+  const sanitizedHtml = sanitizeSnapshotHtml(html);
+  const focusedHtml = focusPrimaryContent(sanitizedHtml);
+  const boundedHtml = truncateContent(focusedHtml, MAX_NORMALIZATION_HTML_LENGTH);
   const extractedText = truncateContent(
     extractTextFromHtml(boundedHtml),
     MAX_NORMALIZATION_TEXT_LENGTH,
-  )
+  );
 
   return {
     extractedText,
     sanitizedHtml: boundedHtml,
-  }
+  };
 }
 
 export function inferPageTitle(html: string): string | null {
-  const titleMatch = /<title>([^<]+)<\/title>/i.exec(html)
+  const titleMatch = /<title>([^<]+)<\/title>/i.exec(html);
 
   if (titleMatch === null) {
-    return null
+    return null;
   }
 
-  const [, title] = titleMatch
+  const [, title] = titleMatch;
 
   if (title === undefined) {
-    return null
+    return null;
   }
 
-  return title.trim()
+  return title.trim();
 }
 
 function focusPrimaryContent(html: string): string {
-  const primaryContent = extractPrimaryContentBlock(html)
+  const primaryContent = extractPrimaryContentBlock(html);
 
   if (primaryContent === null) {
-    return html
+    return html;
   }
 
-  return trimTrailingRelatedContent(primaryContent)
+  return trimTrailingRelatedContent(primaryContent);
 }
 
 function extractPrimaryContentBlock(html: string): string | null {
   const matches = [...html.matchAll(PRIMARY_CONTENT_BLOCK_PATTERN)]
     .map((match) => {
-      return match[0].trim()
+      return match[0].trim();
     })
     .filter((match) => {
-      return match !== ''
-    })
+      return match !== '';
+    });
 
   if (matches.length === 0) {
-    return null
+    return null;
   }
 
   return matches.reduce((longestMatch, candidate) => {
-    return candidate.length > longestMatch.length ? candidate : longestMatch
-  })
+    return candidate.length > longestMatch.length ? candidate : longestMatch;
+  });
 }
 
 function trimTrailingRelatedContent(html: string): string {
   const markerIndexes = TRAILING_RELATED_CONTENT_MARKERS.map((pattern) => {
-    return html.search(pattern)
+    return html.search(pattern);
   }).filter((index) => {
-    return index >= 0
-  })
+    return index >= 0;
+  });
 
   if (markerIndexes.length === 0) {
-    return html
+    return html;
   }
 
-  const markerIndex = Math.min(...markerIndexes)
+  const markerIndex = Math.min(...markerIndexes);
   const containerCutIndex = [
     html.lastIndexOf('<section', markerIndex),
     html.lastIndexOf('<aside', markerIndex),
     html.lastIndexOf('<div', markerIndex),
   ].reduce((largestIndex, candidateIndex) => {
-    return Math.max(largestIndex, candidateIndex)
-  }, -1)
-  const cutIndex = containerCutIndex >= 0 ? containerCutIndex : markerIndex
+    return Math.max(largestIndex, candidateIndex);
+  }, -1);
+  const cutIndex = containerCutIndex >= 0 ? containerCutIndex : markerIndex;
 
-  return html.slice(0, cutIndex).trim()
+  return html.slice(0, cutIndex).trim();
 }
 
 function truncateContent(value: string, maxLength: number): string {
   if (value.length <= maxLength) {
-    return value
+    return value;
   }
 
-  return value.slice(0, maxLength).trimEnd()
+  return value.slice(0, maxLength).trimEnd();
 }

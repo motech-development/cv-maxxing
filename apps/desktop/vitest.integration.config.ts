@@ -1,10 +1,10 @@
-import { defineConfig } from 'vitest/config'
+import { defineConfig } from 'vitest/config';
 
 import {
   desktopCoverageConfig,
   desktopIntegrationTestFiles,
   desktopTestExclude,
-} from './vitest.shared.js'
+} from './vitest.shared.js';
 
 export default defineConfig({
   test: {
@@ -12,4 +12,4 @@ export default defineConfig({
     exclude: desktopTestExclude,
     include: desktopIntegrationTestFiles,
   },
-})
+});

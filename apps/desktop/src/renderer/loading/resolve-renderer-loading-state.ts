@@ -1,11 +1,11 @@
 export interface ResolveRendererLoadingStateInput {
-  hasActiveOriginalCv: boolean
-  isCheckingAiWorkerReadiness: boolean
-  isFetchingTailoredApplicationPreview: boolean
-  isGeneratingTailoredApplication: boolean
-  isImportingOriginalCv: boolean
-  isResettingLocalAppData: boolean
-  isReviewingVacancy: boolean
+  hasActiveOriginalCv: boolean;
+  isCheckingAiWorkerReadiness: boolean;
+  isFetchingTailoredApplicationPreview: boolean;
+  isGeneratingTailoredApplication: boolean;
+  isImportingOriginalCv: boolean;
+  isResettingLocalAppData: boolean;
+  isReviewingVacancy: boolean;
 }
 
 export type RendererLoadingKind =
@@ -15,47 +15,47 @@ export type RendererLoadingKind =
   | 'reset_local_app_data'
   | 'tailored_application_generation'
   | 'tailored_application_preview'
-  | 'vacancy_review'
+  | 'vacancy_review';
 
-export type RendererLoadingScope = 'ambient' | 'app_blocking' | 'idle' | 'workspace_blocking'
+export type RendererLoadingScope = 'ambient' | 'app_blocking' | 'idle' | 'workspace_blocking';
 
 interface ActiveRendererLoadingState {
-  kind: Exclude<RendererLoadingKind, 'idle'>
-  label: string
-  scope: Exclude<RendererLoadingScope, 'idle'>
+  kind: Exclude<RendererLoadingKind, 'idle'>;
+  label: string;
+  scope: Exclude<RendererLoadingScope, 'idle'>;
 }
 
 export type RendererLoadingState =
   | {
-      kind: 'idle'
-      label: null
-      scope: 'idle'
+      kind: 'idle';
+      label: null;
+      scope: 'idle';
     }
-  | ActiveRendererLoadingState
+  | ActiveRendererLoadingState;
 
 const rendererLoadingPriorityOrder: readonly Exclude<RendererLoadingScope, 'idle'>[] = [
   'app_blocking',
   'workspace_blocking',
   'ambient',
-]
+];
 
 const idleRendererLoadingState: RendererLoadingState = {
   kind: 'idle',
   label: null,
   scope: 'idle',
-}
+};
 
 export function resolveRendererLoadingState(
   input: ResolveRendererLoadingStateInput,
 ): RendererLoadingState {
-  const activeLoadingStates: ActiveRendererLoadingState[] = []
+  const activeLoadingStates: ActiveRendererLoadingState[] = [];
 
   if (input.isCheckingAiWorkerReadiness) {
     activeLoadingStates.push({
       kind: 'ai_worker_readiness',
       label: 'Preparing app',
       scope: 'app_blocking',
-    })
+    });
   }
 
   if (input.isResettingLocalAppData) {
@@ -63,7 +63,7 @@ export function resolveRendererLoadingState(
       kind: 'reset_local_app_data',
       label: 'Preparing app',
       scope: 'app_blocking',
-    })
+    });
   }
 
   if (input.isImportingOriginalCv) {
@@ -71,7 +71,7 @@ export function resolveRendererLoadingState(
       kind: 'original_cv_import',
       label: input.hasActiveOriginalCv ? 'Updating your CV...' : 'Adding a CV...',
       scope: 'workspace_blocking',
-    })
+    });
   }
 
   if (input.isReviewingVacancy) {
@@ -79,7 +79,7 @@ export function resolveRendererLoadingState(
       kind: 'vacancy_review',
       label: 'Checking job details...',
       scope: 'workspace_blocking',
-    })
+    });
   }
 
   if (input.isGeneratingTailoredApplication) {
@@ -87,7 +87,7 @@ export function resolveRendererLoadingState(
       kind: 'tailored_application_generation',
       label: 'Tailoring your CV...',
       scope: 'workspace_blocking',
-    })
+    });
   }
 
   if (input.isFetchingTailoredApplicationPreview) {
@@ -95,18 +95,18 @@ export function resolveRendererLoadingState(
       kind: 'tailored_application_preview',
       label: 'Background activity',
       scope: 'ambient',
-    })
+    });
   }
 
   for (const scope of rendererLoadingPriorityOrder) {
     const resolvedLoadingState = activeLoadingStates.find((candidate) => {
-      return candidate.scope === scope
-    })
+      return candidate.scope === scope;
+    });
 
     if (resolvedLoadingState !== undefined) {
-      return resolvedLoadingState
+      return resolvedLoadingState;
     }
   }
 
-  return idleRendererLoadingState
+  return idleRendererLoadingState;
 }

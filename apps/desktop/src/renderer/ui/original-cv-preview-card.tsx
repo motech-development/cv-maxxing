@@ -1,25 +1,25 @@
-import { useEffect, useRef, useState } from 'react'
-import { renderAsync } from 'docx-preview'
+import { renderAsync } from 'docx-preview';
+import { useEffect, useRef, useState } from 'react';
 
-import type { OriginalCvDocxPreview, OriginalCvPreview } from '../../shared/original-cv.js'
-import { PdfPreviewCard } from './pdf-preview-card.js'
+import type { OriginalCvDocxPreview, OriginalCvPreview } from '../../shared/original-cv.js';
+import { PdfPreviewCard } from './pdf-preview-card.js';
 
 interface OriginalCvPreviewCardProperties {
-  emptyStateCopy: string
-  onPreviewErrorChange?: (message: string | null) => void
-  preview: OriginalCvPreview | null
-  previewKey: string
-  title: string
+  emptyStateCopy: string;
+  onPreviewErrorChange?: (message: string | null) => void;
+  preview: OriginalCvPreview | null;
+  previewKey: string;
+  title: string;
 }
 
-const DOCX_PREVIEW_CLASS_NAME = 'cv-maxxing-docx'
+const DOCX_PREVIEW_CLASS_NAME = 'cv-maxxing-docx';
 
 const DOCX_RENDER_OPTIONS = {
   breakPages: true,
   className: DOCX_PREVIEW_CLASS_NAME,
   inWrapper: true,
   useBase64URL: true,
-} as const
+} as const;
 
 export function OriginalCvPreviewCard({
   emptyStateCopy,
@@ -37,7 +37,7 @@ export function OriginalCvPreviewCard({
         previewKey={previewKey}
         title={title}
       />
-    )
+    );
   }
 
   return (
@@ -47,7 +47,7 @@ export function OriginalCvPreviewCard({
       preview={preview}
       title={title}
     />
-  )
+  );
 }
 
 function LoadedDocxPreviewCard({
@@ -55,28 +55,28 @@ function LoadedDocxPreviewCard({
   preview,
   title,
 }: {
-  onPreviewErrorChange?: (message: string | null) => void
-  preview: OriginalCvDocxPreview
-  title: string
+  onPreviewErrorChange?: (message: string | null) => void;
+  preview: OriginalCvDocxPreview;
+  title: string;
 }) {
-  const bodyContainerReference = useRef<HTMLDivElement | null>(null)
-  const styleContainerReference = useRef<HTMLDivElement | null>(null)
-  const [renderError, setRenderError] = useState<string | null>(null)
+  const bodyContainerReference = useRef<HTMLDivElement | null>(null);
+  const styleContainerReference = useRef<HTMLDivElement | null>(null);
+  const [renderError, setRenderError] = useState<string | null>(null);
 
   useEffect(() => {
-    const bodyContainer = bodyContainerReference.current
-    const styleContainer = styleContainerReference.current
+    const bodyContainer = bodyContainerReference.current;
+    const styleContainer = styleContainerReference.current;
 
     if (bodyContainer === null || styleContainer === null) {
-      return
+      return;
     }
 
-    const resolvedBodyContainer = bodyContainer
-    const resolvedStyleContainer = styleContainer
-    let isCancelled = false
+    const resolvedBodyContainer = bodyContainer;
+    const resolvedStyleContainer = styleContainer;
+    let isCancelled = false;
 
-    resolvedBodyContainer.replaceChildren()
-    resolvedStyleContainer.replaceChildren()
+    resolvedBodyContainer.replaceChildren();
+    resolvedStyleContainer.replaceChildren();
 
     async function renderDocxPreview(): Promise<void> {
       try {
@@ -85,50 +85,50 @@ function LoadedDocxPreviewCard({
           resolvedBodyContainer,
           resolvedStyleContainer,
           DOCX_RENDER_OPTIONS,
-        )
+        );
 
         if (isCancelled) {
-          resolvedBodyContainer.replaceChildren()
-          resolvedStyleContainer.replaceChildren()
+          resolvedBodyContainer.replaceChildren();
+          resolvedStyleContainer.replaceChildren();
 
-          return
+          return;
         }
 
         setRenderError((previousError) => {
-          return previousError === null ? previousError : null
-        })
+          return previousError === null ? previousError : null;
+        });
       } catch (error) {
-        resolvedBodyContainer.replaceChildren()
-        resolvedStyleContainer.replaceChildren()
+        resolvedBodyContainer.replaceChildren();
+        resolvedStyleContainer.replaceChildren();
 
         if (isCancelled) {
-          return
+          return;
         }
 
         setRenderError(
           error instanceof Error ? error.message : "We couldn't show this document right now.",
-        )
+        );
       }
     }
 
     renderDocxPreview().catch(() => {
       if (isCancelled) {
-        return
+        return;
       }
 
-      setRenderError("We couldn't show this document right now.")
-    })
+      setRenderError("We couldn't show this document right now.");
+    });
 
     return () => {
-      isCancelled = true
-      resolvedBodyContainer.replaceChildren()
-      resolvedStyleContainer.replaceChildren()
-    }
-  }, [preview])
+      isCancelled = true;
+      resolvedBodyContainer.replaceChildren();
+      resolvedStyleContainer.replaceChildren();
+    };
+  }, [preview]);
 
   useEffect(() => {
-    onPreviewErrorChange?.(renderError)
-  }, [onPreviewErrorChange, renderError])
+    onPreviewErrorChange?.(renderError);
+  }, [onPreviewErrorChange, renderError]);
 
   return (
     <div className="flex h-full min-h-[520px] min-w-0 max-w-full flex-col gap-4 rounded-[8px] border border-[var(--color-border)] bg-[var(--color-surface-1)] p-[18px]">
@@ -142,5 +142,5 @@ function LoadedDocxPreviewCard({
         </div>
       </div>
     </div>
-  )
+  );
 }

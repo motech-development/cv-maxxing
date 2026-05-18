@@ -1,31 +1,31 @@
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
-import path from 'node:path'
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 
-import { afterEach, expect, test, vi } from 'vitest'
+import { afterEach, expect, test, vi } from 'vitest';
 
 const { spawnMock } = vi.hoisted(() => {
   return {
     spawnMock: vi.fn(),
-  }
-})
+  };
+});
 
 vi.mock('node:child_process', () => {
   return {
     spawn: spawnMock,
-  }
-})
+  };
+});
 
-import { createOriginalCvNormalizationWorker } from '../original-cv-normalization-worker.js'
+import { createOriginalCvNormalizationWorker } from '../original-cv-normalization-worker.js';
 
-const temporaryDirectories: string[] = []
+const temporaryDirectories: string[] = [];
 
 function createNormalizedOriginalCvExperienceEntry(
   overrides: Partial<{
-    dateRange: string
-    employer: string
-    roleTitle: string
-    summary: string
+    dateRange: string;
+    employer: string;
+    roleTitle: string;
+    summary: string;
   }> = {},
 ) {
   return {
@@ -34,50 +34,50 @@ function createNormalizedOriginalCvExperienceEntry(
     roleTitle: 'Principal Product Designer',
     summary: 'Led product design for AI-assisted desktop tooling.',
     ...overrides,
-  }
+  };
 }
 
 class MockEventTarget extends EventTarget {
   on(eventName: string, listener: (detail: unknown) => void): this {
     this.addEventListener(eventName, (event) => {
-      listener((event as CustomEvent<unknown>).detail)
-    })
+      listener((event as CustomEvent<unknown>).detail);
+    });
 
-    return this
+    return this;
   }
 
   emit(eventName: string, detail?: unknown): void {
-    this.dispatchEvent(new CustomEvent(eventName, { detail }))
+    this.dispatchEvent(new CustomEvent(eventName, { detail }));
   }
 }
 
 afterEach(async () => {
-  spawnMock.mockReset()
+  spawnMock.mockReset();
 
   await Promise.all(
     temporaryDirectories.splice(0).map(async (directoryPath) => {
       await rm(directoryPath, {
         force: true,
         recursive: true,
-      })
+      });
     }),
-  )
-})
+  );
+});
 
 test('reports invalid fixture JSON with clear context for original CV normalization', async () => {
   const worker = createOriginalCvNormalizationWorker({
     environment: {
       CV_MAXXING_AI_WORKER_ORIGINAL_CV_NORMALIZATION_OUTPUT: '{"invalid"',
     },
-  })
+  });
 
   await expect(
     worker.runNormalization({
       runDirectoryPath: '/tmp/unused',
       signal: new AbortController().signal,
     }),
-  ).rejects.toThrow(/CV_MAXXING_AI_WORKER_ORIGINAL_CV_NORMALIZATION_OUTPUT produced invalid JSON/u)
-})
+  ).rejects.toThrow(/CV_MAXXING_AI_WORKER_ORIGINAL_CV_NORMALIZATION_OUTPUT produced invalid JSON/u);
+});
 
 test('rejects fixture output that does not match the normalization contract', async () => {
   const worker = createOriginalCvNormalizationWorker({
@@ -103,15 +103,15 @@ test('rejects fixture output that does not match the normalization contract', as
         },
       }),
     },
-  })
+  });
 
   await expect(
     worker.runNormalization({
       runDirectoryPath: '/tmp/unused',
       signal: new AbortController().signal,
     }),
-  ).rejects.toThrow(/produced invalid normalization output/u)
-})
+  ).rejects.toThrow(/produced invalid normalization output/u);
+});
 
 test('returns parsed normalization results from fixture output', async () => {
   const worker = createOriginalCvNormalizationWorker({
@@ -138,7 +138,7 @@ test('returns parsed normalization results from fixture output', async () => {
         },
       }),
     },
-  })
+  });
 
   await expect(
     worker.runNormalization({
@@ -165,8 +165,8 @@ test('returns parsed normalization results from fixture output', async () => {
       firstPersonUsage: 'absent',
       formality: 'formal',
     },
-  })
-})
+  });
+});
 
 test('fills missing AI contact fields with blank strings instead of rejecting normalization output', async () => {
   const worker = createOriginalCvNormalizationWorker({
@@ -187,7 +187,7 @@ test('fills missing AI contact fields with blank strings instead of rejecting no
         },
       }),
     },
-  })
+  });
 
   await expect(
     worker.runNormalization({
@@ -214,43 +214,43 @@ test('fills missing AI contact fields with blank strings instead of rejecting no
       firstPersonUsage: 'absent',
       formality: 'formal',
     },
-  })
-})
+  });
+});
 
 test('writes typed enum fields in the original-CV normalization output schema', async () => {
   const runDirectoryPath = await mkdtemp(
     path.join(tmpdir(), 'cv-maxxing-original-cv-normalization-worker-schema-'),
-  )
+  );
 
-  temporaryDirectories.push(runDirectoryPath)
+  temporaryDirectories.push(runDirectoryPath);
 
   let capturedSchema:
     | {
         properties?: {
           normalizedCv?: {
-            required?: unknown
-          }
+            required?: unknown;
+          };
           writingStyle?: {
             properties?: {
-              firstPersonUsage?: unknown
-              formality?: unknown
-            }
-          }
-        }
+              firstPersonUsage?: unknown;
+              formality?: unknown;
+            };
+          };
+        };
       }
-    | undefined
+    | undefined;
 
   spawnMock.mockImplementation((_command: string, args: string[]) => {
     const child = new MockEventTarget() as MockEventTarget & {
-      stderr: MockEventTarget
-      stdout: MockEventTarget
-    }
+      stderr: MockEventTarget;
+      stdout: MockEventTarget;
+    };
 
-    child.stderr = new MockEventTarget()
-    child.stdout = new MockEventTarget()
+    child.stderr = new MockEventTarget();
+    child.stdout = new MockEventTarget();
 
-    const schemaFlagIndex = args.indexOf('--output-schema')
-    const outputFlagIndex = args.indexOf('--output-last-message')
+    const schemaFlagIndex = args.indexOf('--output-schema');
+    const outputFlagIndex = args.indexOf('--output-last-message');
 
     if (
       schemaFlagIndex === -1 ||
@@ -258,19 +258,19 @@ test('writes typed enum fields in the original-CV normalization output schema', 
       schemaFlagIndex + 1 >= args.length ||
       outputFlagIndex + 1 >= args.length
     ) {
-      throw new Error('Expected Codex CLI schema and output file path arguments.')
+      throw new Error('Expected Codex CLI schema and output file path arguments.');
     }
 
-    const schemaFilePath = args[schemaFlagIndex + 1]
-    const outputFilePath = args[outputFlagIndex + 1]
+    const schemaFilePath = args[schemaFlagIndex + 1];
+    const outputFilePath = args[outputFlagIndex + 1];
 
     if (schemaFilePath === undefined || outputFilePath === undefined) {
-      throw new Error('Expected Codex CLI schema and output file path arguments.')
+      throw new Error('Expected Codex CLI schema and output file path arguments.');
     }
 
     void Promise.all([
       readFile(schemaFilePath, 'utf8').then((schemaText) => {
-        capturedSchema = JSON.parse(schemaText) as typeof capturedSchema
+        capturedSchema = JSON.parse(schemaText) as typeof capturedSchema;
       }),
       writeFile(
         outputFilePath,
@@ -299,21 +299,21 @@ test('writes typed enum fields in the original-CV normalization output schema', 
       ),
     ]).then(
       () => {
-        child.emit('close', 0)
+        child.emit('close', 0);
       },
       (error: unknown) => {
-        child.emit('error', error)
+        child.emit('error', error);
       },
-    )
+    );
 
-    return child
-  })
+    return child;
+  });
 
   const worker = createOriginalCvNormalizationWorker({
     environment: {
       CV_MAXXING_AI_WORKER_CODEX_COMMAND: 'codex',
     },
-  })
+  });
 
   await expect(
     worker.runNormalization({
@@ -340,52 +340,52 @@ test('writes typed enum fields in the original-CV normalization output schema', 
       firstPersonUsage: 'absent',
       formality: 'formal',
     },
-  })
+  });
 
   expect(capturedSchema?.properties?.writingStyle?.properties?.firstPersonUsage).toEqual({
     enum: ['absent', 'mixed', 'present'],
     type: 'string',
-  })
+  });
   expect(capturedSchema?.properties?.writingStyle?.properties?.formality).toEqual({
     enum: ['conversational', 'direct', 'formal'],
     type: 'string',
-  })
+  });
   expect(capturedSchema?.properties?.normalizedCv).toMatchObject({
     required: ['contact', 'experience', 'fullName', 'headline', 'skills', 'summary'],
-  })
-})
+  });
+});
 
 test('uses generic location instructions without assuming a specific CV layout', async () => {
   const runDirectoryPath = await mkdtemp(
     path.join(tmpdir(), 'cv-maxxing-original-cv-normalization-worker-prompt-'),
-  )
+  );
 
-  temporaryDirectories.push(runDirectoryPath)
+  temporaryDirectories.push(runDirectoryPath);
 
-  let capturedPrompt: string | undefined
+  let capturedPrompt: string | undefined;
 
   spawnMock.mockImplementation((_command: string, args: string[]) => {
     const child = new MockEventTarget() as MockEventTarget & {
-      stderr: MockEventTarget
-      stdout: MockEventTarget
-    }
+      stderr: MockEventTarget;
+      stdout: MockEventTarget;
+    };
 
-    child.stderr = new MockEventTarget()
-    child.stdout = new MockEventTarget()
+    child.stderr = new MockEventTarget();
+    child.stdout = new MockEventTarget();
 
-    const outputFlagIndex = args.indexOf('--output-last-message')
+    const outputFlagIndex = args.indexOf('--output-last-message');
 
     if (outputFlagIndex === -1 || outputFlagIndex + 1 >= args.length) {
-      throw new Error('Expected Codex CLI output file path argument.')
+      throw new Error('Expected Codex CLI output file path argument.');
     }
 
-    const outputFilePath = args[outputFlagIndex + 1]
+    const outputFilePath = args[outputFlagIndex + 1];
 
     if (outputFilePath === undefined) {
-      throw new Error('Expected Codex CLI output file path argument.')
+      throw new Error('Expected Codex CLI output file path argument.');
     }
 
-    capturedPrompt = args.at(-1)
+    capturedPrompt = args.at(-1);
 
     void writeFile(
       outputFilePath,
@@ -413,89 +413,89 @@ test('uses generic location instructions without assuming a specific CV layout',
       'utf8',
     ).then(
       () => {
-        child.emit('close', 0)
+        child.emit('close', 0);
       },
       (error: unknown) => {
-        child.emit('error', error)
+        child.emit('error', error);
       },
-    )
+    );
 
-    return child
-  })
+    return child;
+  });
 
   const worker = createOriginalCvNormalizationWorker({
     environment: {
       CV_MAXXING_AI_WORKER_CODEX_COMMAND: 'codex',
     },
-  })
+  });
 
   await expect(
     worker.runNormalization({
       runDirectoryPath,
       signal: new AbortController().signal,
     }),
-  ).resolves.toBeDefined()
+  ).resolves.toBeDefined();
 
-  expect(capturedPrompt).toContain('Extract CV contact fields into normalizedCv.contact.')
+  expect(capturedPrompt).toContain('Extract CV contact fields into normalizedCv.contact.');
   expect(capturedPrompt).toContain(
     'If the CV clearly provides a geographic location, return it in "location, country" format.',
-  )
+  );
   expect(capturedPrompt).toContain(
     'If the CV provides a location but omits the country, infer the country and include it.',
-  )
+  );
   expect(capturedPrompt).toContain(
     'Do not assume location appears in any specific section or layout position.',
-  )
+  );
   expect(capturedPrompt).toContain(
     'If multiple professional links are present, prefer a personal portfolio, then LinkedIn, then GitHub.',
-  )
-  expect(capturedPrompt).not.toContain('Extract header contact fields into normalizedCv.contact.')
-})
+  );
+  expect(capturedPrompt).not.toContain('Extract header contact fields into normalizedCv.contact.');
+});
 
 test('kills the Codex CLI subprocess when normalization is aborted', async () => {
   const runDirectoryPath = await mkdtemp(
     path.join(tmpdir(), 'cv-maxxing-original-cv-normalization-worker-abort-'),
-  )
+  );
 
-  temporaryDirectories.push(runDirectoryPath)
+  temporaryDirectories.push(runDirectoryPath);
 
   const childProcesses: (MockEventTarget & {
-    kill: ReturnType<typeof vi.fn>
-    stderr: MockEventTarget
-    stdout: MockEventTarget
-  })[] = []
+    kill: ReturnType<typeof vi.fn>;
+    stderr: MockEventTarget;
+    stdout: MockEventTarget;
+  })[] = [];
 
   spawnMock.mockImplementation(() => {
     const child = new MockEventTarget() as MockEventTarget & {
-      kill: ReturnType<typeof vi.fn>
-      stderr: MockEventTarget
-      stdout: MockEventTarget
-    }
+      kill: ReturnType<typeof vi.fn>;
+      stderr: MockEventTarget;
+      stdout: MockEventTarget;
+    };
 
     child.kill = vi.fn(() => {
-      child.emit('close', null)
-    })
-    child.stderr = new MockEventTarget()
-    child.stdout = new MockEventTarget()
-    childProcesses.push(child)
+      child.emit('close', null);
+    });
+    child.stderr = new MockEventTarget();
+    child.stdout = new MockEventTarget();
+    childProcesses.push(child);
 
-    return child
-  })
+    return child;
+  });
 
   const worker = createOriginalCvNormalizationWorker({
     environment: {
       CV_MAXXING_AI_WORKER_CODEX_COMMAND: 'codex',
     },
-  })
-  const abortController = new AbortController()
+  });
+  const abortController = new AbortController();
   const runPromise = worker.runNormalization({
     runDirectoryPath,
     signal: abortController.signal,
-  })
+  });
 
   await vi.waitFor(() => {
-    expect(spawnMock).toHaveBeenCalledTimes(1)
-  })
+    expect(spawnMock).toHaveBeenCalledTimes(1);
+  });
 
   expect(spawnMock).toHaveBeenCalledWith(
     'codex',
@@ -513,11 +513,11 @@ test('kills the Codex CLI subprocess when normalization is aborted', async () =>
       cwd: runDirectoryPath,
       stdio: ['ignore', 'pipe', 'pipe'],
     }),
-  )
+  );
 
-  abortController.abort()
+  abortController.abort();
 
-  await expect(runPromise).rejects.toThrow('Original CV normalization cancelled.')
-  expect(childProcesses).toHaveLength(1)
-  expect(childProcesses[0]?.kill).toHaveBeenCalledWith('SIGTERM')
-})
+  await expect(runPromise).rejects.toThrow('Original CV normalization cancelled.');
+  expect(childProcesses).toHaveLength(1);
+  expect(childProcesses[0]?.kill).toHaveBeenCalledWith('SIGTERM');
+});

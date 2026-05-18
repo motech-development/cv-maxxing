@@ -1,18 +1,18 @@
-import { mkdtemp, readFile, readdir, rm } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
-import path from 'node:path'
+import { mkdtemp, readdir, readFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 
-import { afterEach, expect, test, vi } from 'vitest'
+import { afterEach, expect, test, vi } from 'vitest';
 
-import { VacancyNormalizationError } from '../vacancy-normalization-error.js'
-import type { VacancyNormalizationWorker } from '../vacancy-normalization-worker.js'
+import { VacancyNormalizationError } from '../vacancy-normalization-error.js';
 import {
   createVacancyNormalizationService,
   type NormalizedVacancy,
   type VacancyNormalizationWorkerResult,
-} from '../vacancy-normalization-service.js'
+} from '../vacancy-normalization-service.js';
+import type { VacancyNormalizationWorker } from '../vacancy-normalization-worker.js';
 
-const temporaryDirectories: string[] = []
+const temporaryDirectories: string[] = [];
 
 afterEach(async () => {
   await Promise.all(
@@ -20,17 +20,17 @@ afterEach(async () => {
       await rm(directoryPath, {
         force: true,
         recursive: true,
-      })
+      });
     }),
-  )
-})
+  );
+});
 
 test('writes a dedicated vacancy-normalization run workspace and removes it after the worker returns', async () => {
   const runWorkspaceRootPath = await mkdtemp(
     path.join(tmpdir(), 'cv-maxxing-vacancy-normalization-service-'),
-  )
+  );
 
-  temporaryDirectories.push(runWorkspaceRootPath)
+  temporaryDirectories.push(runWorkspaceRootPath);
 
   const worker = {
     runNormalization: vi.fn(
@@ -40,9 +40,9 @@ test('writes a dedicated vacancy-normalization run workspace and removes it afte
           readFile(path.join(runDirectoryPath, 'input', 'page.html'), 'utf8'),
           readFile(path.join(runDirectoryPath, 'input', 'page.txt'), 'utf8'),
           readFile(path.join(runDirectoryPath, 'input', 'task.json'), 'utf8'),
-        ])
-        const parsedTask = JSON.parse(taskJson) as unknown
-        const parsedExamples = JSON.parse(examplesJson) as unknown
+        ]);
+        const parsedTask = JSON.parse(taskJson) as unknown;
+        const parsedExamples = JSON.parse(examplesJson) as unknown;
 
         expect(parsedTask).toEqual({
           constraints: {
@@ -65,10 +65,10 @@ test('writes a dedicated vacancy-normalization run workspace and removes it afte
             sanitizedHtmlPath: 'input/page.html',
             source: 'jobs.example.com',
           },
-        })
-        expect(Array.isArray(parsedExamples)).toBe(true)
-        expect(pageHtml).toContain('<main>')
-        expect(pageText).toContain('Senior Product Designer')
+        });
+        expect(Array.isArray(parsedExamples)).toBe(true);
+        expect(pageHtml).toContain('<main>');
+        expect(pageText).toContain('Senior Product Designer');
 
         return {
           kind: 'success',
@@ -85,15 +85,15 @@ test('writes a dedicated vacancy-normalization run workspace and removes it afte
             responsibilities: ['Lead product design for desktop workflows.'],
             title: 'Senior Product Designer',
           },
-        } satisfies VacancyNormalizationWorkerResult
+        } satisfies VacancyNormalizationWorkerResult;
       },
     ),
-  }
+  };
   const service = createVacancyNormalizationService({
     generateId: vi.fn(() => 'vacancy-normalization-run-001'),
     runWorkspaceRootPath,
     worker,
-  })
+  });
 
   await expect(
     service.normalizeVacancy({
@@ -121,25 +121,25 @@ test('writes a dedicated vacancy-normalization run workspace and removes it afte
     requirements: ['Experience shipping workflow software.'],
     responsibilities: ['Lead product design for desktop workflows.'],
     title: 'Senior Product Designer',
-  } satisfies NormalizedVacancy)
+  } satisfies NormalizedVacancy);
 
-  const firstCall = worker.runNormalization.mock.calls[0]?.[0]
+  const firstCall = worker.runNormalization.mock.calls[0]?.[0];
 
   expect(firstCall?.runDirectoryPath).toBe(
     path.join(runWorkspaceRootPath, 'vacancy-normalization-run-001'),
-  )
-  expect(firstCall?.signal).toBeInstanceOf(AbortSignal)
-  await expect(readdir(runWorkspaceRootPath)).resolves.toEqual([])
-})
+  );
+  expect(firstCall?.signal).toBeInstanceOf(AbortSignal);
+  await expect(readdir(runWorkspaceRootPath)).resolves.toEqual([]);
+});
 
 test('aborts a stalled vacancy-normalization run after the timeout and removes the transient workspace', async () => {
   const runWorkspaceRootPath = await mkdtemp(
     path.join(tmpdir(), 'cv-maxxing-vacancy-normalization-service-timeout-'),
-  )
+  );
 
-  temporaryDirectories.push(runWorkspaceRootPath)
+  temporaryDirectories.push(runWorkspaceRootPath);
 
-  let didAbort = false
+  let didAbort = false;
 
   const worker: VacancyNormalizationWorker = {
     runNormalization: vi.fn(
@@ -148,23 +148,23 @@ test('aborts a stalled vacancy-normalization run after the timeout and removes t
           signal.addEventListener(
             'abort',
             () => {
-              didAbort = true
-              reject(new Error('Vacancy normalization cancelled.'))
+              didAbort = true;
+              reject(new Error('Vacancy normalization cancelled.'));
             },
             {
               once: true,
             },
-          )
-        })
+          );
+        });
       },
     ),
-  }
+  };
   const service = createVacancyNormalizationService({
     generateId: vi.fn(() => 'vacancy-normalization-run-timeout'),
     runWorkspaceRootPath,
     timeoutMs: 5,
     worker,
-  })
+  });
 
   await expect(
     service.normalizeVacancy({
@@ -180,19 +180,19 @@ test('aborts a stalled vacancy-normalization run after the timeout and removes t
       code: 'timeout',
       message: 'Vacancy normalization timed out.',
     }),
-  )
+  );
 
-  expect(worker.runNormalization).toHaveBeenCalledTimes(1)
-  expect(didAbort).toBe(true)
-  await expect(readdir(runWorkspaceRootPath)).resolves.toEqual([])
-})
+  expect(worker.runNormalization).toHaveBeenCalledTimes(1);
+  expect(didAbort).toBe(true);
+  await expect(readdir(runWorkspaceRootPath)).resolves.toEqual([]);
+});
 
 test('maps a no-job-content worker result to a typed vacancy-normalization failure', async () => {
   const runWorkspaceRootPath = await mkdtemp(
     path.join(tmpdir(), 'cv-maxxing-vacancy-normalization-service-no-job-content-'),
-  )
+  );
 
-  temporaryDirectories.push(runWorkspaceRootPath)
+  temporaryDirectories.push(runWorkspaceRootPath);
 
   const service = createVacancyNormalizationService({
     generateId: vi.fn(() => 'vacancy-normalization-run-no-job-content'),
@@ -201,10 +201,10 @@ test('maps a no-job-content worker result to a typed vacancy-normalization failu
       runNormalization: vi.fn(() => {
         return Promise.resolve({
           kind: 'no_job_content',
-        } satisfies VacancyNormalizationWorkerResult)
+        } satisfies VacancyNormalizationWorkerResult);
       }),
     },
-  })
+  });
 
   await expect(
     service.normalizeVacancy({
@@ -220,15 +220,15 @@ test('maps a no-job-content worker result to a typed vacancy-normalization failu
       code: 'no_job_content',
       message: 'Vacancy normalization found no job content to persist.',
     }),
-  )
-})
+  );
+});
 
 test('rejects semantically invalid normalized vacancy output after deterministic post-validation', async () => {
   const runWorkspaceRootPath = await mkdtemp(
     path.join(tmpdir(), 'cv-maxxing-vacancy-normalization-service-semantic-'),
-  )
+  );
 
-  temporaryDirectories.push(runWorkspaceRootPath)
+  temporaryDirectories.push(runWorkspaceRootPath);
 
   const service = createVacancyNormalizationService({
     generateId: vi.fn(() => 'vacancy-normalization-run-semantic'),
@@ -245,10 +245,10 @@ test('rejects semantically invalid normalized vacancy output after deterministic
             responsibilities: [],
             title: 'Sign in to view this job',
           },
-        } satisfies VacancyNormalizationWorkerResult)
+        } satisfies VacancyNormalizationWorkerResult);
       }),
     },
-  })
+  });
 
   await expect(
     service.normalizeVacancy({
@@ -264,15 +264,15 @@ test('rejects semantically invalid normalized vacancy output after deterministic
       code: 'semantic_rejection',
       message: 'Vacancy normalization produced semantically invalid vacancy content.',
     }),
-  )
-})
+  );
+});
 
 test('focuses authenticated normalization input on the main vacancy content and bounds oversized artifacts', async () => {
   const runWorkspaceRootPath = await mkdtemp(
     path.join(tmpdir(), 'cv-maxxing-vacancy-normalization-service-authenticated-focus-'),
-  )
+  );
 
-  temporaryDirectories.push(runWorkspaceRootPath)
+  temporaryDirectories.push(runWorkspaceRootPath);
 
   const worker = {
     runNormalization: vi.fn(
@@ -280,17 +280,17 @@ test('focuses authenticated normalization input on the main vacancy content and 
         const [pageHtml, pageText] = await Promise.all([
           readFile(path.join(runDirectoryPath, 'input', 'page.html'), 'utf8'),
           readFile(path.join(runDirectoryPath, 'input', 'page.txt'), 'utf8'),
-        ])
+        ]);
 
-        expect(pageHtml).toContain('<main>')
-        expect(pageHtml).toContain('Senior Product Designer')
-        expect(pageHtml).not.toContain('Account recommendations')
-        expect(pageHtml).not.toContain('Recommended jobs')
-        expect(pageHtml.length).toBeLessThan(60_001)
-        expect(pageText).toContain('Lead product design for authenticated desktop workflows.')
-        expect(pageText).not.toContain('Account recommendations')
-        expect(pageText).not.toContain('Recommended jobs')
-        expect(pageText.length).toBeLessThan(24_001)
+        expect(pageHtml).toContain('<main>');
+        expect(pageHtml).toContain('Senior Product Designer');
+        expect(pageHtml).not.toContain('Account recommendations');
+        expect(pageHtml).not.toContain('Recommended jobs');
+        expect(pageHtml.length).toBeLessThan(60_001);
+        expect(pageText).toContain('Lead product design for authenticated desktop workflows.');
+        expect(pageText).not.toContain('Account recommendations');
+        expect(pageText).not.toContain('Recommended jobs');
+        expect(pageText.length).toBeLessThan(24_001);
 
         return {
           kind: 'success',
@@ -303,18 +303,18 @@ test('focuses authenticated normalization input on the main vacancy content and 
             responsibilities: ['Lead product design for authenticated desktop workflows.'],
             title: 'Senior Product Designer',
           },
-        } satisfies VacancyNormalizationWorkerResult
+        } satisfies VacancyNormalizationWorkerResult;
       },
     ),
-  }
+  };
   const service = createVacancyNormalizationService({
     generateId: vi.fn(() => 'vacancy-normalization-run-authenticated-focus'),
     runWorkspaceRootPath,
     worker,
-  })
-  const profileNoise = '<div>Account recommendations</div>'.repeat(4000)
+  });
+  const profileNoise = '<div>Account recommendations</div>'.repeat(4000);
   const relatedJobNoise =
-    '<section><h2>Recommended jobs</h2><p>More jobs for you.</p></section>'.repeat(2000)
+    '<section><h2>Recommended jobs</h2><p>More jobs for you.</p></section>'.repeat(2000);
 
   await expect(
     service.normalizeVacancy({
@@ -347,5 +347,5 @@ test('focuses authenticated normalization input on the main vacancy content and 
     requirements: ['Experience shipping workflow software.'],
     responsibilities: ['Lead product design for authenticated desktop workflows.'],
     title: 'Senior Product Designer',
-  } satisfies NormalizedVacancy)
-})
+  } satisfies NormalizedVacancy);
+});

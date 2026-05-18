@@ -1,17 +1,17 @@
-import { useEffect, useId, useRef, type ReactNode, type SyntheticEvent } from 'react'
+import { type ReactNode, type SyntheticEvent, useEffect, useId, useRef } from 'react';
 
-import type { RuntimeAlert } from '../runtime-alerts.js'
-import { RuntimeAlertBanner } from './runtime-alert.js'
+import type { RuntimeAlert } from '../runtime-alerts.js';
+import { RuntimeAlertBanner } from './runtime-alert.js';
 
 interface DialogProperties {
-  actions: ReactNode
-  children: ReactNode
-  eyebrow?: string
-  isDismissable?: boolean
-  isOpen: boolean
-  onOpenChange: (isOpen: boolean) => void
-  runtimeAlert?: RuntimeAlert | null
-  title: string
+  actions: ReactNode;
+  children: ReactNode;
+  eyebrow?: string;
+  isDismissable?: boolean;
+  isOpen: boolean;
+  onOpenChange: (isOpen: boolean) => void;
+  runtimeAlert?: RuntimeAlert | null;
+  title: string;
 }
 
 export function Dialog({
@@ -24,82 +24,82 @@ export function Dialog({
   runtimeAlert,
   title,
 }: DialogProperties) {
-  const dialogReference = useRef<HTMLDialogElement | null>(null)
-  const titleId = useId()
+  const dialogReference = useRef<HTMLDialogElement | null>(null);
+  const titleId = useId();
 
   useEffect(() => {
     if (!isOpen) {
-      return
+      return;
     }
 
-    const dialogElement = dialogReference.current
+    const dialogElement = dialogReference.current;
 
     if (dialogElement === null) {
-      return
+      return;
     }
 
     if (typeof dialogElement.showModal === 'function' && !dialogElement.open) {
-      dialogElement.showModal()
+      dialogElement.showModal();
 
       return () => {
         if (dialogElement.open) {
-          dialogElement.close()
+          dialogElement.close();
         }
-      }
+      };
     }
 
-    dialogElement.setAttribute('open', '')
+    dialogElement.setAttribute('open', '');
 
     return () => {
-      dialogElement.removeAttribute('open')
-    }
-  }, [isOpen])
+      dialogElement.removeAttribute('open');
+    };
+  }, [isOpen]);
 
   useEffect(() => {
     if (!isOpen) {
-      return
+      return;
     }
 
-    const dialogElement = dialogReference.current
+    const dialogElement = dialogReference.current;
 
     if (dialogElement === null) {
-      return
+      return;
     }
 
     const handleBackdropClick = (event: Event): void => {
       if (event.target !== dialogElement) {
-        return
+        return;
       }
 
-      event.preventDefault()
+      event.preventDefault();
 
       if (!isDismissable) {
-        return
+        return;
       }
 
-      onOpenChange(false)
-    }
+      onOpenChange(false);
+    };
 
-    dialogElement.addEventListener('click', handleBackdropClick)
+    dialogElement.addEventListener('click', handleBackdropClick);
 
     return () => {
-      dialogElement.removeEventListener('click', handleBackdropClick)
-    }
-  }, [isDismissable, isOpen, onOpenChange])
+      dialogElement.removeEventListener('click', handleBackdropClick);
+    };
+  }, [isDismissable, isOpen, onOpenChange]);
 
   if (!isOpen) {
-    return null
+    return null;
   }
 
   const handleCancel = (event: SyntheticEvent<HTMLDialogElement>): void => {
-    event.preventDefault()
+    event.preventDefault();
 
     if (!isDismissable) {
-      return
+      return;
     }
 
-    onOpenChange(false)
-  }
+    onOpenChange(false);
+  };
 
   return (
     <dialog
@@ -129,5 +129,5 @@ export function Dialog({
         <div className="flex justify-end gap-2.5">{actions}</div>
       </div>
     </dialog>
-  )
+  );
 }
