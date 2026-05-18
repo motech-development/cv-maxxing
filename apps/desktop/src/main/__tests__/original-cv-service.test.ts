@@ -1953,7 +1953,7 @@ test('prefers the highest-priority grounded professional link candidate', async 
           email: 'ada@lovelace.dev',
           location: 'London, United Kingdom',
           phone: '+44 7700 900123',
-          professionalLink: 'https://github.com/ada-lovelace',
+          professionalLink: 'https://ada-lovelace.dev',
         },
         experience: [
           createNormalizedExperienceEntry({

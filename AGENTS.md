@@ -36,6 +36,7 @@ These rules always apply. Follow project-local rules first when they are more sp
 - Use ESLint and Prettier as the repository linting and formatting baseline. Husky runs `lint-staged` on `pre-commit`.
 - Use semicolons; `prettier.config.mjs` enforces them for code and formatted code snippets.
 - Keep imports and exports sorted with `eslint-plugin-simple-import-sort`.
+- Prefer `EventTarget` over `EventEmitter` when either event abstraction fits the test or implementation need.
 - Use Vitest for unit tests. Keep tests colocated in `__tests__` folders next to the source they cover.
 - Use Conventional Commits for commit messages. Husky runs commitlint on `commit-msg` to enforce this.
 - Keep commit messages within the repository's commitlint line-length constraints. Wrap commit body lines conservatively and avoid overlong subjects; when using `git commit -m`, pass body text as separate short `-m` paragraphs so no body line exceeds 100 characters.

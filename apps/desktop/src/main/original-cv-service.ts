@@ -836,9 +836,9 @@ function isProfessionalLinkCandidateGroundedInLine(candidate: string, line: stri
     return false;
   }
 
-  const priority = getProfessionalLinkPriority(candidate);
+  const canonicalValue = canonicalizeProfessionalLinkForGrounding(candidate);
 
-  if (priority === 2 || priority === 3) {
+  if (canonicalValue.includes('linkedin.com/') || canonicalValue.includes('github.com/')) {
     return true;
   }
 
@@ -859,11 +859,11 @@ function getProfessionalLinkPriority(value: string): number | null {
   }
 
   if (canonicalValue.includes('github.com/')) {
-    return 3;
+    return 1;
   }
 
   if (canonicalValue.includes('.')) {
-    return 1;
+    return 3;
   }
 
   return null;

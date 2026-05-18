@@ -20,37 +20,66 @@ import { createTailoredApplicationGenerationWorker } from '../tailored-applicati
 const temporaryDirectories: string[] = [];
 
 class MockEventTarget extends EventTarget {
+  private readonly listenerWrappers = new Map<
+    string,
+    Map<(detail: unknown) => void, EventListener>
+  >();
+
   on(eventName: string, listener: (detail: unknown) => void): this {
-    this.addEventListener(eventName, (event) => {
+    const wrapper: EventListener = (event) => {
       listener((event as CustomEvent<unknown>).detail);
-    });
+    };
+
+    this.setListenerWrapper(eventName, listener, wrapper);
+    this.addEventListener(eventName, wrapper);
 
     return this;
   }
 
   once(eventName: string, listener: (detail: unknown) => void): this {
-    this.addEventListener(
-      eventName,
-      (event) => {
-        listener((event as CustomEvent<unknown>).detail);
-      },
-      {
-        once: true,
-      },
-    );
+    const wrapper: EventListener = (event) => {
+      this.removeListener(eventName, listener);
+      listener((event as CustomEvent<unknown>).detail);
+    };
+
+    this.setListenerWrapper(eventName, listener, wrapper);
+    this.addEventListener(eventName, wrapper);
 
     return this;
   }
 
   removeListener(eventName: string, listener: (detail: unknown) => void): this {
-    void eventName;
-    void listener;
+    const eventListeners = this.listenerWrappers.get(eventName);
+    const wrapper = eventListeners?.get(listener);
+
+    if (wrapper === undefined) {
+      return this;
+    }
+
+    this.removeEventListener(eventName, wrapper);
+    eventListeners?.delete(listener);
+
+    if (eventListeners?.size === 0) {
+      this.listenerWrappers.delete(eventName);
+    }
 
     return this;
   }
 
   emit(eventName: string, detail?: unknown) {
-    this.dispatchEvent(new CustomEvent(eventName, { detail }));
+    return this.dispatchEvent(new CustomEvent(eventName, { detail }));
+  }
+
+  private setListenerWrapper(
+    eventName: string,
+    listener: (detail: unknown) => void,
+    wrapper: EventListener,
+  ) {
+    const eventListeners =
+      this.listenerWrappers.get(eventName) ?? new Map<(detail: unknown) => void, EventListener>();
+
+    eventListeners.set(listener, wrapper);
+    this.listenerWrappers.set(eventName, eventListeners);
   }
 }
 

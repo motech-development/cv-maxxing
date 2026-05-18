@@ -32,7 +32,7 @@ function parsePlanOutput(planJson: string): PlanOutput {
   const parsedValue = JSON.parse(planJson) as unknown;
 
   if (parsedValue === null || typeof parsedValue !== 'object') {
-    throw new TypeError("Invalid PlanOutput shape: missing or non-array 'issues'.");
+    throw new TypeError('Invalid PlanOutput shape: top-level value must be an object.');
   }
 
   const candidate = parsedValue as {
