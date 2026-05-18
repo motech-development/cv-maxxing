@@ -1,37 +1,36 @@
-import type { AdaptedCvModel, AdaptedCvSection } from '../shared/tailored-application.js'
-
+import type { AdaptedCvModel, AdaptedCvSection } from '../shared/tailored-application.js';
 import {
-  renderAdaptedCvPagesInBrowser,
   type AdaptedCvBrowserContinuableSection,
   type AdaptedCvBrowserRenderPayload,
   type AdaptedCvBrowserSidebarSection,
-} from './adapted-cv-browser-pagination.js'
+  renderAdaptedCvPagesInBrowser,
+} from './adapted-cv-browser-pagination.js';
 
-const PAGE_WARNING_THRESHOLD = 3
-const SAFE_FILENAME_CHARACTER = /[^a-z0-9]+/giu
+const PAGE_WARNING_THRESHOLD = 3;
+const SAFE_FILENAME_CHARACTER = /[^a-z0-9]+/giu;
 
 interface AdaptedCvDocumentInput {
-  adaptedCv: AdaptedCvModel
-  employer: string | null
-  vacancyTitle: string | null
+  adaptedCv: AdaptedCvModel;
+  employer: string | null;
+  vacancyTitle: string | null;
 }
 
 export interface AdaptedCvDocument {
-  html: string
+  html: string;
 }
 
 export function createAdaptedCvDocument(input: AdaptedCvDocumentInput): AdaptedCvDocument {
-  const payload = createAdaptedCvRenderPayload(input)
+  const payload = createAdaptedCvRenderPayload(input);
 
   return {
     html: buildDocumentHtml(payload),
-  }
+  };
 }
 
 export function createAdaptedCvRenderPayload(
   input: AdaptedCvDocumentInput,
 ): AdaptedCvBrowserRenderPayload {
-  const profileSection = getRequiredSection(input.adaptedCv.sections, 'profile')
+  const profileSection = getRequiredSection(input.adaptedCv.sections, 'profile');
 
   return {
     contactLines: buildHeaderContactLines(input.adaptedCv.header.contact),
@@ -41,23 +40,23 @@ export function createAdaptedCvRenderPayload(
     rightSections: buildRightSections(input.adaptedCv.sections),
     roleLabel: input.adaptedCv.headline.text,
     title: input.adaptedCv.candidateName,
-  }
+  };
 }
 
 export function applyPlannedSidebarSectionsToAdaptedCv(
   adaptedCv: AdaptedCvModel,
   plannedRightSections: AdaptedCvBrowserSidebarSection[],
 ): AdaptedCvModel {
-  const profileSection = getRequiredSection(adaptedCv.sections, 'profile')
-  const experienceSection = getRequiredSection(adaptedCv.sections, 'experience')
-  const selectedWorkSection = getOptionalSection(adaptedCv.sections, 'selected_work')
-  const impactHighlightsSection = getOptionalSection(adaptedCv.sections, 'impact_highlights')
-  const referencesSection = getRequiredSection(adaptedCv.sections, 'references')
+  const profileSection = getRequiredSection(adaptedCv.sections, 'profile');
+  const experienceSection = getRequiredSection(adaptedCv.sections, 'experience');
+  const selectedWorkSection = getOptionalSection(adaptedCv.sections, 'selected_work');
+  const impactHighlightsSection = getOptionalSection(adaptedCv.sections, 'impact_highlights');
+  const referencesSection = getRequiredSection(adaptedCv.sections, 'references');
 
-  const coreSkillsSection = getPlannedSidebarListSection(plannedRightSections, 'core_skills')
+  const coreSkillsSection = getPlannedSidebarListSection(plannedRightSections, 'core_skills');
 
   if (coreSkillsSection === null) {
-    throw new Error('Planned adapted CV sidebar is missing the core skills section.')
+    throw new Error('Planned adapted CV sidebar is missing the core skills section.');
   }
 
   const nextSections: AdaptedCvSection[] = [
@@ -69,7 +68,7 @@ export function applyPlannedSidebarSectionsToAdaptedCv(
       items: coreSkillsSection.items.map((item) => {
         return {
           text: item,
-        }
+        };
       }),
       kind: 'core_skills',
     },
@@ -79,64 +78,64 @@ export function applyPlannedSidebarSectionsToAdaptedCv(
     ...toOptionalSidebarListSection(plannedRightSections, 'languages'),
     ...toOptionalSidebarListSection(plannedRightSections, 'focus'),
     referencesSection,
-  ]
+  ];
 
   return {
     ...adaptedCv,
     sections: nextSections,
-  }
+  };
 }
 
 export function buildAdaptedCvPageWarning(pageCount: number): string | null {
   if (pageCount > PAGE_WARNING_THRESHOLD) {
-    return `This adapted CV runs to ${String(pageCount)} pages. Export is still available.`
+    return `This adapted CV runs to ${String(pageCount)} pages. Export is still available.`;
   }
 
-  return null
+  return null;
 }
 
 export function buildAdaptedCvExportFilename({
   candidateName,
   vacancyTitle,
 }: {
-  candidateName: string
-  vacancyTitle: string | null
+  candidateName: string;
+  vacancyTitle: string | null;
 }): string {
-  const safeCandidateName = sanitizeFilenamePart(candidateName)
-  const safeVacancyTitle = sanitizeFilenamePart(vacancyTitle ?? 'adapted cv')
+  const safeCandidateName = sanitizeFilenamePart(candidateName);
+  const safeVacancyTitle = sanitizeFilenamePart(vacancyTitle ?? 'adapted cv');
 
-  return `${safeCandidateName} - ${safeVacancyTitle} - adapted-cv.pdf`
+  return `${safeCandidateName} - ${safeVacancyTitle} - adapted-cv.pdf`;
 }
 
 export async function resolveUniqueExportFilePath(
   desiredFilePath: string,
   fileExists: (candidatePath: string) => Promise<boolean>,
 ): Promise<string> {
-  const splitIndex = desiredFilePath.lastIndexOf('.')
-  const basePath = splitIndex === -1 ? desiredFilePath : desiredFilePath.slice(0, splitIndex)
-  const extension = splitIndex === -1 ? '' : desiredFilePath.slice(splitIndex)
+  const splitIndex = desiredFilePath.lastIndexOf('.');
+  const basePath = splitIndex === -1 ? desiredFilePath : desiredFilePath.slice(0, splitIndex);
+  const extension = splitIndex === -1 ? '' : desiredFilePath.slice(splitIndex);
 
   if (await fileExists(desiredFilePath)) {
     for (let suffix = 2; suffix < 10_000; suffix += 1) {
-      const candidatePath = `${basePath} (${String(suffix)})${extension}`
+      const candidatePath = `${basePath} (${String(suffix)})${extension}`;
 
       if (!(await fileExists(candidatePath))) {
-        return candidatePath
+        return candidatePath;
       }
     }
 
-    return `${basePath} (${String(Date.now())})${extension}`
+    return `${basePath} (${String(Date.now())})${extension}`;
   }
 
-  return desiredFilePath
+  return desiredFilePath;
 }
 
 function buildContinuableSections(
   sections: AdaptedCvSection[],
 ): AdaptedCvBrowserContinuableSection[] {
-  const experienceSection = getRequiredSection(sections, 'experience')
-  const selectedWorkSection = getOptionalSection(sections, 'selected_work')
-  const impactHighlightsSection = getOptionalSection(sections, 'impact_highlights')
+  const experienceSection = getRequiredSection(sections, 'experience');
+  const selectedWorkSection = getOptionalSection(sections, 'selected_work');
+  const impactHighlightsSection = getOptionalSection(sections, 'impact_highlights');
 
   return [
     {
@@ -149,7 +148,7 @@ function buildContinuableSections(
       : [
           {
             items: selectedWorkSection.items.map((item) => {
-              return item.text
+              return item.text;
             }),
             kind: 'selected_work' as const,
             label: 'SELECTED WORK' as const,
@@ -160,27 +159,27 @@ function buildContinuableSections(
       : [
           {
             items: impactHighlightsSection.items.map((item) => {
-              return item.text
+              return item.text;
             }),
             kind: 'impact_highlights' as const,
             label: 'IMPACT HIGHLIGHTS' as const,
           },
         ]),
-  ]
+  ];
 }
 
 function buildRightSections(sections: AdaptedCvSection[]): AdaptedCvBrowserSidebarSection[] {
-  const coreSkillsSection = getRequiredSection(sections, 'core_skills')
-  const toolsSection = getOptionalSection(sections, 'tools')
-  const educationSection = getOptionalSection(sections, 'education')
-  const certificationsSection = getOptionalSection(sections, 'certifications')
-  const languagesSection = getOptionalSection(sections, 'languages')
-  const focusSection = getOptionalSection(sections, 'focus')
+  const coreSkillsSection = getRequiredSection(sections, 'core_skills');
+  const toolsSection = getOptionalSection(sections, 'tools');
+  const educationSection = getOptionalSection(sections, 'education');
+  const certificationsSection = getOptionalSection(sections, 'certifications');
+  const languagesSection = getOptionalSection(sections, 'languages');
+  const focusSection = getOptionalSection(sections, 'focus');
 
   return [
     {
       items: coreSkillsSection.items.map((item) => {
-        return item.text
+        return item.text;
       }),
       kind: 'list',
       label: 'CORE SKILLS',
@@ -204,7 +203,7 @@ function buildRightSections(sections: AdaptedCvSection[]): AdaptedCvBrowserSideb
       label: 'REFERENCES',
       text: 'Available on request',
     },
-  ]
+  ];
 }
 
 function createSidebarListSection(
@@ -212,51 +211,51 @@ function createSidebarListSection(
     AdaptedCvSection,
     {
       items: {
-        text: string
-      }[]
+        text: string;
+      }[];
     }
   > | null,
   label: string,
 ): AdaptedCvBrowserSidebarSection[] {
   if (section === null || section.items.length === 0) {
-    return []
+    return [];
   }
 
   return [
     {
       items: section.items.map((item) => {
-        return item.text
+        return item.text;
       }),
       kind: 'list',
       label,
       sectionKind: toSidebarListSectionKind(label),
     },
-  ]
+  ];
 }
 
 function toSidebarListSectionKind(label: string): Extract<
   AdaptedCvBrowserSidebarSection,
   {
-    kind: 'list'
+    kind: 'list';
   }
 >['sectionKind'] {
   if (label === 'CORE SKILLS') {
-    return 'core_skills'
+    return 'core_skills';
   }
 
   if (label === 'TOOLS') {
-    return 'tools'
+    return 'tools';
   }
 
   if (label === 'CERTIFICATIONS') {
-    return 'certifications'
+    return 'certifications';
   }
 
   if (label === 'LANGUAGES') {
-    return 'languages'
+    return 'languages';
   }
 
-  return 'focus'
+  return 'focus';
 }
 
 function getPlannedSidebarListSection(
@@ -264,34 +263,34 @@ function getPlannedSidebarListSection(
   sectionKind: Extract<
     AdaptedCvBrowserSidebarSection,
     {
-      kind: 'list'
+      kind: 'list';
     }
   >['sectionKind'],
 ): Extract<
   AdaptedCvBrowserSidebarSection,
   {
-    kind: 'list'
+    kind: 'list';
   }
 > | null {
   const plannedSection = plannedRightSections.find((section) => {
-    return section.kind === 'list' && section.sectionKind === sectionKind
-  })
+    return section.kind === 'list' && section.sectionKind === sectionKind;
+  });
 
   if (plannedSection?.kind !== 'list') {
-    return null
+    return null;
   }
 
-  return plannedSection
+  return plannedSection;
 }
 
 function toOptionalSidebarListSection(
   plannedRightSections: AdaptedCvBrowserSidebarSection[],
   sectionKind: 'certifications' | 'focus' | 'languages' | 'tools',
 ): AdaptedCvSection[] {
-  const plannedSection = getPlannedSidebarListSection(plannedRightSections, sectionKind)
+  const plannedSection = getPlannedSidebarListSection(plannedRightSections, sectionKind);
 
   if (plannedSection === null) {
-    return []
+    return [];
   }
 
   return [
@@ -299,22 +298,22 @@ function toOptionalSidebarListSection(
       items: plannedSection.items.map((item) => {
         return {
           text: item,
-        }
+        };
       }),
       kind: sectionKind,
     } as Extract<AdaptedCvSection, { kind: typeof sectionKind }>,
-  ]
+  ];
 }
 
 function toOptionalEducationSection(
   plannedRightSections: AdaptedCvBrowserSidebarSection[],
 ): AdaptedCvSection[] {
   const plannedSection = plannedRightSections.find((section) => {
-    return section.kind === 'education'
-  })
+    return section.kind === 'education';
+  });
 
   if (plannedSection?.kind !== 'education') {
-    return []
+    return [];
   }
 
   return [
@@ -322,7 +321,7 @@ function toOptionalEducationSection(
       entry: plannedSection.entry,
       kind: 'education',
     },
-  ]
+  ];
 }
 
 function getRequiredSection<K extends AdaptedCvSection['kind']>(
@@ -330,14 +329,14 @@ function getRequiredSection<K extends AdaptedCvSection['kind']>(
   kind: K,
 ): Extract<AdaptedCvSection, { kind: K }> {
   const matchingSection = sections.find((section) => {
-    return section.kind === kind
-  })
+    return section.kind === kind;
+  });
 
   if (matchingSection === undefined) {
-    throw new Error(`Adapted CV is missing the required ${kind} section.`)
+    throw new Error(`Adapted CV is missing the required ${kind} section.`);
   }
 
-  return matchingSection as Extract<AdaptedCvSection, { kind: K }>
+  return matchingSection as Extract<AdaptedCvSection, { kind: K }>;
 }
 
 function getOptionalSection<K extends AdaptedCvSection['kind']>(
@@ -345,19 +344,19 @@ function getOptionalSection<K extends AdaptedCvSection['kind']>(
   kind: K,
 ): Extract<AdaptedCvSection, { kind: K }> | null {
   const matchingSection = sections.find((section) => {
-    return section.kind === kind
-  })
+    return section.kind === kind;
+  });
 
   return matchingSection === undefined
     ? null
-    : (matchingSection as Extract<AdaptedCvSection, { kind: K }>)
+    : (matchingSection as Extract<AdaptedCvSection, { kind: K }>);
 }
 
 function buildDocumentHtml(payload: AdaptedCvBrowserRenderPayload): string {
   const serializedPayload = JSON.stringify(payload)
     .replaceAll('<', String.raw`\u003c`)
     .replaceAll('\u2028', String.raw`\u2028`)
-    .replaceAll('\u2029', String.raw`\u2029`)
+    .replaceAll('\u2029', String.raw`\u2029`);
 
   return [
     '<!doctype html>',
@@ -378,7 +377,7 @@ function buildDocumentHtml(payload: AdaptedCvBrowserRenderPayload): string {
     '</script>',
     '</body>',
     '</html>',
-  ].join('')
+  ].join('');
 }
 
 function buildPaginationBootstrapScript(): string {
@@ -411,7 +410,7 @@ function buildPaginationBootstrapScript(): string {
     '    markError(error);',
     '  });',
     '})();',
-  ].join('\n')
+  ].join('\n');
 }
 
 function buildDocumentStyles(): string {
@@ -750,15 +749,15 @@ function buildDocumentStyles(): string {
         margin: 0;
       }
     }
-  `
+  `;
 }
 
 function buildHeaderContactLines(contact: AdaptedCvModel['header']['contact']): string[] {
   return [contact.location, contact.phone, contact.email, contact.professionalLink].filter(
     (value): value is string => {
-      return value !== null && value.trim() !== ''
+      return value !== null && value.trim() !== '';
     },
-  )
+  );
 }
 
 function sanitizeFilenamePart(value: string): string {
@@ -767,7 +766,7 @@ function sanitizeFilenamePart(value: string): string {
     .replaceAll(/\p{Diacritic}/gu, '')
     .replaceAll(SAFE_FILENAME_CHARACTER, ' ')
     .trim()
-    .replaceAll(/\s+/gu, ' ')
+    .replaceAll(/\s+/gu, ' ');
 
-  return collapsedWhitespace === '' ? 'adapted-cv' : collapsedWhitespace
+  return collapsedWhitespace === '' ? 'adapted-cv' : collapsedWhitespace;
 }

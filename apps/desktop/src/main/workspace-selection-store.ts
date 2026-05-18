@@ -4,59 +4,59 @@ import {
   type OriginalCvWorkspaceSelection,
   type WorkspaceSelection,
   type WorkspaceTopLevelSection,
-} from '../shared/workspace-selection.js'
-import type { JsonValue, LocalAppDataStore } from './local-app-data-service.js'
+} from '../shared/workspace-selection.js';
+import type { JsonValue, LocalAppDataStore } from './local-app-data-service.js';
 
-const WORKSPACE_SELECTION_SCOPE = 'workspace-selection'
-const WORKSPACE_SELECTION_ENTRY_ID = 'current'
+const WORKSPACE_SELECTION_SCOPE = 'workspace-selection';
+const WORKSPACE_SELECTION_ENTRY_ID = 'current';
 
 interface TailoredApplicationWorkspaceSelectionValue extends Record<string, JsonValue> {
-  kind: 'tailored_application'
-  tailoredApplicationId: string
+  kind: 'tailored_application';
+  tailoredApplicationId: string;
 }
 
 type JobsWorkspaceSelectionValue =
   | {
-      kind: 'draft'
+      kind: 'draft';
     }
   | {
-      kind: 'none'
+      kind: 'none';
     }
-  | TailoredApplicationWorkspaceSelectionValue
+  | TailoredApplicationWorkspaceSelectionValue;
 
 type OriginalCvWorkspaceSelectionValue =
   | {
-      kind: 'active_original_cv'
-      originalCvId?: string | null
+      kind: 'active_original_cv';
+      originalCvId?: string | null;
     }
   | {
-      kind: 'none'
-    }
+      kind: 'none';
+    };
 
 interface WorkspaceSelectionValue extends Record<string, JsonValue> {
-  jobs: JobsWorkspaceSelectionValue
-  originalCv: OriginalCvWorkspaceSelectionValue
-  topLevelSection: WorkspaceTopLevelSection
+  jobs: JobsWorkspaceSelectionValue;
+  originalCv: OriginalCvWorkspaceSelectionValue;
+  topLevelSection: WorkspaceTopLevelSection;
 }
 
 export interface WorkspaceSelectionStore {
-  getSelection: () => Promise<WorkspaceSelection | null>
-  setSelection: (selection: WorkspaceSelection) => Promise<void>
+  getSelection: () => Promise<WorkspaceSelection | null>;
+  setSelection: (selection: WorkspaceSelection) => Promise<void>;
 }
 
 export function createWorkspaceSelectionStore({
   localAppData,
 }: {
-  localAppData: Pick<LocalAppDataStore, 'metadata'>
+  localAppData: Pick<LocalAppDataStore, 'metadata'>;
 }): WorkspaceSelectionStore {
   return {
     getSelection: async () => {
       const value: unknown = await localAppData.metadata.get({
         id: WORKSPACE_SELECTION_ENTRY_ID,
         scope: WORKSPACE_SELECTION_SCOPE,
-      })
+      });
 
-      return normalizeWorkspaceSelection(value)
+      return normalizeWorkspaceSelection(value);
     },
     setSelection: async (selection) => {
       const value: WorkspaceSelectionValue = {
@@ -78,25 +78,25 @@ export function createWorkspaceSelectionStore({
             : {}),
         },
         topLevelSection: selection.topLevelSection,
-      }
+      };
 
       await localAppData.metadata.put({
         id: WORKSPACE_SELECTION_ENTRY_ID,
         scope: WORKSPACE_SELECTION_SCOPE,
         value,
-      })
+      });
     },
-  }
+  };
 }
 
 function normalizeWorkspaceSelection(value: unknown): WorkspaceSelection | null {
-  const legacyJobsSelection = normalizeLegacyJobsWorkspaceSelection(value)
+  const legacyJobsSelection = normalizeLegacyJobsWorkspaceSelection(value);
 
   if (legacyJobsSelection !== null) {
     return {
       ...createDefaultWorkspaceSelection(),
       jobs: legacyJobsSelection,
-    }
+    };
   }
 
   if (
@@ -107,36 +107,36 @@ function normalizeWorkspaceSelection(value: unknown): WorkspaceSelection | null 
     !('originalCv' in value) ||
     !('topLevelSection' in value)
   ) {
-    return null
+    return null;
   }
 
-  const candidate = value as Record<string, unknown>
-  const jobsSelection = normalizeLegacyJobsWorkspaceSelection(candidate.jobs)
-  const originalCvSelection = normalizeOriginalCvWorkspaceSelection(candidate.originalCv)
-  const topLevelSection = normalizeTopLevelSection(candidate.topLevelSection)
+  const candidate = value as Record<string, unknown>;
+  const jobsSelection = normalizeLegacyJobsWorkspaceSelection(candidate.jobs);
+  const originalCvSelection = normalizeOriginalCvWorkspaceSelection(candidate.originalCv);
+  const topLevelSection = normalizeTopLevelSection(candidate.topLevelSection);
 
   if (jobsSelection === null || originalCvSelection === null || topLevelSection === null) {
-    return null
+    return null;
   }
 
   return {
     jobs: jobsSelection,
     originalCv: originalCvSelection,
     topLevelSection,
-  }
+  };
 }
 
 function normalizeLegacyJobsWorkspaceSelection(value: unknown): JobsWorkspaceSelection | null {
   if (value === null || typeof value !== 'object' || Array.isArray(value) || !('kind' in value)) {
-    return null
+    return null;
   }
 
-  const candidate = value as Record<string, unknown>
+  const candidate = value as Record<string, unknown>;
 
   if (candidate.kind === 'draft' || candidate.kind === 'none') {
     return {
       kind: candidate.kind,
-    }
+    };
   }
 
   if (
@@ -147,25 +147,25 @@ function normalizeLegacyJobsWorkspaceSelection(value: unknown): JobsWorkspaceSel
     return {
       kind: 'tailored_application',
       tailoredApplicationId: candidate.tailoredApplicationId,
-    }
+    };
   }
 
-  return null
+  return null;
 }
 
 function normalizeOriginalCvWorkspaceSelection(
   value: unknown,
 ): OriginalCvWorkspaceSelection | null {
   if (value === null || typeof value !== 'object' || Array.isArray(value) || !('kind' in value)) {
-    return null
+    return null;
   }
 
-  const candidate = value as Record<string, unknown>
+  const candidate = value as Record<string, unknown>;
 
   if (candidate.kind === 'none') {
     return {
       kind: candidate.kind,
-    }
+    };
   }
 
   if (candidate.kind === 'active_original_cv') {
@@ -174,7 +174,7 @@ function normalizeOriginalCvWorkspaceSelection(
       candidate.originalCvId !== null &&
       typeof candidate.originalCvId !== 'string'
     ) {
-      return null
+      return null;
     }
 
     return {
@@ -183,16 +183,16 @@ function normalizeOriginalCvWorkspaceSelection(
         'originalCvId' in candidate && typeof candidate.originalCvId === 'string'
           ? candidate.originalCvId
           : null,
-    }
+    };
   }
 
-  return null
+  return null;
 }
 
 function normalizeTopLevelSection(value: unknown): WorkspaceTopLevelSection | null {
   if (value === 'job_vacancies' || value === 'original_cv' || value === 'settings') {
-    return value
+    return value;
   }
 
-  return null
+  return null;
 }

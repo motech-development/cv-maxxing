@@ -1,4 +1,4 @@
-import { primaryKey, text, sqliteTable } from 'drizzle-orm/sqlite-core'
+import { primaryKey, sqliteTable, text } from 'drizzle-orm/sqlite-core';
 
 export const metadataEntries = sqliteTable(
   'metadata_entries',
@@ -9,6 +9,6 @@ export const metadataEntries = sqliteTable(
     valueJson: text('value_json').notNull(),
   },
   (table) => {
-    return [primaryKey({ columns: [table.scope, table.entryId] })]
+    return [primaryKey({ columns: [table.scope, table.entryId] })];
   },
-)
+);

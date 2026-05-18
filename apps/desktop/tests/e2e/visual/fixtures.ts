@@ -1,29 +1,29 @@
-import { strToU8, zipSync } from 'fflate'
+import { strToU8, zipSync } from 'fflate';
 
 export interface GenerationFixtureOverrides {
   coverLetter?: Partial<{
     body: {
-      text: string
-    }[]
+      text: string;
+    }[];
     closing: {
-      text: string
-    }
-    date: string
-    greeting: string
+      text: string;
+    };
+    date: string;
+    greeting: string;
     opening: {
-      text: string
-    }
-    signature: string
-  }>
+      text: string;
+    };
+    signature: string;
+  }>;
 }
 
 export interface VacancyNormalizationFixtureOverrides {
-  bodyText?: string
-  employer?: string | null
-  location?: string | null
-  requirements?: string[]
-  responsibilities?: string[]
-  title?: string | null
+  bodyText?: string;
+  employer?: string | null;
+  location?: string | null;
+  requirements?: string[];
+  responsibilities?: string[];
+  title?: string | null;
 }
 
 export function createBaseOriginalCvLines(): string[] {
@@ -37,7 +37,7 @@ export function createBaseOriginalCvLines(): string[] {
     'Led product design for AI-assisted desktop tooling.',
     'Skills',
     'Product strategy, UX research, prototyping',
-  ]
+  ];
 }
 
 export function createPastedVacancyFixture(): string {
@@ -53,7 +53,7 @@ export function createPastedVacancyFixture(): string {
     'Requirements',
     '- Experience shipping workflow software.',
     '- Strong written communication.',
-  ].join('\n')
+  ].join('\n');
 }
 
 export function createEditableDraftVacancyFixture(): string {
@@ -69,7 +69,7 @@ export function createEditableDraftVacancyFixture(): string {
     'Requirements',
     '- Strong systems thinking.',
     '- Experience with desktop workflow software.',
-  ].join('\n')
+  ].join('\n');
 }
 
 export function createGenerationResultFixture(overrides?: GenerationFixtureOverrides) {
@@ -162,24 +162,24 @@ export function createGenerationResultFixture(overrides?: GenerationFixtureOverr
       provider: 'codex',
       sessionId: 'session-123',
     },
-  }
+  };
   const coverLetter = {
     ...baseFixture.coverLetter,
     ...overrides?.coverLetter,
-  }
+  };
 
   return {
     ...baseFixture,
     coverLetter,
-  }
+  };
 }
 
 export function createMultiPageGenerationResultFixture() {
   const coverLetterBody = Array.from({ length: 18 }, () => {
     return {
       text: 'I have repeatedly led product design for demanding desktop workflow environments, aligning technical users, operating constraints, and truthful communication so the resulting tools remained reliable, teachable, and useful in daily work across long-running programmes and cross-functional delivery cycles.',
-    }
-  })
+    };
+  });
 
   return createGenerationResultFixture({
     coverLetter: {
@@ -188,7 +188,7 @@ export function createMultiPageGenerationResultFixture() {
         text: 'I would welcome the chance to discuss how that experience could support reliable tooling for technical users at Analytical Engines Ltd.',
       },
     },
-  })
+  });
 }
 
 export function createVacancyNormalizationFixtureOutput(
@@ -209,12 +209,12 @@ export function createVacancyNormalizationFixtureOutput(
       'Partner with design and infrastructure teams.',
     ],
     title: overrides.title ?? 'Senior platform engineer',
-  }
+  };
 
   return JSON.stringify({
     kind: 'success',
     normalizedVacancy,
-  })
+  });
 }
 
 export function createDocxDocumentBuffer(lines: string[]): Buffer {
@@ -223,11 +223,11 @@ export function createDocxDocumentBuffer(lines: string[]): Buffer {
   <w:body>
     ${lines
       .map((line) => {
-        return `<w:p><w:r><w:t>${escapeXmlText(line)}</w:t></w:r></w:p>`
+        return `<w:p><w:r><w:t>${escapeXmlText(line)}</w:t></w:r></w:p>`;
       })
       .join('')}
   </w:body>
-</w:document>`
+</w:document>`;
 
   return Buffer.from(
     zipSync({
@@ -243,7 +243,7 @@ export function createDocxDocumentBuffer(lines: string[]): Buffer {
 </Relationships>`),
       'word/document.xml': strToU8(documentXml),
     }),
-  )
+  );
 }
 
 export function createPdfDocumentBuffer(lines: string[]): Buffer {
@@ -252,32 +252,32 @@ export function createPdfDocumentBuffer(lines: string[]): Buffer {
     '/F1 12 Tf',
     '50 760 Td',
     ...lines.flatMap((line, index) => {
-      const command = `(${escapePdfText(line)}) Tj`
+      const command = `(${escapePdfText(line)}) Tj`;
 
       if (index === 0) {
-        return [command]
+        return [command];
       }
 
-      return ['0 -18 Td', command]
+      return ['0 -18 Td', command];
     }),
     'ET',
-  ].join('\n')
+  ].join('\n');
   const objects = [
     '1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n',
     '2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n',
     '3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>\nendobj\n',
     `4 0 obj\n<< /Length ${String(Buffer.byteLength(contentStream, 'utf8'))} >>\nstream\n${contentStream}\nendstream\nendobj\n`,
     '5 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n',
-  ]
-  let pdf = '%PDF-1.4\n'
-  const offsets = [0]
+  ];
+  let pdf = '%PDF-1.4\n';
+  const offsets = [0];
 
   for (const object of objects) {
-    offsets.push(Buffer.byteLength(pdf, 'utf8'))
-    pdf += object
+    offsets.push(Buffer.byteLength(pdf, 'utf8'));
+    pdf += object;
   }
 
-  const xrefOffset = Buffer.byteLength(pdf, 'utf8')
+  const xrefOffset = Buffer.byteLength(pdf, 'utf8');
 
   pdf += `xref
 0 ${String(objects.length + 1)}
@@ -285,23 +285,23 @@ export function createPdfDocumentBuffer(lines: string[]): Buffer {
 ${offsets
   .slice(1)
   .map((offset) => {
-    return `${String(offset).padStart(10, '0')} 00000 n `
+    return `${String(offset).padStart(10, '0')} 00000 n `;
   })
   .join('\n')}
 trailer
 << /Size ${String(objects.length + 1)} /Root 1 0 R >>
 startxref
 ${String(xrefOffset)}
-%%EOF`
+%%EOF`;
 
-  return Buffer.from(pdf, 'utf8')
+  return Buffer.from(pdf, 'utf8');
 }
 
 function escapePdfText(value: string): string {
   return value
     .replaceAll('\\', String.raw`\\`)
     .replaceAll('(', String.raw`\(`)
-    .replaceAll(')', String.raw`\)`)
+    .replaceAll(')', String.raw`\)`);
 }
 
 function escapeXmlText(value: string): string {
@@ -310,5 +310,5 @@ function escapeXmlText(value: string): string {
     .replaceAll('<', '&lt;')
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;')
-    .replaceAll("'", '&apos;')
+    .replaceAll("'", '&apos;');
 }

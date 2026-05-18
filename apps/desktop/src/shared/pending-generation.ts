@@ -1,29 +1,29 @@
-import type { VacancyDraft } from './vacancy.js'
-import type { TailoredApplicationWorkspaceState } from './tailored-application.js'
+import type { TailoredApplicationWorkspaceState } from './tailored-application.js';
+import type { VacancyDraft } from './vacancy.js';
 
 export interface PendingGenerationCommand {
-  commandId: string
-  originalCvId: string
-  originalCvLabel: string
-  vacancyId: string
-  vacancyDraft: VacancyDraft
+  commandId: string;
+  originalCvId: string;
+  originalCvLabel: string;
+  vacancyId: string;
+  vacancyDraft: VacancyDraft;
 }
 
 export interface StartPendingGenerationInput {
-  originalCvId: string
-  originalCvLabel: string
-  vacancyDraft: VacancyDraft
+  originalCvId: string;
+  originalCvLabel: string;
+  vacancyDraft: VacancyDraft;
 }
 
 export interface CompletePendingGenerationInput {
-  commandId: string
+  commandId: string;
 }
 
 export interface CompletePendingGenerationResult {
-  workspaceState: TailoredApplicationWorkspaceState
+  workspaceState: TailoredApplicationWorkspaceState;
 }
 
 export interface ResumePendingGenerationResult {
-  generationRunId: string
-  tailoredApplicationId: string
+  generationRunId: string;
+  tailoredApplicationId: string;
 }

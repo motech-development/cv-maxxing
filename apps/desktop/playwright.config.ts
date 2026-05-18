@@ -1,4 +1,4 @@
-import { defineConfig } from '@playwright/test'
+import { defineConfig } from '@playwright/test';
 
 export default defineConfig({
   outputDir: 'test-results/playwright',
@@ -22,4 +22,4 @@ export default defineConfig({
       testMatch: /.*visual\.test\.ts/u,
     },
   ],
-})
+});

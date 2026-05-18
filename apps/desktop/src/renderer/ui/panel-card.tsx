@@ -1,7 +1,7 @@
-import type { HTMLAttributes, ReactNode } from 'react'
+import type { HTMLAttributes, ReactNode } from 'react';
 
 interface PanelCardProperties extends HTMLAttributes<HTMLDivElement> {
-  children: ReactNode
+  children: ReactNode;
 }
 
 export function PanelCard({ children, className, ...props }: PanelCardProperties) {
@@ -12,5 +12,5 @@ export function PanelCard({ children, className, ...props }: PanelCardProperties
     >
       {children}
     </div>
-  )
+  );
 }

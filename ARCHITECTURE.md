@@ -305,52 +305,52 @@ At startup, and again before a generation run if readiness is stale or a pending
 Preflight result shape:
 
 ```ts
-type AiWorkerProvider = 'codex'
+type AiWorkerProvider = 'codex';
 
-type AiWorkerPreflightStatus = 'ready' | 'checking' | 'sign_in_required' | 'unavailable'
+type AiWorkerPreflightStatus = 'ready' | 'checking' | 'sign_in_required' | 'unavailable';
 
 type AiWorkerFailureCode =
   | 'auth_missing'
   | 'auth_expired'
   | 'runtime_missing'
   | 'launch_failed'
-  | 'healthcheck_failed'
+  | 'healthcheck_failed';
 
 type AiWorkerPreflightReady = {
-  status: 'ready'
-  provider: AiWorkerProvider
-  canResumeGeneration: true
-  message: string
-}
+  status: 'ready';
+  provider: AiWorkerProvider;
+  canResumeGeneration: true;
+  message: string;
+};
 
 type AiWorkerPreflightChecking = {
-  status: 'checking'
-  provider: AiWorkerProvider
-  canResumeGeneration: false
-  message: string
-}
+  status: 'checking';
+  provider: AiWorkerProvider;
+  canResumeGeneration: false;
+  message: string;
+};
 
 type AiWorkerPreflightSignInRequired = {
-  status: 'sign_in_required'
-  provider: AiWorkerProvider
-  canResumeGeneration: boolean
-  failureCode: 'auth_missing' | 'auth_expired'
-  message: string
-}
+  status: 'sign_in_required';
+  provider: AiWorkerProvider;
+  canResumeGeneration: boolean;
+  failureCode: 'auth_missing' | 'auth_expired';
+  message: string;
+};
 
 type AiWorkerPreflightUnavailable = {
-  status: 'unavailable'
-  provider: AiWorkerProvider
-  canResumeGeneration: false
-  failureCode: 'runtime_missing' | 'launch_failed' | 'healthcheck_failed'
-  message: string
-}
+  status: 'unavailable';
+  provider: AiWorkerProvider;
+  canResumeGeneration: false;
+  failureCode: 'runtime_missing' | 'launch_failed' | 'healthcheck_failed';
+  message: string;
+};
 
 type AiWorkerPreflightResult =
   | AiWorkerPreflightReady
   | AiWorkerPreflightChecking
   | AiWorkerPreflightSignInRequired
-  | AiWorkerPreflightUnavailable
+  | AiWorkerPreflightUnavailable;
 ```
 
 Behavior rules:
@@ -373,10 +373,10 @@ Recommended preload-facing API:
 
 ```ts
 interface AiWorkerOnboardingApi {
-  getAiWorkerPreflight(): Promise<AiWorkerPreflightResult>
-  startAiWorkerSignIn(): Promise<AiWorkerPreflightResult>
-  retryAiWorkerPreflight(): Promise<AiWorkerPreflightResult>
-  openAiWorkerSetupGuide(): Promise<void>
+  getAiWorkerPreflight(): Promise<AiWorkerPreflightResult>;
+  startAiWorkerSignIn(): Promise<AiWorkerPreflightResult>;
+  retryAiWorkerPreflight(): Promise<AiWorkerPreflightResult>;
+  openAiWorkerSetupGuide(): Promise<void>;
 }
 ```
 
@@ -384,8 +384,8 @@ Runtime config shape for the preflight probe:
 
 ```ts
 interface AiWorkerRuntimeConfig {
-  provider: AiWorkerProvider
-  checkingTimeout: number
+  provider: AiWorkerProvider;
+  checkingTimeout: number;
 }
 ```
 
@@ -393,15 +393,15 @@ Generation-facing API shape:
 
 ```ts
 interface CreateTailoredApplicationCommand {
-  originalCvId: string
-  vacancyInputType: 'url' | 'pasted_text'
-  vacancyUrl?: string
-  vacancyPastedText?: string
+  originalCvId: string;
+  vacancyInputType: 'url' | 'pasted_text';
+  vacancyUrl?: string;
+  vacancyPastedText?: string;
 }
 
 type CreateTailoredApplicationResponse =
   | { kind: 'started'; tailoredApplicationId: string; generationRunId: string }
-  | { kind: 'blocked'; preflight: AiWorkerPreflightResult }
+  | { kind: 'blocked'; preflight: AiWorkerPreflightResult };
 ```
 
 Critical rule:

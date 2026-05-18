@@ -1,26 +1,27 @@
-import { BrowserWindow } from 'electron'
-import { createRequire } from 'node:module'
-import { pathToFileURL } from 'node:url'
-import { getDocument } from 'pdfjs-dist/legacy/build/pdf.mjs'
+import { createRequire } from 'node:module';
+import { pathToFileURL } from 'node:url';
 
-import { buildCoverLetterPageWarning, createCoverLetterDocument } from './cover-letter-document.js'
-import type { CoverLetterRenderer } from './tailored-application-session-service.js'
+import { BrowserWindow } from 'electron';
+import { getDocument } from 'pdfjs-dist/legacy/build/pdf.mjs';
 
-const require = createRequire(import.meta.url)
+import { buildCoverLetterPageWarning, createCoverLetterDocument } from './cover-letter-document.js';
+import type { CoverLetterRenderer } from './tailored-application-session-service.js';
+
+const require = createRequire(import.meta.url);
 const manrope400Url = pathToFileURL(
   require.resolve('@fontsource/manrope/files/manrope-latin-400-normal.woff2'),
-).href
+).href;
 const manrope500Url = pathToFileURL(
   require.resolve('@fontsource/manrope/files/manrope-latin-500-normal.woff2'),
-).href
+).href;
 const manrope600Url = pathToFileURL(
   require.resolve('@fontsource/manrope/files/manrope-latin-600-normal.woff2'),
-).href
+).href;
 
 export function createElectronCoverLetterRenderer(): CoverLetterRenderer {
   return {
     renderCoverLetterPdf: async (input) => {
-      const document = createCoverLetterDocument(input)
+      const document = createCoverLetterDocument(input);
       const renderWindow = new BrowserWindow({
         backgroundColor: '#ffffff',
         height: 1200,
@@ -31,15 +32,15 @@ export function createElectronCoverLetterRenderer(): CoverLetterRenderer {
           sandbox: false,
         },
         width: 900,
-      })
+      });
 
       try {
-        const html = injectFontFaceCss(document.html)
+        const html = injectFontFaceCss(document.html);
 
-        await renderWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`)
+        await renderWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
         await renderWindow.webContents.executeJavaScript(
           'document.fonts?.ready ? document.fonts.ready.then(() => true) : Promise.resolve(true)',
-        )
+        );
 
         const pdfBytes = await renderWindow.webContents.printToPDF({
           landscape: false,
@@ -52,20 +53,20 @@ export function createElectronCoverLetterRenderer(): CoverLetterRenderer {
           pageSize: 'A4',
           printBackground: true,
           preferCSSPageSize: true,
-        })
+        });
 
-        const pageCount = await countPdfPages(pdfBytes)
+        const pageCount = await countPdfPages(pdfBytes);
 
         return {
           pageCount,
           pageWarning: buildCoverLetterPageWarning(pageCount),
           pdfBytes: new Uint8Array(pdfBytes),
-        }
+        };
       } finally {
-        renderWindow.destroy()
+        renderWindow.destroy();
       }
     },
-  }
+  };
 }
 
 function injectFontFaceCss(html: string): string {
@@ -90,13 +91,13 @@ function injectFontFaceCss(html: string): string {
       font-style: normal;
       font-weight: 600;
     }
-  `
+  `;
 
-  return html.replace('<style>', `<style>${fontFaceCss}`)
+  return html.replace('<style>', `<style>${fontFaceCss}`);
 }
 
 export async function countPdfPages(pdfBytes: Uint8Array): Promise<number> {
-  const pdfDocument = await getDocument(new Uint8Array(pdfBytes)).promise
+  const pdfDocument = await getDocument(new Uint8Array(pdfBytes)).promise;
 
-  return pdfDocument.numPages
+  return pdfDocument.numPages;
 }

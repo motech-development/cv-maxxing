@@ -1,67 +1,68 @@
-import { createRequire } from 'node:module'
-import path from 'node:path'
-import type { Session } from 'electron'
+import { createRequire } from 'node:module';
+import path from 'node:path';
 
-import type { VacancyBrowserReadingActionRequest } from './vacancy-browser-actions.js'
+import type { Session } from 'electron';
+
+import type { VacancyBrowserReadingActionRequest } from './vacancy-browser-actions.js';
 
 export interface VacancyBrowserPageSnapshot {
-  html: string
-  pageTitle: string | null
-  resolvedUrl: string
+  html: string;
+  pageTitle: string | null;
+  resolvedUrl: string;
 }
 
 export interface VacancyBrowserSessionService {
   captureSessionPage: (input: {
-    readingActions?: VacancyBrowserReadingActionRequest[]
-    shouldCapturePage: (snapshot: VacancyBrowserPageSnapshot) => boolean
-    url: string
-  }) => Promise<VacancyBrowserPageSnapshot | null>
+    readingActions?: VacancyBrowserReadingActionRequest[];
+    shouldCapturePage: (snapshot: VacancyBrowserPageSnapshot) => boolean;
+    url: string;
+  }) => Promise<VacancyBrowserPageSnapshot | null>;
   openSession: (input: {
-    readingActions?: VacancyBrowserReadingActionRequest[]
-    shouldCapturePage: (snapshot: VacancyBrowserPageSnapshot) => boolean
-    url: string
-  }) => Promise<VacancyBrowserPageSnapshot | null>
+    readingActions?: VacancyBrowserReadingActionRequest[];
+    shouldCapturePage: (snapshot: VacancyBrowserPageSnapshot) => boolean;
+    url: string;
+  }) => Promise<VacancyBrowserPageSnapshot | null>;
 }
 
 interface BrowserSessionServiceDependencies {
-  autoCloseAfterFirstObservation?: boolean
-  browserWindowConstructor?: BrowserWindowConstructor
-  createSession?: (profilePath: string) => Session | Promise<Session>
-  profileRootPath: string
-  testResolvedUrl?: string
-  testSnapshotHtml?: string
+  autoCloseAfterFirstObservation?: boolean;
+  browserWindowConstructor?: BrowserWindowConstructor;
+  createSession?: (profilePath: string) => Session | Promise<Session>;
+  profileRootPath: string;
+  testResolvedUrl?: string;
+  testSnapshotHtml?: string;
 }
 
 interface BrowserWindowLike {
-  close: () => void
-  isDestroyed: () => boolean
-  loadURL: (url: string) => Promise<void>
-  once: (eventName: string, listener: () => void) => void
-  webContents: BrowserWebContentsLike
+  close: () => void;
+  isDestroyed: () => boolean;
+  loadURL: (url: string) => Promise<void>;
+  once: (eventName: string, listener: () => void) => void;
+  webContents: BrowserWebContentsLike;
 }
 
-type BrowserWindowConstructor = new (options: Record<string, unknown>) => BrowserWindowLike
+type BrowserWindowConstructor = new (options: Record<string, unknown>) => BrowserWindowLike;
 
 interface BrowserWebContentsLike {
-  executeJavaScript: (code: string) => Promise<unknown>
-  mainFrame?: BrowserFrameLike
-  on: (eventName: string, listener: () => void) => void
+  executeJavaScript: (code: string) => Promise<unknown>;
+  mainFrame?: BrowserFrameLike;
+  on: (eventName: string, listener: () => void) => void;
 }
 
 interface BrowserFrameLike {
-  executeJavaScript: (code: string) => Promise<unknown>
-  frames?: BrowserFrameLike[]
-  isDestroyed?: () => boolean
+  executeJavaScript: (code: string) => Promise<unknown>;
+  frames?: BrowserFrameLike[];
+  isDestroyed?: () => boolean;
 }
 
 interface ElectronRuntime {
-  BrowserWindow: BrowserWindowConstructor
+  BrowserWindow: BrowserWindowConstructor;
   session: {
-    fromPath: (profilePath: string) => Session
-  }
+    fromPath: (profilePath: string) => Session;
+  };
 }
 
-const require = createRequire(import.meta.url)
+const require = createRequire(import.meta.url);
 
 const browserCaptureScript = `(() => {
   return {
@@ -69,18 +70,18 @@ const browserCaptureScript = `(() => {
     pageTitle: document.title === '' ? null : document.title,
     resolvedUrl: window.location.href,
   }
-})()`
-const SAFE_READING_ACTION_MARKER = 'cvMaxxingVacancySafeReadingAction'
-const INTERACTIVE_OBSERVATION_INTERVAL_MS = 500
-const SILENT_CAPTURE_SETTLE_AFTER_VALID_MS = 500
-const SILENT_CAPTURE_OBSERVATION_INTERVAL_MS = 250
-const SILENT_CAPTURE_TIMEOUT_MS = 90_000
+})()`;
+const SAFE_READING_ACTION_MARKER = 'cvMaxxingVacancySafeReadingAction';
+const INTERACTIVE_OBSERVATION_INTERVAL_MS = 500;
+const SILENT_CAPTURE_SETTLE_AFTER_VALID_MS = 500;
+const SILENT_CAPTURE_OBSERVATION_INTERVAL_MS = 250;
+const SILENT_CAPTURE_TIMEOUT_MS = 90_000;
 
-type ReadingActionsState = 'complete' | 'pending' | 'rejected'
+type ReadingActionsState = 'complete' | 'pending' | 'rejected';
 
 interface ReadingActionsProgress {
-  nextActionIndex: number
-  state: ReadingActionsState
+  nextActionIndex: number;
+  state: ReadingActionsState;
 }
 
 export function createVacancyBrowserSessionService({
@@ -92,14 +93,14 @@ export function createVacancyBrowserSessionService({
   testSnapshotHtml,
 }: BrowserSessionServiceDependencies): VacancyBrowserSessionService {
   const resolvedBrowserWindowConstructor =
-    browserWindowConstructor ?? loadElectronRuntime().BrowserWindow
+    browserWindowConstructor ?? loadElectronRuntime().BrowserWindow;
   const resolvedCreateSession =
     createSession ??
     ((profilePath: string) => {
-      return loadElectronRuntime().session.fromPath(profilePath)
-    })
+      return loadElectronRuntime().session.fromPath(profilePath);
+    });
   const shouldAutoCloseAfterObservation =
-    autoCloseAfterFirstObservation && testSnapshotHtml !== undefined
+    autoCloseAfterFirstObservation && testSnapshotHtml !== undefined;
 
   return {
     captureSessionPage: async ({
@@ -107,62 +108,62 @@ export function createVacancyBrowserSessionService({
       shouldCapturePage,
       url,
     }: {
-      readingActions?: VacancyBrowserReadingActionRequest[]
-      shouldCapturePage: (snapshot: VacancyBrowserPageSnapshot) => boolean
-      url: string
+      readingActions?: VacancyBrowserReadingActionRequest[];
+      shouldCapturePage: (snapshot: VacancyBrowserPageSnapshot) => boolean;
+      url: string;
     }): Promise<VacancyBrowserPageSnapshot | null> => {
       const vacancyBrowserWindow = await createVacancyBrowserWindow({
         browserWindowConstructor: resolvedBrowserWindowConstructor,
         createSession: resolvedCreateSession,
         profileRootPath,
         show: false,
-      })
-      let hasSettled = false
-      let latestValidSnapshot: VacancyBrowserPageSnapshot | null = null
-      let observationIntervalId: ReturnType<typeof setInterval> | null = null
-      let nextReadingActionIndex = 0
+      });
+      let hasSettled = false;
+      let latestValidSnapshot: VacancyBrowserPageSnapshot | null = null;
+      let observationIntervalId: ReturnType<typeof setInterval> | null = null;
+      let nextReadingActionIndex = 0;
       let readingActionsState: ReadingActionsState =
-        readingActions.length === 0 ? 'complete' : 'pending'
-      let validSnapshotSettleTimeoutId: ReturnType<typeof setTimeout> | null = null
-      let observationTimeoutId: ReturnType<typeof setTimeout> | null = null
+        readingActions.length === 0 ? 'complete' : 'pending';
+      let validSnapshotSettleTimeoutId: ReturnType<typeof setTimeout> | null = null;
+      let observationTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
       return await new Promise<VacancyBrowserPageSnapshot | null>((resolve) => {
         const settle = (snapshot: VacancyBrowserPageSnapshot | null): void => {
           if (hasSettled) {
-            return
+            return;
           }
 
-          hasSettled = true
+          hasSettled = true;
 
           if (observationIntervalId !== null) {
-            clearInterval(observationIntervalId)
-            observationIntervalId = null
+            clearInterval(observationIntervalId);
+            observationIntervalId = null;
           }
 
           if (observationTimeoutId !== null) {
-            clearTimeout(observationTimeoutId)
-            observationTimeoutId = null
+            clearTimeout(observationTimeoutId);
+            observationTimeoutId = null;
           }
 
           if (validSnapshotSettleTimeoutId !== null) {
-            clearTimeout(validSnapshotSettleTimeoutId)
-            validSnapshotSettleTimeoutId = null
+            clearTimeout(validSnapshotSettleTimeoutId);
+            validSnapshotSettleTimeoutId = null;
           }
 
-          resolve(snapshot)
-        }
+          resolve(snapshot);
+        };
 
         const closeWindow = (): void => {
           if (vacancyBrowserWindow.isDestroyed()) {
-            return
+            return;
           }
 
-          vacancyBrowserWindow.close()
-        }
+          vacancyBrowserWindow.close();
+        };
 
         const observeCurrentPage = async (): Promise<void> => {
           if (hasSettled || vacancyBrowserWindow.isDestroyed()) {
-            return
+            return;
           }
 
           const readingActionsProgress = await resolveReadingActionsState({
@@ -170,77 +171,79 @@ export function createVacancyBrowserSessionService({
             readingActions,
             readingActionsState,
             webContents: vacancyBrowserWindow.webContents,
-          })
+          });
 
-          nextReadingActionIndex = readingActionsProgress.nextActionIndex
-          readingActionsState = readingActionsProgress.state
+          nextReadingActionIndex = readingActionsProgress.nextActionIndex;
+          readingActionsState = readingActionsProgress.state;
 
           if (readingActionsState === 'rejected') {
-            closeWindow()
-            settle(null)
+            closeWindow();
+            settle(null);
 
-            return
+            return;
           }
 
           const snapshot = await captureCurrentPage({
             fallbackResolvedUrl: testResolvedUrl,
             webContents: vacancyBrowserWindow.webContents,
-          })
+          });
 
           if (snapshot === null) {
-            return
+            return;
           }
 
           if (!shouldCapturePage(snapshot)) {
-            latestValidSnapshot = null
+            latestValidSnapshot = null;
 
             if (validSnapshotSettleTimeoutId !== null) {
-              clearTimeout(validSnapshotSettleTimeoutId)
-              validSnapshotSettleTimeoutId = null
+              clearTimeout(validSnapshotSettleTimeoutId);
+              validSnapshotSettleTimeoutId = null;
             }
 
-            return
+            return;
           }
 
-          latestValidSnapshot = snapshot
+          latestValidSnapshot = snapshot;
 
           if (validSnapshotSettleTimeoutId !== null) {
-            return
+            return;
           }
 
           validSnapshotSettleTimeoutId = setTimeout(() => {
-            closeWindow()
-            settle(latestValidSnapshot)
-          }, SILENT_CAPTURE_SETTLE_AFTER_VALID_MS)
-        }
+            closeWindow();
+            settle(latestValidSnapshot);
+          }, SILENT_CAPTURE_SETTLE_AFTER_VALID_MS);
+        };
 
         const startSilentObservation = (): void => {
           if (observationIntervalId !== null) {
-            return
+            return;
           }
 
           observeCurrentPage().catch(() => {
-            settle(latestValidSnapshot)
-          })
+            closeWindow();
+            settle(latestValidSnapshot);
+          });
 
           observationIntervalId = setInterval(() => {
             observeCurrentPage().catch(() => {
-              settle(latestValidSnapshot)
-            })
-          }, SILENT_CAPTURE_OBSERVATION_INTERVAL_MS)
+              closeWindow();
+              settle(latestValidSnapshot);
+            });
+          }, SILENT_CAPTURE_OBSERVATION_INTERVAL_MS);
 
           observationTimeoutId = setTimeout(() => {
-            closeWindow()
-            settle(latestValidSnapshot)
-          }, SILENT_CAPTURE_TIMEOUT_MS)
-        }
+            closeWindow();
+            settle(latestValidSnapshot);
+          }, SILENT_CAPTURE_TIMEOUT_MS);
+        };
 
         vacancyBrowserWindow.once('closed', () => {
-          settle(latestValidSnapshot)
-        })
+          settle(latestValidSnapshot);
+        });
         vacancyBrowserWindow.webContents.on('did-finish-load', () => {
-          startSilentObservation()
-        })
+          startSilentObservation();
+        });
 
         vacancyBrowserWindow
           .loadURL(
@@ -250,59 +253,60 @@ export function createVacancyBrowserSessionService({
             }),
           )
           .catch(() => {
-            settle(latestValidSnapshot)
-          })
-      })
+            closeWindow();
+            settle(latestValidSnapshot);
+          });
+      });
     },
     openSession: async ({
       readingActions = [],
       shouldCapturePage,
       url,
     }: {
-      readingActions?: VacancyBrowserReadingActionRequest[]
-      shouldCapturePage: (snapshot: VacancyBrowserPageSnapshot) => boolean
-      url: string
+      readingActions?: VacancyBrowserReadingActionRequest[];
+      shouldCapturePage: (snapshot: VacancyBrowserPageSnapshot) => boolean;
+      url: string;
     }): Promise<VacancyBrowserPageSnapshot | null> => {
       const vacancyBrowserWindow = await createVacancyBrowserWindow({
         browserWindowConstructor: resolvedBrowserWindowConstructor,
         createSession: resolvedCreateSession,
         profileRootPath,
         show: true,
-      })
-      let hasSettled = false
-      let latestValidSnapshot: VacancyBrowserPageSnapshot | null = null
-      let nextReadingActionIndex = 0
-      let observationIntervalId: ReturnType<typeof setInterval> | null = null
+      });
+      let hasSettled = false;
+      let latestValidSnapshot: VacancyBrowserPageSnapshot | null = null;
+      let nextReadingActionIndex = 0;
+      let observationIntervalId: ReturnType<typeof setInterval> | null = null;
       let readingActionsState: ReadingActionsState =
-        readingActions.length === 0 ? 'complete' : 'pending'
+        readingActions.length === 0 ? 'complete' : 'pending';
 
       return await new Promise<VacancyBrowserPageSnapshot | null>((resolve) => {
         const settle = (snapshot: VacancyBrowserPageSnapshot | null): void => {
           if (hasSettled) {
-            return
+            return;
           }
 
-          hasSettled = true
+          hasSettled = true;
 
           if (observationIntervalId !== null) {
-            clearInterval(observationIntervalId)
-            observationIntervalId = null
+            clearInterval(observationIntervalId);
+            observationIntervalId = null;
           }
 
-          resolve(snapshot)
-        }
+          resolve(snapshot);
+        };
 
         const closeWindow = (): void => {
           if (vacancyBrowserWindow.isDestroyed()) {
-            return
+            return;
           }
 
-          vacancyBrowserWindow.close()
-        }
+          vacancyBrowserWindow.close();
+        };
 
         const observeCurrentPage = async (): Promise<void> => {
           if (hasSettled || vacancyBrowserWindow.isDestroyed()) {
-            return
+            return;
           }
 
           const readingActionsProgress = await resolveReadingActionsState({
@@ -310,63 +314,64 @@ export function createVacancyBrowserSessionService({
             readingActions,
             readingActionsState,
             webContents: vacancyBrowserWindow.webContents,
-          })
+          });
 
-          nextReadingActionIndex = readingActionsProgress.nextActionIndex
-          readingActionsState = readingActionsProgress.state
+          nextReadingActionIndex = readingActionsProgress.nextActionIndex;
+          readingActionsState = readingActionsProgress.state;
 
           if (readingActionsState === 'rejected') {
-            closeWindow()
-            settle(null)
+            closeWindow();
+            settle(null);
 
-            return
+            return;
           }
 
           const snapshot = await captureCurrentPage({
             fallbackResolvedUrl: testResolvedUrl,
             webContents: vacancyBrowserWindow.webContents,
-          })
+          });
 
           if (snapshot === null) {
-            return
+            return;
           }
 
           // Drop stale vacancy snapshots when later observations go off-target.
-          latestValidSnapshot = shouldCapturePage(snapshot) ? snapshot : null
+          latestValidSnapshot = shouldCapturePage(snapshot) ? snapshot : null;
 
           if (shouldAutoCloseAfterObservation) {
-            closeWindow()
+            closeWindow();
           }
-        }
+        };
 
         const observeAndSettleOnFailure = (): void => {
           observeCurrentPage().catch(() => {
-            settle(latestValidSnapshot)
-          })
-        }
+            closeWindow();
+            settle(latestValidSnapshot);
+          });
+        };
 
         const startInteractiveObservation = (): void => {
           if (observationIntervalId !== null) {
             if (readingActionsState !== 'pending') {
-              observeAndSettleOnFailure()
+              observeAndSettleOnFailure();
             }
 
-            return
+            return;
           }
 
-          observeAndSettleOnFailure()
+          observeAndSettleOnFailure();
 
           observationIntervalId = setInterval(() => {
-            observeAndSettleOnFailure()
-          }, INTERACTIVE_OBSERVATION_INTERVAL_MS)
-        }
+            observeAndSettleOnFailure();
+          }, INTERACTIVE_OBSERVATION_INTERVAL_MS);
+        };
 
         vacancyBrowserWindow.once('closed', () => {
-          settle(latestValidSnapshot)
-        })
+          settle(latestValidSnapshot);
+        });
         vacancyBrowserWindow.webContents.on('did-finish-load', () => {
-          startInteractiveObservation()
-        })
+          startInteractiveObservation();
+        });
 
         vacancyBrowserWindow
           .loadURL(
@@ -376,11 +381,12 @@ export function createVacancyBrowserSessionService({
             }),
           )
           .catch(() => {
-            settle(latestValidSnapshot)
-          })
-      })
+            closeWindow();
+            settle(latestValidSnapshot);
+          });
+      });
     },
-  }
+  };
 }
 
 async function resolveReadingActionsState({
@@ -389,23 +395,23 @@ async function resolveReadingActionsState({
   readingActionsState,
   webContents,
 }: {
-  nextActionIndex: number
-  readingActions: VacancyBrowserReadingActionRequest[]
-  readingActionsState: ReadingActionsState
-  webContents: BrowserWebContentsLike
+  nextActionIndex: number;
+  readingActions: VacancyBrowserReadingActionRequest[];
+  readingActionsState: ReadingActionsState;
+  webContents: BrowserWebContentsLike;
 }): Promise<ReadingActionsProgress> {
   if (readingActionsState !== 'pending') {
     return {
       nextActionIndex,
       state: readingActionsState,
-    }
+    };
   }
 
   return await runSafeReadingActions({
     nextActionIndex,
     readingActions,
     webContents,
-  })
+  });
 }
 
 async function runSafeReadingActions({
@@ -413,35 +419,37 @@ async function runSafeReadingActions({
   readingActions,
   webContents,
 }: {
-  nextActionIndex: number
-  readingActions: VacancyBrowserReadingActionRequest[]
-  webContents: BrowserWebContentsLike
+  nextActionIndex: number;
+  readingActions: VacancyBrowserReadingActionRequest[];
+  webContents: BrowserWebContentsLike;
 }): Promise<ReadingActionsProgress> {
   for (let actionIndex = nextActionIndex; actionIndex < readingActions.length; actionIndex += 1) {
-    const readingAction = readingActions[actionIndex]
+    const readingAction = readingActions[actionIndex];
 
     if (readingAction === undefined) {
       return {
         nextActionIndex: actionIndex,
         state: 'rejected',
-      }
+      };
     }
 
-    const result = await webContents.executeJavaScript(createSafeReadingActionScript(readingAction))
-    const resultState = resolveSafeReadingActionState(result)
+    const result = await webContents.executeJavaScript(
+      createSafeReadingActionScript(readingAction),
+    );
+    const resultState = resolveSafeReadingActionState(result);
 
     if (resultState !== 'complete') {
       return {
         nextActionIndex: actionIndex,
         state: resultState,
-      }
+      };
     }
   }
 
   return {
     nextActionIndex: readingActions.length,
     state: 'complete',
-  }
+  };
 }
 
 function createSafeReadingActionScript(action: VacancyBrowserReadingActionRequest): string {
@@ -519,31 +527,31 @@ function createSafeReadingActionScript(action: VacancyBrowserReadingActionReques
         marker,
       };
     });
-  })()`
+  })()`;
 }
 
 function resolveSafeReadingActionState(value: unknown): ReadingActionsState {
   if (value === null || typeof value !== 'object') {
-    return 'rejected'
+    return 'rejected';
   }
 
   if (!('marker' in value) || value.marker !== SAFE_READING_ACTION_MARKER) {
-    return 'rejected'
+    return 'rejected';
   }
 
   if (!('kind' in value)) {
-    return 'rejected'
+    return 'rejected';
   }
 
   if (value.kind === 'completed') {
-    return 'complete'
+    return 'complete';
   }
 
   if (value.kind !== 'rejected') {
-    return 'rejected'
+    return 'rejected';
   }
 
-  return 'reason' in value && value.reason === 'missing_target' ? 'pending' : 'rejected'
+  return 'reason' in value && value.reason === 'missing_target' ? 'pending' : 'rejected';
 }
 
 async function createVacancyBrowserWindow({
@@ -552,13 +560,13 @@ async function createVacancyBrowserWindow({
   profileRootPath,
   show,
 }: {
-  browserWindowConstructor: BrowserWindowConstructor
-  createSession: (profilePath: string) => Session | Promise<Session>
-  profileRootPath: string
-  show: boolean
+  browserWindowConstructor: BrowserWindowConstructor;
+  createSession: (profilePath: string) => Session | Promise<Session>;
+  profileRootPath: string;
+  show: boolean;
 }): Promise<BrowserWindowLike> {
-  const profilePath = path.join(profileRootPath, 'vacancy-browser-session')
-  const managedSession = await createSession(profilePath)
+  const profilePath = path.join(profileRootPath, 'vacancy-browser-session');
+  const managedSession = await createSession(profilePath);
 
   return new browserWindowConstructor({
     autoHideMenuBar: true,
@@ -573,46 +581,46 @@ async function createVacancyBrowserWindow({
       session: managedSession,
     },
     width: 1280,
-  })
+  });
 }
 
 function loadElectronRuntime(): ElectronRuntime {
-  return require('electron') as ElectronRuntime
+  return require('electron') as ElectronRuntime;
 }
 
 function createBrowserSessionUrl({
   testSnapshotHtml,
   url,
 }: {
-  testSnapshotHtml: string | undefined
-  url: string
+  testSnapshotHtml: string | undefined;
+  url: string;
 }): string {
   if (testSnapshotHtml === undefined) {
-    return url
+    return url;
   }
 
-  return `data:text/html;charset=utf-8,${encodeURIComponent(testSnapshotHtml)}`
+  return `data:text/html;charset=utf-8,${encodeURIComponent(testSnapshotHtml)}`;
 }
 
 async function captureCurrentPage({
   fallbackResolvedUrl,
   webContents,
 }: {
-  fallbackResolvedUrl: string | undefined
-  webContents: BrowserWebContentsLike
+  fallbackResolvedUrl: string | undefined;
+  webContents: BrowserWebContentsLike;
 }): Promise<VacancyBrowserPageSnapshot | null> {
   try {
     const snapshot = await capturePageSnapshot({
       executeJavaScript: (code) => {
-        return webContents.executeJavaScript(code)
+        return webContents.executeJavaScript(code);
       },
-    })
+    });
 
     if (snapshot === null) {
-      return null
+      return null;
     }
 
-    const frameSnapshots = await captureEmbeddedFrameSnapshots(webContents.mainFrame)
+    const frameSnapshots = await captureEmbeddedFrameSnapshots(webContents.mainFrame);
 
     return {
       html: appendEmbeddedFrameEvidence({
@@ -621,18 +629,18 @@ async function captureCurrentPage({
       }),
       pageTitle: snapshot.pageTitle,
       resolvedUrl: fallbackResolvedUrl ?? snapshot.resolvedUrl,
-    }
+    };
   } catch {
-    return null
+    return null;
   }
 }
 
 async function capturePageSnapshot({
   executeJavaScript,
 }: {
-  executeJavaScript: (code: string) => Promise<unknown>
+  executeJavaScript: (code: string) => Promise<unknown>;
 }): Promise<VacancyBrowserPageSnapshot | null> {
-  const snapshot = await executeJavaScript(browserCaptureScript)
+  const snapshot = await executeJavaScript(browserCaptureScript);
 
   if (
     snapshot === null ||
@@ -644,81 +652,81 @@ async function capturePageSnapshot({
     !('pageTitle' in snapshot) ||
     (snapshot.pageTitle !== null && typeof snapshot.pageTitle !== 'string')
   ) {
-    return null
+    return null;
   }
 
   return {
     html: snapshot.html,
     pageTitle: snapshot.pageTitle,
     resolvedUrl: snapshot.resolvedUrl,
-  }
+  };
 }
 
 async function captureEmbeddedFrameSnapshots(
   mainFrame: BrowserFrameLike | undefined,
 ): Promise<VacancyBrowserPageSnapshot[]> {
   if (mainFrame === undefined) {
-    return []
+    return [];
   }
 
-  const frames = collectChildFrames(mainFrame)
+  const frames = collectChildFrames(mainFrame);
   const capturedSnapshots = await Promise.all(
     frames.map((frame) => {
-      return captureEmbeddedFrameSnapshot(frame)
+      return captureEmbeddedFrameSnapshot(frame);
     }),
-  )
+  );
 
   return capturedSnapshots.filter((snapshot): snapshot is VacancyBrowserPageSnapshot => {
-    return snapshot !== null && snapshot.html.trim() !== ''
-  })
+    return snapshot !== null && snapshot.html.trim() !== '';
+  });
 }
 
 async function captureEmbeddedFrameSnapshot(
   frame: BrowserFrameLike,
 ): Promise<VacancyBrowserPageSnapshot | null> {
   if (frame.isDestroyed?.() === true) {
-    return null
+    return null;
   }
 
   try {
     return await capturePageSnapshot({
       executeJavaScript: (code) => {
-        return frame.executeJavaScript(code)
+        return frame.executeJavaScript(code);
       },
-    })
+    });
   } catch {
-    return null
+    return null;
   }
 }
 
 function collectChildFrames(frame: BrowserFrameLike): BrowserFrameLike[] {
-  const childFrames = frame.frames ?? []
+  const childFrames = frame.frames ?? [];
 
   return childFrames.flatMap((childFrame) => {
-    return [childFrame, ...collectChildFrames(childFrame)]
-  })
+    return [childFrame, ...collectChildFrames(childFrame)];
+  });
 }
 
 function appendEmbeddedFrameEvidence({
   frameSnapshots,
   html,
 }: {
-  frameSnapshots: VacancyBrowserPageSnapshot[]
-  html: string
+  frameSnapshots: VacancyBrowserPageSnapshot[];
+  html: string;
 }): string {
   if (frameSnapshots.length === 0) {
-    return html
+    return html;
   }
 
   const frameEvidenceHtml = frameSnapshots
     .map((snapshot) => {
       return `<article data-cv-maxxing-frame-url="${escapeHtmlAttribute(
         snapshot.resolvedUrl,
-      )}">${snapshot.html}</article>`
+      )}">${snapshot.html}</article>`;
     })
-    .join('\n')
+    .join('\n');
 
-  return `${html}\n<section data-cv-maxxing-embedded-frames="true">${frameEvidenceHtml}</section>`
+  return `${html}\n<section data-cv-maxxing-embedded-frames="true">${frameEvidenceHtml}</section>`;
 }
 
 function escapeHtmlAttribute(value: string): string {
@@ -726,5 +734,5 @@ function escapeHtmlAttribute(value: string): string {
     .replaceAll('&', '&amp;')
     .replaceAll('"', '&quot;')
     .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
+    .replaceAll('>', '&gt;');
 }

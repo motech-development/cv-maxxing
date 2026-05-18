@@ -1,29 +1,29 @@
-import type { ChangeEvent } from 'react'
+import type { ChangeEvent } from 'react';
 
-import type { VacancyReviewState, VacancySummary } from '../../shared/vacancy.js'
-import { Button } from '../ui/button.js'
-import { PanelCard } from '../ui/panel-card.js'
-import { VacancyPreviewCard } from '../ui/vacancy-preview-card.js'
+import type { VacancyReviewState, VacancySummary } from '../../shared/vacancy.js';
+import { Button } from '../ui/button.js';
+import { PanelCard } from '../ui/panel-card.js';
+import { VacancyPreviewCard } from '../ui/vacancy-preview-card.js';
 
 interface WorkspaceDraftViewProperties {
-  draftReviewState: VacancyReviewState
-  isAdaptingCv: boolean
-  isCurrentDraftMeaningful: boolean
-  isOpeningVacancyBrowser: boolean
-  isReviewingVacancy: boolean
-  onAdaptCv: () => void
-  onOpenVacancyBrowserSession: () => void
-  onReviewPastedVacancy: () => void
-  onReviewVacancyUrl: () => void
-  onTextDraftChange: (event: ChangeEvent<HTMLTextAreaElement>) => void
-  onUrlDraftChange: (event: ChangeEvent<HTMLInputElement>) => void
-  textDraft: string
-  urlDraft: string
-  vacancyPreview: VacancySummary | null
+  draftReviewState: VacancyReviewState;
+  isAdaptingCv: boolean;
+  isCurrentDraftMeaningful: boolean;
+  isOpeningVacancyBrowser: boolean;
+  isReviewingVacancy: boolean;
+  onAdaptCv: () => void;
+  onOpenVacancyBrowserSession: () => void;
+  onReviewPastedVacancy: () => void;
+  onReviewVacancyUrl: () => void;
+  onTextDraftChange: (event: ChangeEvent<HTMLTextAreaElement>) => void;
+  onUrlDraftChange: (event: ChangeEvent<HTMLInputElement>) => void;
+  textDraft: string;
+  urlDraft: string;
+  vacancyPreview: VacancySummary | null;
 }
 
 const fieldClassName =
-  'w-full rounded-[8px] border border-[var(--color-border)] bg-white px-[14px] py-3 text-[13px] font-medium text-[var(--color-copy-strong)] outline-none transition placeholder:text-[var(--color-copy-subtle)] focus:border-[var(--color-ink-900)]'
+  'w-full rounded-[8px] border border-[var(--color-border)] bg-white px-[14px] py-3 text-[13px] font-medium text-[var(--color-copy-strong)] outline-none transition placeholder:text-[var(--color-copy-subtle)] focus:border-[var(--color-ink-900)]';
 
 export function WorkspaceDraftView({
   draftReviewState,
@@ -40,14 +40,14 @@ export function WorkspaceDraftView({
   urlDraft,
   vacancyPreview,
 }: WorkspaceDraftViewProperties) {
-  const isDraftReviewed = draftReviewState === 'reviewed'
+  const isDraftReviewed = draftReviewState === 'reviewed';
   const isUrlSubmissionDisabled =
-    isDraftReviewed || isReviewingVacancy || isAdaptingCv || urlDraft.trim() === ''
+    isDraftReviewed || isReviewingVacancy || isAdaptingCv || urlDraft.trim() === '';
   const isTextSubmissionDisabled =
-    isDraftReviewed || isReviewingVacancy || isAdaptingCv || textDraft.trim() === ''
+    isDraftReviewed || isReviewingVacancy || isAdaptingCv || textDraft.trim() === '';
   const sourceFieldClassName = isDraftReviewed
     ? `${fieldClassName} bg-[var(--color-surface-2)] text-[var(--color-copy-muted)]`
-    : fieldClassName
+    : fieldClassName;
 
   return (
     <>
@@ -127,5 +127,5 @@ export function WorkspaceDraftView({
         preview={vacancyPreview}
       />
     </>
-  )
+  );
 }

@@ -1,60 +1,60 @@
-import type { ReactNode } from 'react'
-import { Briefcase, FileText, LoaderCircle, Settings, Sparkles } from 'lucide-react'
+import { Briefcase, FileText, LoaderCircle, Settings, Sparkles } from 'lucide-react';
+import type { ReactNode } from 'react';
 
-import { StatusPill } from '../ui/status-pill.js'
+import { StatusPill } from '../ui/status-pill.js';
 
-export type RailItemId = 'job_vacancies' | 'original_cv' | 'settings' | 'setup'
+export type RailItemId = 'job_vacancies' | 'original_cv' | 'settings' | 'setup';
 
 interface DesktopShellProperties {
-  activeRailItem: RailItemId
-  appOverlay?: ReactNode
-  ambientActivityLabel?: string | null
-  children: ReactNode
-  onSelectRailItem?: (item: RailItemId) => void
-  pageAlert?: ReactNode
-  pageHeaderActions?: ReactNode
-  pageIntro?: string
-  pageTitle?: string
-  railItems?: RailItemId[]
-  sidebar: ReactNode
+  activeRailItem: RailItemId;
+  appOverlay?: ReactNode;
+  ambientActivityLabel?: string | null;
+  children: ReactNode;
+  onSelectRailItem?: (item: RailItemId) => void;
+  pageAlert?: ReactNode;
+  pageHeaderActions?: ReactNode;
+  pageIntro?: string;
+  pageTitle?: string;
+  railItems?: RailItemId[];
+  sidebar: ReactNode;
   statusPill?: {
-    label: string
-    tone: 'danger' | 'muted' | 'ready' | 'warning'
-  }
-  subtitle?: string
-  workspaceOverlay?: ReactNode
+    label: string;
+    tone: 'danger' | 'muted' | 'ready' | 'warning';
+  };
+  subtitle?: string;
+  workspaceOverlay?: ReactNode;
 }
 
 interface RailButtonProperties {
-  icon: RailItemId
-  isActive: boolean
-  label: string
-  onSelect?: (item: RailItemId) => void
+  icon: RailItemId;
+  isActive: boolean;
+  label: string;
+  onSelect?: (item: RailItemId) => void;
 }
 
 function RailIcon({ icon, isActive }: Pick<RailButtonProperties, 'icon' | 'isActive'>) {
-  const stroke = isActive ? '#F7F8F6' : '#93A29A'
-  const commonProperties = { 'aria-hidden': true, size: 20, stroke, strokeWidth: 2 } as const
+  const stroke = isActive ? '#F7F8F6' : '#93A29A';
+  const commonProperties = { 'aria-hidden': true, size: 20, stroke, strokeWidth: 2 } as const;
 
   if (icon === 'setup') {
-    return <Sparkles {...commonProperties} />
+    return <Sparkles {...commonProperties} />;
   }
 
   if (icon === 'job_vacancies') {
-    return <Briefcase {...commonProperties} />
+    return <Briefcase {...commonProperties} />;
   }
 
   if (icon === 'original_cv') {
-    return <FileText {...commonProperties} />
+    return <FileText {...commonProperties} />;
   }
 
-  return <Settings {...commonProperties} />
+  return <Settings {...commonProperties} />;
 }
 
 function RailButton({ icon, isActive, label, onSelect }: RailButtonProperties) {
   const stateClasses = isActive
     ? 'bg-[var(--color-rail-active)] text-[var(--color-surface-0)]'
-    : 'bg-transparent text-[var(--color-copy-subtle)]'
+    : 'bg-transparent text-[var(--color-copy-subtle)]';
 
   return (
     <button
@@ -62,7 +62,7 @@ function RailButton({ icon, isActive, label, onSelect }: RailButtonProperties) {
       aria-current={isActive ? 'page' : undefined}
       className={`flex h-[60px] w-[60px] flex-col items-center justify-center gap-1.5 rounded-[10px] px-1.5 text-[10px] font-bold leading-none ${stateClasses}`}
       onClick={() => {
-        onSelect?.(icon)
+        onSelect?.(icon);
       }}
       title={label}
       type="button"
@@ -70,23 +70,23 @@ function RailButton({ icon, isActive, label, onSelect }: RailButtonProperties) {
       <RailIcon icon={icon} isActive={isActive} />
       <span>{label}</span>
     </button>
-  )
+  );
 }
 
 function getRailLabel(icon: RailItemId): string {
   if (icon === 'setup') {
-    return 'AI'
+    return 'AI';
   }
 
   if (icon === 'job_vacancies') {
-    return 'Jobs'
+    return 'Jobs';
   }
 
   if (icon === 'original_cv') {
-    return 'Your CV'
+    return 'Your CV';
   }
 
-  return 'Settings'
+  return 'Settings';
 }
 
 function AmbientActivityIndicator({ label }: { label: string }) {
@@ -103,7 +103,7 @@ function AmbientActivityIndicator({ label }: { label: string }) {
         strokeWidth={2.1}
       />
     </div>
-  )
+  );
 }
 
 export function DesktopShell({
@@ -123,24 +123,24 @@ export function DesktopShell({
   workspaceOverlay,
 }: DesktopShellProperties) {
   const hasPageHeaderContent =
-    pageHeaderActions !== undefined || pageIntro !== undefined || pageTitle !== undefined
-  const hasPageHeader = pageAlert !== undefined || hasPageHeaderContent
-  let pageAlertSlot: ReactNode = null
+    pageHeaderActions !== undefined || pageIntro !== undefined || pageTitle !== undefined;
+  const hasPageHeader = pageAlert !== undefined || hasPageHeaderContent;
+  let pageAlertSlot: ReactNode = null;
 
   if (pageAlert) {
     pageAlertSlot = hasPageHeaderContent ? (
       <div className="mt-4 w-full self-stretch">{pageAlert}</div>
     ) : (
       pageAlert
-    )
+    );
   }
 
   const leadingRailItems = railItems.filter((item) => {
-    return item !== 'settings'
-  })
+    return item !== 'settings';
+  });
   const trailingRailItems = railItems.filter((item) => {
-    return item === 'settings'
-  })
+    return item === 'settings';
+  });
 
   return (
     <main className="h-screen overflow-hidden bg-[var(--color-shell-topbar)] text-[var(--color-copy-strong)]">
@@ -179,7 +179,7 @@ export function DesktopShell({
                     label={getRailLabel(item)}
                     onSelect={onSelectRailItem}
                   />
-                )
+                );
               })}
             </div>
             <div className="flex flex-col items-center gap-3">
@@ -192,7 +192,7 @@ export function DesktopShell({
                     label={getRailLabel(item)}
                     onSelect={onSelectRailItem}
                   />
-                )
+                );
               })}
             </div>
           </nav>
@@ -237,5 +237,5 @@ export function DesktopShell({
         {appOverlay ? <div className="absolute inset-0 z-20">{appOverlay}</div> : null}
       </section>
     </main>
-  )
+  );
 }

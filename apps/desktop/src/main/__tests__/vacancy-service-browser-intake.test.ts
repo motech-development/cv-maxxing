@@ -1,101 +1,101 @@
-import { expect, test, vi } from 'vitest'
+import { expect, test, vi } from 'vitest';
 
-import { VacancyNormalizationError } from '../vacancy-normalization-error.js'
-import { createVacancyService } from '../vacancy-service.js'
-import type { VacancyBrowserReadingActionRequest } from '../vacancy-browser-actions.js'
 import type {
   JsonValue,
   LocalAppDataStore,
   MetadataRecord,
   MetadataSelector,
-} from '../local-app-data-service.js'
-import type { VacancyBrowserPageSnapshot } from '../vacancy-browser-session-service.js'
+} from '../local-app-data-service.js';
+import type { VacancyBrowserReadingActionRequest } from '../vacancy-browser-actions.js';
+import type { VacancyBrowserPageSnapshot } from '../vacancy-browser-session-service.js';
+import { VacancyNormalizationError } from '../vacancy-normalization-error.js';
 import type {
   VacancyNormalizationInput,
   VacancyNormalizationService,
-} from '../vacancy-normalization-service.js'
+} from '../vacancy-normalization-service.js';
+import { createVacancyService } from '../vacancy-service.js';
 
-type TestLocalAppData = Pick<LocalAppDataStore, 'artifacts' | 'metadata'>
+type TestLocalAppData = Pick<LocalAppDataStore, 'artifacts' | 'metadata'>;
 
 interface MemoryArtifactSelector {
-  id: string
-  name: string
-  scope: string
+  id: string;
+  name: string;
+  scope: string;
 }
 
 interface MemoryArtifactListSelector {
-  id: string
-  scope: string
+  id: string;
+  scope: string;
 }
 
 interface MemoryArtifactWriteInput extends MemoryArtifactSelector {
-  content: Buffer
+  content: Buffer;
 }
 
 function createMemoryLocalAppData(): TestLocalAppData {
-  const artifacts = new Map<string, Buffer>()
-  const metadata = new Map<string, JsonValue>()
+  const artifacts = new Map<string, Buffer>();
+  const metadata = new Map<string, JsonValue>();
 
   const localAppData = {
     artifacts: {
       delete: ({ id, name, scope }: MemoryArtifactSelector) => {
-        artifacts.delete(createStorageKey({ id, name, scope }))
+        artifacts.delete(createStorageKey({ id, name, scope }));
 
-        return Promise.resolve()
+        return Promise.resolve();
       },
       list: ({ id, scope }: MemoryArtifactListSelector) => {
-        const prefix = createStorageKeyPrefix({ id, scope })
+        const prefix = createStorageKeyPrefix({ id, scope });
         const names = [...artifacts.keys()]
           .filter((key) => {
-            return key.startsWith(prefix)
+            return key.startsWith(prefix);
           })
           .map((key) => {
-            return key.slice(prefix.length)
-          })
+            return key.slice(prefix.length);
+          });
 
-        return Promise.resolve(names)
+        return Promise.resolve(names);
       },
       read: ({ id, name, scope }: MemoryArtifactSelector) => {
-        return Promise.resolve(artifacts.get(createStorageKey({ id, name, scope })) ?? null)
+        return Promise.resolve(artifacts.get(createStorageKey({ id, name, scope })) ?? null);
       },
       write: ({ content, id, name, scope }: MemoryArtifactWriteInput) => {
-        artifacts.set(createStorageKey({ id, name, scope }), content)
+        artifacts.set(createStorageKey({ id, name, scope }), content);
 
-        return Promise.resolve()
+        return Promise.resolve();
       },
     },
     metadata: {
       delete: ({ id, scope }: MetadataSelector) => {
-        metadata.delete(createStorageKey({ id, scope }))
+        metadata.delete(createStorageKey({ id, scope }));
 
-        return Promise.resolve()
+        return Promise.resolve();
       },
       get: ({ id, scope }: MetadataSelector) => {
-        return Promise.resolve(metadata.get(createStorageKey({ id, scope })) ?? null)
+        return Promise.resolve(metadata.get(createStorageKey({ id, scope })) ?? null);
       },
       list: (scope: string) => {
         const records = [...metadata.entries()]
           .filter(([key]) => {
-            return key.startsWith(`${scope}:`)
+            return key.startsWith(`${scope}:`);
           })
           .map(([key, value]) => {
             return {
               id: key.slice(scope.length + 1),
               value,
-            } satisfies MetadataRecord
-          })
+            } satisfies MetadataRecord;
+          });
 
-        return Promise.resolve(records)
+        return Promise.resolve(records);
       },
       put: ({ id, scope, value }: { id: string; scope: string; value: JsonValue }) => {
-        metadata.set(createStorageKey({ id, scope }), value)
+        metadata.set(createStorageKey({ id, scope }), value);
 
-        return Promise.resolve()
+        return Promise.resolve();
       },
     },
-  }
+  };
 
-  return localAppData as unknown as TestLocalAppData
+  return localAppData as unknown as TestLocalAppData;
 }
 
 function createStorageKey({
@@ -103,20 +103,20 @@ function createStorageKey({
   name,
   scope,
 }: {
-  id: string
-  name?: string
-  scope: string
+  id: string;
+  name?: string;
+  scope: string;
 }): string {
-  return name === undefined ? `${scope}:${id}` : `${scope}:${id}:${name}`
+  return name === undefined ? `${scope}:${id}` : `${scope}:${id}:${name}`;
 }
 
 function createStorageKeyPrefix({ id, scope }: { id: string; scope: string }): string {
-  return `${scope}:${id}:`
+  return `${scope}:${id}:`;
 }
 
 test('waits for actual rendered vacancy evidence before normalizing a generic careers URL', async () => {
-  const localAppData = createMemoryLocalAppData()
-  const normalizationCalls: VacancyNormalizationInput[] = []
+  const localAppData = createMemoryLocalAppData();
+  const normalizationCalls: VacancyNormalizationInput[] = [];
   const careersShellSnapshot = {
     html: [
       '<html>',
@@ -131,7 +131,7 @@ test('waits for actual rendered vacancy evidence before normalizing a generic ca
     ].join(''),
     pageTitle: 'Example Labs careers',
     resolvedUrl: 'https://careers.example.com/jobs/senior-product-designer',
-  } satisfies VacancyBrowserPageSnapshot
+  } satisfies VacancyBrowserPageSnapshot;
   const renderedVacancySnapshot = {
     html: [
       '<html>',
@@ -150,10 +150,10 @@ test('waits for actual rendered vacancy evidence before normalizing a generic ca
     ].join(''),
     pageTitle: 'Senior Product Designer at Example Labs',
     resolvedUrl: 'https://careers.example.com/jobs/senior-product-designer#role',
-  } satisfies VacancyBrowserPageSnapshot
+  } satisfies VacancyBrowserPageSnapshot;
   const normalizationService = {
     normalizeVacancy: vi.fn((input: VacancyNormalizationInput) => {
-      normalizationCalls.push(input)
+      normalizationCalls.push(input);
 
       return Promise.resolve({
         bodyText:
@@ -163,20 +163,20 @@ test('waits for actual rendered vacancy evidence before normalizing a generic ca
         requirements: ['Experience shipping workflow software.'],
         responsibilities: ['Lead browser-mediated intake for desktop workflows.'],
         title: 'Senior Product Designer',
-      })
+      });
     }),
-  } satisfies VacancyNormalizationService
+  } satisfies VacancyNormalizationService;
   const vacancyService = createVacancyService({
     captureVacancyBrowserSessionPage: vi.fn(
       ({
         shouldCapturePage,
       }: {
-        shouldCapturePage: (snapshot: VacancyBrowserPageSnapshot) => boolean
+        shouldCapturePage: (snapshot: VacancyBrowserPageSnapshot) => boolean;
       }) => {
-        expect(shouldCapturePage(careersShellSnapshot)).toBe(false)
-        expect(shouldCapturePage(renderedVacancySnapshot)).toBe(true)
+        expect(shouldCapturePage(careersShellSnapshot)).toBe(false);
+        expect(shouldCapturePage(renderedVacancySnapshot)).toBe(true);
 
-        return Promise.resolve(renderedVacancySnapshot)
+        return Promise.resolve(renderedVacancySnapshot);
       },
     ),
     generateId: vi.fn(() => 'vacancy-rendered-evidence'),
@@ -184,29 +184,29 @@ test('waits for actual rendered vacancy evidence before normalizing a generic ca
     localAppData,
     normalizationService,
     openVacancyBrowserSession: vi.fn(() => Promise.resolve(null)),
-  })
+  });
 
   const result = await vacancyService.ingestVacancyUrl({
     url: 'https://careers.example.com/jobs/senior-product-designer',
-  })
+  });
 
-  expect(result.kind).toBe('ingested')
-  expect(result.vacancy.canGenerate).toBe(true)
-  expect(result.vacancy.source).toBe('careers.example.com')
-  expect(normalizationCalls).toHaveLength(1)
-  expect(normalizationCalls[0]?.html).toContain('<h1>Senior Product Designer</h1>')
+  expect(result.kind).toBe('ingested');
+  expect(result.vacancy.canGenerate).toBe(true);
+  expect(result.vacancy.source).toBe('careers.example.com');
+  expect(normalizationCalls).toHaveLength(1);
+  expect(normalizationCalls[0]?.html).toContain('<h1>Senior Product Designer</h1>');
   await expect(
     localAppData.artifacts.read({
       id: 'vacancy-rendered-evidence',
       name: 'snapshot.html',
       scope: 'vacancies',
     }),
-  ).resolves.toEqual(expect.any(Buffer))
-})
+  ).resolves.toEqual(expect.any(Buffer));
+});
 
 test('retries browser capture with AI-requested safe same-page reading actions', async () => {
-  const localAppData = createMemoryLocalAppData()
-  const normalizationCalls: VacancyNormalizationInput[] = []
+  const localAppData = createMemoryLocalAppData();
+  const normalizationCalls: VacancyNormalizationInput[] = [];
   const captureVacancyBrowserSessionPage = vi
     .fn()
     .mockResolvedValueOnce({
@@ -224,10 +224,10 @@ test('retries browser capture with AI-requested safe same-page reading actions',
       ].join(''),
       pageTitle: 'Senior Product Designer at Example Labs',
       resolvedUrl: 'https://careers.example.com/jobs/senior-product-designer#details',
-    })
+    });
   const normalizationService = {
     normalizeVacancy: vi.fn((input: VacancyNormalizationInput) => {
-      normalizationCalls.push(input)
+      normalizationCalls.push(input);
 
       if (normalizationCalls.length === 1) {
         return Promise.reject(
@@ -241,7 +241,7 @@ test('retries browser capture with AI-requested safe same-page reading actions',
               },
             ],
           }),
-        )
+        );
       }
 
       return Promise.resolve({
@@ -252,9 +252,9 @@ test('retries browser capture with AI-requested safe same-page reading actions',
         requirements: ['Experience shipping workflow software.'],
         responsibilities: ['Lead browser-mediated intake for desktop workflows.'],
         title: 'Senior Product Designer',
-      })
+      });
     }),
-  } satisfies VacancyNormalizationService
+  } satisfies VacancyNormalizationService;
   const vacancyService = createVacancyService({
     captureVacancyBrowserSessionPage,
     generateId: vi.fn(() => 'vacancy-ai-reading-action'),
@@ -262,31 +262,31 @@ test('retries browser capture with AI-requested safe same-page reading actions',
     localAppData,
     normalizationService,
     openVacancyBrowserSession: vi.fn(() => Promise.resolve(null)),
-  })
+  });
 
   const result = await vacancyService.ingestVacancyUrl({
     url: 'https://careers.example.com/jobs/senior-product-designer',
-  })
+  });
   const secondCaptureInput = captureVacancyBrowserSessionPage.mock.calls[1]?.[0] as
     | {
-        readingActions?: VacancyBrowserReadingActionRequest[]
+        readingActions?: VacancyBrowserReadingActionRequest[];
       }
-    | undefined
+    | undefined;
 
-  expect(result.kind).toBe('ingested')
-  expect(captureVacancyBrowserSessionPage).toHaveBeenCalledTimes(2)
+  expect(result.kind).toBe('ingested');
+  expect(captureVacancyBrowserSessionPage).toHaveBeenCalledTimes(2);
   expect(secondCaptureInput?.readingActions).toEqual([
     {
       kind: 'click',
       selector: '#details',
     },
-  ])
-  expect(normalizationCalls).toHaveLength(2)
+  ]);
+  expect(normalizationCalls).toHaveLength(2);
   await expect(
     localAppData.artifacts.read({
       id: 'vacancy-ai-reading-action',
       name: 'snapshot.html',
       scope: 'vacancies',
     }),
-  ).resolves.toEqual(expect.any(Buffer))
-})
+  ).resolves.toEqual(expect.any(Buffer));
+});

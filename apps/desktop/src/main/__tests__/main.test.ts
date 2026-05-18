@@ -1,6 +1,6 @@
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath } from 'node:url';
 
-import { beforeEach, expect, test, vi } from 'vitest'
+import { beforeEach, expect, test, vi } from 'vitest';
 
 import {
   AI_WORKER_IPC_CHANNELS,
@@ -8,43 +8,43 @@ import {
   SETTINGS_IPC_CHANNELS,
   TAILORED_APPLICATION_IPC_CHANNELS,
   VACANCY_IPC_CHANNELS,
-} from '../../shared/ipc.js'
+} from '../../shared/ipc.js';
 import {
   assertPackagedRuntimeHasNoFixtureOverrides,
   createDesktopAppBootstrap,
   createElectronRuntimeDependencies,
   handleOriginalCvImported,
-} from '../main.js'
+} from '../main.js';
 
-type AppEvent = 'activate' | 'window-all-closed'
+type AppEvent = 'activate' | 'window-all-closed';
 
-const appIconPath = fileURLToPath(new URL('../../../assets/app-icon.png', import.meta.url))
+const appIconPath = fileURLToPath(new URL('../../../assets/app-icon.png', import.meta.url));
 
 function createAppDouble() {
-  const eventHandlers = new Map<AppEvent, () => void>()
+  const eventHandlers = new Map<AppEvent, () => void>();
 
   return {
     app: {
       on: vi.fn((event: AppEvent, handler: () => void) => {
-        eventHandlers.set(event, handler)
+        eventHandlers.set(event, handler);
       }),
       quit: vi.fn(),
       whenReady: vi.fn(() => Promise.resolve()),
     },
     eventHandlers,
-  }
+  };
 }
 
 function createBrowserWindowDouble() {
-  const loadFile = vi.fn(() => Promise.resolve())
-  const loadURL = vi.fn(() => Promise.resolve())
-  const getAllWindows = vi.fn().mockReturnValue([])
+  const loadFile = vi.fn(() => Promise.resolve());
+  const loadURL = vi.fn(() => Promise.resolve());
+  const getAllWindows = vi.fn().mockReturnValue([]);
   const constructor = vi.fn().mockImplementation(() => {
     return {
       loadFile,
       loadURL,
-    }
-  })
+    };
+  });
 
   return {
     browserWindow: {
@@ -55,7 +55,7 @@ function createBrowserWindowDouble() {
     getAllWindows,
     loadFile,
     loadURL,
-  }
+  };
 }
 
 function createVacancyDouble() {
@@ -98,7 +98,7 @@ function createVacancyDouble() {
       },
     }),
     resetWorkspaceState: vi.fn().mockImplementation(() => Promise.resolve()),
-  }
+  };
 }
 
 function createTailoredApplicationDouble() {
@@ -158,7 +158,7 @@ function createTailoredApplicationDouble() {
       provider: 'codex',
       status: 'sign_in_required',
     }),
-  }
+  };
 }
 
 function createSettingsDouble() {
@@ -170,26 +170,26 @@ function createSettingsDouble() {
       workerProvider: 'codex',
     }),
     resetLocalAppData: vi.fn().mockImplementation(() => Promise.resolve()),
-  }
+  };
 }
 
 beforeEach(() => {
-  vi.restoreAllMocks()
-})
+  vi.restoreAllMocks();
+});
 
 test('abandon pending tailored-application state after an original CV import succeeds', async () => {
   const tailoredApplication = {
     abandonPendingGeneration: vi.fn().mockImplementation(() => Promise.resolve()),
-  }
+  };
 
   await expect(
     handleOriginalCvImported({
       tailoredApplication,
     }),
-  ).resolves.toBeUndefined()
+  ).resolves.toBeUndefined();
 
-  expect(tailoredApplication.abandonPendingGeneration).toHaveBeenCalledTimes(1)
-})
+  expect(tailoredApplication.abandonPendingGeneration).toHaveBeenCalledTimes(1);
+});
 
 test('rejects fixture-backed runtime overrides for packaged app launches', () => {
   expect(() => {
@@ -202,11 +202,11 @@ test('rejects fixture-backed runtime overrides for packaged app launches', () =>
         CV_MAXXING_TAILORED_APPLICATION_PREVIEW_DELAY_MS: '250',
       },
       isPackaged: true,
-    })
+    });
   }).toThrow(
     /CV_MAXXING_AI_WORKER_GENERATION_OUTPUT.*CV_MAXXING_DISABLE_APP_RELAUNCH_ON_RESET.*CV_MAXXING_PENDING_GENERATION_COMMAND.*CV_MAXXING_STARTUP_DESTINATION.*CV_MAXXING_TAILORED_APPLICATION_PREVIEW_DELAY_MS/u,
-  )
-})
+  );
+});
 
 test('allows fixture-backed runtime overrides outside packaged app launches', () => {
   expect(() => {
@@ -216,24 +216,24 @@ test('allows fixture-backed runtime overrides outside packaged app launches', ()
         CV_MAXXING_VACANCY_BROWSER_SESSION_HTML: '<main>Fixture</main>',
       },
       isPackaged: false,
-    })
-  }).not.toThrow()
-})
+    });
+  }).not.toThrow();
+});
 
 test('bootstrap registers the full AI worker onboarding IPC surface and opens the packaged shell on startup', async () => {
-  vi.useFakeTimers()
+  vi.useFakeTimers();
 
-  const { app, eventHandlers } = createAppDouble()
-  const { browserWindow, constructor, loadFile, loadURL } = createBrowserWindowDouble()
+  const { app, eventHandlers } = createAppDouble();
+  const { browserWindow, constructor, loadFile, loadURL } = createBrowserWindowDouble();
   const registeredHandlers = new Map<
     string,
     (_event?: unknown, payload?: unknown) => Promise<unknown>
-  >()
+  >();
   const handle = vi.fn(
     (channel: string, handler: (_event: unknown, payload?: unknown) => Promise<unknown>) => {
-      registeredHandlers.set(channel, handler)
+      registeredHandlers.set(channel, handler);
     },
-  )
+  );
   const aiWorker = {
     getAiWorkerPreflight: vi
       .fn()
@@ -272,7 +272,7 @@ test('bootstrap registers the full AI worker onboarding IPC surface and opens th
       provider: 'codex',
       status: 'ready',
     }),
-  }
+  };
   const originalCv = {
     getActiveOriginalCvDetail: vi.fn().mockResolvedValue({
       originalCv: {
@@ -352,7 +352,7 @@ test('bootstrap registers the full AI worker onboarding IPC surface and opens th
         formality: 'direct',
       },
     }),
-  }
+  };
   const vacancy = {
     getWorkspaceState: vi.fn().mockResolvedValue({
       draft: {
@@ -461,10 +461,10 @@ test('bootstrap registers the full AI worker onboarding IPC surface and opens th
       },
     }),
     resetWorkspaceState: vi.fn().mockImplementation(() => Promise.resolve()),
-  }
-  const tailoredApplication = createTailoredApplicationDouble()
-  const settings = createSettingsDouble()
-  const onOriginalCvImported = vi.fn().mockImplementation(() => Promise.resolve())
+  };
+  const tailoredApplication = createTailoredApplicationDouble();
+  const settings = createSettingsDouble();
+  const onOriginalCvImported = vi.fn().mockImplementation(() => Promise.resolve());
 
   const bootstrap = createDesktopAppBootstrap({
     aiWorker,
@@ -483,95 +483,101 @@ test('bootstrap registers the full AI worker onboarding IPC surface and opens th
     preloadPath: '/tmp/preload.js',
     rendererDevelopmentUrl: undefined,
     rendererIndexPath: '/tmp/index.html',
-  })
+  });
 
-  await bootstrap.start()
+  await bootstrap.start();
 
-  expect(app.whenReady).toHaveBeenCalledTimes(1)
-  expect(handle).toHaveBeenCalledWith(AI_WORKER_IPC_CHANNELS.getPreflight, expect.any(Function))
+  expect(app.whenReady).toHaveBeenCalledTimes(1);
+  expect(handle).toHaveBeenCalledWith(AI_WORKER_IPC_CHANNELS.getPreflight, expect.any(Function));
   expect(handle).toHaveBeenCalledWith(
     AI_WORKER_IPC_CHANNELS.getStartupDestination,
     expect.any(Function),
-  )
-  expect(handle).toHaveBeenCalledWith(AI_WORKER_IPC_CHANNELS.retryPreflight, expect.any(Function))
-  expect(handle).toHaveBeenCalledWith(AI_WORKER_IPC_CHANNELS.startSignIn, expect.any(Function))
-  expect(handle).toHaveBeenCalledWith(AI_WORKER_IPC_CHANNELS.openSetupGuide, expect.any(Function))
+  );
+  expect(handle).toHaveBeenCalledWith(AI_WORKER_IPC_CHANNELS.retryPreflight, expect.any(Function));
+  expect(handle).toHaveBeenCalledWith(AI_WORKER_IPC_CHANNELS.startSignIn, expect.any(Function));
+  expect(handle).toHaveBeenCalledWith(AI_WORKER_IPC_CHANNELS.openSetupGuide, expect.any(Function));
   expect(handle).toHaveBeenCalledWith(
     ORIGINAL_CV_IPC_CHANNELS.getWorkspaceState,
     expect.any(Function),
-  )
+  );
   expect(handle).toHaveBeenCalledWith(
     ORIGINAL_CV_IPC_CHANNELS.importOriginalCv,
     expect.any(Function),
-  )
-  expect(handle).toHaveBeenCalledWith(SETTINGS_IPC_CHANNELS.getSnapshot, expect.any(Function))
+  );
+  expect(handle).toHaveBeenCalledWith(SETTINGS_IPC_CHANNELS.getSnapshot, expect.any(Function));
   expect(handle).toHaveBeenCalledWith(
     SETTINGS_IPC_CHANNELS.clearJobSiteBrowserData,
     expect.any(Function),
-  )
-  expect(handle).toHaveBeenCalledWith(SETTINGS_IPC_CHANNELS.resetLocalAppData, expect.any(Function))
+  );
+  expect(handle).toHaveBeenCalledWith(
+    SETTINGS_IPC_CHANNELS.resetLocalAppData,
+    expect.any(Function),
+  );
   expect(handle).toHaveBeenCalledWith(
     VACANCY_IPC_CHANNELS.clearWorkspaceState,
     expect.any(Function),
-  )
-  expect(handle).toHaveBeenCalledWith(VACANCY_IPC_CHANNELS.getWorkspaceState, expect.any(Function))
-  expect(handle).toHaveBeenCalledWith(VACANCY_IPC_CHANNELS.ingestUrl, expect.any(Function))
-  expect(handle).toHaveBeenCalledWith(VACANCY_IPC_CHANNELS.ingestPasted, expect.any(Function))
-  expect(handle).toHaveBeenCalledWith(VACANCY_IPC_CHANNELS.openBrowserSession, expect.any(Function))
+  );
+  expect(handle).toHaveBeenCalledWith(VACANCY_IPC_CHANNELS.getWorkspaceState, expect.any(Function));
+  expect(handle).toHaveBeenCalledWith(VACANCY_IPC_CHANNELS.ingestUrl, expect.any(Function));
+  expect(handle).toHaveBeenCalledWith(VACANCY_IPC_CHANNELS.ingestPasted, expect.any(Function));
+  expect(handle).toHaveBeenCalledWith(
+    VACANCY_IPC_CHANNELS.openBrowserSession,
+    expect.any(Function),
+  );
   expect(handle).toHaveBeenCalledWith(
     TAILORED_APPLICATION_IPC_CHANNELS.getPendingGeneration,
     expect.any(Function),
-  )
+  );
   expect(handle).toHaveBeenCalledWith(
     TAILORED_APPLICATION_IPC_CHANNELS.resumePendingGeneration,
     expect.any(Function),
-  )
+  );
   expect(handle).toHaveBeenCalledWith(
     TAILORED_APPLICATION_IPC_CHANNELS.getWorkspaceSelection,
     expect.any(Function),
-  )
+  );
   expect(handle).toHaveBeenCalledWith(
     TAILORED_APPLICATION_IPC_CHANNELS.startPendingGeneration,
     expect.any(Function),
-  )
+  );
   expect(handle).toHaveBeenCalledWith(
     TAILORED_APPLICATION_IPC_CHANNELS.completePendingGeneration,
     expect.any(Function),
-  )
+  );
   expect(handle).toHaveBeenCalledWith(
     TAILORED_APPLICATION_IPC_CHANNELS.abandonPendingGeneration,
     expect.any(Function),
-  )
+  );
   expect(handle).toHaveBeenCalledWith(
     TAILORED_APPLICATION_IPC_CHANNELS.exportCoverLetterPdf,
     expect.any(Function),
-  )
+  );
 
   await expect(registeredHandlers.get(AI_WORKER_IPC_CHANNELS.getPreflight)?.()).resolves.toEqual({
     canResumeGeneration: false,
     message: 'Checking the local AI worker before opening your workspace.',
     provider: 'codex',
     status: 'checking',
-  })
+  });
   await expect(
     registeredHandlers.get(AI_WORKER_IPC_CHANNELS.getStartupDestination)?.(),
-  ).resolves.toBe('workspace')
+  ).resolves.toBe('workspace');
   await expect(registeredHandlers.get(AI_WORKER_IPC_CHANNELS.retryPreflight)?.()).resolves.toEqual({
     canResumeGeneration: false,
     failureCode: 'runtime_missing',
     message: 'The local AI worker is unavailable. Check setup, then retry.',
     provider: 'codex',
     status: 'unavailable',
-  })
+  });
   await expect(registeredHandlers.get(AI_WORKER_IPC_CHANNELS.startSignIn)?.()).resolves.toEqual({
     canResumeGeneration: true,
     message: 'The local AI worker is ready.',
     provider: 'codex',
     status: 'ready',
-  })
+  });
   await expect(registeredHandlers.get(AI_WORKER_IPC_CHANNELS.openSetupGuide)?.()).resolves.toBe(
     undefined,
-  )
+  );
   await expect(
     registeredHandlers.get(ORIGINAL_CV_IPC_CHANNELS.getWorkspaceState)?.(),
   ).resolves.toEqual({
@@ -592,7 +598,7 @@ test('bootstrap registers the full AI worker onboarding IPC surface and opens th
       },
     },
     snapshotCount: 1,
-  })
+  });
   await expect(
     registeredHandlers.get(ORIGINAL_CV_IPC_CHANNELS.getActiveDetail)?.(),
   ).resolves.toEqual({
@@ -637,7 +643,7 @@ test('bootstrap registers the full AI worker onboarding IPC surface and opens th
       skills: ['Workflow design', 'UX research', 'Product strategy'],
       summary: 'Design leader focused on complex workflow products.',
     },
-  })
+  });
   await expect(
     registeredHandlers.get(ORIGINAL_CV_IPC_CHANNELS.importOriginalCv)?.(undefined, {
       content: new Uint8Array([68, 79, 67, 88]),
@@ -661,29 +667,29 @@ test('bootstrap registers the full AI worker onboarding IPC surface and opens th
         formality: 'direct',
       },
     },
-  })
+  });
   expect(originalCv.importOriginalCv).toHaveBeenCalledWith({
     content: Buffer.from([68, 79, 67, 88]),
     filename: 'ada-lovelace-revised.docx',
-  })
-  expect(onOriginalCvImported).toHaveBeenCalledTimes(1)
+  });
+  expect(onOriginalCvImported).toHaveBeenCalledTimes(1);
   await expect(registeredHandlers.get(SETTINGS_IPC_CHANNELS.getSnapshot)?.()).resolves.toEqual({
     appVersion: '1.0.0',
     workerCommand: 'codex',
     workerProvider: 'codex',
-  })
+  });
   await expect(
     registeredHandlers.get(SETTINGS_IPC_CHANNELS.clearJobSiteBrowserData)?.(),
-  ).resolves.toBeUndefined()
+  ).resolves.toBeUndefined();
   await expect(
     registeredHandlers.get(SETTINGS_IPC_CHANNELS.resetLocalAppData)?.(undefined, {
       confirmationPhrase: 'RESET',
     }),
-  ).resolves.toBeUndefined()
-  expect(settings.clearJobSiteBrowserData).toHaveBeenCalledTimes(1)
+  ).resolves.toBeUndefined();
+  expect(settings.clearJobSiteBrowserData).toHaveBeenCalledTimes(1);
   expect(settings.resetLocalAppData).toHaveBeenCalledWith({
     confirmationPhrase: 'RESET',
-  })
+  });
   await expect(registeredHandlers.get(VACANCY_IPC_CHANNELS.getWorkspaceState)?.()).resolves.toEqual(
     {
       draft: {
@@ -692,10 +698,10 @@ test('bootstrap registers the full AI worker onboarding IPC surface and opens th
       },
       vacancy: null,
     },
-  )
+  );
   await expect(
     registeredHandlers.get(VACANCY_IPC_CHANNELS.clearWorkspaceState)?.(),
-  ).resolves.toBeUndefined()
+  ).resolves.toBeUndefined();
   await expect(
     registeredHandlers.get(VACANCY_IPC_CHANNELS.ingestUrl)?.(undefined, {
       url: 'https://jobs.example.com/private/123',
@@ -727,7 +733,7 @@ test('bootstrap registers the full AI worker onboarding IPC surface and opens th
       },
       vacancy: null,
     },
-  })
+  });
   await expect(
     registeredHandlers.get(VACANCY_IPC_CHANNELS.ingestPasted)?.(undefined, {
       text: 'Senior Product Designer',
@@ -775,7 +781,7 @@ test('bootstrap registers the full AI worker onboarding IPC surface and opens th
         title: 'Senior Product Designer',
       },
     },
-  })
+  });
   await expect(
     registeredHandlers.get(VACANCY_IPC_CHANNELS.openBrowserSession)?.(undefined, {
       url: 'https://jobs.example.com/private/123',
@@ -807,18 +813,18 @@ test('bootstrap registers the full AI worker onboarding IPC surface and opens th
       },
       vacancy: null,
     },
-  })
+  });
   expect(vacancy.ingestVacancyUrl).toHaveBeenCalledWith({
     url: 'https://jobs.example.com/private/123',
-  })
+  });
   expect(vacancy.ingestPastedVacancy).toHaveBeenCalledWith({
     text: 'Senior Product Designer',
     url: 'https://jobs.example.com/senior-product-designer',
-  })
+  });
   expect(vacancy.openBrowserSession).toHaveBeenCalledWith({
     url: 'https://jobs.example.com/private/123',
-  })
-  expect(vacancy.resetWorkspaceState).toHaveBeenCalledTimes(1)
+  });
+  expect(vacancy.resetWorkspaceState).toHaveBeenCalledTimes(1);
   await expect(
     registeredHandlers.get(TAILORED_APPLICATION_IPC_CHANNELS.getPendingGeneration)?.(),
   ).resolves.toEqual({
@@ -830,26 +836,26 @@ test('bootstrap registers the full AI worker onboarding IPC surface and opens th
       text: 'Senior platform engineer',
       url: 'https://jobs.example.com/roles/123',
     },
-  })
+  });
   const previewRequestPromise = registeredHandlers.get(
     TAILORED_APPLICATION_IPC_CHANNELS.getPreview,
   )?.(undefined, {
     tailoredApplicationId: 'tailored-application-123',
-  })
+  });
 
-  await vi.advanceTimersByTimeAsync(24)
+  await vi.advanceTimersByTimeAsync(24);
 
-  expect(tailoredApplication.getTailoredApplicationPreview).not.toHaveBeenCalled()
+  expect(tailoredApplication.getTailoredApplicationPreview).not.toHaveBeenCalled();
 
-  await vi.advanceTimersByTimeAsync(1)
+  await vi.advanceTimersByTimeAsync(1);
 
-  await expect(previewRequestPromise).resolves.toBeNull()
+  await expect(previewRequestPromise).resolves.toBeNull();
   await expect(
     registeredHandlers.get(TAILORED_APPLICATION_IPC_CHANNELS.resumePendingGeneration)?.(),
   ).resolves.toEqual({
     generationRunId: 'run-123',
     tailoredApplicationId: 'tailored-application-123',
-  })
+  });
   await expect(
     registeredHandlers.get(TAILORED_APPLICATION_IPC_CHANNELS.startPendingGeneration)?.(undefined, {
       originalCvId: 'original-cv-123',
@@ -865,7 +871,7 @@ test('bootstrap registers the full AI worker onboarding IPC surface and opens th
     message: 'AI needs you to sign in before CV Maxxing can finish your CV and cover letter.',
     provider: 'codex',
     status: 'sign_in_required',
-  })
+  });
   await expect(
     registeredHandlers.get(TAILORED_APPLICATION_IPC_CHANNELS.completePendingGeneration)?.(
       undefined,
@@ -878,15 +884,15 @@ test('bootstrap registers the full AI worker onboarding IPC surface and opens th
       activeApplicationId: null,
       applications: [],
     },
-  })
+  });
   await expect(
     registeredHandlers.get(TAILORED_APPLICATION_IPC_CHANNELS.abandonPendingGeneration)?.(),
-  ).resolves.toBeUndefined()
+  ).resolves.toBeUndefined();
   await expect(
     registeredHandlers.get(TAILORED_APPLICATION_IPC_CHANNELS.delete)?.(undefined, {
       tailoredApplicationId: 'tailored-application-123',
     }),
-  ).resolves.toBeUndefined()
+  ).resolves.toBeUndefined();
   await expect(
     registeredHandlers.get(TAILORED_APPLICATION_IPC_CHANNELS.exportCoverLetterPdf)?.(undefined, {
       tailoredApplicationId: 'tailored-application-123',
@@ -895,7 +901,7 @@ test('bootstrap registers the full AI worker onboarding IPC surface and opens th
     filePath: '/exports/Ada Lovelace - Senior platform engineer - cover-letter.pdf',
     overwriteAvoided: false,
     pageWarning: null,
-  })
+  });
   expect(tailoredApplication.startPendingGeneration).toHaveBeenCalledWith({
     originalCvId: 'original-cv-123',
     originalCvLabel: 'ada-lovelace.pdf',
@@ -903,14 +909,14 @@ test('bootstrap registers the full AI worker onboarding IPC surface and opens th
       text: 'Senior platform engineer',
       url: 'https://jobs.example.com/roles/123',
     },
-  })
-  expect(tailoredApplication.resumePendingGeneration).toHaveBeenCalledTimes(1)
-  expect(tailoredApplication.completePendingGeneration).toHaveBeenCalledWith('command-123')
-  expect(tailoredApplication.abandonPendingGeneration).toHaveBeenCalledTimes(1)
+  });
+  expect(tailoredApplication.resumePendingGeneration).toHaveBeenCalledTimes(1);
+  expect(tailoredApplication.completePendingGeneration).toHaveBeenCalledWith('command-123');
+  expect(tailoredApplication.abandonPendingGeneration).toHaveBeenCalledTimes(1);
   expect(tailoredApplication.deleteTailoredApplication).toHaveBeenCalledWith(
     'tailored-application-123',
-  )
-  expect(tailoredApplication.exportCoverLetterPdf).toHaveBeenCalledWith('tailored-application-123')
+  );
+  expect(tailoredApplication.exportCoverLetterPdf).toHaveBeenCalledWith('tailored-application-123');
   expect(constructor).toHaveBeenCalledWith({
     backgroundColor: '#08141f',
     height: 900,
@@ -924,27 +930,27 @@ test('bootstrap registers the full AI worker onboarding IPC surface and opens th
       sandbox: false,
     },
     width: 1440,
-  })
-  expect(loadFile).toHaveBeenCalledWith('/tmp/index.html')
-  expect(loadURL).not.toHaveBeenCalled()
-  expect(eventHandlers.has('activate')).toBe(true)
-  expect(eventHandlers.has('window-all-closed')).toBe(true)
+  });
+  expect(loadFile).toHaveBeenCalledWith('/tmp/index.html');
+  expect(loadURL).not.toHaveBeenCalled();
+  expect(eventHandlers.has('activate')).toBe(true);
+  expect(eventHandlers.has('window-all-closed')).toBe(true);
 
-  vi.useRealTimers()
-})
+  vi.useRealTimers();
+});
 
 test('original CV import IPC returns the shared readiness model when the AI worker sign-in has expired', async () => {
-  const { app } = createAppDouble()
-  const { browserWindow } = createBrowserWindowDouble()
+  const { app } = createAppDouble();
+  const { browserWindow } = createBrowserWindowDouble();
   const registeredHandlers = new Map<
     string,
     (_event?: unknown, payload?: unknown) => Promise<unknown>
-  >()
+  >();
   const handle = vi.fn(
     (channel: string, handler: (_event: unknown, payload?: unknown) => Promise<unknown>) => {
-      registeredHandlers.set(channel, handler)
+      registeredHandlers.set(channel, handler);
     },
-  )
+  );
   const aiWorker = {
     getAiWorkerPreflight: vi.fn().mockResolvedValue({
       canResumeGeneration: true,
@@ -965,13 +971,13 @@ test('original CV import IPC returns the shared readiness model when the AI work
       status: 'sign_in_required',
     }),
     startAiWorkerSignIn: vi.fn(),
-  }
-  const onOriginalCvImported = vi.fn()
+  };
+  const onOriginalCvImported = vi.fn();
   const originalCv = {
     getActiveOriginalCvDetail: vi.fn(),
     getWorkspaceState: vi.fn(),
     importOriginalCv: vi.fn(),
-  }
+  };
 
   const bootstrap = createDesktopAppBootstrap({
     aiWorker,
@@ -988,9 +994,9 @@ test('original CV import IPC returns the shared readiness model when the AI work
     settings: createSettingsDouble(),
     tailoredApplication: createTailoredApplicationDouble(),
     vacancy: createVacancyDouble(),
-  })
+  });
 
-  await bootstrap.start()
+  await bootstrap.start();
 
   await expect(
     registeredHandlers.get(ORIGINAL_CV_IPC_CHANNELS.importOriginalCv)?.(undefined, {
@@ -1007,21 +1013,21 @@ test('original CV import IPC returns the shared readiness model when the AI work
       provider: 'codex',
       status: 'sign_in_required',
     },
-  })
+  });
 
-  expect(aiWorker.getAiWorkerPreflight).toHaveBeenCalledTimes(1)
-  expect(aiWorker.retryAiWorkerPreflight).not.toHaveBeenCalled()
-  expect(originalCv.importOriginalCv).not.toHaveBeenCalled()
-  expect(onOriginalCvImported).not.toHaveBeenCalled()
-})
+  expect(aiWorker.getAiWorkerPreflight).toHaveBeenCalledTimes(1);
+  expect(aiWorker.retryAiWorkerPreflight).not.toHaveBeenCalled();
+  expect(originalCv.importOriginalCv).not.toHaveBeenCalled();
+  expect(onOriginalCvImported).not.toHaveBeenCalled();
+});
 
 test('bootstrap imports the original CV using the startup preflight instead of the retry probe', async () => {
-  const handle = vi.fn()
-  const registeredHandlers = new Map<string, (...arguments_: unknown[]) => unknown>()
+  const handle = vi.fn();
+  const registeredHandlers = new Map<string, (...arguments_: unknown[]) => unknown>();
 
   handle.mockImplementation((channel: string, callback: (...arguments_: unknown[]) => unknown) => {
-    registeredHandlers.set(channel, callback)
-  })
+    registeredHandlers.set(channel, callback);
+  });
 
   const aiWorker = {
     getAiWorkerPreflight: vi.fn().mockResolvedValue({
@@ -1040,8 +1046,8 @@ test('bootstrap imports the original CV using the startup preflight instead of t
       status: 'sign_in_required',
     }),
     startAiWorkerSignIn: vi.fn(),
-  }
-  const onOriginalCvImported = vi.fn()
+  };
+  const onOriginalCvImported = vi.fn();
   const originalCv = {
     getActiveOriginalCvDetail: vi.fn(),
     getWorkspaceState: vi.fn(),
@@ -1061,7 +1067,7 @@ test('bootstrap imports the original CV using the startup preflight instead of t
         formality: 'direct',
       },
     }),
-  }
+  };
 
   const bootstrap = createDesktopAppBootstrap({
     aiWorker,
@@ -1078,9 +1084,9 @@ test('bootstrap imports the original CV using the startup preflight instead of t
     settings: createSettingsDouble(),
     tailoredApplication: createTailoredApplicationDouble(),
     vacancy: createVacancyDouble(),
-  })
+  });
 
-  await bootstrap.start()
+  await bootstrap.start();
 
   await expect(
     registeredHandlers.get(ORIGINAL_CV_IPC_CHANNELS.importOriginalCv)?.(undefined, {
@@ -1105,22 +1111,22 @@ test('bootstrap imports the original CV using the startup preflight instead of t
         formality: 'direct',
       },
     },
-  })
+  });
 
-  expect(aiWorker.getAiWorkerPreflight).toHaveBeenCalledTimes(1)
-  expect(aiWorker.retryAiWorkerPreflight).not.toHaveBeenCalled()
+  expect(aiWorker.getAiWorkerPreflight).toHaveBeenCalledTimes(1);
+  expect(aiWorker.retryAiWorkerPreflight).not.toHaveBeenCalled();
   expect(originalCv.importOriginalCv).toHaveBeenCalledWith({
     content: Buffer.from([68, 79, 67, 88]),
     filename: 'ada-lovelace-revised.docx',
-  })
-  expect(onOriginalCvImported).toHaveBeenCalledTimes(1)
-})
+  });
+  expect(onOriginalCvImported).toHaveBeenCalledTimes(1);
+});
 
 test('bootstrap recreates the window on activate and quits on window-all-closed outside macOS', async () => {
-  const { app, eventHandlers } = createAppDouble()
-  const browserWindow = createBrowserWindowDouble()
-  const tailoredApplication = createTailoredApplicationDouble()
-  const vacancy = createVacancyDouble()
+  const { app, eventHandlers } = createAppDouble();
+  const browserWindow = createBrowserWindowDouble();
+  const tailoredApplication = createTailoredApplicationDouble();
+  const vacancy = createVacancyDouble();
 
   const bootstrap = createDesktopAppBootstrap({
     aiWorker: {
@@ -1166,30 +1172,30 @@ test('bootstrap recreates the window on activate and quits on window-all-closed 
     preloadPath: '/tmp/preload.js',
     rendererDevelopmentUrl: 'http://127.0.0.1:5173',
     rendererIndexPath: '/tmp/index.html',
-  })
+  });
 
-  await bootstrap.start()
+  await bootstrap.start();
 
-  browserWindow.getAllWindows.mockReturnValueOnce([])
-  eventHandlers.get('activate')?.()
+  browserWindow.getAllWindows.mockReturnValueOnce([]);
+  eventHandlers.get('activate')?.();
 
-  await Promise.resolve()
+  await Promise.resolve();
 
-  expect(browserWindow.constructor).toHaveBeenCalledTimes(2)
-  expect(browserWindow.loadURL).toHaveBeenCalledWith('http://127.0.0.1:5173')
+  expect(browserWindow.constructor).toHaveBeenCalledTimes(2);
+  expect(browserWindow.loadURL).toHaveBeenCalledWith('http://127.0.0.1:5173');
 
-  eventHandlers.get('window-all-closed')?.()
+  eventHandlers.get('window-all-closed')?.();
 
-  expect(app.quit).toHaveBeenCalledTimes(1)
-})
+  expect(app.quit).toHaveBeenCalledTimes(1);
+});
 
 test('bootstrap logs and swallows activate window recreation failures', async () => {
-  const { app, eventHandlers } = createAppDouble()
-  const browserWindow = createBrowserWindowDouble()
-  const tailoredApplication = createTailoredApplicationDouble()
-  const vacancy = createVacancyDouble()
-  const error = new Error('failed to open window')
-  const consoleError = vi.spyOn(console, 'error').mockImplementation(() => null)
+  const { app, eventHandlers } = createAppDouble();
+  const browserWindow = createBrowserWindowDouble();
+  const tailoredApplication = createTailoredApplicationDouble();
+  const vacancy = createVacancyDouble();
+  const error = new Error('failed to open window');
+  const consoleError = vi.spyOn(console, 'error').mockImplementation(() => null);
 
   browserWindow.browserWindow.create = vi
     .fn()
@@ -1197,14 +1203,14 @@ test('bootstrap logs and swallows activate window recreation failures', async ()
       return {
         loadFile: vi.fn(() => Promise.resolve()),
         loadURL: vi.fn(() => Promise.resolve()),
-      }
+      };
     })
     .mockImplementationOnce(() => {
       return {
         loadFile: vi.fn(() => Promise.reject(error)),
         loadURL: vi.fn(() => Promise.resolve()),
-      }
-    })
+      };
+    });
 
   const bootstrap = createDesktopAppBootstrap({
     aiWorker: {
@@ -1250,26 +1256,26 @@ test('bootstrap logs and swallows activate window recreation failures', async ()
     preloadPath: '/tmp/preload.js',
     rendererDevelopmentUrl: undefined,
     rendererIndexPath: '/tmp/index.html',
-  })
+  });
 
-  await bootstrap.start()
+  await bootstrap.start();
 
-  browserWindow.getAllWindows.mockReturnValueOnce([])
-  eventHandlers.get('activate')?.()
+  browserWindow.getAllWindows.mockReturnValueOnce([]);
+  eventHandlers.get('activate')?.();
 
   await vi.waitFor(() => {
     expect(consoleError).toHaveBeenCalledWith(
       'Failed to recreate the main window on activate.',
       error,
-    )
-  })
-})
+    );
+  });
+});
 
 test('bootstrap keeps the app open when every window closes on macOS', async () => {
-  const { app, eventHandlers } = createAppDouble()
-  const browserWindow = createBrowserWindowDouble()
-  const tailoredApplication = createTailoredApplicationDouble()
-  const vacancy = createVacancyDouble()
+  const { app, eventHandlers } = createAppDouble();
+  const browserWindow = createBrowserWindowDouble();
+  const tailoredApplication = createTailoredApplicationDouble();
+  const vacancy = createVacancyDouble();
 
   const bootstrap = createDesktopAppBootstrap({
     aiWorker: {
@@ -1315,19 +1321,19 @@ test('bootstrap keeps the app open when every window closes on macOS', async () 
     preloadPath: '/tmp/preload.js',
     rendererDevelopmentUrl: undefined,
     rendererIndexPath: '/tmp/index.html',
-  })
+  });
 
-  await bootstrap.start()
-  eventHandlers.get('window-all-closed')?.()
+  await bootstrap.start();
+  eventHandlers.get('window-all-closed')?.();
 
-  expect(app.quit).not.toHaveBeenCalled()
-})
+  expect(app.quit).not.toHaveBeenCalled();
+});
 
 test('bootstrap hides the native macOS title bar chrome when opening the main window', async () => {
-  const { app } = createAppDouble()
-  const { browserWindow, constructor } = createBrowserWindowDouble()
-  const tailoredApplication = createTailoredApplicationDouble()
-  const vacancy = createVacancyDouble()
+  const { app } = createAppDouble();
+  const { browserWindow, constructor } = createBrowserWindowDouble();
+  const tailoredApplication = createTailoredApplicationDouble();
+  const vacancy = createVacancyDouble();
 
   const bootstrap = createDesktopAppBootstrap({
     aiWorker: {
@@ -1373,9 +1379,9 @@ test('bootstrap hides the native macOS title bar chrome when opening the main wi
     preloadPath: '/tmp/preload.js',
     rendererDevelopmentUrl: undefined,
     rendererIndexPath: '/tmp/index.html',
-  })
+  });
 
-  await bootstrap.start()
+  await bootstrap.start();
 
   expect(constructor).toHaveBeenCalledWith(
     expect.objectContaining({
@@ -1386,12 +1392,12 @@ test('bootstrap hides the native macOS title bar chrome when opening the main wi
       titleBarStyle: 'hiddenInset',
       useContentSize: true,
     }),
-  )
-})
+  );
+});
 
 test('bootstrap can keep the desktop window hidden for deterministic visual captures', async () => {
-  const { app } = createAppDouble()
-  const { browserWindow, constructor } = createBrowserWindowDouble()
+  const { app } = createAppDouble();
+  const { browserWindow, constructor } = createBrowserWindowDouble();
 
   const bootstrap = createDesktopAppBootstrap({
     aiWorker: {
@@ -1438,45 +1444,45 @@ test('bootstrap can keep the desktop window hidden for deterministic visual capt
     preloadPath: '/tmp/preload.js',
     rendererDevelopmentUrl: undefined,
     rendererIndexPath: '/tmp/index.html',
-  })
+  });
 
-  await bootstrap.start()
+  await bootstrap.start();
 
   expect(constructor).toHaveBeenCalledWith(
     expect.objectContaining({
       show: false,
       useContentSize: true,
     }),
-  )
-})
+  );
+});
 
 test('runtime dependencies adapt Electron primitives for the bootstrap contract', async () => {
-  const eventHandlers = new Map<AppEvent, (...args: unknown[]) => void>()
-  const quit = vi.fn()
-  const whenReady = vi.fn(() => Promise.resolve())
+  const eventHandlers = new Map<AppEvent, (...args: unknown[]) => void>();
+  const quit = vi.fn();
+  const whenReady = vi.fn(() => Promise.resolve());
   const on = vi.fn((event: AppEvent, handler: (...args: unknown[]) => void) => {
-    eventHandlers.set(event, handler)
-  })
-  const loadFile = vi.fn(() => Promise.resolve())
-  const loadURL = vi.fn(() => Promise.resolve())
-  const getAllWindows = vi.fn().mockReturnValue([{ loadFile, loadURL }])
-  const constructor = vi.fn()
+    eventHandlers.set(event, handler);
+  });
+  const loadFile = vi.fn(() => Promise.resolve());
+  const loadURL = vi.fn(() => Promise.resolve());
+  const getAllWindows = vi.fn().mockReturnValue([{ loadFile, loadURL }]);
+  const constructor = vi.fn();
   const BrowserWindowDouble = Object.assign(
     function BrowserWindowDouble(options: unknown) {
-      constructor(options)
+      constructor(options);
 
       return {
         loadFile,
         loadURL,
-      }
+      };
     } as unknown as new (options: unknown) => {
-      loadFile: typeof loadFile
-      loadURL: typeof loadURL
+      loadFile: typeof loadFile;
+      loadURL: typeof loadURL;
     },
     {
       getAllWindows,
     },
-  )
+  );
   const aiWorker = {
     getAiWorkerPreflight: vi.fn().mockResolvedValue({
       canResumeGeneration: true,
@@ -1498,9 +1504,9 @@ test('runtime dependencies adapt Electron primitives for the bootstrap contract'
       provider: 'codex',
       status: 'ready',
     }),
-  }
-  const tailoredApplication = createTailoredApplicationDouble()
-  const vacancy = createVacancyDouble()
+  };
+  const tailoredApplication = createTailoredApplicationDouble();
+  const vacancy = createVacancyDouble();
 
   const runtimeDependencies = createElectronRuntimeDependencies({
     aiWorker,
@@ -1531,19 +1537,19 @@ test('runtime dependencies adapt Electron primitives for the bootstrap contract'
     preloadPath: '/tmp/preload.js',
     rendererDevelopmentUrl: 'http://127.0.0.1:5173',
     rendererIndexPath: '/tmp/index.html',
-  })
+  });
 
-  await runtimeDependencies.app.whenReady()
-  runtimeDependencies.app.quit()
+  await runtimeDependencies.app.whenReady();
+  runtimeDependencies.app.quit();
 
-  const activateHandler = vi.fn()
-  const closeHandler = vi.fn()
+  const activateHandler = vi.fn();
+  const closeHandler = vi.fn();
 
-  runtimeDependencies.app.on('activate', activateHandler)
-  runtimeDependencies.app.on('window-all-closed', closeHandler)
+  runtimeDependencies.app.on('activate', activateHandler);
+  runtimeDependencies.app.on('window-all-closed', closeHandler);
 
-  eventHandlers.get('activate')?.('ignored')
-  eventHandlers.get('window-all-closed')?.('ignored')
+  eventHandlers.get('activate')?.('ignored');
+  eventHandlers.get('window-all-closed')?.('ignored');
 
   runtimeDependencies.browserWindow.create({
     backgroundColor: '#08141f',
@@ -1558,37 +1564,37 @@ test('runtime dependencies adapt Electron primitives for the bootstrap contract'
       sandbox: false,
     },
     width: 1440,
-  })
+  });
 
-  expect(whenReady).toHaveBeenCalledTimes(1)
-  expect(quit).toHaveBeenCalledTimes(1)
-  expect(on).toHaveBeenCalledWith('activate', expect.any(Function))
-  expect(on).toHaveBeenCalledWith('window-all-closed', expect.any(Function))
-  expect(activateHandler).toHaveBeenCalledTimes(1)
-  expect(closeHandler).toHaveBeenCalledTimes(1)
-  expect(constructor).toHaveBeenCalledTimes(1)
-  expect(getAllWindows).not.toHaveBeenCalled()
-  expect(runtimeDependencies.browserWindow.getAllWindows()).toEqual([{ loadFile, loadURL }])
+  expect(whenReady).toHaveBeenCalledTimes(1);
+  expect(quit).toHaveBeenCalledTimes(1);
+  expect(on).toHaveBeenCalledWith('activate', expect.any(Function));
+  expect(on).toHaveBeenCalledWith('window-all-closed', expect.any(Function));
+  expect(activateHandler).toHaveBeenCalledTimes(1);
+  expect(closeHandler).toHaveBeenCalledTimes(1);
+  expect(constructor).toHaveBeenCalledTimes(1);
+  expect(getAllWindows).not.toHaveBeenCalled();
+  expect(runtimeDependencies.browserWindow.getAllWindows()).toEqual([{ loadFile, loadURL }]);
   await expect(runtimeDependencies.aiWorker.getAiWorkerPreflight()).resolves.toEqual({
     canResumeGeneration: true,
     message: 'The local AI worker is ready.',
     provider: 'codex',
     status: 'ready',
-  })
-  await expect(runtimeDependencies.aiWorker.getStartupDestination()).resolves.toBe('workspace')
-})
+  });
+  await expect(runtimeDependencies.aiWorker.getStartupDestination()).resolves.toBe('workspace');
+});
 
 test('createElectronRuntimeDependencies exposes a Darwin dock icon setter backed by the app asset', () => {
-  const setIcon = vi.fn()
-  const loadFile = vi.fn(() => Promise.resolve())
-  const loadURL = vi.fn(() => Promise.resolve())
-  const getAllWindows = vi.fn().mockReturnValue([{ loadFile, loadURL }])
+  const setIcon = vi.fn();
+  const loadFile = vi.fn(() => Promise.resolve());
+  const loadURL = vi.fn(() => Promise.resolve());
+  const getAllWindows = vi.fn().mockReturnValue([{ loadFile, loadURL }]);
   const constructor = vi.fn(() => {
     return {
       loadFile,
       loadURL,
-    }
-  })
+    };
+  });
 
   const runtimeDependencies = createElectronRuntimeDependencies({
     aiWorker: {
@@ -1645,46 +1651,46 @@ test('createElectronRuntimeDependencies exposes a Darwin dock icon setter backed
     preloadPath: '/tmp/preload.js',
     rendererDevelopmentUrl: undefined,
     rendererIndexPath: '/tmp/index.html',
-  })
+  });
 
-  runtimeDependencies.app.setDockIcon?.()
+  runtimeDependencies.app.setDockIcon?.();
 
-  expect(setIcon).toHaveBeenCalledWith(appIconPath)
-})
+  expect(setIcon).toHaveBeenCalledWith(appIconPath);
+});
 
 test('runtime-backed bootstrap configures native About metadata from the Electron app version', async () => {
-  const eventHandlers = new Map<AppEvent, (...args: unknown[]) => void>()
-  const getVersion = vi.fn(() => '2.3.4')
-  const setAboutPanelOptions = vi.fn()
-  const loadFile = vi.fn(() => Promise.resolve())
-  const loadURL = vi.fn(() => Promise.resolve())
-  const getAllWindows = vi.fn().mockReturnValue([{ loadFile, loadURL }])
-  const constructor = vi.fn()
+  const eventHandlers = new Map<AppEvent, (...args: unknown[]) => void>();
+  const getVersion = vi.fn(() => '2.3.4');
+  const setAboutPanelOptions = vi.fn();
+  const loadFile = vi.fn(() => Promise.resolve());
+  const loadURL = vi.fn(() => Promise.resolve());
+  const getAllWindows = vi.fn().mockReturnValue([{ loadFile, loadURL }]);
+  const constructor = vi.fn();
   const BrowserWindowDouble = Object.assign(
     function BrowserWindowDouble(options: unknown) {
-      constructor(options)
+      constructor(options);
 
       return {
         loadFile,
         loadURL,
-      }
+      };
     } as unknown as new (options: unknown) => {
-      loadFile: typeof loadFile
-      loadURL: typeof loadURL
+      loadFile: typeof loadFile;
+      loadURL: typeof loadURL;
     },
     {
       getAllWindows,
     },
-  )
+  );
   const app = {
     getVersion,
     on: vi.fn((event: AppEvent, handler: (...args: unknown[]) => void) => {
-      eventHandlers.set(event, handler)
+      eventHandlers.set(event, handler);
     }),
     quit: vi.fn(),
     setAboutPanelOptions,
     whenReady: vi.fn(() => Promise.resolve()),
-  }
+  };
   const runtimeDependencies = createElectronRuntimeDependencies({
     aiWorker: {
       getAiWorkerPreflight: vi.fn().mockResolvedValue({
@@ -1729,15 +1735,15 @@ test('runtime-backed bootstrap configures native About metadata from the Electro
     preloadPath: '/tmp/preload.js',
     rendererDevelopmentUrl: undefined,
     rendererIndexPath: '/tmp/index.html',
-  })
+  });
 
-  const bootstrap = createDesktopAppBootstrap(runtimeDependencies)
+  const bootstrap = createDesktopAppBootstrap(runtimeDependencies);
 
-  await bootstrap.start()
+  await bootstrap.start();
 
-  expect(getVersion).toHaveBeenCalledTimes(1)
+  expect(getVersion).toHaveBeenCalledTimes(1);
   expect(setAboutPanelOptions).toHaveBeenCalledWith({
     applicationName: 'CV Maxxing',
     applicationVersion: '2.3.4',
-  })
-})
+  });
+});

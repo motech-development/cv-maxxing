@@ -1,22 +1,22 @@
-import type { ReactNode } from 'react'
+import type { ReactNode } from 'react';
 
-import type { TailoredApplicationPreview } from '../../shared/tailored-application.js'
-import { Button } from '../ui/button.js'
-import { PanelCard } from '../ui/panel-card.js'
-import { PdfPreviewCard } from '../ui/pdf-preview-card.js'
+import type { TailoredApplicationPreview } from '../../shared/tailored-application.js';
+import { Button } from '../ui/button.js';
+import { PanelCard } from '../ui/panel-card.js';
+import { PdfPreviewCard } from '../ui/pdf-preview-card.js';
 
-type PreviewDocumentKind = 'adapted_cv' | 'cover_letter'
+type PreviewDocumentKind = 'adapted_cv' | 'cover_letter';
 
 interface WorkspaceApplicationViewProperties {
-  applicationTitle: string | null
-  isCopyingCoverLetterText: boolean
-  isExportingPdf: boolean
-  onCopyCoverLetterText: () => void
-  onDeleteTailoredApplication: () => void
-  onPreviewErrorChange?: (message: string | null) => void
-  onSelectPreviewDocument: (kind: PreviewDocumentKind) => void
-  preview: TailoredApplicationPreview | null
-  previewDocumentKind: PreviewDocumentKind
+  applicationTitle: string | null;
+  isCopyingCoverLetterText: boolean;
+  isExportingPdf: boolean;
+  onCopyCoverLetterText: () => void;
+  onDeleteTailoredApplication: () => void;
+  onPreviewErrorChange?: (message: string | null) => void;
+  onSelectPreviewDocument: (kind: PreviewDocumentKind) => void;
+  preview: TailoredApplicationPreview | null;
+  previewDocumentKind: PreviewDocumentKind;
 }
 
 export function WorkspaceApplicationView({
@@ -30,26 +30,26 @@ export function WorkspaceApplicationView({
   preview,
   previewDocumentKind,
 }: WorkspaceApplicationViewProperties) {
-  const resolvedVacancySubtitle = preview?.employer ?? preview?.vacancyTitle ?? applicationTitle
-  let activeDocumentPreview = null
+  const resolvedVacancySubtitle = preview?.employer ?? preview?.vacancyTitle ?? applicationTitle;
+  let activeDocumentPreview = null;
 
   if (preview !== null) {
     activeDocumentPreview =
-      previewDocumentKind === 'adapted_cv' ? preview.adaptedCv : preview.coverLetter
+      previewDocumentKind === 'adapted_cv' ? preview.adaptedCv : preview.coverLetter;
   }
 
-  const documentTitle = previewDocumentKind === 'adapted_cv' ? 'CV' : 'Cover letter'
+  const documentTitle = previewDocumentKind === 'adapted_cv' ? 'CV' : 'Cover letter';
   const documentEmptyStateCopy =
     previewDocumentKind === 'adapted_cv'
       ? 'Your CV will appear here.'
-      : 'Your cover letter will appear here.'
+      : 'Your cover letter will appear here.';
   const previewStatusTags =
     preview === null
       ? []
       : [
           `CV · ${String(preview.adaptedCv.pageCount)} page${preview.adaptedCv.pageCount === 1 ? '' : 's'}`,
           `Cover letter · ${String(preview.coverLetter.pageCount)} page${preview.coverLetter.pageCount === 1 ? '' : 's'}`,
-        ]
+        ];
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -63,7 +63,7 @@ export function WorkspaceApplicationView({
                   : 'bg-[var(--color-surface-2)] text-[var(--color-copy-strong)]'
               }`}
               onClick={() => {
-                onSelectPreviewDocument('adapted_cv')
+                onSelectPreviewDocument('adapted_cv');
               }}
               type="button"
             >
@@ -76,7 +76,7 @@ export function WorkspaceApplicationView({
                   : 'bg-[var(--color-surface-2)] text-[var(--color-copy-strong)]'
               }`}
               onClick={() => {
-                onSelectPreviewDocument('cover_letter')
+                onSelectPreviewDocument('cover_letter');
               }}
               type="button"
             >
@@ -116,7 +116,7 @@ export function WorkspaceApplicationView({
                 >
                   {tag}
                 </div>
-              )
+              );
             })}
           </div>
           {preview ? (
@@ -137,10 +137,10 @@ export function WorkspaceApplicationView({
                   emptyMessage="Nothing highlighted yet."
                   items={[
                     ...preview.adaptationSummary.emphasized.map((item) => {
-                      return item.text
+                      return item.text;
                     }),
                     ...preview.adaptationSummary.omitted.map((item) => {
-                      return item.text
+                      return item.text;
                     }),
                   ]}
                 />
@@ -174,7 +174,7 @@ export function WorkspaceApplicationView({
         </PanelCard>
       </div>
     </div>
-  )
+  );
 }
 
 function DetailList({ emptyMessage, items }: { emptyMessage?: string; items: string[] }) {
@@ -183,16 +183,16 @@ function DetailList({ emptyMessage, items }: { emptyMessage?: string; items: str
       <p className="m-0 text-xs leading-5 text-[var(--color-copy-muted)]">
         {emptyMessage ?? 'No items recorded.'}
       </p>
-    )
+    );
   }
 
   return (
     <ul className="m-0 flex list-disc flex-col gap-2 pl-4 text-xs leading-5 text-[var(--color-copy-muted)]">
       {items.map((item, index) => {
-        return <li key={`${item}-${String(index)}`}>{item}</li>
+        return <li key={`${item}-${String(index)}`}>{item}</li>;
       })}
     </ul>
-  )
+  );
 }
 
 function DetailSection({ children, title }: { children: ReactNode; title: string }) {
@@ -203,7 +203,7 @@ function DetailSection({ children, title }: { children: ReactNode; title: string
       </h3>
       {children}
     </section>
-  )
+  );
 }
 
 function formatTimestamp(value: string): string {
@@ -211,5 +211,5 @@ function formatTimestamp(value: string): string {
     day: 'numeric',
     month: 'short',
     year: 'numeric',
-  }).format(new Date(value))
+  }).format(new Date(value));
 }

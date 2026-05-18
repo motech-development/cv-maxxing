@@ -22,4 +22,4 @@ export const visualScreenshotBudgets = {
   'workspace-saved-job-delete-dialog.png': 1500,
   'workspace-settings-reset-dialog.png': 1500,
   'workspace-settings-reset-dialog-error.png': 2500,
-} as const
+} as const;

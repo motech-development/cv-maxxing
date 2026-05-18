@@ -1,34 +1,34 @@
-import { rm } from 'node:fs/promises'
+import { rm } from 'node:fs/promises';
 
-import type { AiWorkerProvider } from '../shared/ai-worker-preflight.js'
-import type { ResetLocalAppDataInput, SettingsSnapshot } from '../shared/settings.js'
-import { SETTINGS_RESET_CONFIRMATION_PHRASE } from '../shared/settings.js'
-import type { LocalAppDataStore } from './local-app-data-service.js'
+import type { AiWorkerProvider } from '../shared/ai-worker-preflight.js';
+import type { ResetLocalAppDataInput, SettingsSnapshot } from '../shared/settings.js';
+import { SETTINGS_RESET_CONFIRMATION_PHRASE } from '../shared/settings.js';
+import type { LocalAppDataStore } from './local-app-data-service.js';
 
 const resolveVoid = (): Promise<void> => {
-  return Promise.resolve()
-}
+  return Promise.resolve();
+};
 
 export interface SettingsService {
-  clearJobSiteBrowserData: () => Promise<void>
-  getSettingsSnapshot: () => Promise<SettingsSnapshot>
-  resetLocalAppData: (input: ResetLocalAppDataInput) => Promise<void>
+  clearJobSiteBrowserData: () => Promise<void>;
+  getSettingsSnapshot: () => Promise<SettingsSnapshot>;
+  resetLocalAppData: (input: ResetLocalAppDataInput) => Promise<void>;
 }
 
 export class InvalidLocalDataResetConfirmationError extends Error {
-  override name = 'InvalidLocalDataResetConfirmationError'
+  override name = 'InvalidLocalDataResetConfirmationError';
 }
 
 interface SettingsServiceOptions {
-  allowResetLocalAppDataErrorMessage?: boolean
-  browserSessionRootPath: string
-  closeActiveJobs?: () => Promise<void>
-  getAppVersion: () => string
-  localAppData: Pick<LocalAppDataStore, 'reset'>
-  resetLocalAppDataErrorMessage?: string
-  restartApp?: () => Promise<void>
-  workerCommand?: string
-  workerProvider?: AiWorkerProvider
+  allowResetLocalAppDataErrorMessage?: boolean;
+  browserSessionRootPath: string;
+  closeActiveJobs?: () => Promise<void>;
+  getAppVersion: () => string;
+  localAppData: Pick<LocalAppDataStore, 'reset'>;
+  resetLocalAppDataErrorMessage?: string;
+  restartApp?: () => Promise<void>;
+  workerCommand?: string;
+  workerProvider?: AiWorkerProvider;
 }
 
 export function createSettingsService({
@@ -47,20 +47,20 @@ export function createSettingsService({
       await rm(browserSessionRootPath, {
         force: true,
         recursive: true,
-      })
+      });
     },
     getSettingsSnapshot: (): Promise<SettingsSnapshot> => {
       return Promise.resolve({
         appVersion: getAppVersion(),
         workerCommand,
         workerProvider,
-      })
+      });
     },
     resetLocalAppData: async ({ confirmationPhrase }: ResetLocalAppDataInput): Promise<void> => {
       if (confirmationPhrase !== SETTINGS_RESET_CONFIRMATION_PHRASE) {
         throw new InvalidLocalDataResetConfirmationError(
           `Type ${SETTINGS_RESET_CONFIRMATION_PHRASE} to confirm the destructive reset.`,
-        )
+        );
       }
 
       if (
@@ -68,12 +68,12 @@ export function createSettingsService({
         resetLocalAppDataErrorMessage !== undefined &&
         resetLocalAppDataErrorMessage.trim() !== ''
       ) {
-        throw new Error(resetLocalAppDataErrorMessage)
+        throw new Error(resetLocalAppDataErrorMessage);
       }
 
-      await closeActiveJobs()
-      await localAppData.reset()
-      await restartApp()
+      await closeActiveJobs();
+      await localAppData.reset();
+      await restartApp();
     },
-  }
+  };
 }

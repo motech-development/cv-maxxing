@@ -1,1 +1,1 @@
-export type StartupDestination = 'first_launch' | 'workspace'
+export type StartupDestination = 'first_launch' | 'workspace';

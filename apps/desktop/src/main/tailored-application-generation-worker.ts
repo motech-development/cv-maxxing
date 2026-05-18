@@ -1,24 +1,24 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises'
-import { spawn } from 'node:child_process'
-import path from 'node:path'
+import { spawn } from 'node:child_process';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import path from 'node:path';
 
 import type {
   AdaptedCvEducationEntry,
   AdaptedCvExperienceEntry,
   GroundedText,
   TailoredApplicationGenerationResult,
-} from '../shared/tailored-application.js'
-import type { TailoredApplicationGenerationWorker } from './tailored-application-session-service.js'
+} from '../shared/tailored-application.js';
+import type { TailoredApplicationGenerationWorker } from './tailored-application-session-service.js';
 
 export interface TailoredApplicationGenerationEnvironment {
-  CV_MAXXING_AI_WORKER_CODEX_COMMAND?: string
-  CV_MAXXING_AI_WORKER_GENERATION_DELAY_MS?: string
-  CV_MAXXING_AI_WORKER_GENERATION_FAILURE?: string
-  CV_MAXXING_AI_WORKER_GENERATION_OUTPUT?: string
-  CV_MAXXING_AI_WORKER_GENERATION_TIMEOUT_MS?: string
+  CV_MAXXING_AI_WORKER_CODEX_COMMAND?: string;
+  CV_MAXXING_AI_WORKER_GENERATION_DELAY_MS?: string;
+  CV_MAXXING_AI_WORKER_GENERATION_FAILURE?: string;
+  CV_MAXXING_AI_WORKER_GENERATION_OUTPUT?: string;
+  CV_MAXXING_AI_WORKER_GENERATION_TIMEOUT_MS?: string;
 }
 
-const MAX_HEADER_INTRO_LENGTH = 180
+const MAX_HEADER_INTRO_LENGTH = 180;
 const OUTPUT_SCHEMA = {
   additionalProperties: false,
   properties: {
@@ -201,91 +201,91 @@ const OUTPUT_SCHEMA = {
   },
   required: ['adaptationSummary', 'adaptedCv', 'coverLetter', 'trace'],
   type: 'object',
-} as const
-const TAILORED_APPLICATION_GENERATION_MODEL = 'gpt-5.4'
-const TAILORED_APPLICATION_GENERATION_REASONING_EFFORT = 'low'
+} as const;
+const TAILORED_APPLICATION_GENERATION_MODEL = 'gpt-5.4';
+const TAILORED_APPLICATION_GENERATION_REASONING_EFFORT = 'low';
 
 interface StructuredWorkerAdaptedCv {
-  candidateName: string
+  candidateName: string;
   coreSkills: {
-    items: GroundedText[]
-  }
+    items: GroundedText[];
+  };
   experience: {
-    items: AdaptedCvExperienceEntry[]
-  }
+    items: AdaptedCvExperienceEntry[];
+  };
   header: {
-    intro: GroundedText
-  }
-  headline: GroundedText
+    intro: GroundedText;
+  };
+  headline: GroundedText;
   selectedWork: {
-    items: GroundedText[]
-  } | null
+    items: GroundedText[];
+  } | null;
   impactHighlights: {
-    items: GroundedText[]
-  } | null
+    items: GroundedText[];
+  } | null;
   profile: {
-    summary: GroundedText
-  }
+    summary: GroundedText;
+  };
   tools: {
-    items: GroundedText[]
-  } | null
+    items: GroundedText[];
+  } | null;
   education: {
-    entry: AdaptedCvEducationEntry
-  } | null
+    entry: AdaptedCvEducationEntry;
+  } | null;
   certifications: {
-    items: GroundedText[]
-  } | null
+    items: GroundedText[];
+  } | null;
   languages: {
-    items: GroundedText[]
-  } | null
+    items: GroundedText[];
+  } | null;
   focus: {
-    items: GroundedText[]
-  } | null
+    items: GroundedText[];
+  } | null;
   references: {
-    kind: 'references'
-  }
+    kind: 'references';
+  };
 }
 
 type WorkerGenerationResult = Omit<TailoredApplicationGenerationResult, 'adaptedCv'> & {
-  adaptedCv: StructuredWorkerAdaptedCv | TailoredApplicationGenerationResult['adaptedCv']
-}
+  adaptedCv: StructuredWorkerAdaptedCv | TailoredApplicationGenerationResult['adaptedCv'];
+};
 
 interface TailoredApplicationTaskInput {
   originalCv: {
-    extractedTextPath: string
-    normalizedJsonPath: string
-    writingStyleProfilePath: string
-  }
+    extractedTextPath: string;
+    normalizedJsonPath: string;
+    writingStyleProfilePath: string;
+  };
   vacancy: {
-    extractedTextPath: string
-    normalizedJsonPath: string
-  }
+    extractedTextPath: string;
+    normalizedJsonPath: string;
+  };
 }
 
 export function createTailoredApplicationGenerationWorker({
   environment = process.env,
 }: {
-  environment?: TailoredApplicationGenerationEnvironment
+  environment?: TailoredApplicationGenerationEnvironment;
 } = {}): TailoredApplicationGenerationWorker {
   return {
     runGeneration: async ({ runDirectoryPath, signal }) => {
-      const fixtureOutput = environment.CV_MAXXING_AI_WORKER_GENERATION_OUTPUT
+      const fixtureOutput = environment.CV_MAXXING_AI_WORKER_GENERATION_OUTPUT;
 
       if (fixtureOutput !== undefined && fixtureOutput.trim() !== '') {
-        const delayMs = parseDelay(environment.CV_MAXXING_AI_WORKER_GENERATION_DELAY_MS)
+        const delayMs = parseDelay(environment.CV_MAXXING_AI_WORKER_GENERATION_DELAY_MS);
 
         if (delayMs > 0) {
-          await waitForDelay(delayMs, signal)
+          await waitForDelay(delayMs, signal);
         }
 
         if (environment.CV_MAXXING_AI_WORKER_GENERATION_FAILURE) {
-          throw new Error(environment.CV_MAXXING_AI_WORKER_GENERATION_FAILURE)
+          throw new Error(environment.CV_MAXXING_AI_WORKER_GENERATION_FAILURE);
         }
 
         return parseGenerationResultJson({
           context: 'CV_MAXXING_AI_WORKER_GENERATION_OUTPUT',
           outputText: fixtureOutput,
-        })
+        });
       }
 
       return await runCodexCliGeneration({
@@ -293,9 +293,9 @@ export function createTailoredApplicationGenerationWorker({
         runDirectoryPath,
         signal,
         timeoutMs: resolveTimeoutMs(environment.CV_MAXXING_AI_WORKER_GENERATION_TIMEOUT_MS),
-      })
+      });
     },
-  }
+  };
 }
 
 async function runCodexCliGeneration({
@@ -304,29 +304,32 @@ async function runCodexCliGeneration({
   signal,
   timeoutMs,
 }: {
-  command: string
-  runDirectoryPath: string
-  signal: AbortSignal
-  timeoutMs: number | null
+  command: string;
+  runDirectoryPath: string;
+  signal: AbortSignal;
+  timeoutMs: number | null;
 }): Promise<TailoredApplicationGenerationResult> {
-  const startedAt = Date.now()
-  const outputDirectoryPath = path.join(runDirectoryPath, 'output')
-  const outputFilePath = path.join(outputDirectoryPath, 'result.json')
-  const schemaFilePath = path.join(runDirectoryPath, 'output-schema.json')
+  const startedAt = Date.now();
+  const outputDirectoryPath = path.join(runDirectoryPath, 'output');
+  const outputFilePath = path.join(outputDirectoryPath, 'result.json');
+  const schemaFilePath = path.join(runDirectoryPath, 'output-schema.json');
 
   await mkdir(outputDirectoryPath, {
     recursive: true,
-  })
-  await writeFile(schemaFilePath, JSON.stringify(OUTPUT_SCHEMA), 'utf8')
+  });
+  await writeFile(schemaFilePath, JSON.stringify(OUTPUT_SCHEMA), 'utf8');
 
-  const prompt = await buildGenerationPrompt(runDirectoryPath)
+  const prompt = await buildGenerationPrompt(runDirectoryPath);
 
-  const stderrChunks: string[] = []
-  console.info(`Starting tailored application generation via Codex CLI in ${runDirectoryPath}.`)
+  const stderrChunks: string[] = [];
+  console.info(`Starting tailored application generation via Codex CLI in ${runDirectoryPath}.`);
 
   await new Promise<void>((resolve, reject) => {
-    let generationTimedOut = false
-    let timeoutId: ReturnType<typeof setTimeout> | undefined
+    const FORCE_KILL_AFTER_TIMEOUT_MS = 1000;
+
+    let hasSettled = false;
+    let forceKillTimeoutId: ReturnType<typeof setTimeout> | undefined;
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
 
     const child = spawn(
       command,
@@ -349,62 +352,86 @@ async function runCodexCliGeneration({
         cwd: runDirectoryPath,
         stdio: ['pipe', 'pipe', 'pipe'],
       },
-    )
+    );
 
-    child.stdin.end()
+    child.stdin.end();
     child.stderr.on('data', (chunk: Buffer | string) => {
-      stderrChunks.push(chunk.toString())
-    })
+      stderrChunks.push(chunk.toString());
+    });
     child.stdout.on('data', () => {
-      return
-    })
+      return;
+    });
 
-    if (timeoutMs !== null) {
-      timeoutId = setTimeout(() => {
-        generationTimedOut = true
-        console.error(`Tailored application generation timed out after ${String(timeoutMs)} ms.`)
-        child.kill('SIGTERM')
-      }, timeoutMs)
-    }
-
-    const abortHandler = () => {
+    const clearTimeoutTimer = (): void => {
       if (timeoutId !== undefined) {
-        clearTimeout(timeoutId)
+        clearTimeout(timeoutId);
+        timeoutId = undefined;
+      }
+    };
+
+    const clearForceKillTimer = (): void => {
+      if (forceKillTimeoutId !== undefined) {
+        clearTimeout(forceKillTimeoutId);
+        forceKillTimeoutId = undefined;
+      }
+    };
+
+    const rejectOnce = (error: Error): void => {
+      if (hasSettled) {
+        return;
       }
 
-      child.kill('SIGTERM')
-      reject(new Error('Generation cancelled.'))
-    }
+      hasSettled = true;
+      clearTimeoutTimer();
+      signal.removeEventListener('abort', abortHandler);
+      child.removeListener('error', errorHandler);
+      child.removeListener('close', closeHandler);
+      reject(error);
+    };
+
+    const resolveOnce = (): void => {
+      if (hasSettled) {
+        return;
+      }
+
+      hasSettled = true;
+      clearTimeoutTimer();
+      clearForceKillTimer();
+      signal.removeEventListener('abort', abortHandler);
+      child.removeListener('error', errorHandler);
+      child.removeListener('close', closeHandler);
+      resolve();
+    };
+
+    const scheduleForceKill = (): void => {
+      if (forceKillTimeoutId !== undefined) {
+        return;
+      }
+
+      forceKillTimeoutId = setTimeout(() => {
+        child.kill('SIGKILL');
+      }, FORCE_KILL_AFTER_TIMEOUT_MS);
+      child.once('close', clearForceKillTimer);
+    };
+
+    const abortHandler = () => {
+      scheduleForceKill();
+      rejectOnce(new Error('Generation cancelled.'));
+      child.kill('SIGTERM');
+    };
 
     signal.addEventListener('abort', abortHandler, {
       once: true,
-    })
+    });
 
-    child.on('error', (error) => {
-      if (timeoutId !== undefined) {
-        clearTimeout(timeoutId)
-      }
-
-      signal.removeEventListener('abort', abortHandler)
-      reject(error)
-    })
-    child.on('close', (code) => {
-      if (timeoutId !== undefined) {
-        clearTimeout(timeoutId)
-      }
-
-      signal.removeEventListener('abort', abortHandler)
-
-      if (generationTimedOut) {
-        reject(new Error('Tailored application generation timed out.'))
-
-        return
-      }
-
+    const errorHandler = (error: Error): void => {
+      rejectOnce(error);
+    };
+    const closeHandler = (code: number | null): void => {
       if (signal.aborted) {
-        reject(new Error('Generation cancelled.'))
+        rejectOnce(new Error('Generation cancelled.'));
 
-        return
+        return;
       }
 
       if (code !== 0) {
@@ -412,31 +439,43 @@ async function runCodexCliGeneration({
           `Tailored application generation failed in Codex CLI with exit code ${String(code)} after ${String(
             Date.now() - startedAt,
           )} ms.`,
-        )
-        reject(new Error(stderrChunks.join('').trim() || 'Codex CLI generation failed.'))
+        );
+        rejectOnce(new Error(stderrChunks.join('').trim() || 'Codex CLI generation failed.'));
 
-        return
+        return;
       }
 
       console.info(
         `Tailored application generation completed in ${String(Date.now() - startedAt)} ms.`,
-      )
-      resolve()
-    })
-  })
+      );
+      resolveOnce();
+    };
 
-  const outputText = await readFile(outputFilePath, 'utf8')
+    if (timeoutMs !== null) {
+      timeoutId = setTimeout(() => {
+        console.error(`Tailored application generation timed out after ${String(timeoutMs)} ms.`);
+        scheduleForceKill();
+        rejectOnce(new Error('Tailored application generation timed out.'));
+        child.kill('SIGTERM');
+      }, timeoutMs);
+    }
+
+    child.on('error', errorHandler);
+    child.on('close', closeHandler);
+  });
+
+  const outputText = await readFile(outputFilePath, 'utf8');
 
   return parseGenerationResultJson({
     context: `Codex CLI output at ${outputFilePath}`,
     outputText,
-  })
+  });
 }
 
 async function buildGenerationPrompt(runDirectoryPath: string): Promise<string> {
-  const taskFilePath = path.join(runDirectoryPath, 'input', 'task.json')
-  const taskText = await readFile(taskFilePath, 'utf8')
-  const task = parseTaskInput(taskText)
+  const taskFilePath = path.join(runDirectoryPath, 'input', 'task.json');
+  const taskText = await readFile(taskFilePath, 'utf8');
+  const task = parseTaskInput(taskText);
   const [originalCvJson, originalCvText, vacancyJson, vacancyText, writingStyleProfileJson] =
     await Promise.all([
       readFile(path.join(runDirectoryPath, task.originalCv.normalizedJsonPath), 'utf8'),
@@ -444,7 +483,7 @@ async function buildGenerationPrompt(runDirectoryPath: string): Promise<string> 
       readFile(path.join(runDirectoryPath, task.vacancy.normalizedJsonPath), 'utf8'),
       readFile(path.join(runDirectoryPath, task.vacancy.extractedTextPath), 'utf8'),
       readFile(path.join(runDirectoryPath, task.originalCv.writingStyleProfilePath), 'utf8'),
-    ])
+    ]);
 
   return [
     'Return JSON only.',
@@ -510,48 +549,48 @@ async function buildGenerationPrompt(runDirectoryPath: string): Promise<string> 
     '<writing-style-profile-json>',
     writingStyleProfileJson,
     '</writing-style-profile-json>',
-  ].join('\n')
+  ].join('\n');
 }
 
 function parseTaskInput(taskText: string): TailoredApplicationTaskInput {
-  const parsedTask = JSON.parse(taskText) as unknown
+  const parsedTask = JSON.parse(taskText) as unknown;
 
   if (!isTailoredApplicationTaskInput(parsedTask)) {
-    throw new Error('Tailored application task input is invalid.')
+    throw new Error('Tailored application task input is invalid.');
   }
 
-  return parsedTask
+  return parsedTask;
 }
 
 function isTailoredApplicationTaskInput(value: unknown): value is TailoredApplicationTaskInput {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) {
-    return false
+    return false;
   }
 
-  const candidate = value as Record<string, unknown>
+  const candidate = value as Record<string, unknown>;
 
   return (
     isTaskDocumentGroup(candidate.originalCv) &&
     typeof candidate.originalCv.writingStyleProfilePath === 'string' &&
     isTaskDocumentGroup(candidate.vacancy)
-  )
+  );
 }
 
 function isTaskDocumentGroup(value: unknown): value is {
-  extractedTextPath: string
-  normalizedJsonPath: string
-  writingStyleProfilePath?: string
+  extractedTextPath: string;
+  normalizedJsonPath: string;
+  writingStyleProfilePath?: string;
 } {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) {
-    return false
+    return false;
   }
 
-  const candidate = value as Record<string, unknown>
+  const candidate = value as Record<string, unknown>;
 
   return (
     typeof candidate.extractedTextPath === 'string' &&
     typeof candidate.normalizedJsonPath === 'string'
-  )
+  );
 }
 
 function groundedTextSchema() {
@@ -564,7 +603,7 @@ function groundedTextSchema() {
     },
     required: ['text'],
     type: 'object',
-  }
+  };
 }
 
 function conciseGroundedTextSchema(maxLength: number) {
@@ -578,7 +617,7 @@ function conciseGroundedTextSchema(maxLength: number) {
     },
     required: ['text'],
     type: 'object',
-  }
+  };
 }
 
 function adaptedCvExperienceEntrySchema() {
@@ -604,7 +643,7 @@ function adaptedCvExperienceEntrySchema() {
     },
     required: ['bullets', 'dateRange', 'employer', 'location', 'roleTitle'],
     type: 'object',
-  }
+  };
 }
 
 function nullableItemsSectionSchema({
@@ -612,9 +651,9 @@ function nullableItemsSectionSchema({
   items,
   maxItems,
 }: {
-  description: string
-  items: ReturnType<typeof groundedTextSchema> | ReturnType<typeof conciseGroundedTextSchema>
-  maxItems?: number
+  description: string;
+  items: ReturnType<typeof groundedTextSchema> | ReturnType<typeof conciseGroundedTextSchema>;
+  maxItems?: number;
 }) {
   return {
     additionalProperties: false,
@@ -632,7 +671,7 @@ function nullableItemsSectionSchema({
     },
     required: ['items'],
     type: ['object', 'null'],
-  }
+  };
 }
 
 function nullableEducationSectionSchema() {
@@ -656,43 +695,56 @@ function nullableEducationSectionSchema() {
     },
     required: ['entry'],
     type: ['object', 'null'],
-  }
+  };
 }
 
 function parseDelay(value: string | undefined): number {
-  const parsedValue = Number.parseInt(value ?? '', 10)
+  const parsedValue = Number.parseInt(value ?? '', 10);
 
   if (!Number.isFinite(parsedValue) || parsedValue < 0) {
-    return 0
+    return 0;
   }
 
-  return parsedValue
+  return parsedValue;
 }
 
 function resolveTimeoutMs(value: string | undefined): number | null {
-  const parsedValue = Number.parseInt(value ?? '', 10)
+  const parsedValue = Number.parseInt(value ?? '', 10);
 
   if (!Number.isFinite(parsedValue) || parsedValue <= 0) {
-    return null
+    return null;
   }
 
-  return parsedValue
+  return parsedValue;
 }
 
 function parseGenerationResultJson({
   context,
   outputText,
 }: {
-  context: string
-  outputText: string
+  context: string;
+  outputText: string;
 }): TailoredApplicationGenerationResult {
-  try {
-    return normalizeWorkerGenerationResult(JSON.parse(outputText) as WorkerGenerationResult)
-  } catch (error) {
-    const preview = buildOutputPreview(outputText)
-    const reason = error instanceof Error ? error.message : 'Unknown parse error.'
+  let parsedResult: WorkerGenerationResult;
 
-    throw new Error(`${context} produced invalid JSON: ${reason}. Preview: ${preview}`)
+  try {
+    parsedResult = JSON.parse(outputText) as WorkerGenerationResult;
+  } catch (error) {
+    const preview = buildOutputPreview(outputText);
+    const reason = error instanceof Error ? error.message : 'Unknown parse error.';
+
+    throw new Error(`${context} produced invalid JSON: ${reason}. Preview: ${preview}`);
+  }
+
+  try {
+    return normalizeWorkerGenerationResult(parsedResult);
+  } catch (error) {
+    const preview = buildOutputPreview(outputText);
+    const reason = error instanceof Error ? error.message : 'Unknown normalization error.';
+
+    throw new Error(
+      `${context} produced invalid generation result: ${reason}. Preview: ${preview}`,
+    );
   }
 }
 
@@ -700,7 +752,7 @@ function normalizeWorkerGenerationResult(
   result: WorkerGenerationResult,
 ): TailoredApplicationGenerationResult {
   if (!isStructuredWorkerAdaptedCv(result.adaptedCv)) {
-    return result as TailoredApplicationGenerationResult
+    return result as TailoredApplicationGenerationResult;
   }
 
   return {
@@ -781,35 +833,35 @@ function normalizeWorkerGenerationResult(
         result.adaptedCv.references,
       ],
     },
-  }
+  };
 }
 
 function isStructuredWorkerAdaptedCv(
   value: WorkerGenerationResult['adaptedCv'],
 ): value is StructuredWorkerAdaptedCv {
-  return !('sections' in value)
+  return !('sections' in value);
 }
 
 function buildOutputPreview(outputText: string): string {
-  const preview = outputText.length > 200 ? `${outputText.slice(0, 200)}...` : outputText
+  const preview = outputText.length > 200 ? `${outputText.slice(0, 200)}...` : outputText;
 
-  return JSON.stringify(preview)
+  return JSON.stringify(preview);
 }
 
 function waitForDelay(delayMs: number, signal: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
     const timeoutId = setTimeout(() => {
-      signal.removeEventListener('abort', abortHandler)
-      resolve()
-    }, delayMs)
+      signal.removeEventListener('abort', abortHandler);
+      resolve();
+    }, delayMs);
 
     const abortHandler = () => {
-      clearTimeout(timeoutId)
-      reject(new Error('Generation cancelled.'))
-    }
+      clearTimeout(timeoutId);
+      reject(new Error('Generation cancelled.'));
+    };
 
     signal.addEventListener('abort', abortHandler, {
       once: true,
-    })
-  })
+    });
+  });
 }

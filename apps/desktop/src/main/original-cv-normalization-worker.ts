@@ -1,26 +1,26 @@
-import { spawn } from 'node:child_process'
-import { mkdir, readFile, writeFile } from 'node:fs/promises'
-import path from 'node:path'
+import { spawn } from 'node:child_process';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import path from 'node:path';
 
-import type { OriginalCvWritingStyle } from '../shared/original-cv.js'
-import { OriginalCvNormalizationError } from './original-cv-normalization-error.js'
+import type { OriginalCvWritingStyle } from '../shared/original-cv.js';
+import { OriginalCvNormalizationError } from './original-cv-normalization-error.js';
 import type {
   NormalizedOriginalCv,
   OriginalCvNormalizationResult,
-} from './original-cv-normalization-service.js'
+} from './original-cv-normalization-service.js';
 
 export interface OriginalCvNormalizationWorker {
   runNormalization: (input: {
-    runDirectoryPath: string
-    signal: AbortSignal
-  }) => Promise<OriginalCvNormalizationResult>
+    runDirectoryPath: string;
+    signal: AbortSignal;
+  }) => Promise<OriginalCvNormalizationResult>;
 }
 
 export interface OriginalCvNormalizationWorkerEnvironment {
-  CV_MAXXING_AI_WORKER_CODEX_COMMAND?: string
-  CV_MAXXING_AI_WORKER_ORIGINAL_CV_NORMALIZATION_DELAY_MS?: string
-  CV_MAXXING_AI_WORKER_ORIGINAL_CV_NORMALIZATION_FAILURE?: string
-  CV_MAXXING_AI_WORKER_ORIGINAL_CV_NORMALIZATION_OUTPUT?: string
+  CV_MAXXING_AI_WORKER_CODEX_COMMAND?: string;
+  CV_MAXXING_AI_WORKER_ORIGINAL_CV_NORMALIZATION_DELAY_MS?: string;
+  CV_MAXXING_AI_WORKER_ORIGINAL_CV_NORMALIZATION_FAILURE?: string;
+  CV_MAXXING_AI_WORKER_ORIGINAL_CV_NORMALIZATION_OUTPUT?: string;
 }
 
 const OUTPUT_SCHEMA = {
@@ -116,45 +116,45 @@ const OUTPUT_SCHEMA = {
   },
   required: ['normalizedCv', 'writingStyle'],
   type: 'object',
-} as const
-const ORIGINAL_CV_NORMALIZATION_MODEL = 'gpt-5.4'
-const ORIGINAL_CV_NORMALIZATION_REASONING_EFFORT = 'low'
+} as const;
+const ORIGINAL_CV_NORMALIZATION_MODEL = 'gpt-5.4';
+const ORIGINAL_CV_NORMALIZATION_REASONING_EFFORT = 'low';
 
 export function createOriginalCvNormalizationWorker({
   environment = process.env,
 }: {
-  environment?: OriginalCvNormalizationWorkerEnvironment
+  environment?: OriginalCvNormalizationWorkerEnvironment;
 } = {}): OriginalCvNormalizationWorker {
   return {
     runNormalization: async ({ runDirectoryPath, signal }) => {
-      const fixtureOutput = environment.CV_MAXXING_AI_WORKER_ORIGINAL_CV_NORMALIZATION_OUTPUT
+      const fixtureOutput = environment.CV_MAXXING_AI_WORKER_ORIGINAL_CV_NORMALIZATION_OUTPUT;
 
       if (fixtureOutput !== undefined && fixtureOutput.trim() !== '') {
         const delayMs = parseDelay(
           environment.CV_MAXXING_AI_WORKER_ORIGINAL_CV_NORMALIZATION_DELAY_MS,
-        )
+        );
 
         if (delayMs > 0) {
-          await waitForDelay(delayMs, signal)
+          await waitForDelay(delayMs, signal);
         }
 
         if (environment.CV_MAXXING_AI_WORKER_ORIGINAL_CV_NORMALIZATION_FAILURE) {
-          throw new Error(environment.CV_MAXXING_AI_WORKER_ORIGINAL_CV_NORMALIZATION_FAILURE)
+          throw new Error(environment.CV_MAXXING_AI_WORKER_ORIGINAL_CV_NORMALIZATION_FAILURE);
         }
 
         return parseNormalizationResultJson({
           context: 'CV_MAXXING_AI_WORKER_ORIGINAL_CV_NORMALIZATION_OUTPUT',
           outputText: fixtureOutput,
-        })
+        });
       }
 
       return await runCodexCliNormalization({
         command: environment.CV_MAXXING_AI_WORKER_CODEX_COMMAND ?? 'codex',
         runDirectoryPath,
         signal,
-      })
+      });
     },
-  }
+  };
 }
 
 async function runCodexCliNormalization({
@@ -162,18 +162,18 @@ async function runCodexCliNormalization({
   runDirectoryPath,
   signal,
 }: {
-  command: string
-  runDirectoryPath: string
-  signal: AbortSignal
+  command: string;
+  runDirectoryPath: string;
+  signal: AbortSignal;
 }): Promise<OriginalCvNormalizationResult> {
-  const outputDirectoryPath = path.join(runDirectoryPath, 'output')
-  const outputFilePath = path.join(outputDirectoryPath, 'result.json')
-  const schemaFilePath = path.join(runDirectoryPath, 'output-schema.json')
+  const outputDirectoryPath = path.join(runDirectoryPath, 'output');
+  const outputFilePath = path.join(outputDirectoryPath, 'result.json');
+  const schemaFilePath = path.join(runDirectoryPath, 'output-schema.json');
 
   await mkdir(outputDirectoryPath, {
     recursive: true,
-  })
-  await writeFile(schemaFilePath, JSON.stringify(OUTPUT_SCHEMA), 'utf8')
+  });
+  await writeFile(schemaFilePath, JSON.stringify(OUTPUT_SCHEMA), 'utf8');
 
   const prompt = [
     'Read input/task.json, input/examples.json, and the referenced original CV text.',
@@ -197,9 +197,9 @@ async function runCodexCliNormalization({
     'Keep one experience object per source role. Use empty strings for missing employer or dateRange instead of guessing.',
     'Do not collapse multiple source roles into one normalizedCv.experience entry.',
     'Leave fields empty instead of guessing unsupported facts.',
-  ].join(' ')
+  ].join(' ');
 
-  const stderrChunks: string[] = []
+  const stderrChunks: string[] = [];
 
   await new Promise<void>((resolve, reject) => {
     const child = spawn(
@@ -223,77 +223,77 @@ async function runCodexCliNormalization({
         cwd: runDirectoryPath,
         stdio: ['ignore', 'pipe', 'pipe'],
       },
-    )
+    );
 
     child.stderr.on('data', (chunk: Buffer | string) => {
-      stderrChunks.push(chunk.toString())
-    })
+      stderrChunks.push(chunk.toString());
+    });
     child.stdout.on('data', () => {
-      return
-    })
+      return;
+    });
 
     const abortHandler = () => {
-      child.kill('SIGTERM')
-      reject(new Error('Original CV normalization cancelled.'))
-    }
+      child.kill('SIGTERM');
+      reject(new Error('Original CV normalization cancelled.'));
+    };
 
     signal.addEventListener('abort', abortHandler, {
       once: true,
-    })
+    });
 
     child.on('error', (error) => {
-      signal.removeEventListener('abort', abortHandler)
-      reject(error)
-    })
+      signal.removeEventListener('abort', abortHandler);
+      reject(error);
+    });
     child.on('close', (code) => {
-      signal.removeEventListener('abort', abortHandler)
+      signal.removeEventListener('abort', abortHandler);
 
       if (signal.aborted) {
-        reject(new Error('Original CV normalization cancelled.'))
+        reject(new Error('Original CV normalization cancelled.'));
 
-        return
+        return;
       }
 
       if (code !== 0) {
-        reject(new Error(stderrChunks.join('').trim() || 'Codex CLI normalization failed.'))
+        reject(new Error(stderrChunks.join('').trim() || 'Codex CLI normalization failed.'));
 
-        return
+        return;
       }
 
-      resolve()
-    })
-  })
+      resolve();
+    });
+  });
 
-  const outputText = await readFile(outputFilePath, 'utf8')
+  const outputText = await readFile(outputFilePath, 'utf8');
 
   return parseNormalizationResultJson({
     context: `Codex CLI output at ${outputFilePath}`,
     outputText,
-  })
+  });
 }
 
 function parseNormalizationResultJson({
   context,
   outputText,
 }: {
-  context: string
-  outputText: string
+  context: string;
+  outputText: string;
 }): OriginalCvNormalizationResult {
-  let parsedOutput: unknown
+  let parsedOutput: unknown;
 
   try {
-    parsedOutput = JSON.parse(outputText) as unknown
+    parsedOutput = JSON.parse(outputText) as unknown;
   } catch (error) {
-    const preview = buildOutputPreview(outputText)
-    const reason = error instanceof Error ? error.message : 'Unknown parse error.'
+    const preview = buildOutputPreview(outputText);
+    const reason = error instanceof Error ? error.message : 'Unknown parse error.';
 
     throw new OriginalCvNormalizationError({
       code: 'invalid_normalization',
       message: `${context} produced invalid JSON: ${reason}. Preview: ${preview}`,
-    })
+    });
   }
 
-  const normalizedOutput = normalizeOriginalCvNormalizationResult(parsedOutput)
+  const normalizedOutput = normalizeOriginalCvNormalizationResult(parsedOutput);
 
   if (normalizedOutput === null) {
     throw new OriginalCvNormalizationError({
@@ -301,41 +301,41 @@ function parseNormalizationResultJson({
       message: `${context} produced invalid normalization output. Preview: ${buildOutputPreview(
         outputText,
       )}`,
-    })
+    });
   }
 
-  return normalizedOutput
+  return normalizedOutput;
 }
 
 function normalizeOriginalCvNormalizationResult(
   value: unknown,
 ): OriginalCvNormalizationResult | null {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) {
-    return null
+    return null;
   }
 
-  const candidate = value as Record<string, unknown>
+  const candidate = value as Record<string, unknown>;
 
   if (!isNormalizedOriginalCv(candidate.normalizedCv)) {
-    return null
+    return null;
   }
 
   if (!isOriginalCvWritingStyle(candidate.writingStyle)) {
-    return null
+    return null;
   }
 
   return {
     normalizedCv: normalizeOriginalCv(candidate.normalizedCv),
     writingStyle: candidate.writingStyle,
-  }
+  };
 }
 
 function isNormalizedOriginalCv(value: unknown): value is NormalizedOriginalCv {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) {
-    return false
+    return false;
   }
 
-  const candidate = value as Record<string, unknown>
+  const candidate = value as Record<string, unknown>;
 
   return (
     typeof candidate.fullName === 'string' &&
@@ -343,25 +343,25 @@ function isNormalizedOriginalCv(value: unknown): value is NormalizedOriginalCv {
     typeof candidate.summary === 'string' &&
     Array.isArray(candidate.experience) &&
     candidate.experience.every((entry) => {
-      return isNormalizedOriginalCvExperienceEntry(entry)
+      return isNormalizedOriginalCvExperienceEntry(entry);
     }) &&
     isStringArray(candidate.skills)
-  )
+  );
 }
 
 function normalizeOriginalCv(value: unknown): NormalizedOriginalCv {
-  const candidate = value as Record<string, unknown>
+  const candidate = value as Record<string, unknown>;
 
   return {
     contact: normalizeOriginalCvContact(candidate.contact),
     experience: (candidate.experience as unknown[]).map((entry) => {
-      return normalizeNormalizedOriginalCvExperienceEntry(entry)
+      return normalizeNormalizedOriginalCvExperienceEntry(entry);
     }),
     fullName: candidate.fullName as string,
     headline: candidate.headline as string,
     skills: candidate.skills as string[],
     summary: candidate.summary as string,
-  }
+  };
 }
 
 function isNormalizedOriginalCvExperienceEntry(
@@ -375,20 +375,20 @@ function isNormalizedOriginalCvExperienceEntry(
     typeof (value as Record<string, unknown>).employer === 'string' &&
     typeof (value as Record<string, unknown>).roleTitle === 'string' &&
     typeof (value as Record<string, unknown>).summary === 'string'
-  )
+  );
 }
 
 function normalizeNormalizedOriginalCvExperienceEntry(
   value: unknown,
 ): NormalizedOriginalCv['experience'][number] {
-  const candidate = value as Record<string, unknown>
+  const candidate = value as Record<string, unknown>;
 
   return {
     dateRange: candidate.dateRange as string,
     employer: candidate.employer as string,
     roleTitle: candidate.roleTitle as string,
     summary: candidate.summary as string,
-  }
+  };
 }
 
 function normalizeOriginalCvContact(value: unknown): NormalizedOriginalCv['contact'] {
@@ -398,10 +398,10 @@ function normalizeOriginalCvContact(value: unknown): NormalizedOriginalCv['conta
       location: '',
       phone: '',
       professionalLink: '',
-    }
+    };
   }
 
-  const candidate = value as Record<string, unknown>
+  const candidate = value as Record<string, unknown>;
 
   return {
     email: typeof candidate.email === 'string' ? candidate.email : '',
@@ -409,15 +409,15 @@ function normalizeOriginalCvContact(value: unknown): NormalizedOriginalCv['conta
     phone: typeof candidate.phone === 'string' ? candidate.phone : '',
     professionalLink:
       typeof candidate.professionalLink === 'string' ? candidate.professionalLink : '',
-  }
+  };
 }
 
 function isOriginalCvWritingStyle(value: unknown): value is OriginalCvWritingStyle {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) {
-    return false
+    return false;
   }
 
-  const candidate = value as Record<string, unknown>
+  const candidate = value as Record<string, unknown>;
 
   return (
     typeof candidate.averageSentenceLength === 'number' &&
@@ -428,48 +428,48 @@ function isOriginalCvWritingStyle(value: unknown): value is OriginalCvWritingSty
     (candidate.formality === 'conversational' ||
       candidate.formality === 'direct' ||
       candidate.formality === 'formal')
-  )
+  );
 }
 
 function isStringArray(value: unknown): value is string[] {
   return (
     Array.isArray(value) &&
     value.every((entry) => {
-      return typeof entry === 'string'
+      return typeof entry === 'string';
     })
-  )
+  );
 }
 
 function parseDelay(value: string | undefined): number {
-  const parsedValue = Number.parseInt(value ?? '', 10)
+  const parsedValue = Number.parseInt(value ?? '', 10);
 
   if (!Number.isFinite(parsedValue) || parsedValue < 0) {
-    return 0
+    return 0;
   }
 
-  return parsedValue
+  return parsedValue;
 }
 
 function buildOutputPreview(outputText: string): string {
-  const preview = outputText.length > 200 ? `${outputText.slice(0, 200)}...` : outputText
+  const preview = outputText.length > 200 ? `${outputText.slice(0, 200)}...` : outputText;
 
-  return JSON.stringify(preview)
+  return JSON.stringify(preview);
 }
 
 function waitForDelay(delayMs: number, signal: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
     const timeoutId = setTimeout(() => {
-      signal.removeEventListener('abort', abortHandler)
-      resolve()
-    }, delayMs)
+      signal.removeEventListener('abort', abortHandler);
+      resolve();
+    }, delayMs);
 
     const abortHandler = () => {
-      clearTimeout(timeoutId)
-      reject(new Error('Original CV normalization cancelled.'))
-    }
+      clearTimeout(timeoutId);
+      reject(new Error('Original CV normalization cancelled.'));
+    };
 
     signal.addEventListener('abort', abortHandler, {
       once: true,
-    })
-  })
+    });
+  });
 }

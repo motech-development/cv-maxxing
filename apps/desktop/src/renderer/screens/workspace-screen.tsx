@@ -1,60 +1,60 @@
-import type { ChangeEvent, ReactNode } from 'react'
+import type { ChangeEvent, ReactNode } from 'react';
 
 import type {
   TailoredApplicationListItem,
   TailoredApplicationPreview,
-} from '../../shared/tailored-application.js'
-import type { VacancyReviewState, VacancySummary } from '../../shared/vacancy.js'
-import type { RuntimeAlert } from '../runtime-alerts.js'
-import { DesktopShell, type RailItemId } from '../shell/desktop-shell.js'
-import { SidebarContainer } from '../shell/sidebar-container.js'
-import { Button } from '../ui/button.js'
-import { PanelCard } from '../ui/panel-card.js'
-import { RuntimeAlertBanner } from '../ui/runtime-alert.js'
-import { SectionLabel } from '../ui/section-label.js'
-import { WorkspaceApplicationView } from './workspace-active-screen.js'
-import { WorkspaceDraftView } from './workspace-empty-screen.js'
+} from '../../shared/tailored-application.js';
+import type { VacancyReviewState, VacancySummary } from '../../shared/vacancy.js';
+import type { RuntimeAlert } from '../runtime-alerts.js';
+import { DesktopShell, type RailItemId } from '../shell/desktop-shell.js';
+import { SidebarContainer } from '../shell/sidebar-container.js';
+import { Button } from '../ui/button.js';
+import { PanelCard } from '../ui/panel-card.js';
+import { RuntimeAlertBanner } from '../ui/runtime-alert.js';
+import { SectionLabel } from '../ui/section-label.js';
+import { WorkspaceApplicationView } from './workspace-active-screen.js';
+import { WorkspaceDraftView } from './workspace-empty-screen.js';
 
-type PreviewDocumentKind = 'adapted_cv' | 'cover_letter'
-type WorkspaceSelectionKind = 'draft' | 'tailored_application'
+type PreviewDocumentKind = 'adapted_cv' | 'cover_letter';
+type WorkspaceSelectionKind = 'draft' | 'tailored_application';
 
 interface WorkspaceScreenProperties {
-  activeRailItem?: Extract<RailItemId, 'job_vacancies' | 'original_cv'>
-  ambientActivityLabel?: string | null
-  applicationTitle: string | null
-  applications: TailoredApplicationListItem[]
-  applicationRuntimeAlert: RuntimeAlert | null
-  draftReviewState: VacancyReviewState
-  draftRuntimeAlert: RuntimeAlert | null
-  isAdaptingCv: boolean
-  isCopyingCoverLetterText: boolean
-  isCurrentDraftMeaningful: boolean
-  isExportingPdf: boolean
-  isOpeningVacancyBrowser: boolean
-  isReviewingVacancy: boolean
-  onAdaptCv: () => void
-  onCopyCoverLetterText: () => void
-  onCreateVacancy: () => void
-  onDeleteTailoredApplication: () => void
-  onExportPdf: () => void
-  onOpenVacancyBrowserSession: () => void
-  onPreviewErrorChange?: (message: string | null) => void
-  onReviewPastedVacancy: () => void
-  onReviewVacancyUrl: () => void
-  onSelectApplication: (tailoredApplicationId: string) => void
-  onSelectDraft: () => void
-  onSelectPreviewDocument: (kind: PreviewDocumentKind) => void
-  onSelectRailItem?: (item: RailItemId) => void
-  onTextDraftChange: (event: ChangeEvent<HTMLTextAreaElement>) => void
-  onUrlDraftChange: (event: ChangeEvent<HTMLInputElement>) => void
-  preview: TailoredApplicationPreview | null
-  previewDocumentKind: PreviewDocumentKind
-  selectedTailoredApplicationId: string | null
-  selectedWorkspaceItem: WorkspaceSelectionKind
-  textDraft: string
-  urlDraft: string
-  vacancyPreview: VacancySummary | null
-  workspaceOverlay?: ReactNode
+  activeRailItem?: Extract<RailItemId, 'job_vacancies' | 'original_cv'>;
+  ambientActivityLabel?: string | null;
+  applicationTitle: string | null;
+  applications: TailoredApplicationListItem[];
+  applicationRuntimeAlert: RuntimeAlert | null;
+  draftReviewState: VacancyReviewState;
+  draftRuntimeAlert: RuntimeAlert | null;
+  isAdaptingCv: boolean;
+  isCopyingCoverLetterText: boolean;
+  isCurrentDraftMeaningful: boolean;
+  isExportingPdf: boolean;
+  isOpeningVacancyBrowser: boolean;
+  isReviewingVacancy: boolean;
+  onAdaptCv: () => void;
+  onCopyCoverLetterText: () => void;
+  onCreateVacancy: () => void;
+  onDeleteTailoredApplication: () => void;
+  onExportPdf: () => void;
+  onOpenVacancyBrowserSession: () => void;
+  onPreviewErrorChange?: (message: string | null) => void;
+  onReviewPastedVacancy: () => void;
+  onReviewVacancyUrl: () => void;
+  onSelectApplication: (tailoredApplicationId: string) => void;
+  onSelectDraft: () => void;
+  onSelectPreviewDocument: (kind: PreviewDocumentKind) => void;
+  onSelectRailItem?: (item: RailItemId) => void;
+  onTextDraftChange: (event: ChangeEvent<HTMLTextAreaElement>) => void;
+  onUrlDraftChange: (event: ChangeEvent<HTMLInputElement>) => void;
+  preview: TailoredApplicationPreview | null;
+  previewDocumentKind: PreviewDocumentKind;
+  selectedTailoredApplicationId: string | null;
+  selectedWorkspaceItem: WorkspaceSelectionKind;
+  textDraft: string;
+  urlDraft: string;
+  vacancyPreview: VacancySummary | null;
+  workspaceOverlay?: ReactNode;
 }
 
 export function WorkspaceScreen({
@@ -95,29 +95,29 @@ export function WorkspaceScreen({
   vacancyPreview,
   workspaceOverlay,
 }: WorkspaceScreenProperties) {
-  const hasVacancyItems = isCurrentDraftMeaningful || applications.length > 0
-  const pageAlert = selectedWorkspaceItem === 'draft' ? draftRuntimeAlert : applicationRuntimeAlert
-  let draftPageIntro = 'Start with a job link, or paste the job description if you need to.'
+  const hasVacancyItems = isCurrentDraftMeaningful || applications.length > 0;
+  const pageAlert = selectedWorkspaceItem === 'draft' ? draftRuntimeAlert : applicationRuntimeAlert;
+  let draftPageIntro = 'Start with a job link, or paste the job description if you need to.';
 
   if (draftReviewState === 'reviewed') {
-    draftPageIntro = 'These job details are locked until you add another job.'
+    draftPageIntro = 'These job details are locked until you add another job.';
   } else if (isCurrentDraftMeaningful) {
-    draftPageIntro = 'Check the job details before tailoring your CV and cover letter.'
+    draftPageIntro = 'Check the job details before tailoring your CV and cover letter.';
   }
   const pageHeaderActions =
     selectedWorkspaceItem === 'tailored_application' ? (
       <Button disabled={preview === null || isExportingPdf} onClick={onExportPdf} tone="primary">
         Save CV and cover letter
       </Button>
-    ) : undefined
+    ) : undefined;
   const pageIntro =
     selectedWorkspaceItem === 'tailored_application'
       ? (preview?.employer ?? preview?.vacancyTitle ?? applicationTitle ?? undefined)
-      : draftPageIntro
+      : draftPageIntro;
   const pageTitle =
     selectedWorkspaceItem === 'tailored_application'
       ? (preview?.vacancyTitle ?? preview?.title ?? applicationTitle ?? 'Saved job')
-      : 'Add a job'
+      : 'Add a job';
 
   return (
     <DesktopShell
@@ -157,7 +157,7 @@ export function WorkspaceScreen({
           {applications.map((application) => {
             const isSelected =
               selectedWorkspaceItem === 'tailored_application' &&
-              selectedTailoredApplicationId === application.id
+              selectedTailoredApplicationId === application.id;
 
             return (
               <WorkspaceSidebarItem
@@ -166,10 +166,10 @@ export function WorkspaceScreen({
                 key={application.id}
                 label={application.vacancyTitle ?? application.title}
                 onClick={() => {
-                  onSelectApplication(application.id)
+                  onSelectApplication(application.id);
                 }}
               />
-            )
+            );
           })}
           <div className="flex-1" />
         </SidebarContainer>
@@ -207,7 +207,7 @@ export function WorkspaceScreen({
         />
       )}
     </DesktopShell>
-  )
+  );
 }
 
 function WorkspaceSidebarItem({
@@ -216,10 +216,10 @@ function WorkspaceSidebarItem({
   label,
   onClick,
 }: {
-  description: string
-  isSelected: boolean
-  label: string
-  onClick: () => void
+  description: string;
+  isSelected: boolean;
+  label: string;
+  onClick: () => void;
 }) {
   return (
     <PanelCard className={`${isSelected ? 'bg-[var(--color-surface-3)]' : 'bg-white'} p-3`}>
@@ -234,13 +234,13 @@ function WorkspaceSidebarItem({
         <p className="mt-1 text-xs leading-5 text-[var(--color-copy-muted)]">{description}</p>
       </button>
     </PanelCard>
-  )
+  );
 }
 
 function resolveDraftDescription(vacancyPreview: VacancySummary | null): string {
   if (vacancyPreview?.canGenerate === true) {
-    return 'Ready to tailor'
+    return 'Ready to tailor';
   }
 
-  return 'Draft in progress'
+  return 'Draft in progress';
 }

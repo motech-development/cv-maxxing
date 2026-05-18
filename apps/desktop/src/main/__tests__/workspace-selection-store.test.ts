@@ -1,13 +1,13 @@
-import { mkdtemp, rm } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
-import path from 'node:path'
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 
-import { afterEach, expect, test, vi } from 'vitest'
+import { afterEach, expect, test, vi } from 'vitest';
 
-import { createLocalAppDataPaths, openLocalAppData } from '../local-app-data-service.js'
-import { createWorkspaceSelectionStore } from '../workspace-selection-store.js'
+import { createLocalAppDataPaths, openLocalAppData } from '../local-app-data-service.js';
+import { createWorkspaceSelectionStore } from '../workspace-selection-store.js';
 
-const temporaryDirectories: string[] = []
+const temporaryDirectories: string[] = [];
 
 afterEach(async () => {
   await Promise.all(
@@ -15,29 +15,29 @@ afterEach(async () => {
       await rm(directoryPath, {
         force: true,
         recursive: true,
-      })
+      });
     }),
-  )
-})
+  );
+});
 
 test('persists the selected top-level section alongside jobs and original-CV nested selections', async () => {
   const rootDirectoryPath = await mkdtemp(
     path.join(tmpdir(), 'cv-maxxing-workspace-selection-store-'),
-  )
+  );
 
-  temporaryDirectories.push(rootDirectoryPath)
+  temporaryDirectories.push(rootDirectoryPath);
 
-  const paths = createLocalAppDataPaths(rootDirectoryPath)
+  const paths = createLocalAppDataPaths(rootDirectoryPath);
   const firstStore = await openLocalAppData({
     keychain: {
       clearAppDataKey: vi.fn(() => Promise.resolve()),
       getOrCreateAppDataKey: vi.fn(() => Promise.resolve(Buffer.alloc(32, 9))),
     },
     paths,
-  })
+  });
   const firstWorkspaceSelectionStore = createWorkspaceSelectionStore({
     localAppData: firstStore,
-  })
+  });
 
   await firstWorkspaceSelectionStore.setSelection({
     jobs: {
@@ -49,8 +49,8 @@ test('persists the selected top-level section alongside jobs and original-CV nes
       originalCvId: 'original-cv-123',
     },
     topLevelSection: 'original_cv',
-  })
-  await firstStore.close()
+  });
+  await firstStore.close();
 
   const secondStore = await openLocalAppData({
     keychain: {
@@ -58,10 +58,10 @@ test('persists the selected top-level section alongside jobs and original-CV nes
       getOrCreateAppDataKey: vi.fn(() => Promise.resolve(Buffer.alloc(32, 9))),
     },
     paths,
-  })
+  });
   const secondWorkspaceSelectionStore = createWorkspaceSelectionStore({
     localAppData: secondStore,
-  })
+  });
 
   await expect(secondWorkspaceSelectionStore.getSelection()).resolves.toEqual({
     jobs: {
@@ -73,26 +73,26 @@ test('persists the selected top-level section alongside jobs and original-CV nes
       originalCvId: 'original-cv-123',
     },
     topLevelSection: 'original_cv',
-  })
+  });
 
-  await secondStore.close()
-})
+  await secondStore.close();
+});
 
 test('normalizes legacy jobs-only persisted selection into the generalized workspace contract', async () => {
   const rootDirectoryPath = await mkdtemp(
     path.join(tmpdir(), 'cv-maxxing-workspace-selection-store-'),
-  )
+  );
 
-  temporaryDirectories.push(rootDirectoryPath)
+  temporaryDirectories.push(rootDirectoryPath);
 
-  const paths = createLocalAppDataPaths(rootDirectoryPath)
+  const paths = createLocalAppDataPaths(rootDirectoryPath);
   const store = await openLocalAppData({
     keychain: {
       clearAppDataKey: vi.fn(() => Promise.resolve()),
       getOrCreateAppDataKey: vi.fn(() => Promise.resolve(Buffer.alloc(32, 9))),
     },
     paths,
-  })
+  });
 
   await store.metadata.put({
     id: 'current',
@@ -101,11 +101,11 @@ test('normalizes legacy jobs-only persisted selection into the generalized works
       kind: 'tailored_application',
       tailoredApplicationId: 'tailored-application-legacy',
     },
-  })
+  });
 
   const workspaceSelectionStore = createWorkspaceSelectionStore({
     localAppData: store,
-  })
+  });
 
   await expect(workspaceSelectionStore.getSelection()).resolves.toEqual({
     jobs: {
@@ -116,26 +116,26 @@ test('normalizes legacy jobs-only persisted selection into the generalized works
       kind: 'none',
     },
     topLevelSection: 'job_vacancies',
-  })
+  });
 
-  await store.close()
-})
+  await store.close();
+});
 
 test('normalizes legacy original-CV selections that predate originalCvId persistence', async () => {
   const rootDirectoryPath = await mkdtemp(
     path.join(tmpdir(), 'cv-maxxing-workspace-selection-store-'),
-  )
+  );
 
-  temporaryDirectories.push(rootDirectoryPath)
+  temporaryDirectories.push(rootDirectoryPath);
 
-  const paths = createLocalAppDataPaths(rootDirectoryPath)
+  const paths = createLocalAppDataPaths(rootDirectoryPath);
   const store = await openLocalAppData({
     keychain: {
       clearAppDataKey: vi.fn(() => Promise.resolve()),
       getOrCreateAppDataKey: vi.fn(() => Promise.resolve(Buffer.alloc(32, 9))),
     },
     paths,
-  })
+  });
 
   await store.metadata.put({
     id: 'current',
@@ -149,11 +149,11 @@ test('normalizes legacy original-CV selections that predate originalCvId persist
       },
       topLevelSection: 'original_cv',
     },
-  })
+  });
 
   const workspaceSelectionStore = createWorkspaceSelectionStore({
     localAppData: store,
-  })
+  });
 
   await expect(workspaceSelectionStore.getSelection()).resolves.toEqual({
     jobs: {
@@ -164,7 +164,7 @@ test('normalizes legacy original-CV selections that predate originalCvId persist
       originalCvId: null,
     },
     topLevelSection: 'original_cv',
-  })
+  });
 
-  await store.close()
-})
+  await store.close();
+});

@@ -1,10 +1,10 @@
-import { beforeEach, expect, test, vi } from 'vitest'
+import { beforeEach, expect, test, vi } from 'vitest';
 
 const { BrowserWindowMock, createAdaptedCvDocumentMock } = vi.hoisted(() => {
   class BrowserWindowDouble {
-    destroy = vi.fn()
+    destroy = vi.fn();
 
-    loadURL = vi.fn()
+    loadURL = vi.fn();
 
     webContents = {
       executeJavaScript: vi.fn().mockResolvedValue({
@@ -12,47 +12,47 @@ const { BrowserWindowMock, createAdaptedCvDocumentMock } = vi.hoisted(() => {
         rightSections: [],
       }),
       printToPDF: vi.fn().mockResolvedValue(Buffer.from('%PDF-1.7 adapted cv', 'utf8')),
-    }
+    };
   }
 
   return {
     BrowserWindowMock: vi.fn(function BrowserWindowConstructor() {
-      return new BrowserWindowDouble()
+      return new BrowserWindowDouble();
     }),
     createAdaptedCvDocumentMock: vi.fn(),
-  }
-})
+  };
+});
 
 vi.mock('electron', () => {
   return {
     BrowserWindow: BrowserWindowMock,
-  }
-})
+  };
+});
 
 vi.mock('../adapted-cv-document.js', () => {
   return {
     applyPlannedSidebarSectionsToAdaptedCv: function applyPlannedSidebarSectionsToAdaptedCv(
       adaptedCv: unknown,
     ) {
-      return adaptedCv
+      return adaptedCv;
     },
     buildAdaptedCvPageWarning: vi.fn().mockReturnValue(null),
     createAdaptedCvDocument: createAdaptedCvDocumentMock,
-  }
-})
+  };
+});
 
-import { createElectronAdaptedCvRenderer } from '../adapted-cv-electron-renderer.js'
+import { createElectronAdaptedCvRenderer } from '../adapted-cv-electron-renderer.js';
 
 beforeEach(() => {
-  vi.clearAllMocks()
+  vi.clearAllMocks();
 
   createAdaptedCvDocumentMock.mockReturnValue({
     html: '<html><head><style></style></head><body data-cv-ready="true">Adapted CV</body></html>',
-  })
-})
+  });
+});
 
 test('creates the hidden adapted-CV render window without a preload script path', async () => {
-  const renderer = createElectronAdaptedCvRenderer()
+  const renderer = createElectronAdaptedCvRenderer();
 
   await expect(
     renderer.renderAdaptedCvPdf({
@@ -85,18 +85,18 @@ test('creates the hidden adapted-CV render window without a preload script path'
   ).resolves.toMatchObject({
     pageCount: 1,
     pageWarning: null,
-  })
+  });
 
-  expect(BrowserWindowMock).toHaveBeenCalledTimes(1)
+  expect(BrowserWindowMock).toHaveBeenCalledTimes(1);
 
   const browserWindowOptions = (
     BrowserWindowMock as unknown as { mock: { calls: unknown[][] } }
-  ).mock.calls.at(0)?.[0] as { webPreferences?: Record<string, unknown> } | undefined
+  ).mock.calls.at(0)?.[0] as { webPreferences?: Record<string, unknown> } | undefined;
 
   expect(browserWindowOptions?.webPreferences).toMatchObject({
     contextIsolation: true,
     nodeIntegration: false,
     sandbox: false,
-  })
-  expect(browserWindowOptions?.webPreferences).not.toHaveProperty('preload')
-})
+  });
+  expect(browserWindowOptions?.webPreferences).not.toHaveProperty('preload');
+});

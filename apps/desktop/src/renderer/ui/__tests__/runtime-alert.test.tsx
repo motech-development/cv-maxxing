@@ -1,14 +1,14 @@
 // @vitest-environment jsdom
 
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, expect, test } from 'vitest'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { afterEach, expect, test } from 'vitest';
 
-import type { RuntimeAlert } from '../../runtime-alerts.js'
-import { RuntimeAlertBanner } from '../runtime-alert.js'
+import type { RuntimeAlert } from '../../runtime-alerts.js';
+import { RuntimeAlertBanner } from '../runtime-alert.js';
 
 afterEach(() => {
-  cleanup()
-})
+  cleanup();
+});
 
 function createAlert(overrides: Partial<RuntimeAlert> = {}): RuntimeAlert {
   return {
@@ -22,21 +22,21 @@ function createAlert(overrides: Partial<RuntimeAlert> = {}): RuntimeAlert {
     title: 'AI is not ready on this Mac.',
     variant: 'error',
     ...overrides,
-  }
+  };
 }
 
 test('renders error alerts with assertive semantics', () => {
-  render(<RuntimeAlertBanner alert={createAlert()} />)
+  render(<RuntimeAlertBanner alert={createAlert()} />);
 
-  const alert = screen.getByRole('alert')
+  const alert = screen.getByRole('alert');
 
-  expect(alert.getAttribute('aria-live')).toBe('assertive')
-  expect(alert.getAttribute('aria-atomic')).toBe('true')
-  expect(alert.className).toContain('w-full')
-  expect(alert.className).not.toContain('max-w-4xl')
-  expect(screen.getByText('Needs attention')).toBeDefined()
-  expect(screen.getByText('AI is not ready on this Mac.')).toBeDefined()
-})
+  expect(alert.getAttribute('aria-live')).toBe('assertive');
+  expect(alert.getAttribute('aria-atomic')).toBe('true');
+  expect(alert.className).toContain('w-full');
+  expect(alert.className).not.toContain('max-w-4xl');
+  expect(screen.getByText('Needs attention')).toBeDefined();
+  expect(screen.getByText('AI is not ready on this Mac.')).toBeDefined();
+});
 
 test('renders warning alerts with polite semantics and grouped items', () => {
   render(
@@ -53,15 +53,15 @@ test('renders warning alerts with polite semantics and grouped items', () => {
         variant: 'warning',
       })}
     />,
-  )
+  );
 
-  const alert = screen.getByRole('status')
+  const alert = screen.getByRole('status');
 
-  expect(alert.getAttribute('aria-live')).toBe('polite')
-  expect(screen.getByText('Needs attention')).toBeDefined()
-  expect(screen.getByText('Use the latest sign-in window on this Mac.')).toBeDefined()
-  expect(screen.getByText('Sign-in')).toBeDefined()
-})
+  expect(alert.getAttribute('aria-live')).toBe('polite');
+  expect(screen.getByText('Needs attention')).toBeDefined();
+  expect(screen.getByText('Use the latest sign-in window on this Mac.')).toBeDefined();
+  expect(screen.getByText('Sign-in')).toBeDefined();
+});
 
 test('focuses the targeted field when an alert item is activated', () => {
   render(
@@ -82,9 +82,9 @@ test('focuses the targeted field when an alert item is activated', () => {
         })}
       />
     </>,
-  )
+  );
 
-  fireEvent.click(screen.getByRole('button', { name: 'Job description' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Job description' }));
 
-  expect(screen.getByLabelText('Job description')).toBe(globalThis.document.activeElement)
-})
+  expect(screen.getByLabelText('Job description')).toBe(globalThis.document.activeElement);
+});

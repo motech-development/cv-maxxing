@@ -1,24 +1,24 @@
-import type { ReactNode } from 'react'
+import type { ReactNode } from 'react';
 
-import type { ReadinessRouteViewModel } from '../../readiness/readiness-route.js'
-import type { RuntimeAlert } from '../runtime-alerts.js'
-import { DesktopShell } from '../shell/desktop-shell.js'
-import { SidebarContainer } from '../shell/sidebar-container.js'
-import { Button } from '../ui/button.js'
-import { PanelCard } from '../ui/panel-card.js'
-import { RuntimeAlertBanner } from '../ui/runtime-alert.js'
-import { SectionLabel } from '../ui/section-label.js'
+import type { ReadinessRouteViewModel } from '../../readiness/readiness-route.js';
+import type { RuntimeAlert } from '../runtime-alerts.js';
+import { DesktopShell } from '../shell/desktop-shell.js';
+import { SidebarContainer } from '../shell/sidebar-container.js';
+import { Button } from '../ui/button.js';
+import { PanelCard } from '../ui/panel-card.js';
+import { RuntimeAlertBanner } from '../ui/runtime-alert.js';
+import { SectionLabel } from '../ui/section-label.js';
 
 interface AiWorkerCheckingScreenProperties {
-  onOpenSetupGuide: () => void
-  runtimeAlert: RuntimeAlert | null
-  viewModel: ReadinessRouteViewModel
+  onOpenSetupGuide: () => void;
+  runtimeAlert: RuntimeAlert | null;
+  viewModel: ReadinessRouteViewModel;
 }
 
 interface SetupSidebarProperties {
-  body: string
-  children: ReactNode
-  title: string
+  body: string;
+  children: ReactNode;
+  title: string;
 }
 
 function SetupSidebar({ body, children, title }: SetupSidebarProperties) {
@@ -38,7 +38,7 @@ function SetupSidebar({ body, children, title }: SetupSidebarProperties) {
         </p>
       </PanelCard>
     </>
-  )
+  );
 }
 
 export function AiWorkerCheckingScreen({
@@ -110,5 +110,5 @@ export function AiWorkerCheckingScreen({
         </div>
       </PanelCard>
     </DesktopShell>
-  )
+  );
 }

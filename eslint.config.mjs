@@ -1,15 +1,16 @@
-import eslint from '@eslint/js'
-import prettier from 'eslint-config-prettier/flat'
-import { flatConfigs as importXFlatConfigs } from 'eslint-plugin-import-x'
-import jsxA11y from 'eslint-plugin-jsx-a11y'
-import reactHooks from 'eslint-plugin-react-hooks'
-import unicorn from 'eslint-plugin-unicorn'
-import globals from 'globals'
-import tseslint from 'typescript-eslint'
+import eslint from '@eslint/js';
+import prettier from 'eslint-config-prettier/flat';
+import { flatConfigs as importXFlatConfigs } from 'eslint-plugin-import-x';
+import jsxA11y from 'eslint-plugin-jsx-a11y';
+import reactHooks from 'eslint-plugin-react-hooks';
+import simpleImportSort from 'eslint-plugin-simple-import-sort';
+import unicorn from 'eslint-plugin-unicorn';
+import globals from 'globals';
+import tseslint from 'typescript-eslint';
 
-const sourceFiles = ['**/*.{cjs,cts,js,jsx,mjs,mts,ts,tsx}']
-const typeScriptFiles = ['**/*.{cts,mts,ts,tsx}']
-const reactFiles = ['**/*.{jsx,tsx}']
+const sourceFiles = ['**/*.{cjs,cts,js,jsx,mjs,mts,ts,tsx}'];
+const typeScriptFiles = ['**/*.{cts,mts,ts,tsx}'];
+const reactFiles = ['**/*.{jsx,tsx}'];
 
 const projectTerminologyAbbreviations = {
   CLI: true,
@@ -28,7 +29,7 @@ const projectTerminologyAbbreviations = {
   props: true,
   ref: true,
   ui: true,
-}
+};
 
 export default tseslint.config(
   {
@@ -92,6 +93,9 @@ export default tseslint.config(
   {
     files: sourceFiles,
     name: 'cv-maxxing/strict-readable-code',
+    plugins: {
+      'simple-import-sort': simpleImportSort,
+    },
     rules: {
       'array-callback-return': [
         'error',
@@ -133,6 +137,13 @@ export default tseslint.config(
       ],
       'prefer-const': 'error',
       'prefer-template': 'error',
+      'simple-import-sort/exports': 'error',
+      'simple-import-sort/imports': [
+        'error',
+        {
+          groups: [['^node:'], [String.raw`^@?\w`], ['^'], [String.raw`^\.`]],
+        },
+      ],
       'unicorn/filename-case': [
         'error',
         {
@@ -175,6 +186,13 @@ export default tseslint.config(
         },
       ],
       '@typescript-eslint/no-explicit-any': 'error',
+      '@typescript-eslint/no-inferrable-types': [
+        'error',
+        {
+          ignoreParameters: false,
+          ignoreProperties: false,
+        },
+      ],
       '@typescript-eslint/no-floating-promises': [
         'error',
         {
@@ -228,4 +246,4 @@ export default tseslint.config(
     },
   },
   prettier,
-)
+);

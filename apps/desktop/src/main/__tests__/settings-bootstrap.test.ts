@@ -1,49 +1,49 @@
-import { expect, test, vi } from 'vitest'
+import { expect, test, vi } from 'vitest';
 
-import { SETTINGS_IPC_CHANNELS } from '../../shared/ipc.js'
-import { SETTINGS_RESET_CONFIRMATION_PHRASE } from '../../shared/settings.js'
-import { createDesktopAppBootstrap } from '../main.js'
+import { SETTINGS_IPC_CHANNELS } from '../../shared/ipc.js';
+import { SETTINGS_RESET_CONFIRMATION_PHRASE } from '../../shared/settings.js';
+import { createDesktopAppBootstrap } from '../main.js';
 
-type AppEvent = 'activate' | 'window-all-closed'
+type AppEvent = 'activate' | 'window-all-closed';
 
 function createAppDouble() {
   return {
     on: vi.fn((event: AppEvent, handler: () => void) => {
-      void event
-      void handler
+      void event;
+      void handler;
     }),
     quit: vi.fn(),
     whenReady: vi.fn(() => Promise.resolve()),
-  }
+  };
 }
 
 function createBrowserWindowDouble() {
-  const loadFile = vi.fn(() => Promise.resolve())
-  const loadURL = vi.fn(() => Promise.resolve())
+  const loadFile = vi.fn(() => Promise.resolve());
+  const loadURL = vi.fn(() => Promise.resolve());
 
   return {
     create: vi.fn(() => {
       return {
         loadFile,
         loadURL,
-      }
+      };
     }),
     getAllWindows: vi.fn().mockReturnValue([]),
-  }
+  };
 }
 
 test('bootstrap registers settings IPC handlers and delegates privacy actions to the settings service', async () => {
-  const app = createAppDouble()
-  const browserWindow = createBrowserWindowDouble()
+  const app = createAppDouble();
+  const browserWindow = createBrowserWindowDouble();
   const registeredHandlers = new Map<
     string,
     (_event?: unknown, payload?: unknown) => Promise<unknown>
-  >()
+  >();
   const handle = vi.fn(
     (channel: string, handler: (_event: unknown, payload?: unknown) => Promise<unknown>) => {
-      registeredHandlers.set(channel, handler)
+      registeredHandlers.set(channel, handler);
     },
-  )
+  );
   const settings = {
     clearJobSiteBrowserData: vi.fn(() => Promise.resolve()),
     getSettingsSnapshot: vi.fn().mockResolvedValue({
@@ -52,7 +52,7 @@ test('bootstrap registers settings IPC handlers and delegates privacy actions to
       workerProvider: 'codex',
     }),
     resetLocalAppData: vi.fn(() => Promise.resolve()),
-  }
+  };
 
   const bootstrap = createDesktopAppBootstrap({
     aiWorker: {
@@ -137,32 +137,35 @@ test('bootstrap registers settings IPC handlers and delegates privacy actions to
       openBrowserSession: vi.fn(),
       resetWorkspaceState: vi.fn(() => Promise.resolve()),
     },
-  })
+  });
 
-  await bootstrap.start()
+  await bootstrap.start();
 
-  expect(handle).toHaveBeenCalledWith(SETTINGS_IPC_CHANNELS.getSnapshot, expect.any(Function))
+  expect(handle).toHaveBeenCalledWith(SETTINGS_IPC_CHANNELS.getSnapshot, expect.any(Function));
   expect(handle).toHaveBeenCalledWith(
     SETTINGS_IPC_CHANNELS.clearJobSiteBrowserData,
     expect.any(Function),
-  )
-  expect(handle).toHaveBeenCalledWith(SETTINGS_IPC_CHANNELS.resetLocalAppData, expect.any(Function))
+  );
+  expect(handle).toHaveBeenCalledWith(
+    SETTINGS_IPC_CHANNELS.resetLocalAppData,
+    expect.any(Function),
+  );
   await expect(registeredHandlers.get(SETTINGS_IPC_CHANNELS.getSnapshot)?.()).resolves.toEqual({
     appVersion: '1.0.0',
     workerCommand: 'codex',
     workerProvider: 'codex',
-  })
+  });
   await expect(
     registeredHandlers.get(SETTINGS_IPC_CHANNELS.clearJobSiteBrowserData)?.(),
-  ).resolves.toBeUndefined()
+  ).resolves.toBeUndefined();
   await expect(
     registeredHandlers.get(SETTINGS_IPC_CHANNELS.resetLocalAppData)?.(undefined, {
       confirmationPhrase: SETTINGS_RESET_CONFIRMATION_PHRASE,
     }),
-  ).resolves.toBeUndefined()
+  ).resolves.toBeUndefined();
 
-  expect(settings.clearJobSiteBrowserData).toHaveBeenCalledTimes(1)
+  expect(settings.clearJobSiteBrowserData).toHaveBeenCalledTimes(1);
   expect(settings.resetLocalAppData).toHaveBeenCalledWith({
     confirmationPhrase: SETTINGS_RESET_CONFIRMATION_PHRASE,
-  })
-})
+  });
+});

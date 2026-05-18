@@ -1,44 +1,44 @@
 // @vitest-environment jsdom
 
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
-import { afterEach, expect, test, vi } from 'vitest'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { afterEach, expect, test, vi } from 'vitest';
 
 import type {
   OriginalCvDetail,
   OriginalCvImportInput,
   OriginalCvImportResult,
-} from '../../shared/original-cv.js'
-import { SETTINGS_RESET_CONFIRMATION_PHRASE } from '../../shared/settings.js'
+} from '../../shared/original-cv.js';
+import { SETTINGS_RESET_CONFIRMATION_PHRASE } from '../../shared/settings.js';
 import type {
   TailoredApplicationPreview,
   TailoredApplicationWorkspaceState,
-} from '../../shared/tailored-application.js'
-import type { VacancyIngestResult } from '../../shared/vacancy.js'
-import { App, clearOriginalCvRuntimeAlertsBySource } from '../app.js'
+} from '../../shared/tailored-application.js';
+import type { VacancyIngestResult } from '../../shared/vacancy.js';
+import { App, clearOriginalCvRuntimeAlertsBySource } from '../app.js';
 
 const { renderDocxPreviewMock } = vi.hoisted(() => {
   return {
     renderDocxPreviewMock: vi.fn(),
-  }
-})
+  };
+});
 
 vi.mock('docx-preview', () => {
   return {
     renderAsync: renderDocxPreviewMock,
-  }
-})
+  };
+});
 
 afterEach(() => {
-  cleanup()
-  renderDocxPreviewMock.mockReset()
-  renderDocxPreviewMock.mockImplementation(() => Promise.resolve())
-})
+  cleanup();
+  renderDocxPreviewMock.mockReset();
+  renderDocxPreviewMock.mockImplementation(() => Promise.resolve());
+});
 
-const aiSignInContinueMessage = 'AI needs you to sign in before CV Maxxing can continue.'
+const aiSignInContinueMessage = 'AI needs you to sign in before CV Maxxing can continue.';
 const aiSignInFinishDocumentsMessage =
-  'AI needs you to sign in before CV Maxxing can finish your CV and cover letter.'
-const aiUnavailableMessage = "AI isn't available on this Mac yet. Check the setup, then try again."
+  'AI needs you to sign in before CV Maxxing can finish your CV and cover letter.';
+const aiUnavailableMessage = "AI isn't available on this Mac yet. Check the setup, then try again.";
 
 function createAiWorkerApi(overrides?: Partial<(typeof globalThis.window.cvMaxxing)['aiWorker']>) {
   return {
@@ -63,7 +63,7 @@ function createAiWorkerApi(overrides?: Partial<(typeof globalThis.window.cvMaxxi
       status: 'ready',
     }),
     ...overrides,
-  }
+  };
 }
 
 function createOriginalCvApi(
@@ -95,7 +95,7 @@ function createOriginalCvApi(
       },
     }),
     ...overrides,
-  }
+  };
 }
 
 function createOriginalCvDetailFixture(
@@ -144,7 +144,7 @@ function createOriginalCvDetailFixture(
       summary: 'Design leader focused on complex workflow products.',
     },
     ...overrides,
-  }
+  };
 }
 
 function createVacancyApi(overrides?: Partial<(typeof globalThis.window.cvMaxxing)['vacancy']>) {
@@ -245,7 +245,7 @@ function createVacancyApi(overrides?: Partial<(typeof globalThis.window.cvMaxxin
     }),
     openVacancyBrowserSession: vi.fn().mockImplementation(() => Promise.resolve()),
     ...overrides,
-  }
+  };
 }
 
 function createTailoredApplicationApi(
@@ -291,7 +291,7 @@ function createTailoredApplicationApi(
       status: 'ready',
     }),
     ...overrides,
-  }
+  };
 }
 
 function createSettingsApi(overrides?: Partial<(typeof globalThis.window.cvMaxxing)['settings']>) {
@@ -304,7 +304,7 @@ function createSettingsApi(overrides?: Partial<(typeof globalThis.window.cvMaxxi
     }),
     resetLocalAppData: vi.fn().mockImplementation(() => Promise.resolve()),
     ...overrides,
-  }
+  };
 }
 
 function renderApp({
@@ -320,7 +320,7 @@ function renderApp({
     settings,
     tailoredApplication,
     vacancy,
-  }
+  };
 
   const queryClient = new QueryClient({
     defaultOptions: {
@@ -331,54 +331,54 @@ function renderApp({
         retry: false,
       },
     },
-  })
+  });
 
   render(
     <QueryClientProvider client={queryClient}>
       <App />
     </QueryClientProvider>,
-  )
+  );
 }
 
 async function waitForVacancyDraftValues({
   text,
   url,
 }: {
-  text: string
-  url: string
+  text: string;
+  url: string;
 }): Promise<void> {
   await waitFor(() => {
-    expect(screen.getByLabelText('Job link')).toHaveProperty('value', url)
-    expect(screen.getByLabelText('Job description')).toHaveProperty('value', text)
-  })
+    expect(screen.getByLabelText('Job link')).toHaveProperty('value', url);
+    expect(screen.getByLabelText('Job description')).toHaveProperty('value', text);
+  });
 }
 
 function getReviewButtons() {
   const [reviewUrlButton, reviewTextButton] = screen.getAllByRole('button', {
     name: 'Check job details',
-  })
+  });
 
   if (reviewUrlButton === undefined || reviewTextButton === undefined) {
-    throw new Error('Expected job-link and pasted-description review buttons.')
+    throw new Error('Expected job-link and pasted-description review buttons.');
   }
 
   return {
     reviewTextButton,
     reviewUrlButton,
-  }
+  };
 }
 
 function createDeferredPromise<T>() {
-  let resolvePromise!: (value: T) => void
+  let resolvePromise!: (value: T) => void;
 
   const promise = new Promise<T>((resolve) => {
-    resolvePromise = resolve
-  })
+    resolvePromise = resolve;
+  });
 
   return {
     promise,
     resolve: resolvePromise,
-  }
+  };
 }
 
 function createTailoredApplicationPreviewFixture(
@@ -449,7 +449,7 @@ function createTailoredApplicationPreviewFixture(
     },
     vacancyTitle: 'Senior platform engineer',
     ...overrides,
-  }
+  };
 }
 
 function createTailoredApplicationWorkspaceStateFixture(
@@ -459,21 +459,21 @@ function createTailoredApplicationWorkspaceStateFixture(
     activeApplicationId: null,
     applications: [],
     ...overrides,
-  }
+  };
 }
 
 test('renders the dedicated checking setup screen before workspace entry', async () => {
-  renderApp()
+  renderApp();
 
-  expect(screen.getByRole('heading', { name: 'Getting AI ready' })).toBeDefined()
-  expect(screen.getAllByText('Connect AI')).toHaveLength(2)
-  expect(screen.getByText('Checking')).toBeDefined()
-  expect(screen.queryByText(/worker/i)).toBeNull()
+  expect(screen.getByRole('heading', { name: 'Getting AI ready' })).toBeDefined();
+  expect(screen.getAllByText('Connect AI')).toHaveLength(2);
+  expect(screen.getByText('Checking')).toBeDefined();
+  expect(screen.queryByText(/worker/i)).toBeNull();
 
   await waitFor(() => {
-    expect(globalThis.window.cvMaxxing.aiWorker.getAiWorkerPreflight).toHaveBeenCalledTimes(1)
-  })
-})
+    expect(globalThis.window.cvMaxxing.aiWorker.getAiWorkerPreflight).toHaveBeenCalledTimes(1);
+  });
+});
 
 test('renders the dedicated sign-in-required setup screen', async () => {
   renderApp({
@@ -486,21 +486,21 @@ test('renders the dedicated sign-in-required setup screen', async () => {
         status: 'sign_in_required',
       }),
     }),
-  })
+  });
 
   await waitFor(() => {
-    expect(screen.getByRole('button', { name: 'Continue' })).toBeDefined()
-  })
+    expect(screen.getByRole('button', { name: 'Continue' })).toBeDefined();
+  });
 
-  expect(screen.getByText('Sign in needed')).toBeDefined()
-  expect(screen.getByRole('button', { name: 'Continue' })).toBeDefined()
-  expect(screen.getByRole('button', { name: 'Get help' })).toBeDefined()
-  expect(screen.getByRole('status')).toBeDefined()
-  expect(screen.queryByText('Sign in to continue')).toBeNull()
-})
+  expect(screen.getByText('Sign in needed')).toBeDefined();
+  expect(screen.getByRole('button', { name: 'Continue' })).toBeDefined();
+  expect(screen.getByRole('button', { name: 'Get help' })).toBeDefined();
+  expect(screen.getByRole('status')).toBeDefined();
+  expect(screen.queryByText('Sign in to continue')).toBeNull();
+});
 
 test('opens the setup guide from the repair flow', async () => {
-  const openAiWorkerSetupGuide = vi.fn().mockImplementation(() => Promise.resolve())
+  const openAiWorkerSetupGuide = vi.fn().mockImplementation(() => Promise.resolve());
 
   renderApp({
     aiWorker: createAiWorkerApi({
@@ -513,18 +513,18 @@ test('opens the setup guide from the repair flow', async () => {
       }),
       openAiWorkerSetupGuide,
     }),
-  })
+  });
 
   await waitFor(() => {
-    expect(screen.getByRole('button', { name: 'Try again' })).toBeDefined()
-  })
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeDefined();
+  });
 
-  fireEvent.click(screen.getByRole('button', { name: 'Get help' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Get help' }));
 
   await waitFor(() => {
-    expect(openAiWorkerSetupGuide).toHaveBeenCalledTimes(1)
-  })
-})
+    expect(openAiWorkerSetupGuide).toHaveBeenCalledTimes(1);
+  });
+});
 
 test('renders the dedicated unavailable setup screen', async () => {
   renderApp({
@@ -537,17 +537,17 @@ test('renders the dedicated unavailable setup screen', async () => {
         status: 'unavailable',
       }),
     }),
-  })
+  });
 
   await waitFor(() => {
-    expect(screen.getByRole('button', { name: 'Try again' })).toBeDefined()
-  })
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeDefined();
+  });
 
-  expect(screen.getAllByText('Needs attention')).toHaveLength(2)
-  expect(screen.getByRole('button', { name: 'Try again' })).toBeDefined()
-  expect(screen.getByRole('alert')).toBeDefined()
-  expect(screen.queryByText('AI needs attention')).toBeNull()
-})
+  expect(screen.getAllByText('Needs attention')).toHaveLength(2);
+  expect(screen.getByRole('button', { name: 'Try again' })).toBeDefined();
+  expect(screen.getByRole('alert')).toBeDefined();
+  expect(screen.queryByText('AI needs attention')).toBeNull();
+});
 
 test('renders the empty Your CV section after readiness succeeds with no original CV', async () => {
   renderApp({
@@ -559,17 +559,17 @@ test('renders the empty Your CV section after readiness succeeds with no origina
         status: 'ready',
       }),
     }),
-  })
+  });
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Add a CV' })).toBeDefined()
-  })
+    expect(screen.getByRole('heading', { name: 'Add a CV' })).toBeDefined();
+  });
 
-  expect(screen.getByRole('button', { name: 'Add a CV' })).toBeDefined()
-  expect(screen.getByText('No CV yet')).toBeDefined()
-  expect(screen.getByText('Drop a PDF or DOCX here or choose a file')).toBeDefined()
-  expect(screen.getByRole('button', { name: 'Your CV' }).getAttribute('aria-current')).toBe('page')
-})
+  expect(screen.getByRole('button', { name: 'Add a CV' })).toBeDefined();
+  expect(screen.getByText('No CV yet')).toBeDefined();
+  expect(screen.getByText('Drop a PDF or DOCX here or choose a file')).toBeDefined();
+  expect(screen.getByRole('button', { name: 'Your CV' }).getAttribute('aria-current')).toBe('page');
+});
 
 test('clears Original CV query alerts across every view', () => {
   expect(
@@ -621,8 +621,8 @@ test('clears Original CV query alerts across every view', () => {
       variant: 'error',
     },
     replace: null,
-  })
-})
+  });
+});
 
 test('returns the same Original CV alert object when no matching source exists', () => {
   const alerts = {
@@ -638,13 +638,13 @@ test('returns the same Original CV alert object when no matching source exists',
       variant: 'error',
     },
     replace: null,
-  } satisfies ReturnType<typeof clearOriginalCvRuntimeAlertsBySource>
+  } satisfies ReturnType<typeof clearOriginalCvRuntimeAlertsBySource>;
 
-  expect(clearOriginalCvRuntimeAlertsBySource(alerts, 'original_cv_query')).toBe(alerts)
-})
+  expect(clearOriginalCvRuntimeAlertsBySource(alerts, 'original_cv_query')).toBe(alerts);
+});
 
 test('imports the first original CV into Your CV and persists the resulting section selection', async () => {
-  const setWorkspaceSelection = vi.fn().mockImplementation(() => Promise.resolve())
+  const setWorkspaceSelection = vi.fn().mockImplementation(() => Promise.resolve());
   const importedOriginalCv = {
     fileType: 'pdf' as const,
     headline: 'Principal Product Designer',
@@ -660,11 +660,11 @@ test('imports the first original CV into Your CV and persists the resulting sect
       firstPersonUsage: 'absent' as const,
       formality: 'direct' as const,
     },
-  }
+  };
   const importOriginalCv = vi.fn().mockResolvedValue({
     kind: 'imported',
     originalCv: importedOriginalCv,
-  })
+  });
 
   renderApp({
     aiWorker: createAiWorkerApi({
@@ -700,21 +700,21 @@ test('imports the first original CV into Your CV and persists the resulting sect
       }),
       setWorkspaceSelection,
     }),
-  })
+  });
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Add a CV' })).toBeDefined()
-  })
+    expect(screen.getByRole('heading', { name: 'Add a CV' })).toBeDefined();
+  });
 
   fireEvent.change(screen.getByLabelText('Your CV file'), {
     target: {
       files: [new File(['%PDF-1.7'], 'ada-lovelace.pdf', { type: 'application/pdf' })],
     },
-  })
+  });
 
   await waitFor(() => {
-    expect(importOriginalCv).toHaveBeenCalledTimes(1)
-  })
+    expect(importOriginalCv).toHaveBeenCalledTimes(1);
+  });
 
   await waitFor(() => {
     expect(setWorkspaceSelection).toHaveBeenCalledWith({
@@ -726,27 +726,27 @@ test('imports the first original CV into Your CV and persists the resulting sect
         originalCvId: 'original-cv-123',
       },
       topLevelSection: 'original_cv',
-    })
-  })
+    });
+  });
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Your CV' })).toBeDefined()
-  })
+    expect(screen.getByRole('heading', { name: 'Your CV' })).toBeDefined();
+  });
 
-  expect(screen.getByRole('button', { name: 'Your CV' }).getAttribute('aria-current')).toBe('page')
-  expect(screen.getAllByText('ada-lovelace.pdf')).toHaveLength(2)
-})
+  expect(screen.getByRole('button', { name: 'Your CV' }).getAttribute('aria-current')).toBe('page');
+  expect(screen.getAllByText('ada-lovelace.pdf')).toHaveLength(2);
+});
 
 test('shows the workspace overlay while importing the first original CV from first launch', async () => {
-  const importOriginalCvDeferredPromise = createDeferredPromise<OriginalCvImportResult>()
+  const importOriginalCvDeferredPromise = createDeferredPromise<OriginalCvImportResult>();
 
   const importOriginalCv = vi.fn(
     (input: OriginalCvImportInput): Promise<OriginalCvImportResult> => {
-      void input
+      void input;
 
-      return importOriginalCvDeferredPromise.promise
+      return importOriginalCvDeferredPromise.promise;
     },
-  )
+  );
 
   renderApp({
     aiWorker: createAiWorkerApi({
@@ -760,26 +760,26 @@ test('shows the workspace overlay while importing the first original CV from fir
     originalCv: createOriginalCvApi({
       importOriginalCv,
     }),
-  })
+  });
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Add a CV' })).toBeDefined()
-  })
+    expect(screen.getByRole('heading', { name: 'Add a CV' })).toBeDefined();
+  });
 
   fireEvent.change(screen.getByLabelText('Your CV file'), {
     target: {
       files: [new File(['%PDF-1.7'], 'ada-lovelace.pdf', { type: 'application/pdf' })],
     },
-  })
+  });
 
   await waitFor(() => {
-    expect(importOriginalCv).toHaveBeenCalledTimes(1)
-  })
+    expect(importOriginalCv).toHaveBeenCalledTimes(1);
+  });
 
-  expect(screen.getByRole('status', { name: 'Adding a CV...' })).toBeDefined()
-  expect(screen.queryByRole('button', { name: 'Cancel' })).toBeNull()
-  expect(screen.getByRole('button', { name: 'Settings' })).toBeDefined()
-  expect(screen.getByRole('heading', { name: 'Add a CV' })).toBeDefined()
+  expect(screen.getByRole('status', { name: 'Adding a CV...' })).toBeDefined();
+  expect(screen.queryByRole('button', { name: 'Cancel' })).toBeNull();
+  expect(screen.getByRole('button', { name: 'Settings' })).toBeDefined();
+  expect(screen.getByRole('heading', { name: 'Add a CV' })).toBeDefined();
 
   importOriginalCvDeferredPromise.resolve({
     kind: 'imported',
@@ -799,12 +799,12 @@ test('shows the workspace overlay while importing the first original CV from fir
         formality: 'direct',
       },
     },
-  })
+  });
 
   await waitFor(() => {
-    expect(screen.queryByRole('status', { name: 'Adding a CV...' })).toBeNull()
-  })
-})
+    expect(screen.queryByRole('status', { name: 'Adding a CV...' })).toBeNull();
+  });
+});
 
 test('shows a single shared alert when the first Your CV import is rejected', async () => {
   const importOriginalCv = vi.fn().mockResolvedValue({
@@ -812,7 +812,7 @@ test('shows a single shared alert when the first Your CV import is rejected', as
       message: 'Choose a clearer PDF or DOCX copy of your CV.',
     },
     kind: 'rejected',
-  })
+  });
 
   renderApp({
     aiWorker: createAiWorkerApi({
@@ -826,25 +826,25 @@ test('shows a single shared alert when the first Your CV import is rejected', as
     originalCv: createOriginalCvApi({
       importOriginalCv,
     }),
-  })
+  });
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Add a CV' })).toBeDefined()
-  })
+    expect(screen.getByRole('heading', { name: 'Add a CV' })).toBeDefined();
+  });
 
   fireEvent.change(screen.getByLabelText('Your CV file'), {
     target: {
       files: [new File(['%PDF-1.7'], 'ada-lovelace.pdf', { type: 'application/pdf' })],
     },
-  })
+  });
 
   await waitFor(() => {
-    expect(importOriginalCv).toHaveBeenCalledTimes(1)
-  })
+    expect(importOriginalCv).toHaveBeenCalledTimes(1);
+  });
 
-  expect(screen.getByRole('alert')).toBeDefined()
-  expect(screen.getAllByText('Choose a clearer PDF or DOCX copy of your CV.')).toHaveLength(1)
-})
+  expect(screen.getByRole('alert')).toBeDefined();
+  expect(screen.getAllByText('Choose a clearer PDF or DOCX copy of your CV.')).toHaveLength(1);
+});
 
 test('starts importing the first original CV as soon as a valid file is selected', async () => {
   const importedOriginalCv = {
@@ -862,7 +862,7 @@ test('starts importing the first original CV as soon as a valid file is selected
       firstPersonUsage: 'absent' as const,
       formality: 'direct' as const,
     },
-  }
+  };
   const getOriginalCvWorkspaceState = vi
     .fn()
     .mockResolvedValueOnce({
@@ -871,9 +871,9 @@ test('starts importing the first original CV as soon as a valid file is selected
     })
     .mockImplementationOnce(() => {
       return new Promise(() => {
-        return
-      })
-    })
+        return;
+      });
+    });
 
   renderApp({
     aiWorker: createAiWorkerApi({
@@ -891,28 +891,28 @@ test('starts importing the first original CV as soon as a valid file is selected
         originalCv: importedOriginalCv,
       }),
     }),
-  })
+  });
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Add a CV' })).toBeDefined()
-  })
+    expect(screen.getByRole('heading', { name: 'Add a CV' })).toBeDefined();
+  });
 
   fireEvent.change(screen.getByLabelText('Your CV file'), {
     target: {
       files: [new File(['%PDF-1.7'], 'ada-lovelace.pdf', { type: 'application/pdf' })],
     },
-  })
+  });
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Your CV' })).toBeDefined()
-  })
+    expect(screen.getByRole('heading', { name: 'Your CV' })).toBeDefined();
+  });
 
-  expect(screen.getAllByText('ada-lovelace.pdf').length).toBeGreaterThan(0)
-  expect(screen.queryByRole('heading', { name: 'Add a CV' })).toBeNull()
-})
+  expect(screen.getAllByText('ada-lovelace.pdf').length).toBeGreaterThan(0);
+  expect(screen.queryByRole('heading', { name: 'Add a CV' })).toBeNull();
+});
 
 test('routes first-launch import into the AI worker sign-in flow when the import boundary reports sign-in required', async () => {
-  const retryAiWorkerPreflight = vi.fn()
+  const retryAiWorkerPreflight = vi.fn();
   const importOriginalCv = vi.fn().mockResolvedValue({
     kind: 'ai_worker_not_ready',
     preflight: {
@@ -922,7 +922,7 @@ test('routes first-launch import into the AI worker sign-in flow when the import
       provider: 'codex',
       status: 'sign_in_required',
     },
-  })
+  });
 
   renderApp({
     aiWorker: createAiWorkerApi({
@@ -937,28 +937,28 @@ test('routes first-launch import into the AI worker sign-in flow when the import
     originalCv: createOriginalCvApi({
       importOriginalCv,
     }),
-  })
+  });
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Add a CV' })).toBeDefined()
-  })
+    expect(screen.getByRole('heading', { name: 'Add a CV' })).toBeDefined();
+  });
 
   fireEvent.change(screen.getByLabelText('Your CV file'), {
     target: {
       files: [new File(['%PDF-1.7'], 'ada-lovelace.pdf', { type: 'application/pdf' })],
     },
-  })
+  });
 
   await waitFor(() => {
-    expect(importOriginalCv).toHaveBeenCalledTimes(1)
-  })
+    expect(importOriginalCv).toHaveBeenCalledTimes(1);
+  });
 
-  expect(retryAiWorkerPreflight).not.toHaveBeenCalled()
+  expect(retryAiWorkerPreflight).not.toHaveBeenCalled();
 
   await waitFor(() => {
-    expect(screen.getByRole('button', { name: 'Continue' })).toBeDefined()
-  })
-})
+    expect(screen.getByRole('button', { name: 'Continue' })).toBeDefined();
+  });
+});
 
 test('renders the design-aligned workspace-empty screen when an original CV already exists', async () => {
   renderApp({
@@ -992,19 +992,19 @@ test('renders the design-aligned workspace-empty screen when an original CV alre
         snapshotCount: 1,
       }),
     }),
-  })
+  });
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
-  })
+    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined();
+  });
 
-  expect(screen.getByRole('button', { name: 'Your CV' })).toBeDefined()
-  expect(screen.getByLabelText('Job link')).toBeDefined()
-  expect(screen.getByLabelText('Job description')).toBeDefined()
-  expect(screen.queryByText('Original CV active')).toBeNull()
-  expect(screen.getByText('Check this job before tailoring your CV')).toBeDefined()
-  expect(screen.queryByRole('button', { name: 'Update your CV' })).toBeNull()
-})
+  expect(screen.getByRole('button', { name: 'Your CV' })).toBeDefined();
+  expect(screen.getByLabelText('Job link')).toBeDefined();
+  expect(screen.getByLabelText('Job description')).toBeDefined();
+  expect(screen.queryByText('Original CV active')).toBeNull();
+  expect(screen.getByText('Check this job before tailoring your CV')).toBeDefined();
+  expect(screen.queryByRole('button', { name: 'Update your CV' })).toBeNull();
+});
 
 test('loads a persisted vacancy preview and keeps Tailor your CV enabled for a reviewable draft', async () => {
   renderApp({
@@ -1063,22 +1063,25 @@ test('loads a persisted vacancy preview and keeps Tailor your CV enabled for a r
         },
       }),
     }),
-  })
+  });
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
-  })
+    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined();
+  });
 
   await waitFor(() => {
-    expect(screen.getByText(/Job (details|preview)/)).toBeDefined()
-    expect(screen.getByText('Senior Product Designer')).toBeDefined()
-    expect(screen.getByText('Example Labs · London, United Kingdom')).toBeDefined()
-    expect(screen.getByText('About the job')).toBeDefined()
-    expect(screen.getByText("What you'll be doing")).toBeDefined()
-    expect(screen.getByText("What they're looking for")).toBeDefined()
-    expect(screen.getByRole('button', { name: 'Tailor your CV' })).toHaveProperty('disabled', false)
-  })
-})
+    expect(screen.getByText(/Job (details|preview)/)).toBeDefined();
+    expect(screen.getByText('Senior Product Designer')).toBeDefined();
+    expect(screen.getByText('Example Labs · London, United Kingdom')).toBeDefined();
+    expect(screen.getByText('About the job')).toBeDefined();
+    expect(screen.getByText("What you'll be doing")).toBeDefined();
+    expect(screen.getByText("What they're looking for")).toBeDefined();
+    expect(screen.getByRole('button', { name: 'Tailor your CV' })).toHaveProperty(
+      'disabled',
+      false,
+    );
+  });
+});
 
 test('restores settings as the active top-level section when persisted workspace selection ends on settings', async () => {
   renderApp({
@@ -1141,18 +1144,20 @@ test('restores settings as the active top-level section when persisted workspace
         }),
       ),
     }),
-  })
+  });
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'AI' })).toBeDefined()
-  })
+    expect(screen.getByRole('heading', { name: 'AI' })).toBeDefined();
+  });
 
-  expect(screen.getByRole('button', { name: 'Settings' }).getAttribute('aria-current')).toBe('page')
-  expect(screen.queryByRole('heading', { name: 'Add a job' })).toBeNull()
-})
+  expect(screen.getByRole('button', { name: 'Settings' }).getAttribute('aria-current')).toBe(
+    'page',
+  );
+  expect(screen.queryByRole('heading', { name: 'Add a job' })).toBeNull();
+});
 
 test('restores Your CV as the active top-level section while preserving the saved jobs sub-selection', async () => {
-  const getActiveOriginalCvDetail = vi.fn().mockResolvedValue(createOriginalCvDetailFixture())
+  const getActiveOriginalCvDetail = vi.fn().mockResolvedValue(createOriginalCvDetailFixture());
 
   renderApp({
     aiWorker: createAiWorkerApi({
@@ -1218,30 +1223,30 @@ test('restores Your CV as the active top-level section while preserving the save
         }),
       ),
     }),
-  })
+  });
 
   await waitFor(() => {
     expect(screen.getByRole('button', { name: 'Your CV' }).getAttribute('aria-current')).toBe(
       'page',
-    )
-  })
+    );
+  });
 
   await waitFor(() => {
-    expect(screen.getByText('Extracted profile')).toBeDefined()
-    expect(screen.getByText('Workflow design')).toBeDefined()
-    expect(getActiveOriginalCvDetail).toHaveBeenCalledTimes(1)
-  })
+    expect(screen.getByText('Extracted profile')).toBeDefined();
+    expect(screen.getByText('Workflow design')).toBeDefined();
+    expect(getActiveOriginalCvDetail).toHaveBeenCalledTimes(1);
+  });
 
-  expect(screen.getByRole('heading', { name: 'Your CV' })).toBeDefined()
-  expect(screen.getAllByText('ada-lovelace.pdf').length).toBeGreaterThan(0)
-  fireEvent.click(screen.getByRole('button', { name: 'Jobs' }))
+  expect(screen.getByRole('heading', { name: 'Your CV' })).toBeDefined();
+  expect(screen.getAllByText('ada-lovelace.pdf').length).toBeGreaterThan(0);
+  fireEvent.click(screen.getByRole('button', { name: 'Jobs' }));
 
   await waitFor(() => {
-    expect(screen.getByRole('button', { name: 'Jobs' }).getAttribute('aria-current')).toBe('page')
-    expect(screen.getByRole('heading', { name: 'Senior platform engineer' })).toBeDefined()
-    expect(screen.getAllByText('Example Labs').length).toBeGreaterThan(0)
-  })
-})
+    expect(screen.getByRole('button', { name: 'Jobs' }).getAttribute('aria-current')).toBe('page');
+    expect(screen.getByRole('heading', { name: 'Senior platform engineer' })).toBeDefined();
+    expect(screen.getAllByText('Example Labs').length).toBeGreaterThan(0);
+  });
+});
 
 test('opens the design-aligned replacement screen from populated Your CV before importing', async () => {
   renderApp({
@@ -1273,34 +1278,34 @@ test('opens the design-aligned replacement screen from populated Your CV before 
         topLevelSection: 'original_cv',
       }),
     }),
-  })
+  });
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Your CV' })).toBeDefined()
-  })
+    expect(screen.getByRole('heading', { name: 'Your CV' })).toBeDefined();
+  });
 
-  fireEvent.click(screen.getByRole('button', { name: 'Add a CV' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Add a CV' }));
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Add a CV' })).toBeDefined()
-  })
+    expect(screen.getByRole('heading', { name: 'Add a CV' })).toBeDefined();
+  });
 
   expect(
     screen.getByRole('button', { name: 'Open your CV' }).getAttribute('aria-current'),
-  ).toBeNull()
+  ).toBeNull();
   expect(
     screen.getByText(
       "Choose the PDF or DOCX copy of your CV you'd like to use from now on. Your saved jobs won't change.",
     ),
-  ).toBeDefined()
+  ).toBeDefined();
   expect(
     screen.getByText("Replacing your CV changes the one you'll use for new jobs."),
-  ).toBeDefined()
+  ).toBeDefined();
   expect(
     screen.getByText("Your saved jobs keep the CV and cover letter you've already made."),
-  ).toBeDefined()
-  expect(screen.queryByRole('heading', { name: 'Your CV' })).toBeNull()
-})
+  ).toBeDefined();
+  expect(screen.queryByRole('heading', { name: 'Your CV' })).toBeNull();
+});
 
 test('keeps replacement alerts scoped to the Add a CV view when you leave and return', async () => {
   const importOriginalCv = vi.fn().mockResolvedValue({
@@ -1308,7 +1313,7 @@ test('keeps replacement alerts scoped to the Add a CV view when you leave and re
       message: "We couldn't read that CV.",
     },
     kind: 'rejected',
-  })
+  });
 
   renderApp({
     aiWorker: createAiWorkerApi({
@@ -1340,55 +1345,55 @@ test('keeps replacement alerts scoped to the Add a CV view when you leave and re
         topLevelSection: 'original_cv',
       }),
     }),
-  })
+  });
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Your CV' })).toBeDefined()
-  })
+    expect(screen.getByRole('heading', { name: 'Your CV' })).toBeDefined();
+  });
 
-  fireEvent.click(screen.getByRole('button', { name: 'Add a CV' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Add a CV' }));
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Add a CV' })).toBeDefined()
-  })
+    expect(screen.getByRole('heading', { name: 'Add a CV' })).toBeDefined();
+  });
 
   fireEvent.change(screen.getByLabelText('Your CV file'), {
     target: {
       files: [new File(['%PDF-1.7'], 'ada-lovelace.pdf', { type: 'application/pdf' })],
     },
-  })
+  });
 
   await waitFor(() => {
-    expect(importOriginalCv).toHaveBeenCalledTimes(1)
-  })
+    expect(importOriginalCv).toHaveBeenCalledTimes(1);
+  });
 
-  expect(screen.getAllByText("We couldn't read that CV.")).toHaveLength(1)
+  expect(screen.getAllByText("We couldn't read that CV.")).toHaveLength(1);
 
-  fireEvent.click(screen.getByRole('button', { name: 'Jobs' }))
-
-  await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
-  })
-
-  fireEvent.click(screen.getByRole('button', { name: 'Your CV' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Jobs' }));
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Your CV' })).toBeDefined()
-  })
+    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined();
+  });
 
-  expect(screen.queryByText("We couldn't read that CV.")).toBeNull()
-
-  fireEvent.click(screen.getByRole('button', { name: 'Add a CV' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Your CV' }));
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Add a CV' })).toBeDefined()
-  })
+    expect(screen.getByRole('heading', { name: 'Your CV' })).toBeDefined();
+  });
 
-  expect(screen.getAllByText("We couldn't read that CV.")).toHaveLength(1)
-})
+  expect(screen.queryByText("We couldn't read that CV.")).toBeNull();
+
+  fireEvent.click(screen.getByRole('button', { name: 'Add a CV' }));
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Add a CV' })).toBeDefined();
+  });
+
+  expect(screen.getAllByText("We couldn't read that CV.")).toHaveLength(1);
+});
 
 test('keeps the populated Your CV section usable when DOCX preview rendering fails', async () => {
-  renderDocxPreviewMock.mockRejectedValue(new Error('DOCX preview failed.'))
+  renderDocxPreviewMock.mockRejectedValue(new Error('DOCX preview failed.'));
 
   renderApp({
     aiWorker: createAiWorkerApi({
@@ -1439,38 +1444,38 @@ test('keeps the populated Your CV section usable when DOCX preview rendering fai
         topLevelSection: 'original_cv',
       }),
     }),
-  })
+  });
 
   await waitFor(() => {
     expect(screen.getByRole('button', { name: 'Your CV' }).getAttribute('aria-current')).toBe(
       'page',
-    )
-  })
+    );
+  });
 
   await waitFor(() => {
-    expect(screen.getByText('DOCX preview failed.')).toBeDefined()
-  })
+    expect(screen.getByText('DOCX preview failed.')).toBeDefined();
+  });
 
-  expect(screen.getByRole('heading', { name: 'Your CV' })).toBeDefined()
-  expect(screen.getByText('Extracted profile')).toBeDefined()
-  expect(screen.getByText('Content strategy')).toBeDefined()
-  expect(screen.getAllByText('DOCX preview failed.')).toHaveLength(1)
-  expect(screen.getAllByText('ada-lovelace-revised.docx').length).toBeGreaterThan(0)
+  expect(screen.getByRole('heading', { name: 'Your CV' })).toBeDefined();
+  expect(screen.getByText('Extracted profile')).toBeDefined();
+  expect(screen.getByText('Content strategy')).toBeDefined();
+  expect(screen.getAllByText('DOCX preview failed.')).toHaveLength(1);
+  expect(screen.getAllByText('ada-lovelace-revised.docx').length).toBeGreaterThan(0);
 
-  fireEvent.click(screen.getByRole('button', { name: 'Jobs' }))
-
-  await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
-  })
-
-  fireEvent.click(screen.getByRole('button', { name: 'Your CV' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Jobs' }));
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Your CV' })).toBeDefined()
-  })
+    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined();
+  });
 
-  expect(screen.getAllByText('DOCX preview failed.')).toHaveLength(1)
-})
+  fireEvent.click(screen.getByRole('button', { name: 'Your CV' }));
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Your CV' })).toBeDefined();
+  });
+
+  expect(screen.getAllByText('DOCX preview failed.')).toHaveLength(1);
+});
 
 test('selecting Your CV from settings with no active original CV opens the empty Your CV section', async () => {
   renderApp({
@@ -1494,20 +1499,20 @@ test('selecting Your CV from settings with no active original CV opens the empty
         topLevelSection: 'settings',
       }),
     }),
-  })
+  });
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'AI' })).toBeDefined()
-  })
+    expect(screen.getByRole('heading', { name: 'AI' })).toBeDefined();
+  });
 
-  fireEvent.click(screen.getByRole('button', { name: 'Your CV' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Your CV' }));
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Add a CV' })).toBeDefined()
-  })
+    expect(screen.getByRole('heading', { name: 'Add a CV' })).toBeDefined();
+  });
 
-  expect(screen.getByText('No CV yet')).toBeDefined()
-})
+  expect(screen.getByText('No CV yet')).toBeDefined();
+});
 
 test('shows a shared Your CV alert when saving the selected rail item fails', async () => {
   renderApp({
@@ -1545,27 +1550,27 @@ test('shows a shared Your CV alert when saving the selected rail item fails', as
     tailoredApplication: createTailoredApplicationApi({
       setWorkspaceSelection: vi.fn().mockRejectedValue(new Error('Persist failed.')),
     }),
-  })
+  });
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
-  })
+    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined();
+  });
 
-  fireEvent.click(screen.getByRole('button', { name: 'Your CV' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Your CV' }));
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Your CV' })).toBeDefined()
-  })
+    expect(screen.getByRole('heading', { name: 'Your CV' })).toBeDefined();
+  });
 
-  expect(screen.getByRole('alert')).toBeDefined()
-  expect(screen.getAllByText("We couldn't save where you left off.")).toHaveLength(1)
-})
+  expect(screen.getByRole('alert')).toBeDefined();
+  expect(screen.getAllByText("We couldn't save where you left off.")).toHaveLength(1);
+});
 
 test('shows the shared Your CV alert in detail view when returning from Add a CV fails to persist', async () => {
   const setWorkspaceSelection = vi
     .fn()
     .mockImplementationOnce(() => Promise.resolve())
-    .mockRejectedValueOnce(new Error('Persist failed.'))
+    .mockRejectedValueOnce(new Error('Persist failed.'));
 
   renderApp({
     aiWorker: createAiWorkerApi({
@@ -1597,34 +1602,34 @@ test('shows the shared Your CV alert in detail view when returning from Add a CV
       }),
       setWorkspaceSelection,
     }),
-  })
+  });
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Your CV' })).toBeDefined()
-  })
+    expect(screen.getByRole('heading', { name: 'Your CV' })).toBeDefined();
+  });
 
-  fireEvent.click(screen.getByRole('button', { name: 'Add a CV' }))
-
-  await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Add a CV' })).toBeDefined()
-  })
-
-  fireEvent.click(screen.getByRole('button', { name: 'Jobs' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Add a CV' }));
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
-  })
+    expect(screen.getByRole('heading', { name: 'Add a CV' })).toBeDefined();
+  });
 
-  fireEvent.click(screen.getByRole('button', { name: 'Your CV' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Jobs' }));
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Your CV' })).toBeDefined()
-  })
+    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined();
+  });
 
-  expect(screen.getByRole('alert')).toBeDefined()
-  expect(screen.getAllByText("We couldn't save where you left off.")).toHaveLength(1)
-  expect(screen.queryByRole('heading', { name: 'Add a CV' })).toBeNull()
-})
+  fireEvent.click(screen.getByRole('button', { name: 'Your CV' }));
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Your CV' })).toBeDefined();
+  });
+
+  expect(screen.getByRole('alert')).toBeDefined();
+  expect(screen.getAllByText("We couldn't save where you left off.")).toHaveLength(1);
+  expect(screen.queryByRole('heading', { name: 'Add a CV' })).toBeNull();
+});
 
 test('shows generic open-job-page fallback guidance for reviewed links that need more access', async () => {
   renderApp({
@@ -1684,20 +1689,20 @@ test('shows generic open-job-page fallback guidance for reviewed links that need
         },
       }),
     }),
-  })
+  });
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
-  })
+    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined();
+  });
 
   expect(
     screen.getByText(
       'This job page may need more access. Open the job page or paste the job description instead.',
     ),
-  ).toBeDefined()
-  expect(screen.getByRole('button', { name: 'Open the job page' })).toBeDefined()
-  expect(screen.queryByText(/internal browser session/i)).toBeNull()
-})
+  ).toBeDefined();
+  expect(screen.getByRole('button', { name: 'Open the job page' })).toBeDefined();
+  expect(screen.queryByText(/internal browser session/i)).toBeNull();
+});
 
 test('shows one shared page-top warning with grouped draft validation items for incomplete pasted job details', async () => {
   renderApp({
@@ -1758,27 +1763,27 @@ test('shows one shared page-top warning with grouped draft validation items for 
         },
       }),
     }),
-  })
+  });
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
-  })
+    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined();
+  });
 
-  const alert = screen.getByRole('status')
+  const alert = screen.getByRole('status');
 
-  expect(within(alert).getByText('Add a bit more detail before tailoring your CV.')).toBeDefined()
+  expect(within(alert).getByText('Add a bit more detail before tailoring your CV.')).toBeDefined();
   expect(
     within(alert).getByText(
       'Add the full job responsibilities or requirements before tailoring your CV.',
     ),
-  ).toBeDefined()
-  expect(within(alert).getAllByRole('button', { name: 'Job description' })).toHaveLength(2)
+  ).toBeDefined();
+  expect(within(alert).getAllByRole('button', { name: 'Job description' })).toHaveLength(2);
   expect(
     screen.getAllByText(
       'Add the full job responsibilities or requirements before tailoring your CV.',
     ),
-  ).toHaveLength(1)
-})
+  ).toHaveLength(1);
+});
 
 test('shows a shared page-top error for a failed job-link review and targets the draft field', async () => {
   renderApp({
@@ -1815,38 +1820,38 @@ test('shows a shared page-top error for a failed job-link review and targets the
     vacancy: createVacancyApi({
       ingestVacancyUrl: vi.fn().mockRejectedValue(new Error("We couldn't check that job link.")),
     }),
-  })
+  });
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
-  })
+    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined();
+  });
 
   fireEvent.change(screen.getByLabelText('Job link'), {
     target: {
       value: 'https://jobs.example.com/senior-product-designer',
     },
-  })
+  });
 
-  const { reviewUrlButton } = getReviewButtons()
+  const { reviewUrlButton } = getReviewButtons();
 
-  fireEvent.click(reviewUrlButton)
+  fireEvent.click(reviewUrlButton);
 
   await waitFor(() => {
-    expect(screen.getByRole('alert')).toBeDefined()
-  })
+    expect(screen.getByRole('alert')).toBeDefined();
+  });
 
-  const alert = screen.getByRole('alert')
+  const alert = screen.getByRole('alert');
 
-  expect(within(alert).getByText("We couldn't check that job link.")).toBeDefined()
+  expect(within(alert).getByText("We couldn't check that job link.")).toBeDefined();
 
-  fireEvent.click(within(alert).getByRole('button', { name: 'Job link' }))
+  fireEvent.click(within(alert).getByRole('button', { name: 'Job link' }));
 
-  expect(screen.getByLabelText('Job link')).toBe(globalThis.document.activeElement)
-})
+  expect(screen.getByLabelText('Job link')).toBe(globalThis.document.activeElement);
+});
 
 test('shows shell-level ambient activity while a tailored-application preview refreshes in the background', async () => {
-  const deferredPreview = createDeferredPromise<TailoredApplicationPreview | null>()
-  const firstPreview = createTailoredApplicationPreviewFixture()
+  const deferredPreview = createDeferredPromise<TailoredApplicationPreview | null>();
+  const firstPreview = createTailoredApplicationPreviewFixture();
   const secondPreview = createTailoredApplicationPreviewFixture({
     employer: 'Nebula Labs',
     id: 'tailored-application-456',
@@ -1858,11 +1863,11 @@ test('shows shell-level ambient activity while a tailored-application preview re
       title: 'Platform Product Manager',
     },
     vacancyTitle: 'Platform Product Manager',
-  })
+  });
   const getTailoredApplicationPreview = vi
     .fn()
     .mockResolvedValueOnce(firstPreview)
-    .mockImplementationOnce(() => deferredPreview.promise)
+    .mockImplementationOnce(() => deferredPreview.promise);
 
   renderApp({
     aiWorker: createAiWorkerApi({
@@ -1906,49 +1911,49 @@ test('shows shell-level ambient activity while a tailored-application preview re
         ],
       }),
     }),
-  })
+  });
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Senior platform engineer' })).toBeDefined()
-  })
+    expect(screen.getByRole('heading', { name: 'Senior platform engineer' })).toBeDefined();
+  });
 
-  fireEvent.click(screen.getByRole('button', { name: 'Open platform product manager' }))
-
-  await waitFor(() => {
-    expect(getTailoredApplicationPreview).toHaveBeenLastCalledWith('tailored-application-456')
-  })
-
-  expect(screen.getByRole('status', { name: 'Background activity' })).toBeDefined()
-  expect(screen.queryByText('Ready')).toBeNull()
-  expect(screen.getByRole('heading', { name: 'Senior platform engineer' })).toBeDefined()
-
-  fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Open platform product manager' }));
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'AI' })).toBeDefined()
-  })
+    expect(getTailoredApplicationPreview).toHaveBeenLastCalledWith('tailored-application-456');
+  });
 
-  expect(screen.getByRole('status', { name: 'Background activity' })).toBeDefined()
-  expect(within(screen.getByRole('banner')).queryByText('Local')).toBeNull()
+  expect(screen.getByRole('status', { name: 'Background activity' })).toBeDefined();
+  expect(screen.queryByText('Ready')).toBeNull();
+  expect(screen.getByRole('heading', { name: 'Senior platform engineer' })).toBeDefined();
 
-  deferredPreview.resolve(secondPreview)
-
-  await waitFor(() => {
-    expect(screen.queryByRole('status', { name: 'Background activity' })).toBeNull()
-  })
-
-  fireEvent.click(screen.getByRole('button', { name: 'Jobs' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Platform Product Manager' })).toBeDefined()
-  })
-})
+    expect(screen.getByRole('heading', { name: 'AI' })).toBeDefined();
+  });
+
+  expect(screen.getByRole('status', { name: 'Background activity' })).toBeDefined();
+  expect(within(screen.getByRole('banner')).queryByText('Local')).toBeNull();
+
+  deferredPreview.resolve(secondPreview);
+
+  await waitFor(() => {
+    expect(screen.queryByRole('status', { name: 'Background activity' })).toBeNull();
+  });
+
+  fireEvent.click(screen.getByRole('button', { name: 'Jobs' }));
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Platform Product Manager' })).toBeDefined();
+  });
+});
 
 test('reviews a ready vacancy URL and only starts tailoring after Tailor your CV is clicked', async () => {
   const getStartupDestination = vi
     .fn()
     .mockResolvedValueOnce('workspace')
-    .mockResolvedValueOnce('workspace')
+    .mockResolvedValueOnce('workspace');
   const getPendingGenerationCommand = vi
     .fn()
     .mockResolvedValueOnce(null)
@@ -1961,18 +1966,18 @@ test('reviews a ready vacancy URL and only starts tailoring after Tailor your CV
         text: '',
         url: 'https://jobs.example.com/roles/123',
       },
-    })
+    });
   const resumePendingGeneration = vi.fn().mockImplementation(() => {
     return new Promise<never>((resolve) => {
-      void resolve
-    })
-  })
+      void resolve;
+    });
+  });
   const startPendingGeneration = vi.fn().mockResolvedValue({
     canResumeGeneration: true,
     message: 'The local AI worker is ready.',
     provider: 'codex',
     status: 'ready',
-  })
+  });
 
   renderApp({
     aiWorker: createAiWorkerApi({
@@ -2044,38 +2049,38 @@ test('reviews a ready vacancy URL and only starts tailoring after Tailor your CV
       resumePendingGeneration,
       startPendingGeneration,
     }),
-  })
+  });
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
-  })
+    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined();
+  });
   await waitForVacancyDraftValues({
     text: '',
     url: '',
-  })
+  });
 
   fireEvent.change(screen.getByLabelText('Job link'), {
     target: {
       value: 'https://jobs.example.com/roles/123',
     },
-  })
-  const { reviewUrlButton } = getReviewButtons()
+  });
+  const { reviewUrlButton } = getReviewButtons();
 
-  fireEvent.click(reviewUrlButton)
+  fireEvent.click(reviewUrlButton);
 
   await waitFor(() => {
     expect(globalThis.window.cvMaxxing.vacancy.ingestVacancyUrl).toHaveBeenCalledWith({
       url: 'https://jobs.example.com/roles/123',
-    })
-  })
+    });
+  });
 
   await waitFor(() => {
-    expect(screen.getByText(/Job (details|preview)/)).toBeDefined()
-  })
+    expect(screen.getByText(/Job (details|preview)/)).toBeDefined();
+  });
 
-  expect(screen.getByRole('button', { name: 'Tailor your CV' })).toHaveProperty('disabled', false)
+  expect(screen.getByRole('button', { name: 'Tailor your CV' })).toHaveProperty('disabled', false);
 
-  fireEvent.click(screen.getByRole('button', { name: 'Tailor your CV' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Tailor your CV' }));
 
   await waitFor(() => {
     expect(startPendingGeneration).toHaveBeenCalledWith({
@@ -2085,27 +2090,27 @@ test('reviews a ready vacancy URL and only starts tailoring after Tailor your CV
         text: '',
         url: 'https://jobs.example.com/roles/123',
       },
-    })
-  })
+    });
+  });
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
-  })
+    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined();
+  });
 
-  expect(screen.getByRole('status', { name: 'Tailoring your CV...' })).toBeDefined()
-  expect(screen.queryByRole('button', { name: 'Open tailored application' })).toBeNull()
-  expect(screen.getByRole('button', { name: 'Cancel' })).toBeDefined()
+  expect(screen.getByRole('status', { name: 'Tailoring your CV...' })).toBeDefined();
+  expect(screen.queryByRole('button', { name: 'Open tailored application' })).toBeNull();
+  expect(screen.getByRole('button', { name: 'Cancel' })).toBeDefined();
 
   await waitFor(() => {
-    expect(resumePendingGeneration).toHaveBeenCalledTimes(1)
-  })
-})
+    expect(resumePendingGeneration).toHaveBeenCalledTimes(1);
+  });
+});
 
 test('shows a shared draft alert when tailoring fails to start', async () => {
-  const getStartupDestination = vi.fn().mockResolvedValue('workspace')
+  const getStartupDestination = vi.fn().mockResolvedValue('workspace');
   const startPendingGeneration = vi
     .fn()
-    .mockRejectedValue(new Error("We couldn't start tailoring your CV. Try again."))
+    .mockRejectedValue(new Error("We couldn't start tailoring your CV. Try again."));
 
   renderApp({
     aiWorker: createAiWorkerApi({
@@ -2169,13 +2174,13 @@ test('shows a shared draft alert when tailoring fails to start', async () => {
       resumePendingGeneration: vi.fn().mockResolvedValue(null),
       startPendingGeneration,
     }),
-  })
+  });
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
-  })
+    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined();
+  });
 
-  fireEvent.click(screen.getByRole('button', { name: 'Tailor your CV' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Tailor your CV' }));
 
   await waitFor(() => {
     expect(startPendingGeneration).toHaveBeenCalledWith({
@@ -2185,14 +2190,14 @@ test('shows a shared draft alert when tailoring fails to start', async () => {
         text: '',
         url: 'https://jobs.example.com/roles/123',
       },
-    })
-  })
+    });
+  });
 
   await waitFor(() => {
-    expect(screen.getByRole('alert')).toBeDefined()
-    expect(screen.getAllByText("We couldn't start tailoring your CV. Try again.")).toHaveLength(1)
-  })
-})
+    expect(screen.getByRole('alert')).toBeDefined();
+    expect(screen.getAllByText("We couldn't start tailoring your CV. Try again.")).toHaveLength(1);
+  });
+});
 
 test('shows a shared draft alert when saving draft changes fails', async () => {
   renderApp({
@@ -2229,26 +2234,26 @@ test('shows a shared draft alert when saving draft changes fails', async () => {
     tailoredApplication: createTailoredApplicationApi({
       setWorkspaceSelection: vi.fn().mockRejectedValue(new Error('Persist failed.')),
     }),
-  })
+  });
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
-  })
+    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined();
+  });
 
   fireEvent.change(screen.getByLabelText('Job description'), {
     target: {
       value: 'Lead product design for desktop workflows.',
     },
-  })
+  });
 
   await waitFor(() => {
-    expect(screen.getByRole('alert')).toBeDefined()
-    expect(screen.getAllByText("We couldn't save where you left off.")).toHaveLength(1)
-  })
-})
+    expect(screen.getByRole('alert')).toBeDefined();
+    expect(screen.getAllByText("We couldn't save where you left off.")).toHaveLength(1);
+  });
+});
 
 test('does not persist workspace selection again when editing an already-selected draft', async () => {
-  const setWorkspaceSelection = vi.fn().mockImplementation(() => Promise.resolve())
+  const setWorkspaceSelection = vi.fn().mockImplementation(() => Promise.resolve());
 
   renderApp({
     aiWorker: createAiWorkerApi({
@@ -2279,33 +2284,33 @@ test('does not persist workspace selection again when editing an already-selecte
       }),
       setWorkspaceSelection,
     }),
-  })
+  });
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
-  })
+    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined();
+  });
 
   fireEvent.change(screen.getByLabelText('Job description'), {
     target: {
       value: 'Lead product design for desktop workflows.',
     },
-  })
+  });
 
   await waitFor(() => {
     expect(screen.getByLabelText('Job description')).toHaveProperty(
       'value',
       'Lead product design for desktop workflows.',
-    )
-  })
+    );
+  });
 
-  expect(setWorkspaceSelection).not.toHaveBeenCalled()
-})
+  expect(setWorkspaceSelection).not.toHaveBeenCalled();
+});
 
 test('shows the workspace overlay while reviewing a vacancy URL without surfacing generation-only actions', async () => {
-  const ingestVacancyUrlDeferredPromise = createDeferredPromise<VacancyIngestResult>()
+  const ingestVacancyUrlDeferredPromise = createDeferredPromise<VacancyIngestResult>();
   const ingestVacancyUrl = vi.fn(() => {
-    return ingestVacancyUrlDeferredPromise.promise
-  })
+    return ingestVacancyUrlDeferredPromise.promise;
+  });
 
   renderApp({
     aiWorker: createAiWorkerApi({
@@ -2341,35 +2346,35 @@ test('shows the workspace overlay while reviewing a vacancy URL without surfacin
     vacancy: createVacancyApi({
       ingestVacancyUrl,
     }),
-  })
+  });
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
-  })
+    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined();
+  });
   await waitForVacancyDraftValues({
     text: '',
     url: '',
-  })
+  });
 
   fireEvent.change(screen.getByLabelText('Job link'), {
     target: {
       value: 'https://jobs.example.com/roles/123',
     },
-  })
-  const { reviewUrlButton } = getReviewButtons()
+  });
+  const { reviewUrlButton } = getReviewButtons();
 
-  fireEvent.click(reviewUrlButton)
+  fireEvent.click(reviewUrlButton);
 
   await waitFor(() => {
     expect(ingestVacancyUrl).toHaveBeenCalledWith({
       url: 'https://jobs.example.com/roles/123',
-    })
-  })
+    });
+  });
 
-  expect(screen.getByRole('status', { name: 'Checking job details...' })).toBeDefined()
-  expect(screen.queryByRole('button', { name: 'Cancel' })).toBeNull()
-  expect(screen.getByRole('button', { name: 'Settings' })).toBeDefined()
-  expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
+  expect(screen.getByRole('status', { name: 'Checking job details...' })).toBeDefined();
+  expect(screen.queryByRole('button', { name: 'Cancel' })).toBeNull();
+  expect(screen.getByRole('button', { name: 'Settings' })).toBeDefined();
+  expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined();
 
   ingestVacancyUrlDeferredPromise.resolve({
     kind: 'ingested',
@@ -2414,12 +2419,12 @@ test('shows the workspace overlay while reviewing a vacancy URL without surfacin
         title: 'Senior Product Designer',
       },
     },
-  })
+  });
 
   await waitFor(() => {
-    expect(screen.queryByRole('status', { name: 'Checking job details...' })).toBeNull()
-  })
-})
+    expect(screen.queryByRole('status', { name: 'Checking job details...' })).toBeNull();
+  });
+});
 
 test('routes to AI worker repair when starting adaptation returns a sign-in requirement', async () => {
   const startPendingGeneration = vi.fn().mockResolvedValue({
@@ -2428,11 +2433,11 @@ test('routes to AI worker repair when starting adaptation returns a sign-in requ
     message: aiSignInFinishDocumentsMessage,
     provider: 'codex',
     status: 'sign_in_required',
-  })
+  });
   const resumePendingGeneration = vi.fn().mockResolvedValue({
     generationRunId: 'run-123',
     tailoredApplicationId: 'tailored-application-123',
-  })
+  });
   const getPendingGenerationCommand = vi
     .fn()
     .mockResolvedValueOnce(null)
@@ -2445,7 +2450,7 @@ test('routes to AI worker repair when starting adaptation returns a sign-in requ
         text: '',
         url: 'https://jobs.example.com/roles/123',
       },
-    })
+    });
 
   renderApp({
     aiWorker: createAiWorkerApi({
@@ -2508,27 +2513,30 @@ test('routes to AI worker repair when starting adaptation returns a sign-in requ
         },
       }),
     }),
-  })
+  });
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
-  })
+    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined();
+  });
   await waitFor(() => {
-    expect(screen.getByRole('button', { name: 'Tailor your CV' })).toHaveProperty('disabled', false)
-  })
+    expect(screen.getByRole('button', { name: 'Tailor your CV' })).toHaveProperty(
+      'disabled',
+      false,
+    );
+  });
 
-  fireEvent.click(screen.getByRole('button', { name: 'Tailor your CV' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Tailor your CV' }));
 
   await waitFor(() => {
-    expect(startPendingGeneration).toHaveBeenCalledTimes(1)
-  })
+    expect(startPendingGeneration).toHaveBeenCalledTimes(1);
+  });
 
   await waitFor(() => {
-    expect(screen.getByRole('button', { name: 'Continue' })).toBeDefined()
-  })
+    expect(screen.getByRole('button', { name: 'Continue' })).toBeDefined();
+  });
 
-  expect(resumePendingGeneration).not.toHaveBeenCalled()
-})
+  expect(resumePendingGeneration).not.toHaveBeenCalled();
+});
 
 test('preserves pasted vacancy context in a blocking preview and keeps Tailor your CV disabled', async () => {
   renderApp({
@@ -2642,51 +2650,51 @@ test('preserves pasted vacancy context in a blocking preview and keeps Tailor yo
         },
       }),
     }),
-  })
+  });
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
-  })
+    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined();
+  });
   await waitForVacancyDraftValues({
     text: '',
     url: '',
-  })
+  });
 
   fireEvent.change(screen.getByLabelText('Job link'), {
     target: {
       value: 'https://jobs.example.com/senior-product-designer',
     },
-  })
+  });
   fireEvent.change(screen.getByLabelText('Job description'), {
     target: {
       value: 'Short pasted vacancy draft.',
     },
-  })
-  const { reviewTextButton: initialReviewTextButton } = getReviewButtons()
+  });
+  const { reviewTextButton: initialReviewTextButton } = getReviewButtons();
 
-  fireEvent.click(initialReviewTextButton)
+  fireEvent.click(initialReviewTextButton);
 
   await waitFor(() => {
     expect(globalThis.window.cvMaxxing.vacancy.ingestPastedVacancy).toHaveBeenCalledWith({
       text: 'Short pasted vacancy draft.',
       url: 'https://jobs.example.com/senior-product-designer',
-    })
-  })
+    });
+  });
 
-  expect(screen.getByText(/Job (details|preview)/)).toBeDefined()
+  expect(screen.getByText(/Job (details|preview)/)).toBeDefined();
   expect(
     screen.getByText('Add the full job responsibilities or requirements before tailoring your CV.'),
-  ).toBeDefined()
+  ).toBeDefined();
   expect(screen.getByLabelText('Job link')).toHaveProperty(
     'value',
     'https://jobs.example.com/senior-product-designer',
-  )
+  );
   expect(screen.getByLabelText('Job description')).toHaveProperty(
     'value',
     'Short pasted vacancy draft.',
-  )
-  expect(screen.getByRole('button', { name: 'Tailor your CV' })).toHaveProperty('disabled', true)
-})
+  );
+  expect(screen.getByRole('button', { name: 'Tailor your CV' })).toHaveProperty('disabled', true);
+});
 
 test('refreshes the vacancy workspace query after review instead of rendering the mutation payload', async () => {
   const getVacancyWorkspaceState = vi
@@ -2720,7 +2728,7 @@ test('refreshes the vacancy workspace query after review instead of rendering th
         textPreview: 'Lead product design for query-driven renderer state.',
         title: 'Query-backed Senior Product Designer',
       },
-    })
+    });
   const ingestPastedVacancy = vi.fn().mockResolvedValue({
     kind: 'ingested',
     vacancy: {
@@ -2763,7 +2771,7 @@ test('refreshes the vacancy workspace query after review instead of rendering th
         title: 'Mutation payload Senior Product Designer',
       },
     },
-  })
+  });
 
   renderApp({
     aiWorker: createAiWorkerApi({
@@ -2800,49 +2808,49 @@ test('refreshes the vacancy workspace query after review instead of rendering th
       getVacancyWorkspaceState,
       ingestPastedVacancy,
     }),
-  })
+  });
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
-  })
+    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined();
+  });
   await waitForVacancyDraftValues({
     text: '',
     url: '',
-  })
+  });
 
   fireEvent.change(screen.getByLabelText('Job link'), {
     target: {
       value: 'https://jobs.example.com/mutation-reviewed-role',
     },
-  })
+  });
   fireEvent.change(screen.getByLabelText('Job description'), {
     target: {
       value: 'Mutation payload reviewed vacancy draft.',
     },
-  })
-  const { reviewTextButton: initialReviewTextButton } = getReviewButtons()
+  });
+  const { reviewTextButton: initialReviewTextButton } = getReviewButtons();
 
-  fireEvent.click(initialReviewTextButton)
-
-  await waitFor(() => {
-    expect(ingestPastedVacancy).toHaveBeenCalledTimes(1)
-    expect(getVacancyWorkspaceState).toHaveBeenCalledTimes(2)
-  })
+  fireEvent.click(initialReviewTextButton);
 
   await waitFor(() => {
-    expect(screen.getByText('Query-backed Senior Product Designer')).toBeDefined()
-  })
+    expect(ingestPastedVacancy).toHaveBeenCalledTimes(1);
+    expect(getVacancyWorkspaceState).toHaveBeenCalledTimes(2);
+  });
+
+  await waitFor(() => {
+    expect(screen.getByText('Query-backed Senior Product Designer')).toBeDefined();
+  });
 
   expect(screen.getByLabelText('Job link')).toHaveProperty(
     'value',
     'https://jobs.example.com/query-reviewed-role',
-  )
+  );
   expect(screen.getByLabelText('Job description')).toHaveProperty(
     'value',
     'Query-backed reviewed vacancy draft.',
-  )
-  expect(screen.queryByText('Mutation payload Senior Product Designer')).toBeNull()
-})
+  );
+  expect(screen.queryByText('Mutation payload Senior Product Designer')).toBeNull();
+});
 
 test('locks the current vacancy draft after a successful review and keeps review actions visible but disabled', async () => {
   const getVacancyWorkspaceState = vi
@@ -2877,7 +2885,7 @@ test('locks the current vacancy draft after a successful review and keeps review
         textPreview: 'Lead product design for reviewed draft state.',
         title: 'Reviewed Senior Product Designer',
       },
-    })
+    });
   const ingestPastedVacancy = vi.fn().mockResolvedValue({
     kind: 'ingested',
     vacancy: {
@@ -2921,7 +2929,7 @@ test('locks the current vacancy draft after a successful review and keeps review
         title: 'Mutation payload Senior Product Designer',
       },
     },
-  })
+  });
 
   renderApp({
     aiWorker: createAiWorkerApi({
@@ -2958,51 +2966,51 @@ test('locks the current vacancy draft after a successful review and keeps review
       getVacancyWorkspaceState,
       ingestPastedVacancy,
     }),
-  })
+  });
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
-  })
+    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined();
+  });
 
   fireEvent.change(screen.getByLabelText('Job link'), {
     target: {
       value: 'https://jobs.example.com/mutation-reviewed-role',
     },
-  })
+  });
   fireEvent.change(screen.getByLabelText('Job description'), {
     target: {
       value: 'Mutation payload reviewed vacancy draft.',
     },
-  })
-  const { reviewTextButton: initialReviewTextButton } = getReviewButtons()
+  });
+  const { reviewTextButton: initialReviewTextButton } = getReviewButtons();
 
-  fireEvent.click(initialReviewTextButton)
-
-  await waitFor(() => {
-    expect(ingestPastedVacancy).toHaveBeenCalledTimes(1)
-    expect(getVacancyWorkspaceState).toHaveBeenCalledTimes(2)
-  })
+  fireEvent.click(initialReviewTextButton);
 
   await waitFor(() => {
-    expect(screen.getByText('Reviewed Senior Product Designer')).toBeDefined()
-  })
+    expect(ingestPastedVacancy).toHaveBeenCalledTimes(1);
+    expect(getVacancyWorkspaceState).toHaveBeenCalledTimes(2);
+  });
 
-  const vacancyUrlInput = screen.getByLabelText('Job link')
-  const vacancyTextInput = screen.getByLabelText('Job description')
-  const { reviewTextButton, reviewUrlButton } = getReviewButtons()
+  await waitFor(() => {
+    expect(screen.getByText('Reviewed Senior Product Designer')).toBeDefined();
+  });
 
-  expect(vacancyUrlInput).toHaveProperty('value', 'https://jobs.example.com/reviewed-role')
-  expect(vacancyUrlInput).toHaveProperty('readOnly', true)
-  expect(vacancyTextInput).toHaveProperty('value', 'Reviewed vacancy draft.')
-  expect(vacancyTextInput).toHaveProperty('readOnly', true)
-  expect(reviewUrlButton).toHaveProperty('disabled', true)
-  expect(reviewTextButton).toHaveProperty('disabled', true)
+  const vacancyUrlInput = screen.getByLabelText('Job link');
+  const vacancyTextInput = screen.getByLabelText('Job description');
+  const { reviewTextButton, reviewUrlButton } = getReviewButtons();
 
-  fireEvent.click(reviewUrlButton)
-  fireEvent.click(reviewTextButton)
+  expect(vacancyUrlInput).toHaveProperty('value', 'https://jobs.example.com/reviewed-role');
+  expect(vacancyUrlInput).toHaveProperty('readOnly', true);
+  expect(vacancyTextInput).toHaveProperty('value', 'Reviewed vacancy draft.');
+  expect(vacancyTextInput).toHaveProperty('readOnly', true);
+  expect(reviewUrlButton).toHaveProperty('disabled', true);
+  expect(reviewTextButton).toHaveProperty('disabled', true);
 
-  expect(ingestPastedVacancy).toHaveBeenCalledTimes(1)
-})
+  fireEvent.click(reviewUrlButton);
+  fireEvent.click(reviewTextButton);
+
+  expect(ingestPastedVacancy).toHaveBeenCalledTimes(1);
+});
 
 test('restores a reviewed vacancy draft as locked source inputs on startup', async () => {
   const ingestPastedVacancy = vi.fn().mockResolvedValue({
@@ -3016,7 +3024,7 @@ test('restores a reviewed vacancy draft as locked source inputs on startup', asy
       reviewState: 'editable',
       vacancy: null,
     },
-  })
+  });
   const ingestVacancyUrl = vi.fn().mockResolvedValue({
     kind: 'ingested',
     vacancy: null,
@@ -3028,7 +3036,7 @@ test('restores a reviewed vacancy draft as locked source inputs on startup', asy
       reviewState: 'editable',
       vacancy: null,
     },
-  })
+  });
 
   renderApp({
     aiWorker: createAiWorkerApi({
@@ -3089,34 +3097,37 @@ test('restores a reviewed vacancy draft as locked source inputs on startup', asy
       ingestPastedVacancy,
       ingestVacancyUrl,
     }),
-  })
+  });
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
-  })
+    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined();
+  });
 
-  const vacancyUrlInput = screen.getByLabelText('Job link')
-  const vacancyTextInput = screen.getByLabelText('Job description')
+  const vacancyUrlInput = screen.getByLabelText('Job link');
+  const vacancyTextInput = screen.getByLabelText('Job description');
 
-  expect(vacancyUrlInput).toHaveProperty('value', 'https://jobs.example.com/restored-reviewed-role')
-  expect(vacancyUrlInput).toHaveProperty('readOnly', true)
-  expect(vacancyTextInput).toHaveProperty('value', '')
-  expect(vacancyTextInput).toHaveProperty('readOnly', true)
-  const { reviewTextButton, reviewUrlButton } = getReviewButtons()
+  expect(vacancyUrlInput).toHaveProperty(
+    'value',
+    'https://jobs.example.com/restored-reviewed-role',
+  );
+  expect(vacancyUrlInput).toHaveProperty('readOnly', true);
+  expect(vacancyTextInput).toHaveProperty('value', '');
+  expect(vacancyTextInput).toHaveProperty('readOnly', true);
+  const { reviewTextButton, reviewUrlButton } = getReviewButtons();
 
-  expect(reviewUrlButton).toHaveProperty('disabled', true)
-  expect(reviewTextButton).toHaveProperty('disabled', true)
-  expect(screen.getByRole('button', { name: 'Tailor your CV' })).toHaveProperty('disabled', false)
+  expect(reviewUrlButton).toHaveProperty('disabled', true);
+  expect(reviewTextButton).toHaveProperty('disabled', true);
+  expect(screen.getByRole('button', { name: 'Tailor your CV' })).toHaveProperty('disabled', false);
 
-  fireEvent.click(reviewUrlButton)
-  fireEvent.click(reviewTextButton)
+  fireEvent.click(reviewUrlButton);
+  fireEvent.click(reviewTextButton);
 
-  expect(ingestVacancyUrl).not.toHaveBeenCalled()
-  expect(ingestPastedVacancy).not.toHaveBeenCalled()
-})
+  expect(ingestVacancyUrl).not.toHaveBeenCalled();
+  expect(ingestPastedVacancy).not.toHaveBeenCalled();
+});
 
 test('submitting an authenticated vacancy URL stays in the generic intake path and restores adaptation when extraction succeeds', async () => {
-  const openVacancyBrowserSession = vi.fn()
+  const openVacancyBrowserSession = vi.fn();
   const ingestVacancyUrl = vi.fn().mockResolvedValue({
     kind: 'ingested',
     vacancy: {
@@ -3159,7 +3170,7 @@ test('submitting an authenticated vacancy URL stays in the generic intake path a
         title: 'Senior Product Designer',
       },
     },
-  })
+  });
 
   renderApp({
     aiWorker: createAiWorkerApi({
@@ -3228,43 +3239,43 @@ test('submitting an authenticated vacancy URL stays in the generic intake path a
       ingestVacancyUrl,
       openVacancyBrowserSession,
     }),
-  })
+  });
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
-  })
+    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined();
+  });
   await waitForVacancyDraftValues({
     text: '',
     url: '',
-  })
+  });
 
   fireEvent.change(screen.getByLabelText('Job link'), {
     target: {
       value: 'https://jobs.example.com/private/123',
     },
-  })
-  const { reviewUrlButton } = getReviewButtons()
+  });
+  const { reviewUrlButton } = getReviewButtons();
 
-  fireEvent.click(reviewUrlButton)
+  fireEvent.click(reviewUrlButton);
 
   await waitFor(() => {
     expect(ingestVacancyUrl).toHaveBeenCalledWith({
       url: 'https://jobs.example.com/private/123',
-    })
-  })
+    });
+  });
 
-  expect(openVacancyBrowserSession).not.toHaveBeenCalled()
+  expect(openVacancyBrowserSession).not.toHaveBeenCalled();
 
   await waitFor(() => {
-    expect(screen.getByText('Senior Product Designer')).toBeDefined()
-  })
+    expect(screen.getByText('Senior Product Designer')).toBeDefined();
+  });
 
   expect(screen.getByLabelText('Job link')).toHaveProperty(
     'value',
     'https://jobs.example.com/private/123',
-  )
-  expect(screen.getByRole('button', { name: 'Tailor your CV' })).toHaveProperty('disabled', false)
-})
+  );
+  expect(screen.getByRole('button', { name: 'Tailor your CV' })).toHaveProperty('disabled', false);
+});
 
 test('shows generic fallback guidance when the main-process browser intake needs user action', async () => {
   renderApp({
@@ -3335,42 +3346,42 @@ test('shows generic fallback guidance when the main-process browser intake needs
         },
       }),
     }),
-  })
+  });
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
-  })
+    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined();
+  });
   await waitForVacancyDraftValues({
     text: '',
     url: '',
-  })
+  });
 
   fireEvent.change(screen.getByLabelText('Job link'), {
     target: {
       value: 'https://jobs.example.com/private/123',
     },
-  })
-  const { reviewUrlButton } = getReviewButtons()
+  });
+  const { reviewUrlButton } = getReviewButtons();
 
-  fireEvent.click(reviewUrlButton)
+  fireEvent.click(reviewUrlButton);
 
   await waitFor(() => {
     expect(
       screen.getByText(
         'This job page may need more access. Open the job page or paste the job description instead.',
       ),
-    ).toBeDefined()
-  })
+    ).toBeDefined();
+  });
 
-  expect(screen.getByRole('button', { name: 'Tailor your CV' })).toHaveProperty('disabled', true)
-})
+  expect(screen.getByRole('button', { name: 'Tailor your CV' })).toHaveProperty('disabled', true);
+});
 
 test('resumes the pending flow into the workspace overlay after sign-in repair', async () => {
   const resumePendingGeneration = vi.fn().mockImplementation(() => {
     return new Promise<never>((resolve) => {
-      void resolve
-    })
-  })
+      void resolve;
+    });
+  });
 
   renderApp({
     aiWorker: createAiWorkerApi({
@@ -3423,33 +3434,33 @@ test('resumes the pending flow into the workspace overlay after sign-in repair',
       }),
       resumePendingGeneration,
     }),
-  })
+  });
 
   await waitFor(() => {
-    expect(screen.getByRole('button', { name: 'Continue' })).toBeDefined()
-  })
+    expect(screen.getByRole('button', { name: 'Continue' })).toBeDefined();
+  });
 
-  fireEvent.click(screen.getByRole('button', { name: 'Continue' }))
-
-  await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
-  })
-
-  expect(screen.getByRole('status', { name: 'Tailoring your CV...' })).toBeDefined()
-  expect(screen.queryByRole('button', { name: 'Open tailored application' })).toBeNull()
-  expect(screen.getByRole('button', { name: 'Cancel' })).toBeDefined()
+  fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
 
   await waitFor(() => {
-    expect(resumePendingGeneration).toHaveBeenCalledTimes(1)
-  })
-})
+    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined();
+  });
+
+  expect(screen.getByRole('status', { name: 'Tailoring your CV...' })).toBeDefined();
+  expect(screen.queryByRole('button', { name: 'Open tailored application' })).toBeNull();
+  expect(screen.getByRole('button', { name: 'Cancel' })).toBeDefined();
+
+  await waitFor(() => {
+    expect(resumePendingGeneration).toHaveBeenCalledTimes(1);
+  });
+});
 
 test('renders the workspace overlay when startup restores pending generation', async () => {
   const resumePendingGeneration = vi.fn().mockImplementation(() => {
     return new Promise<never>((resolve) => {
-      void resolve
-    })
-  })
+      void resolve;
+    });
+  });
 
   renderApp({
     aiWorker: createAiWorkerApi({
@@ -3474,24 +3485,24 @@ test('renders the workspace overlay when startup restores pending generation', a
       }),
       resumePendingGeneration,
     }),
-  })
+  });
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
-  })
+    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined();
+  });
 
-  expect(screen.getByRole('status', { name: 'Tailoring your CV...' })).toBeDefined()
-  expect(screen.queryByRole('button', { name: 'Open tailored application' })).toBeNull()
-  expect(screen.getByRole('button', { name: 'Cancel' })).toBeDefined()
-  expect(screen.getByRole('button', { name: 'Settings' })).toBeDefined()
-})
+  expect(screen.getByRole('status', { name: 'Tailoring your CV...' })).toBeDefined();
+  expect(screen.queryByRole('button', { name: 'Open tailored application' })).toBeNull();
+  expect(screen.getByRole('button', { name: 'Cancel' })).toBeDefined();
+  expect(screen.getByRole('button', { name: 'Settings' })).toBeDefined();
+});
 
 test('restores the workspace overlay after returning from settings during pending generation', async () => {
   const resumePendingGeneration = vi.fn().mockImplementation(() => {
     return new Promise<never>((resolve) => {
-      void resolve
-    })
-  })
+      void resolve;
+    });
+  });
 
   renderApp({
     aiWorker: createAiWorkerApi({
@@ -3516,40 +3527,40 @@ test('restores the workspace overlay after returning from settings during pendin
       }),
       resumePendingGeneration,
     }),
-  })
+  });
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
-  })
+    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined();
+  });
 
-  expect(screen.getByRole('status', { name: 'Tailoring your CV...' })).toBeDefined()
-  expect(screen.getByRole('button', { name: 'Cancel' })).toBeDefined()
+  expect(screen.getByRole('status', { name: 'Tailoring your CV...' })).toBeDefined();
+  expect(screen.getByRole('button', { name: 'Cancel' })).toBeDefined();
 
-  fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
-
-  await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'AI' })).toBeDefined()
-  })
-
-  fireEvent.click(screen.getByRole('button', { name: 'Jobs' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
-  })
+    expect(screen.getByRole('heading', { name: 'AI' })).toBeDefined();
+  });
 
-  expect(screen.getByRole('status', { name: 'Tailoring your CV...' })).toBeDefined()
-  expect(screen.getByRole('button', { name: 'Cancel' })).toBeDefined()
+  fireEvent.click(screen.getByRole('button', { name: 'Jobs' }));
 
   await waitFor(() => {
-    expect(resumePendingGeneration).toHaveBeenCalledTimes(1)
-  })
-})
+    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined();
+  });
+
+  expect(screen.getByRole('status', { name: 'Tailoring your CV...' })).toBeDefined();
+  expect(screen.getByRole('button', { name: 'Cancel' })).toBeDefined();
+
+  await waitFor(() => {
+    expect(resumePendingGeneration).toHaveBeenCalledTimes(1);
+  });
+});
 
 test('keeps settings open when restored generation completes in the background', async () => {
   const getStartupDestination = vi
     .fn()
     .mockResolvedValueOnce('workspace')
-    .mockResolvedValueOnce('workspace')
+    .mockResolvedValueOnce('workspace');
   const getPendingGenerationCommand = vi
     .fn()
     .mockResolvedValueOnce({
@@ -3562,7 +3573,7 @@ test('keeps settings open when restored generation completes in the background',
         url: 'https://jobs.example.com/roles/123',
       },
     })
-    .mockResolvedValue(null)
+    .mockResolvedValue(null);
   const completePendingGeneration = vi.fn().mockResolvedValue({
     workspaceState: createTailoredApplicationWorkspaceStateFixture({
       activeApplicationId: 'tailored-application-123',
@@ -3578,16 +3589,16 @@ test('keeps settings open when restored generation completes in the background',
         },
       ],
     }),
-  })
+  });
   let resolveResumePendingGeneration:
     | ((value: { generationRunId: string; tailoredApplicationId: string }) => void)
-    | undefined
+    | undefined;
 
   const resumePendingGeneration = vi.fn().mockImplementation(() => {
     return new Promise<{ generationRunId: string; tailoredApplicationId: string }>((resolve) => {
-      resolveResumePendingGeneration = resolve
-    })
-  })
+      resolveResumePendingGeneration = resolve;
+    });
+  });
 
   renderApp({
     aiWorker: createAiWorkerApi({
@@ -3696,54 +3707,54 @@ test('keeps settings open when restored generation completes in the background',
       }),
       resumePendingGeneration,
     }),
-  })
+  });
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
-  })
+    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined();
+  });
 
-  expect(screen.getByRole('status', { name: 'Tailoring your CV...' })).toBeDefined()
+  expect(screen.getByRole('status', { name: 'Tailoring your CV...' })).toBeDefined();
 
-  fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
-
-  await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'AI' })).toBeDefined()
-  })
+  fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
 
   await waitFor(() => {
-    expect(resumePendingGeneration).toHaveBeenCalledTimes(1)
-  })
+    expect(screen.getByRole('heading', { name: 'AI' })).toBeDefined();
+  });
 
-  const resolvePendingGeneration = resolveResumePendingGeneration
+  await waitFor(() => {
+    expect(resumePendingGeneration).toHaveBeenCalledTimes(1);
+  });
+
+  const resolvePendingGeneration = resolveResumePendingGeneration;
 
   if (resolvePendingGeneration === undefined) {
-    throw new Error('Expected resumePendingGeneration to capture a resolver.')
+    throw new Error('Expected resumePendingGeneration to capture a resolver.');
   }
 
   resolvePendingGeneration({
     generationRunId: 'run-123',
     tailoredApplicationId: 'tailored-application-123',
-  })
+  });
 
   await waitFor(() => {
-    expect(completePendingGeneration).toHaveBeenCalledWith('command-123')
-  })
+    expect(completePendingGeneration).toHaveBeenCalledWith('command-123');
+  });
 
-  expect(screen.getByRole('heading', { name: 'AI' })).toBeDefined()
-  expect(screen.queryByRole('heading', { name: 'Senior platform engineer' })).toBeNull()
+  expect(screen.getByRole('heading', { name: 'AI' })).toBeDefined();
+  expect(screen.queryByRole('heading', { name: 'Senior platform engineer' })).toBeNull();
 
-  fireEvent.click(screen.getByRole('button', { name: 'Jobs' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Jobs' }));
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Senior platform engineer' })).toBeDefined()
-  })
-})
+    expect(screen.getByRole('heading', { name: 'Senior platform engineer' })).toBeDefined();
+  });
+});
 
 test('returns to the workspace with a visible error when generation fails contract validation from the overlay flow', async () => {
   const getStartupDestination = vi
     .fn()
     .mockResolvedValueOnce('workspace')
-    .mockResolvedValueOnce('workspace')
+    .mockResolvedValueOnce('workspace');
 
   renderApp({
     aiWorker: createAiWorkerApi({
@@ -3791,26 +3802,26 @@ test('returns to the workspace with a visible error when generation fails contra
         message: "We couldn't finish your CV and cover letter. Try tailoring this job again.",
       }),
     }),
-  })
+  });
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
-  })
+    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined();
+  });
 
   await waitFor(() => {
     expect(
       screen.getByText(
         "We couldn't finish your CV and cover letter. Try tailoring this job again.",
       ),
-    ).toBeDefined()
-  })
+    ).toBeDefined();
+  });
 
-  expect(screen.getByRole('alert')).toBeDefined()
-  expect(screen.getAllByRole('button', { name: 'Check job details' })).toHaveLength(2)
-})
+  expect(screen.getByRole('alert')).toBeDefined();
+  expect(screen.getAllByRole('button', { name: 'Check job details' })).toHaveLength(2);
+});
 
 test('returns to the workspace immediately when overlay recovery stalls after generation failure', async () => {
-  const getStartupDestination = vi.fn().mockResolvedValueOnce('workspace')
+  const getStartupDestination = vi.fn().mockResolvedValueOnce('workspace');
   const getAiWorkerPreflight = vi
     .fn()
     .mockResolvedValueOnce({
@@ -3821,9 +3832,9 @@ test('returns to the workspace immediately when overlay recovery stalls after ge
     })
     .mockImplementation(() => {
       return new Promise((resolve) => {
-        void resolve
-      })
-    })
+        void resolve;
+      });
+    });
 
   renderApp({
     aiWorker: createAiWorkerApi({
@@ -3866,28 +3877,28 @@ test('returns to the workspace immediately when overlay recovery stalls after ge
         message: "We couldn't finish your CV and cover letter. Try tailoring this job again.",
       }),
     }),
-  })
+  });
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
-  })
+    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined();
+  });
 
   await waitFor(() => {
     expect(
       screen.getByText(
         "We couldn't finish your CV and cover letter. Try tailoring this job again.",
       ),
-    ).toBeDefined()
-  })
+    ).toBeDefined();
+  });
 
-  expect(screen.queryByRole('heading', { name: 'Generating tailored application' })).toBeNull()
-})
+  expect(screen.queryByRole('heading', { name: 'Generating tailored application' })).toBeNull();
+});
 
 test('opens the tailored application when generation completes from the workspace overlay', async () => {
   const getStartupDestination = vi
     .fn()
     .mockResolvedValueOnce('workspace')
-    .mockResolvedValueOnce('workspace')
+    .mockResolvedValueOnce('workspace');
   const getPendingGenerationCommand = vi
     .fn()
     .mockResolvedValueOnce({
@@ -3900,7 +3911,7 @@ test('opens the tailored application when generation completes from the workspac
         url: 'https://jobs.example.com/roles/123',
       },
     })
-    .mockResolvedValue(null)
+    .mockResolvedValue(null);
   const completedWorkspaceState = createTailoredApplicationWorkspaceStateFixture({
     activeApplicationId: 'tailored-application-123',
     applications: [
@@ -3914,21 +3925,21 @@ test('opens the tailored application when generation completes from the workspac
         vacancyTitle: 'Senior platform engineer',
       },
     ],
-  })
+  });
   const completePendingGeneration = vi.fn().mockResolvedValue({
     workspaceState: completedWorkspaceState,
-  })
-  const clipboardWriteText = vi.fn().mockImplementation(() => Promise.resolve())
+  });
+  const clipboardWriteText = vi.fn().mockImplementation(() => Promise.resolve());
   const exportAdaptedCvPdf = vi.fn().mockResolvedValue({
     filePath: '/exports/Ada Lovelace - Senior platform engineer - adapted-cv (2).pdf',
     overwriteAvoided: true,
     pageWarning: 'This adapted CV runs to 4 pages. Export is still available.',
-  })
+  });
   const exportCoverLetterPdf = vi.fn().mockResolvedValue({
     filePath: '/exports/Ada Lovelace - Senior platform engineer - cover-letter (2).pdf',
     overwriteAvoided: true,
     pageWarning: 'This cover letter runs to 2 pages. Export and copy remain available.',
-  })
+  });
   const getTailoredApplicationPreview = vi.fn().mockResolvedValue({
     adaptedCv: {
       pageCount: 4,
@@ -3993,12 +4004,12 @@ test('opens the tailored application when generation completes from the workspac
       title: 'Senior platform engineer',
     },
     vacancyTitle: 'Senior platform engineer',
-  })
-  const getWorkspaceState = vi.fn().mockResolvedValue(completedWorkspaceState)
+  });
+  const getWorkspaceState = vi.fn().mockResolvedValue(completedWorkspaceState);
   const resumePendingGeneration = vi.fn().mockResolvedValue({
     generationRunId: 'run-123',
     tailoredApplicationId: 'tailored-application-123',
-  })
+  });
 
   renderApp({
     aiWorker: createAiWorkerApi({
@@ -4040,72 +4051,72 @@ test('opens the tailored application when generation completes from the workspac
       getWorkspaceState,
       resumePendingGeneration,
     }),
-  })
+  });
 
   Object.defineProperty(globalThis.navigator, 'clipboard', {
     configurable: true,
     value: {
       writeText: clipboardWriteText,
     },
-  })
+  });
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
-  })
+    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined();
+  });
 
-  expect(screen.getByRole('status', { name: 'Tailoring your CV...' })).toBeDefined()
-
-  await waitFor(() => {
-    expect(resumePendingGeneration).toHaveBeenCalledTimes(1)
-    expect(completePendingGeneration).toHaveBeenCalledWith('command-123')
-  })
+  expect(screen.getByRole('status', { name: 'Tailoring your CV...' })).toBeDefined();
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Senior platform engineer' })).toBeDefined()
-  })
+    expect(resumePendingGeneration).toHaveBeenCalledTimes(1);
+    expect(completePendingGeneration).toHaveBeenCalledWith('command-123');
+  });
 
-  expect(screen.getByText('About this job')).toBeDefined()
-  expect(screen.getByRole('heading', { level: 3, name: 'Your CV' })).toBeDefined()
-  expect(screen.getByRole('heading', { level: 3, name: 'Highlighted in your CV' })).toBeDefined()
-  expect(screen.getByRole('heading', { level: 3, name: 'Worth checking' })).toBeDefined()
-  expect(screen.getByRole('button', { name: 'Delete this job' })).toBeDefined()
-  expect(screen.queryByRole('button', { name: 'Regenerate tailored application' })).toBeNull()
-  expect(screen.queryByRole('button', { name: 'Edit adapted CV' })).toBeNull()
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Senior platform engineer' })).toBeDefined();
+  });
 
-  expect(screen.getByText('Page 1 of 4')).toBeDefined()
+  expect(screen.getByText('About this job')).toBeDefined();
+  expect(screen.getByRole('heading', { level: 3, name: 'Your CV' })).toBeDefined();
+  expect(screen.getByRole('heading', { level: 3, name: 'Highlighted in your CV' })).toBeDefined();
+  expect(screen.getByRole('heading', { level: 3, name: 'Worth checking' })).toBeDefined();
+  expect(screen.getByRole('button', { name: 'Delete this job' })).toBeDefined();
+  expect(screen.queryByRole('button', { name: 'Regenerate tailored application' })).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Edit adapted CV' })).toBeNull();
+
+  expect(screen.getByText('Page 1 of 4')).toBeDefined();
   expect(
     screen.queryByText('This adapted CV runs to 4 pages. Export is still available.'),
-  ).toBeNull()
-  expect(screen.getByRole('button', { name: 'Zoom in' })).toBeDefined()
-  expect(screen.getByRole('button', { name: 'Save CV and cover letter' })).toBeDefined()
+  ).toBeNull();
+  expect(screen.getByRole('button', { name: 'Zoom in' })).toBeDefined();
+  expect(screen.getByRole('button', { name: 'Save CV and cover letter' })).toBeDefined();
 
-  fireEvent.click(screen.getByRole('button', { name: 'Save CV and cover letter' }))
-
-  await waitFor(() => {
-    expect(exportAdaptedCvPdf).toHaveBeenCalledWith('tailored-application-123')
-  })
-
-  fireEvent.click(screen.getByRole('button', { name: 'Cover letter' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Save CV and cover letter' }));
 
   await waitFor(() => {
-    expect(screen.getByText('Page 1 of 2')).toBeDefined()
-  })
+    expect(exportAdaptedCvPdf).toHaveBeenCalledWith('tailored-application-123');
+  });
+
+  fireEvent.click(screen.getByRole('button', { name: 'Cover letter' }));
+
+  await waitFor(() => {
+    expect(screen.getByText('Page 1 of 2')).toBeDefined();
+  });
 
   expect(
     screen.queryByText('This cover letter runs to 2 pages. Export and copy remain available.'),
-  ).toBeNull()
+  ).toBeNull();
 
-  fireEvent.click(screen.getByRole('button', { name: 'Save CV and cover letter' }))
-  fireEvent.click(screen.getByRole('button', { name: 'Copy cover letter text' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Save CV and cover letter' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Copy cover letter text' }));
 
   await waitFor(() => {
-    expect(exportCoverLetterPdf).toHaveBeenCalledWith('tailored-application-123')
-    expect(clipboardWriteText).toHaveBeenCalledWith('Dear Hiring Manager,\n\nAda Lovelace')
-  })
-})
+    expect(exportCoverLetterPdf).toHaveBeenCalledWith('tailored-application-123');
+    expect(clipboardWriteText).toHaveBeenCalledWith('Dear Hiring Manager,\n\nAda Lovelace');
+  });
+});
 
 test('shows a PDF save error when exporting the tailored CV fails', async () => {
-  const getStartupDestination = vi.fn().mockResolvedValue('workspace')
+  const getStartupDestination = vi.fn().mockResolvedValue('workspace');
   const completedWorkspaceState = createTailoredApplicationWorkspaceStateFixture({
     activeApplicationId: 'tailored-application-123',
     applications: [
@@ -4119,10 +4130,10 @@ test('shows a PDF save error when exporting the tailored CV fails', async () => 
         vacancyTitle: 'Senior platform engineer',
       },
     ],
-  })
+  });
   const exportAdaptedCvPdf = vi
     .fn()
-    .mockRejectedValue(new Error('The destination folder is missing.'))
+    .mockRejectedValue(new Error('The destination folder is missing.'));
 
   renderApp({
     aiWorker: createAiWorkerApi({
@@ -4227,56 +4238,56 @@ test('shows a PDF save error when exporting the tailored CV fails', async () => 
       getWorkspaceState: vi.fn().mockResolvedValue(completedWorkspaceState),
       resumePendingGeneration: vi.fn().mockResolvedValue(null),
     }),
-  })
+  });
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Senior platform engineer' })).toBeDefined()
-  })
+    expect(screen.getByRole('heading', { name: 'Senior platform engineer' })).toBeDefined();
+  });
 
   await waitFor(() => {
-    expect(screen.getByText('Page 1 of 4')).toBeDefined()
-  })
+    expect(screen.getByText('Page 1 of 4')).toBeDefined();
+  });
 
-  fireEvent.click(screen.getByRole('button', { name: 'Save CV and cover letter' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Save CV and cover letter' }));
 
   await waitFor(() => {
-    expect(exportAdaptedCvPdf).toHaveBeenCalledWith('tailored-application-123')
-  })
+    expect(exportAdaptedCvPdf).toHaveBeenCalledWith('tailored-application-123');
+  });
 
-  expect(screen.getByRole('alert')).toBeDefined()
+  expect(screen.getByRole('alert')).toBeDefined();
   expect(
     screen.getAllByText(
       "We couldn't save the PDF. Check that the destination folder is available on this Mac, then try again.",
     ),
-  ).toHaveLength(1)
+  ).toHaveLength(1);
 
-  fireEvent.click(screen.getByRole('button', { name: 'Add a job' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Add a job' }));
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
-  })
+    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined();
+  });
 
   expect(
     screen.queryByText(
       "We couldn't save the PDF. Check that the destination folder is available on this Mac, then try again.",
     ),
-  ).toBeNull()
+  ).toBeNull();
 
-  fireEvent.click(screen.getByRole('button', { name: 'Open senior platform engineer' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Open senior platform engineer' }));
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Senior platform engineer' })).toBeDefined()
-  })
+    expect(screen.getByRole('heading', { name: 'Senior platform engineer' })).toBeDefined();
+  });
 
   expect(
     screen.getAllByText(
       "We couldn't save the PDF. Check that the destination folder is available on this Mac, then try again.",
     ),
-  ).toHaveLength(1)
-})
+  ).toHaveLength(1);
+});
 
 test('shows a shared saved-job alert when copying the cover letter text fails', async () => {
-  const getStartupDestination = vi.fn().mockResolvedValue('workspace')
+  const getStartupDestination = vi.fn().mockResolvedValue('workspace');
   const completedWorkspaceState = createTailoredApplicationWorkspaceStateFixture({
     activeApplicationId: 'tailored-application-123',
     applications: [
@@ -4290,15 +4301,15 @@ test('shows a shared saved-job alert when copying the cover letter text fails', 
         vacancyTitle: 'Senior platform engineer',
       },
     ],
-  })
-  const clipboardWriteText = vi.fn().mockRejectedValue(new Error('Clipboard unavailable.'))
+  });
+  const clipboardWriteText = vi.fn().mockRejectedValue(new Error('Clipboard unavailable.'));
 
   Object.defineProperty(globalThis.navigator, 'clipboard', {
     configurable: true,
     value: {
       writeText: clipboardWriteText,
     },
-  })
+  });
 
   renderApp({
     aiWorker: createAiWorkerApi({
@@ -4342,33 +4353,33 @@ test('shows a shared saved-job alert when copying the cover letter text fails', 
       getWorkspaceState: vi.fn().mockResolvedValue(completedWorkspaceState),
       resumePendingGeneration: vi.fn().mockResolvedValue(null),
     }),
-  })
+  });
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Senior platform engineer' })).toBeDefined()
-  })
+    expect(screen.getByRole('heading', { name: 'Senior platform engineer' })).toBeDefined();
+  });
 
-  fireEvent.click(screen.getByRole('button', { name: 'Cover letter' }))
-
-  await waitFor(() => {
-    expect(screen.getByText('Page 1 of 2')).toBeDefined()
-  })
-
-  fireEvent.click(screen.getByRole('button', { name: 'Copy cover letter text' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Cover letter' }));
 
   await waitFor(() => {
-    expect(clipboardWriteText).toHaveBeenCalledWith('Dear Hiring Manager,\n\nAda Lovelace')
-  })
+    expect(screen.getByText('Page 1 of 2')).toBeDefined();
+  });
 
-  expect(screen.getByRole('alert')).toBeDefined()
-  expect(screen.getAllByText("We couldn't copy the cover letter text.")).toHaveLength(1)
-})
+  fireEvent.click(screen.getByRole('button', { name: 'Copy cover letter text' }));
+
+  await waitFor(() => {
+    expect(clipboardWriteText).toHaveBeenCalledWith('Dear Hiring Manager,\n\nAda Lovelace');
+  });
+
+  expect(screen.getByRole('alert')).toBeDefined();
+  expect(screen.getAllByText("We couldn't copy the cover letter text.")).toHaveLength(1);
+});
 
 test('replaces the current draft row with the new saved tailored application row without sidebar churn', async () => {
   const getStartupDestination = vi
     .fn()
     .mockResolvedValueOnce('workspace')
-    .mockResolvedValueOnce('workspace')
+    .mockResolvedValueOnce('workspace');
   const getPendingGenerationCommand = vi
     .fn()
     .mockResolvedValueOnce({
@@ -4381,7 +4392,7 @@ test('replaces the current draft row with the new saved tailored application row
         url: 'https://jobs.example.com/roles/123',
       },
     })
-    .mockResolvedValue(null)
+    .mockResolvedValue(null);
   const completedWorkspaceState = createTailoredApplicationWorkspaceStateFixture({
     activeApplicationId: 'tailored-application-123',
     applications: [
@@ -4404,15 +4415,17 @@ test('replaces the current draft row with the new saved tailored application row
         vacancyTitle: 'Platform Product Manager',
       },
     ],
-  })
+  });
   const completePendingGeneration = vi.fn().mockResolvedValue({
     workspaceState: completedWorkspaceState,
-  })
-  const getWorkspaceStateRefetch = createDeferredPromise<TailoredApplicationWorkspaceState>()
-  const previousTailoredApplication = completedWorkspaceState.applications[1]
+  });
+  const getWorkspaceStateRefetch = createDeferredPromise<TailoredApplicationWorkspaceState>();
+  const previousTailoredApplication = completedWorkspaceState.applications[1];
 
   if (previousTailoredApplication === undefined) {
-    throw new Error('Expected the seeded workspace state to include an older tailored application.')
+    throw new Error(
+      'Expected the seeded workspace state to include an older tailored application.',
+    );
   }
 
   const getWorkspaceState = vi
@@ -4424,15 +4437,15 @@ test('replaces the current draft row with the new saved tailored application row
       }),
     )
     .mockImplementationOnce(() => {
-      return getWorkspaceStateRefetch.promise
-    })
+      return getWorkspaceStateRefetch.promise;
+    });
   const getTailoredApplicationPreview = vi.fn().mockImplementation(() => {
-    return new Promise<TailoredApplicationPreview | null>(() => null)
-  })
+    return new Promise<TailoredApplicationPreview | null>(() => null);
+  });
   const resumePendingGeneration = vi.fn().mockResolvedValue({
     generationRunId: 'run-123',
     tailoredApplicationId: 'tailored-application-123',
-  })
+  });
 
   renderApp({
     aiWorker: createAiWorkerApi({
@@ -4497,40 +4510,40 @@ test('replaces the current draft row with the new saved tailored application row
         },
       }),
     }),
-  })
+  });
 
   await waitFor(() => {
-    expect(screen.getByRole('button', { name: 'Open add a job' })).toBeDefined()
-    expect(screen.getByRole('button', { name: 'Open platform product manager' })).toBeDefined()
-  })
+    expect(screen.getByRole('button', { name: 'Open add a job' })).toBeDefined();
+    expect(screen.getByRole('button', { name: 'Open platform product manager' })).toBeDefined();
+  });
 
-  expect(screen.queryByText('No jobs yet')).toBeNull()
-
-  await waitFor(() => {
-    expect(resumePendingGeneration).toHaveBeenCalledTimes(1)
-    expect(completePendingGeneration).toHaveBeenCalledWith('command-123')
-  })
+  expect(screen.queryByText('No jobs yet')).toBeNull();
 
   await waitFor(() => {
-    expect(screen.queryByRole('button', { name: 'Open add a job' })).toBeNull()
-  })
+    expect(resumePendingGeneration).toHaveBeenCalledTimes(1);
+    expect(completePendingGeneration).toHaveBeenCalledWith('command-123');
+  });
 
-  expect(screen.queryByText('No jobs yet')).toBeNull()
-  expect(screen.getByRole('heading', { name: 'Senior platform engineer' })).toBeDefined()
+  await waitFor(() => {
+    expect(screen.queryByRole('button', { name: 'Open add a job' })).toBeNull();
+  });
+
+  expect(screen.queryByText('No jobs yet')).toBeNull();
+  expect(screen.getByRole('heading', { name: 'Senior platform engineer' })).toBeDefined();
   expect(
     screen
       .getByRole('button', { name: 'Open senior platform engineer' })
       .getAttribute('aria-current'),
-  ).toBe('page')
-  expect(screen.getByRole('button', { name: 'Open platform product manager' })).toBeDefined()
-  expect(getTailoredApplicationPreview).toHaveBeenCalledWith('tailored-application-123')
-})
+  ).toBe('page');
+  expect(screen.getByRole('button', { name: 'Open platform product manager' })).toBeDefined();
+  expect(getTailoredApplicationPreview).toHaveBeenCalledWith('tailored-application-123');
+});
 
 test('transitions to the tailored application even when vacancy cleanup is still pending', async () => {
   const getStartupDestination = vi
     .fn()
     .mockResolvedValueOnce('workspace')
-    .mockResolvedValueOnce('workspace')
+    .mockResolvedValueOnce('workspace');
   const getPendingGenerationCommand = vi
     .fn()
     .mockResolvedValueOnce({
@@ -4543,7 +4556,7 @@ test('transitions to the tailored application even when vacancy cleanup is still
         url: 'https://jobs.example.com/roles/123',
       },
     })
-    .mockResolvedValue(null)
+    .mockResolvedValue(null);
   const completePendingGeneration = vi.fn().mockResolvedValue({
     workspaceState: createTailoredApplicationWorkspaceStateFixture({
       activeApplicationId: 'tailored-application-123',
@@ -4559,7 +4572,7 @@ test('transitions to the tailored application even when vacancy cleanup is still
         },
       ],
     }),
-  })
+  });
   const getTailoredApplicationPreview = vi.fn().mockResolvedValue({
     adaptedCv: {
       pageCount: 4,
@@ -4620,7 +4633,7 @@ test('transitions to the tailored application even when vacancy cleanup is still
       title: 'Senior platform engineer',
     },
     vacancyTitle: 'Senior platform engineer',
-  })
+  });
   const getWorkspaceState = vi.fn().mockResolvedValue({
     activeApplicationId: 'tailored-application-123',
     applications: [
@@ -4634,15 +4647,15 @@ test('transitions to the tailored application even when vacancy cleanup is still
         vacancyTitle: 'Senior platform engineer',
       },
     ],
-  })
+  });
   const resumePendingGeneration = vi.fn().mockResolvedValue({
     generationRunId: 'run-123',
     tailoredApplicationId: 'tailored-application-123',
-  })
+  });
 
   const clearVacancyWorkspaceState = vi.fn().mockImplementation(() => {
-    return new Promise<void>(() => null)
-  })
+    return new Promise<void>(() => null);
+  });
 
   renderApp({
     aiWorker: createAiWorkerApi({
@@ -4685,25 +4698,25 @@ test('transitions to the tailored application even when vacancy cleanup is still
     vacancy: createVacancyApi({
       clearVacancyWorkspaceState,
     }),
-  })
+  });
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
-  })
+    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined();
+  });
 
-  expect(screen.getByRole('status', { name: 'Tailoring your CV...' })).toBeDefined()
-
-  await waitFor(() => {
-    expect(resumePendingGeneration).toHaveBeenCalledTimes(1)
-    expect(completePendingGeneration).toHaveBeenCalledWith('command-123')
-  })
+  expect(screen.getByRole('status', { name: 'Tailoring your CV...' })).toBeDefined();
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Senior platform engineer' })).toBeDefined()
-  })
+    expect(resumePendingGeneration).toHaveBeenCalledTimes(1);
+    expect(completePendingGeneration).toHaveBeenCalledWith('command-123');
+  });
 
-  expect(clearVacancyWorkspaceState).not.toHaveBeenCalled()
-})
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Senior platform engineer' })).toBeDefined();
+  });
+
+  expect(clearVacancyWorkspaceState).not.toHaveBeenCalled();
+});
 
 test('browses saved tailored applications, reopens an older detail view, and deletes it', async () => {
   const getTailoredApplicationPreview = vi.fn<
@@ -4770,7 +4783,7 @@ test('browses saved tailored applications, reopens an older detail view, and del
           title: 'Platform Product Manager',
         },
         vacancyTitle: 'Platform Product Manager',
-      } satisfies TailoredApplicationPreview)
+      } satisfies TailoredApplicationPreview);
     }
 
     return Promise.resolve({
@@ -4833,8 +4846,8 @@ test('browses saved tailored applications, reopens an older detail view, and del
         title: 'Senior platform engineer',
       },
       vacancyTitle: 'Senior platform engineer',
-    } satisfies TailoredApplicationPreview)
-  })
+    } satisfies TailoredApplicationPreview);
+  });
   const getWorkspaceState = vi
     .fn()
     .mockResolvedValueOnce({
@@ -4873,8 +4886,8 @@ test('browses saved tailored applications, reopens an older detail view, and del
           vacancyTitle: 'Senior platform engineer',
         },
       ],
-    })
-  const deleteTailoredApplication = vi.fn().mockImplementation(() => Promise.resolve())
+    });
+  const deleteTailoredApplication = vi.fn().mockImplementation(() => Promise.resolve());
 
   renderApp({
     aiWorker: createAiWorkerApi({
@@ -4912,43 +4925,43 @@ test('browses saved tailored applications, reopens an older detail view, and del
       getTailoredApplicationPreview,
       getWorkspaceState,
     }),
-  })
+  });
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Senior platform engineer' })).toBeDefined()
-  })
+    expect(screen.getByRole('heading', { name: 'Senior platform engineer' })).toBeDefined();
+  });
 
-  fireEvent.click(screen.getByRole('button', { name: 'Open platform product manager' }))
-
-  await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Platform Product Manager' })).toBeDefined()
-  })
-
-  expect(screen.getByText('Lead platform product direction.')).toBeDefined()
-
-  fireEvent.click(screen.getByRole('button', { name: 'Delete this job' }))
-
-  const deleteDialog = screen.getByRole('dialog', { name: 'Delete this job?' })
-
-  expect(deleteDialog).toBeDefined()
-
-  fireEvent.click(within(deleteDialog).getByRole('button', { name: 'Delete this job' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Open platform product manager' }));
 
   await waitFor(() => {
-    expect(deleteTailoredApplication).toHaveBeenCalledWith('tailored-application-456')
-  })
+    expect(screen.getByRole('heading', { name: 'Platform Product Manager' })).toBeDefined();
+  });
+
+  expect(screen.getByText('Lead platform product direction.')).toBeDefined();
+
+  fireEvent.click(screen.getByRole('button', { name: 'Delete this job' }));
+
+  const deleteDialog = screen.getByRole('dialog', { name: 'Delete this job?' });
+
+  expect(deleteDialog).toBeDefined();
+
+  fireEvent.click(within(deleteDialog).getByRole('button', { name: 'Delete this job' }));
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Senior platform engineer' })).toBeDefined()
-  })
-})
+    expect(deleteTailoredApplication).toHaveBeenCalledWith('tailored-application-456');
+  });
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Senior platform engineer' })).toBeDefined();
+  });
+});
 
 test('switches between saved tailored applications without discarding the current draft', async () => {
   const draft = {
     text: 'Senior platform engineer',
     url: 'https://jobs.example.com/roles/123',
-  }
-  const firstPreview = createTailoredApplicationPreviewFixture()
+  };
+  const firstPreview = createTailoredApplicationPreviewFixture();
   const secondPreview = createTailoredApplicationPreviewFixture({
     employer: 'Nebula Labs',
     id: 'tailored-application-456',
@@ -4964,12 +4977,12 @@ test('switches between saved tailored applications without discarding the curren
       title: 'Platform Product Manager',
     },
     vacancyTitle: 'Platform Product Manager',
-  })
+  });
   const getTailoredApplicationPreview = vi.fn().mockImplementation((tailoredApplicationId) => {
     return Promise.resolve(
       tailoredApplicationId === 'tailored-application-456' ? secondPreview : firstPreview,
-    )
-  })
+    );
+  });
 
   renderApp({
     aiWorker: createAiWorkerApi({
@@ -5050,41 +5063,41 @@ test('switches between saved tailored applications without discarding the curren
         },
       }),
     }),
-  })
+  });
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
-  })
-  await waitForVacancyDraftValues(draft)
+    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined();
+  });
+  await waitForVacancyDraftValues(draft);
 
-  fireEvent.click(screen.getByRole('button', { name: 'Open platform product manager' }))
-
-  await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Platform Product Manager' })).toBeDefined()
-  })
-
-  expect(screen.getByRole('button', { name: 'Open add a job' })).toBeDefined()
-
-  fireEvent.click(screen.getByRole('button', { name: 'Open senior platform engineer' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Open platform product manager' }));
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Senior platform engineer' })).toBeDefined()
-  })
+    expect(screen.getByRole('heading', { name: 'Platform Product Manager' })).toBeDefined();
+  });
 
-  fireEvent.click(screen.getByRole('button', { name: 'Open add a job' }))
+  expect(screen.getByRole('button', { name: 'Open add a job' })).toBeDefined();
+
+  fireEvent.click(screen.getByRole('button', { name: 'Open senior platform engineer' }));
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
-  })
-  await waitForVacancyDraftValues(draft)
-})
+    expect(screen.getByRole('heading', { name: 'Senior platform engineer' })).toBeDefined();
+  });
+
+  fireEvent.click(screen.getByRole('button', { name: 'Open add a job' }));
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined();
+  });
+  await waitForVacancyDraftValues(draft);
+});
 
 test('deleting the selected saved tailored application returns to the current draft when it exists', async () => {
   const draft = {
     text: 'Senior platform engineer',
     url: 'https://jobs.example.com/roles/123',
-  }
-  const deleteTailoredApplication = vi.fn().mockImplementation(() => Promise.resolve())
+  };
+  const deleteTailoredApplication = vi.fn().mockImplementation(() => Promise.resolve());
 
   renderApp({
     aiWorker: createAiWorkerApi({
@@ -5165,38 +5178,38 @@ test('deleting the selected saved tailored application returns to the current dr
         },
       }),
     }),
-  })
+  });
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
-  })
+    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined();
+  });
 
-  fireEvent.click(screen.getByRole('button', { name: 'Open senior platform engineer' }))
-
-  await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Senior platform engineer' })).toBeDefined()
-  })
-
-  fireEvent.click(screen.getByRole('button', { name: 'Delete this job' }))
-
-  const deleteDialog = screen.getByRole('dialog', { name: 'Delete this job?' })
-
-  expect(deleteDialog).toBeDefined()
-
-  fireEvent.click(within(deleteDialog).getByRole('button', { name: 'Delete this job' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Open senior platform engineer' }));
 
   await waitFor(() => {
-    expect(deleteTailoredApplication).toHaveBeenCalledWith('tailored-application-123')
-  })
+    expect(screen.getByRole('heading', { name: 'Senior platform engineer' })).toBeDefined();
+  });
+
+  fireEvent.click(screen.getByRole('button', { name: 'Delete this job' }));
+
+  const deleteDialog = screen.getByRole('dialog', { name: 'Delete this job?' });
+
+  expect(deleteDialog).toBeDefined();
+
+  fireEvent.click(within(deleteDialog).getByRole('button', { name: 'Delete this job' }));
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
-  })
-  await waitForVacancyDraftValues(draft)
-})
+    expect(deleteTailoredApplication).toHaveBeenCalledWith('tailored-application-123');
+  });
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined();
+  });
+  await waitForVacancyDraftValues(draft);
+});
 
 test('starts a new blank vacancy draft from the active tailored application workspace when no meaningful draft exists', async () => {
-  const clearVacancyWorkspaceState = vi.fn().mockImplementation(() => Promise.resolve())
+  const clearVacancyWorkspaceState = vi.fn().mockImplementation(() => Promise.resolve());
 
   renderApp({
     aiWorker: createAiWorkerApi({
@@ -5309,33 +5322,33 @@ test('starts a new blank vacancy draft from the active tailored application work
     vacancy: createVacancyApi({
       clearVacancyWorkspaceState,
     }),
-  })
+  });
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Senior platform engineer' })).toBeDefined()
-  })
+    expect(screen.getByRole('heading', { name: 'Senior platform engineer' })).toBeDefined();
+  });
 
-  fireEvent.click(screen.getByRole('button', { name: 'Add a job' }))
-
-  await waitFor(() => {
-    expect(clearVacancyWorkspaceState).toHaveBeenCalledTimes(1)
-  })
+  fireEvent.click(screen.getByRole('button', { name: 'Add a job' }));
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
-  })
+    expect(clearVacancyWorkspaceState).toHaveBeenCalledTimes(1);
+  });
 
-  expect(screen.getByLabelText('Job link')).toBeDefined()
-  expect(screen.getByLabelText('Job description')).toBeDefined()
-  expect(screen.getByRole('button', { name: 'Open senior platform engineer' })).toBeDefined()
-})
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined();
+  });
+
+  expect(screen.getByLabelText('Job link')).toBeDefined();
+  expect(screen.getByLabelText('Job description')).toBeDefined();
+  expect(screen.getByRole('button', { name: 'Open senior platform engineer' })).toBeDefined();
+});
 
 test('requires confirmation before discarding a meaningful draft from the active tailored application workspace', async () => {
   const draft = {
     text: 'Senior platform engineer',
     url: 'https://jobs.example.com/roles/123',
-  }
-  const clearVacancyWorkspaceState = vi.fn().mockImplementation(() => Promise.resolve())
+  };
+  const clearVacancyWorkspaceState = vi.fn().mockImplementation(() => Promise.resolve());
   const getVacancyWorkspaceState = vi
     .fn()
     .mockResolvedValueOnce({
@@ -5364,7 +5377,7 @@ test('requires confirmation before discarding a meaningful draft from the active
         url: '',
       },
       vacancy: null,
-    })
+    });
 
   renderApp({
     aiWorker: createAiWorkerApi({
@@ -5420,53 +5433,53 @@ test('requires confirmation before discarding a meaningful draft from the active
       clearVacancyWorkspaceState,
       getVacancyWorkspaceState,
     }),
-  })
+  });
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Senior platform engineer' })).toBeDefined()
-  })
+    expect(screen.getByRole('heading', { name: 'Senior platform engineer' })).toBeDefined();
+  });
 
-  fireEvent.click(screen.getByRole('button', { name: 'Add a job' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Add a job' }));
 
-  expect(clearVacancyWorkspaceState).not.toHaveBeenCalled()
-  expect(screen.getByRole('dialog', { name: 'Discard this job draft?' })).toBeDefined()
+  expect(clearVacancyWorkspaceState).not.toHaveBeenCalled();
+  expect(screen.getByRole('dialog', { name: 'Discard this job draft?' })).toBeDefined();
 
-  fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
-
-  await waitFor(() => {
-    expect(screen.queryByRole('dialog', { name: 'Discard this job draft?' })).toBeNull()
-  })
-
-  expect(clearVacancyWorkspaceState).not.toHaveBeenCalled()
-  expect(screen.getByRole('heading', { name: 'Senior platform engineer' })).toBeDefined()
-
-  fireEvent.click(screen.getByRole('button', { name: 'Add a job' }))
-  fireEvent.click(screen.getByRole('button', { name: 'Discard draft' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
 
   await waitFor(() => {
-    expect(clearVacancyWorkspaceState).toHaveBeenCalledTimes(1)
-  })
+    expect(screen.queryByRole('dialog', { name: 'Discard this job draft?' })).toBeNull();
+  });
+
+  expect(clearVacancyWorkspaceState).not.toHaveBeenCalled();
+  expect(screen.getByRole('heading', { name: 'Senior platform engineer' })).toBeDefined();
+
+  fireEvent.click(screen.getByRole('button', { name: 'Add a job' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Discard draft' }));
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
-  })
+    expect(clearVacancyWorkspaceState).toHaveBeenCalledTimes(1);
+  });
 
-  expect(screen.getByLabelText('Job link')).toBeDefined()
-  expect(screen.getByLabelText('Job description')).toBeDefined()
-  expect(screen.getByRole('button', { name: 'Open senior platform engineer' })).toBeDefined()
-})
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined();
+  });
+
+  expect(screen.getByLabelText('Job link')).toBeDefined();
+  expect(screen.getByLabelText('Job description')).toBeDefined();
+  expect(screen.getByRole('button', { name: 'Open senior platform engineer' })).toBeDefined();
+});
 
 test('abandons the pending draft from the workspace overlay and returns to workspace empty', async () => {
   const getStartupDestination = vi
     .fn()
     .mockResolvedValueOnce('workspace')
-    .mockResolvedValueOnce('workspace')
-  const abandonPendingGeneration = vi.fn().mockImplementation(() => Promise.resolve())
+    .mockResolvedValueOnce('workspace');
+  const abandonPendingGeneration = vi.fn().mockImplementation(() => Promise.resolve());
   const resumePendingGeneration = vi.fn().mockImplementation(() => {
     return new Promise<never>((resolve) => {
-      void resolve
-    })
-  })
+      void resolve;
+    });
+  });
 
   renderApp({
     aiWorker: createAiWorkerApi({
@@ -5513,38 +5526,38 @@ test('abandons the pending draft from the workspace overlay and returns to works
       }),
       resumePendingGeneration,
     }),
-  })
+  });
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
-  })
+    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined();
+  });
 
-  expect(screen.getByRole('status', { name: 'Tailoring your CV...' })).toBeDefined()
+  expect(screen.getByRole('status', { name: 'Tailoring your CV...' })).toBeDefined();
 
-  fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
-
-  await waitFor(() => {
-    expect(abandonPendingGeneration).toHaveBeenCalledTimes(1)
-  })
+  fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
-  })
-})
+    expect(abandonPendingGeneration).toHaveBeenCalledTimes(1);
+  });
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined();
+  });
+});
 
 test('shows a shared draft alert when abandoning the pending draft fails', async () => {
   const getStartupDestination = vi
     .fn()
     .mockResolvedValueOnce('workspace')
-    .mockResolvedValueOnce('workspace')
+    .mockResolvedValueOnce('workspace');
   const abandonPendingGeneration = vi
     .fn()
-    .mockRejectedValue(new Error('Abandon pending generation failed.'))
+    .mockRejectedValue(new Error('Abandon pending generation failed.'));
   const resumePendingGeneration = vi.fn().mockImplementation(() => {
     return new Promise<never>((resolve) => {
-      void resolve
-    })
-  })
+      void resolve;
+    });
+  });
 
   renderApp({
     aiWorker: createAiWorkerApi({
@@ -5591,27 +5604,27 @@ test('shows a shared draft alert when abandoning the pending draft fails', async
       }),
       resumePendingGeneration,
     }),
-  })
+  });
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
-  })
+    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined();
+  });
 
-  fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
-
-  await waitFor(() => {
-    expect(abandonPendingGeneration).toHaveBeenCalledTimes(1)
-  })
+  fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
 
   await waitFor(() => {
-    expect(screen.getByRole('alert')).toBeDefined()
+    expect(abandonPendingGeneration).toHaveBeenCalledTimes(1);
+  });
+
+  await waitFor(() => {
+    expect(screen.getByRole('alert')).toBeDefined();
     expect(
       screen.getAllByText(
         "We couldn't check AI. Restart the app or get help with AI setup on this Mac.",
       ),
-    ).toHaveLength(1)
-  })
-})
+    ).toHaveLength(1);
+  });
+});
 
 test('opens settings from the rail, formats the connected AI provider, and shows local data settings', async () => {
   renderApp({
@@ -5624,47 +5637,47 @@ test('opens settings from the rail, formats the connected AI provider, and shows
       }),
       getStartupDestination: vi.fn().mockResolvedValue('first_launch'),
     }),
-  })
+  });
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Add a CV' })).toBeDefined()
-  })
+    expect(screen.getByRole('heading', { name: 'Add a CV' })).toBeDefined();
+  });
 
-  fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
-
-  await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'AI' })).toBeDefined()
-  })
-
-  expect(screen.getByText('AI connection')).toBeDefined()
-  expect(screen.getByText('Using')).toBeDefined()
-  expect(screen.getByText('Codex')).toBeDefined()
-  expect(screen.queryByText('codex')).toBeNull()
-  expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull()
-  expect(screen.queryByRole('button', { name: 'Get help' })).toBeNull()
-
-  fireEvent.click(screen.getByRole('button', { name: 'Show Local data settings' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Local data' })).toBeDefined()
-  })
+    expect(screen.getByRole('heading', { name: 'AI' })).toBeDefined();
+  });
+
+  expect(screen.getByText('AI connection')).toBeDefined();
+  expect(screen.getByText('Using')).toBeDefined();
+  expect(screen.getByText('Codex')).toBeDefined();
+  expect(screen.queryByText('codex')).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Get help' })).toBeNull();
+
+  fireEvent.click(screen.getByRole('button', { name: 'Show Local data settings' }));
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Local data' })).toBeDefined();
+  });
 
   expect(
     screen.getByText(
       'Clear saved sign-ins and browsing data for job pages without deleting your CV, saved jobs, or app settings.',
     ),
-  ).toBeDefined()
+  ).toBeDefined();
   expect(
     screen.getByText(
       'This permanently removes your CV, saved jobs, documents, settings, and sign-ins from this device. Bulk backup or export is not available in v1.',
     ),
-  ).toBeDefined()
-  expect(screen.getByText('App version')).toBeDefined()
-  expect(screen.getByText('1.0.0')).toBeDefined()
-  expect(screen.queryByText('Privacy guardrails')).toBeNull()
-  expect(screen.queryByText('Telemetry')).toBeNull()
-  expect(screen.queryByText('Automatic update checks')).toBeNull()
-})
+  ).toBeDefined();
+  expect(screen.getByText('App version')).toBeDefined();
+  expect(screen.getByText('1.0.0')).toBeDefined();
+  expect(screen.queryByText('Privacy guardrails')).toBeNull();
+  expect(screen.queryByText('Telemetry')).toBeNull();
+  expect(screen.queryByText('Automatic update checks')).toBeNull();
+});
 
 test('shows a shared settings alert when saving the selected rail item fails', async () => {
   renderApp({
@@ -5701,28 +5714,28 @@ test('shows a shared settings alert when saving the selected rail item fails', a
     tailoredApplication: createTailoredApplicationApi({
       setWorkspaceSelection: vi.fn().mockRejectedValue(new Error('Persist failed.')),
     }),
-  })
+  });
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
-  })
+    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined();
+  });
 
-  fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'AI' })).toBeDefined()
-  })
+    expect(screen.getByRole('heading', { name: 'AI' })).toBeDefined();
+  });
 
-  expect(screen.getByRole('alert')).toBeDefined()
-  expect(screen.getAllByText("We couldn't save where you left off.")).toHaveLength(1)
-})
+  expect(screen.getByRole('alert')).toBeDefined();
+  expect(screen.getAllByText("We couldn't save where you left off.")).toHaveLength(1);
+});
 
 test('clears a shared settings selection alert after a later successful save', async () => {
   const setWorkspaceSelection = vi
     .fn()
     .mockRejectedValueOnce(new Error('Persist failed.'))
     .mockImplementationOnce(() => Promise.resolve())
-    .mockImplementationOnce(() => Promise.resolve())
+    .mockImplementationOnce(() => Promise.resolve());
 
   renderApp({
     aiWorker: createAiWorkerApi({
@@ -5758,31 +5771,31 @@ test('clears a shared settings selection alert after a later successful save', a
     tailoredApplication: createTailoredApplicationApi({
       setWorkspaceSelection,
     }),
-  })
+  });
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
-  })
+    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined();
+  });
 
-  fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
-
-  await waitFor(() => {
-    expect(screen.getAllByText("We couldn't save where you left off.")).toHaveLength(1)
-  })
-
-  fireEvent.click(screen.getByRole('button', { name: 'Jobs' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
-  })
+    expect(screen.getAllByText("We couldn't save where you left off.")).toHaveLength(1);
+  });
 
-  fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Jobs' }));
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'AI' })).toBeDefined()
-    expect(screen.queryByRole('alert')).toBeNull()
-  })
-})
+    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined();
+  });
+
+  fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'AI' })).toBeDefined();
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+});
 
 test('does not offer AI recovery actions from connected settings', async () => {
   const retryAiWorkerPreflight = vi.fn().mockResolvedValue({
@@ -5791,7 +5804,7 @@ test('does not offer AI recovery actions from connected settings', async () => {
     message: aiUnavailableMessage,
     provider: 'codex',
     status: 'unavailable',
-  })
+  });
 
   renderApp({
     aiWorker: createAiWorkerApi({
@@ -5825,28 +5838,28 @@ test('does not offer AI recovery actions from connected settings', async () => {
         snapshotCount: 1,
       }),
     }),
-  })
+  });
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
-  })
+    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined();
+  });
 
-  fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'AI' })).toBeDefined()
-  })
+    expect(screen.getByRole('heading', { name: 'AI' })).toBeDefined();
+  });
 
-  expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull()
-  expect(screen.queryByRole('button', { name: 'Get help' })).toBeNull()
-  expect(retryAiWorkerPreflight).not.toHaveBeenCalled()
-})
+  expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Get help' })).toBeNull();
+  expect(retryAiWorkerPreflight).not.toHaveBeenCalled();
+});
 
 test('requires the destructive confirmation phrase before resetting local app data and returns to first launch after reset', async () => {
   const getStartupDestination = vi
     .fn()
     .mockResolvedValueOnce('workspace')
-    .mockResolvedValueOnce('first_launch')
+    .mockResolvedValueOnce('first_launch');
   const getOriginalCvWorkspaceState = vi
     .fn()
     .mockResolvedValueOnce({
@@ -5871,8 +5884,8 @@ test('requires the destructive confirmation phrase before resetting local app da
     .mockResolvedValueOnce({
       activeOriginalCv: null,
       snapshotCount: 0,
-    })
-  const resetLocalAppData = vi.fn().mockImplementation(() => Promise.resolve())
+    });
+  const resetLocalAppData = vi.fn().mockImplementation(() => Promise.resolve());
 
   renderApp({
     aiWorker: createAiWorkerApi({
@@ -5890,57 +5903,57 @@ test('requires the destructive confirmation phrase before resetting local app da
     settings: createSettingsApi({
       resetLocalAppData,
     }),
-  })
+  });
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
-  })
+    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined();
+  });
 
-  fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
-  fireEvent.click(screen.getByRole('button', { name: 'Show Local data settings' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Show Local data settings' }));
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Local data' })).toBeDefined()
-  })
+    expect(screen.getByRole('heading', { name: 'Local data' })).toBeDefined();
+  });
 
-  fireEvent.click(screen.getByRole('button', { name: 'Reset local app data' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Reset local app data' }));
 
-  const resetDialog = screen.getByRole('dialog', { name: 'Reset local app data?' })
+  const resetDialog = screen.getByRole('dialog', { name: 'Reset local app data?' });
 
-  expect(resetDialog).toBeDefined()
+  expect(resetDialog).toBeDefined();
 
   const confirmResetButton = within(resetDialog).getByRole('button', {
     name: 'Reset local app data',
-  })
+  });
 
-  expect(confirmResetButton).toHaveProperty('disabled', true)
+  expect(confirmResetButton).toHaveProperty('disabled', true);
 
   fireEvent.change(within(resetDialog).getByLabelText('Type RESET to confirm destructive reset'), {
     target: {
       value: SETTINGS_RESET_CONFIRMATION_PHRASE,
     },
-  })
-  fireEvent.click(confirmResetButton)
+  });
+  fireEvent.click(confirmResetButton);
 
   await waitFor(() => {
     expect(resetLocalAppData).toHaveBeenCalledWith({
       confirmationPhrase: SETTINGS_RESET_CONFIRMATION_PHRASE,
-    })
-  })
+    });
+  });
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Add a CV' })).toBeDefined()
-  })
-})
+    expect(screen.getByRole('heading', { name: 'Add a CV' })).toBeDefined();
+  });
+});
 
 test('shows an app-blocking overlay while resetting local app data', async () => {
-  const resetLocalAppDataDeferredPromise = createDeferredPromise<null>()
+  const resetLocalAppDataDeferredPromise = createDeferredPromise<null>();
 
   const resetLocalAppData = vi.fn(() => {
     return resetLocalAppDataDeferredPromise.promise.then((result) => {
-      void result
-    })
-  })
+      void result;
+    });
+  });
 
   renderApp({
     aiWorker: createAiWorkerApi({
@@ -5976,51 +5989,51 @@ test('shows an app-blocking overlay while resetting local app data', async () =>
     settings: createSettingsApi({
       resetLocalAppData,
     }),
-  })
+  });
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
-  })
+    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined();
+  });
 
-  fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
-  fireEvent.click(screen.getByRole('button', { name: 'Show Local data settings' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Show Local data settings' }));
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Local data' })).toBeDefined()
-  })
+    expect(screen.getByRole('heading', { name: 'Local data' })).toBeDefined();
+  });
 
-  fireEvent.click(screen.getByRole('button', { name: 'Reset local app data' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Reset local app data' }));
 
-  const resetDialog = screen.getByRole('dialog', { name: 'Reset local app data?' })
+  const resetDialog = screen.getByRole('dialog', { name: 'Reset local app data?' });
 
-  expect(resetDialog).toBeDefined()
+  expect(resetDialog).toBeDefined();
 
   fireEvent.change(within(resetDialog).getByLabelText('Type RESET to confirm destructive reset'), {
     target: {
       value: SETTINGS_RESET_CONFIRMATION_PHRASE,
     },
-  })
-  fireEvent.click(within(resetDialog).getByRole('button', { name: 'Reset local app data' }))
+  });
+  fireEvent.click(within(resetDialog).getByRole('button', { name: 'Reset local app data' }));
 
   await waitFor(() => {
     expect(resetLocalAppData).toHaveBeenCalledWith({
       confirmationPhrase: SETTINGS_RESET_CONFIRMATION_PHRASE,
-    })
-  })
+    });
+  });
 
-  expect(screen.getByRole('status', { name: 'Preparing app' })).toBeDefined()
+  expect(screen.getByRole('status', { name: 'Preparing app' })).toBeDefined();
   expect(
     within(resetDialog).getByRole('button', { name: 'Cancel' }).getAttribute('disabled'),
-  ).not.toBeNull()
-  expect(screen.getByRole('button', { name: 'Settings' })).toBeDefined()
-  expect(screen.getByRole('heading', { name: 'Local data' })).toBeDefined()
+  ).not.toBeNull();
+  expect(screen.getByRole('button', { name: 'Settings' })).toBeDefined();
+  expect(screen.getByRole('heading', { name: 'Local data' })).toBeDefined();
 
-  resetLocalAppDataDeferredPromise.resolve(null)
+  resetLocalAppDataDeferredPromise.resolve(null);
 
   await waitFor(() => {
-    expect(screen.queryByRole('status', { name: 'Preparing app' })).toBeNull()
-  })
-})
+    expect(screen.queryByRole('status', { name: 'Preparing app' })).toBeNull();
+  });
+});
 
 test('shows a shared page-top alert when clearing job-site browser data fails', async () => {
   renderApp({
@@ -6059,28 +6072,28 @@ test('shows a shared page-top alert when clearing job-site browser data fails', 
         .fn()
         .mockRejectedValue(new Error("We couldn't clear your job-site browser data.")),
     }),
-  })
+  });
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
-  })
+    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined();
+  });
 
-  fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
-  fireEvent.click(screen.getByRole('button', { name: 'Show Local data settings' }))
-
-  await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Local data' })).toBeDefined()
-  })
-
-  fireEvent.click(screen.getByRole('button', { name: 'Clear browser data' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Show Local data settings' }));
 
   await waitFor(() => {
-    expect(screen.getByRole('alert')).toBeDefined()
-  })
+    expect(screen.getByRole('heading', { name: 'Local data' })).toBeDefined();
+  });
 
-  expect(screen.getByText("We couldn't clear your job-site browser data.")).toBeDefined()
-  expect(screen.queryByText(/^We couldn't clear your job-site browser data\.$/)).toBeDefined()
-})
+  fireEvent.click(screen.getByRole('button', { name: 'Clear browser data' }));
+
+  await waitFor(() => {
+    expect(screen.getByRole('alert')).toBeDefined();
+  });
+
+  expect(screen.getByText("We couldn't clear your job-site browser data.")).toBeDefined();
+  expect(screen.queryByText(/^We couldn't clear your job-site browser data\.$/)).toBeDefined();
+});
 
 test('falls back to user-friendly browser-data copy when the clear action returns an IPC wrapper error', async () => {
   renderApp({
@@ -6106,28 +6119,28 @@ test('falls back to user-friendly browser-data copy when the clear action return
           new Error("Error invoking remote method 'settings:clear-job-site-browser-data'"),
         ),
     }),
-  })
+  });
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
-  })
+    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined();
+  });
 
-  fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
-  fireEvent.click(screen.getByRole('button', { name: 'Show Local data settings' }))
-
-  await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Local data' })).toBeDefined()
-  })
-
-  fireEvent.click(screen.getByRole('button', { name: 'Clear browser data' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Show Local data settings' }));
 
   await waitFor(() => {
-    expect(screen.getByRole('alert')).toBeDefined()
-  })
+    expect(screen.getByRole('heading', { name: 'Local data' })).toBeDefined();
+  });
 
-  expect(screen.getByText("We couldn't clear your job-site browser data.")).toBeDefined()
-  expect(screen.queryByText(/Error invoking remote method/u)).toBeNull()
-})
+  fireEvent.click(screen.getByRole('button', { name: 'Clear browser data' }));
+
+  await waitFor(() => {
+    expect(screen.getByRole('alert')).toBeDefined();
+  });
+
+  expect(screen.getByText("We couldn't clear your job-site browser data.")).toBeDefined();
+  expect(screen.queryByText(/Error invoking remote method/u)).toBeNull();
+});
 
 test('shows a dialog-local shared alert when resetting local app data fails', async () => {
   renderApp({
@@ -6166,38 +6179,38 @@ test('shows a dialog-local shared alert when resetting local app data fails', as
         .fn()
         .mockRejectedValue(new Error("We couldn't reset your app data right now. Try again.")),
     }),
-  })
+  });
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
-  })
+    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined();
+  });
 
-  fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
-  fireEvent.click(screen.getByRole('button', { name: 'Show Local data settings' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Show Local data settings' }));
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Local data' })).toBeDefined()
-  })
+    expect(screen.getByRole('heading', { name: 'Local data' })).toBeDefined();
+  });
 
-  fireEvent.click(screen.getByRole('button', { name: 'Reset local app data' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Reset local app data' }));
 
-  const resetDialog = screen.getByRole('dialog', { name: 'Reset local app data?' })
+  const resetDialog = screen.getByRole('dialog', { name: 'Reset local app data?' });
 
   fireEvent.change(within(resetDialog).getByLabelText('Type RESET to confirm destructive reset'), {
     target: {
       value: SETTINGS_RESET_CONFIRMATION_PHRASE,
     },
-  })
-  fireEvent.click(within(resetDialog).getByRole('button', { name: 'Reset local app data' }))
+  });
+  fireEvent.click(within(resetDialog).getByRole('button', { name: 'Reset local app data' }));
 
   await waitFor(() => {
-    expect(within(resetDialog).getByRole('alert')).toBeDefined()
-  })
+    expect(within(resetDialog).getByRole('alert')).toBeDefined();
+  });
 
   expect(
     within(resetDialog).getByText("We couldn't reset your app data right now. Try again."),
-  ).toBeDefined()
-})
+  ).toBeDefined();
+});
 
 test('falls back to user-friendly reset copy when the dialog reset action returns an IPC wrapper error', async () => {
   renderApp({
@@ -6223,36 +6236,36 @@ test('falls back to user-friendly reset copy when the dialog reset action return
           new Error("Error invoking remote method 'settings:reset-local-app-data'"),
         ),
     }),
-  })
+  });
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
-  })
+    expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined();
+  });
 
-  fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
-  fireEvent.click(screen.getByRole('button', { name: 'Show Local data settings' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Show Local data settings' }));
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Local data' })).toBeDefined()
-  })
+    expect(screen.getByRole('heading', { name: 'Local data' })).toBeDefined();
+  });
 
-  fireEvent.click(screen.getByRole('button', { name: 'Reset local app data' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Reset local app data' }));
 
-  const resetDialog = screen.getByRole('dialog', { name: 'Reset local app data?' })
+  const resetDialog = screen.getByRole('dialog', { name: 'Reset local app data?' });
 
   fireEvent.change(within(resetDialog).getByLabelText('Type RESET to confirm destructive reset'), {
     target: {
       value: SETTINGS_RESET_CONFIRMATION_PHRASE,
     },
-  })
-  fireEvent.click(within(resetDialog).getByRole('button', { name: 'Reset local app data' }))
+  });
+  fireEvent.click(within(resetDialog).getByRole('button', { name: 'Reset local app data' }));
 
   await waitFor(() => {
-    expect(within(resetDialog).getByRole('alert')).toBeDefined()
-  })
+    expect(within(resetDialog).getByRole('alert')).toBeDefined();
+  });
 
   expect(
     within(resetDialog).getByText("We couldn't reset your app data right now. Try again."),
-  ).toBeDefined()
-  expect(within(resetDialog).queryByText(/Error invoking remote method/u)).toBeNull()
-})
+  ).toBeDefined();
+  expect(within(resetDialog).queryByText(/Error invoking remote method/u)).toBeNull();
+});

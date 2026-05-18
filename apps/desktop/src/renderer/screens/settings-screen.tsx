@@ -1,39 +1,39 @@
-import type { ReactNode } from 'react'
-import { Shield, Sparkles } from 'lucide-react'
+import { Shield, Sparkles } from 'lucide-react';
+import type { ReactNode } from 'react';
 
-import type { AiWorkerPreflightStatus } from '../../shared/ai-worker-preflight.js'
-import { formatAiWorkerProviderName } from '../../shared/ai-worker-provider-display.js'
-import type { SettingsSnapshot } from '../../shared/settings.js'
-import type { RuntimeAlert } from '../runtime-alerts.js'
-import { DesktopShell, type RailItemId } from '../shell/desktop-shell.js'
-import { SidebarContainer } from '../shell/sidebar-container.js'
-import { Button } from '../ui/button.js'
-import { PanelCard } from '../ui/panel-card.js'
-import { RuntimeAlertBanner } from '../ui/runtime-alert.js'
-import { SectionLabel } from '../ui/section-label.js'
-import { StatusPill } from '../ui/status-pill.js'
+import type { AiWorkerPreflightStatus } from '../../shared/ai-worker-preflight.js';
+import { formatAiWorkerProviderName } from '../../shared/ai-worker-provider-display.js';
+import type { SettingsSnapshot } from '../../shared/settings.js';
+import type { RuntimeAlert } from '../runtime-alerts.js';
+import { DesktopShell, type RailItemId } from '../shell/desktop-shell.js';
+import { SidebarContainer } from '../shell/sidebar-container.js';
+import { Button } from '../ui/button.js';
+import { PanelCard } from '../ui/panel-card.js';
+import { RuntimeAlertBanner } from '../ui/runtime-alert.js';
+import { SectionLabel } from '../ui/section-label.js';
+import { StatusPill } from '../ui/status-pill.js';
 
-export type SettingsSection = 'ai_worker' | 'local_data'
+export type SettingsSection = 'ai_worker' | 'local_data';
 
 interface SettingsScreenProperties {
-  activeSection: SettingsSection
-  appOverlay?: ReactNode
-  ambientActivityLabel?: string | null
-  isClearingJobSiteBrowserData: boolean
-  isOpeningSetupGuide: boolean
-  isResettingLocalAppData: boolean
-  isRetryingAiWorker: boolean
-  onClearJobSiteBrowserData: () => void
-  onOpenSetupGuide: () => void
-  onResetLocalAppData: () => void
-  onRetryAiWorker: () => void
-  onSelectRailItem: (item: RailItemId) => void
-  onSelectSection: (section: SettingsSection) => void
-  runtimeAlert: RuntimeAlert | null
-  snapshot: SettingsSnapshot
-  workerStatus: AiWorkerPreflightStatus
-  workerStatusLabel: string
-  workerStatusTone: 'danger' | 'muted' | 'ready' | 'warning'
+  activeSection: SettingsSection;
+  appOverlay?: ReactNode;
+  ambientActivityLabel?: string | null;
+  isClearingJobSiteBrowserData: boolean;
+  isOpeningSetupGuide: boolean;
+  isResettingLocalAppData: boolean;
+  isRetryingAiWorker: boolean;
+  onClearJobSiteBrowserData: () => void;
+  onOpenSetupGuide: () => void;
+  onResetLocalAppData: () => void;
+  onRetryAiWorker: () => void;
+  onSelectRailItem: (item: RailItemId) => void;
+  onSelectSection: (section: SettingsSection) => void;
+  runtimeAlert: RuntimeAlert | null;
+  snapshot: SettingsSnapshot;
+  workerStatus: AiWorkerPreflightStatus;
+  workerStatusLabel: string;
+  workerStatusTone: 'danger' | 'muted' | 'ready' | 'warning';
 }
 
 export function SettingsScreen({
@@ -56,11 +56,11 @@ export function SettingsScreen({
   workerStatusLabel,
   workerStatusTone,
 }: SettingsScreenProperties) {
-  const pageTitle = activeSection === 'ai_worker' ? 'AI' : 'Local data'
+  const pageTitle = activeSection === 'ai_worker' ? 'AI' : 'Local data';
   const pageIntro =
     activeSection === 'ai_worker'
       ? 'Check the AI connection CV Maxxing uses for tailoring.'
-      : 'Manage saved sign-ins for job pages and fully reset the app on this device.'
+      : 'Manage saved sign-ins for job pages and fully reset the app on this device.';
 
   return (
     <DesktopShell
@@ -84,7 +84,7 @@ export function SettingsScreen({
               isActive={activeSection === 'ai_worker'}
               label="AI"
               onClick={() => {
-                onSelectSection('ai_worker')
+                onSelectSection('ai_worker');
               }}
             />
             <SettingsSectionButton
@@ -92,7 +92,7 @@ export function SettingsScreen({
               isActive={activeSection === 'local_data'}
               label="Local data"
               onClick={() => {
-                onSelectSection('local_data')
+                onSelectSection('local_data');
               }}
             />
           </div>
@@ -121,7 +121,7 @@ export function SettingsScreen({
         />
       )}
     </DesktopShell>
-  )
+  );
 }
 
 function SettingsSectionButton({
@@ -130,10 +130,10 @@ function SettingsSectionButton({
   label,
   onClick,
 }: {
-  icon: ReactNode
-  isActive: boolean
-  label: string
-  onClick: () => void
+  icon: ReactNode;
+  isActive: boolean;
+  label: string;
+  onClick: () => void;
 }) {
   return (
     <button
@@ -151,7 +151,7 @@ function SettingsSectionButton({
       </span>
       {label}
     </button>
-  )
+  );
 }
 
 function AiWorkerSettingsSection({
@@ -164,16 +164,16 @@ function AiWorkerSettingsSection({
   workerStatusLabel,
   workerStatusTone,
 }: {
-  isOpeningSetupGuide: boolean
-  isRetryingAiWorker: boolean
-  onOpenSetupGuide: () => void
-  onRetryAiWorker: () => void
-  snapshot: SettingsSnapshot
-  workerStatus: AiWorkerPreflightStatus
-  workerStatusLabel: string
-  workerStatusTone: 'danger' | 'muted' | 'ready' | 'warning'
+  isOpeningSetupGuide: boolean;
+  isRetryingAiWorker: boolean;
+  onOpenSetupGuide: () => void;
+  onRetryAiWorker: () => void;
+  snapshot: SettingsSnapshot;
+  workerStatus: AiWorkerPreflightStatus;
+  workerStatusLabel: string;
+  workerStatusTone: 'danger' | 'muted' | 'ready' | 'warning';
 }) {
-  const shouldShowRecoveryActions = workerStatus !== 'ready'
+  const shouldShowRecoveryActions = workerStatus !== 'ready';
 
   return (
     <PanelCard className="p-6">
@@ -208,7 +208,7 @@ function AiWorkerSettingsSection({
         </div>
       ) : null}
     </PanelCard>
-  )
+  );
 }
 
 function LocalDataSettingsSection({
@@ -218,11 +218,11 @@ function LocalDataSettingsSection({
   onResetLocalAppData,
   snapshot,
 }: {
-  isClearingJobSiteBrowserData: boolean
-  isResettingLocalAppData: boolean
-  onClearJobSiteBrowserData: () => void
-  onResetLocalAppData: () => void
-  snapshot: SettingsSnapshot
+  isClearingJobSiteBrowserData: boolean;
+  isResettingLocalAppData: boolean;
+  onClearJobSiteBrowserData: () => void;
+  onResetLocalAppData: () => void;
+  snapshot: SettingsSnapshot;
 }) {
   return (
     <div className="grid gap-4">
@@ -269,7 +269,7 @@ function LocalDataSettingsSection({
         </div>
       </PanelCard>
     </div>
-  )
+  );
 }
 
 function SettingsValueRow({ label, value }: { label: string; value: string }) {
@@ -280,5 +280,5 @@ function SettingsValueRow({ label, value }: { label: string; value: string }) {
         <p className="m-0 text-[13px] text-[var(--color-copy-muted)]">{value}</p>
       </div>
     </div>
-  )
+  );
 }

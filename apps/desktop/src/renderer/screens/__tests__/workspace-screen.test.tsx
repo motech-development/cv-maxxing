@@ -1,10 +1,10 @@
 // @vitest-environment jsdom
 
-import { render, screen, within } from '@testing-library/react'
-import { expect, test, vi } from 'vitest'
+import { render, screen, within } from '@testing-library/react';
+import { expect, test, vi } from 'vitest';
 
-import { createRuntimeAlert } from '../../runtime-alerts.js'
-import { WorkspaceScreen } from '../workspace-screen.js'
+import { createRuntimeAlert } from '../../runtime-alerts.js';
+import { WorkspaceScreen } from '../workspace-screen.js';
 
 const baseProperties = {
   applicationTitle: null,
@@ -47,18 +47,20 @@ const baseProperties = {
   textDraft: 'Draft role text',
   urlDraft: 'https://jobs.example.com/roles/123',
   vacancyPreview: null,
-}
+};
 
 test('keeps the vacancy sidebar structure stable while switching between draft and saved application views', () => {
-  const { rerender } = render(<WorkspaceScreen {...baseProperties} selectedWorkspaceItem="draft" />)
+  const { rerender } = render(
+    <WorkspaceScreen {...baseProperties} selectedWorkspaceItem="draft" />,
+  );
 
-  expect(screen.getByRole('button', { name: 'Open add a job' })).toBeDefined()
-  expect(screen.getByRole('button', { name: 'Open platform product manager' })).toBeDefined()
-  expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined()
-  expect(screen.getByRole('button', { name: 'Add a job' })).toBeDefined()
-  expect(screen.getByRole('button', { name: 'Jobs' })).toBeDefined()
-  expect(screen.getByRole('button', { name: 'Your CV' })).toBeDefined()
-  expect(screen.queryByRole('button', { name: 'Update your CV' })).toBeNull()
+  expect(screen.getByRole('button', { name: 'Open add a job' })).toBeDefined();
+  expect(screen.getByRole('button', { name: 'Open platform product manager' })).toBeDefined();
+  expect(screen.getByRole('heading', { name: 'Add a job' })).toBeDefined();
+  expect(screen.getByRole('button', { name: 'Add a job' })).toBeDefined();
+  expect(screen.getByRole('button', { name: 'Jobs' })).toBeDefined();
+  expect(screen.getByRole('button', { name: 'Your CV' })).toBeDefined();
+  expect(screen.queryByRole('button', { name: 'Update your CV' })).toBeNull();
 
   rerender(
     <WorkspaceScreen
@@ -123,12 +125,12 @@ test('keeps the vacancy sidebar structure stable while switching between draft a
       selectedTailoredApplicationId="tailored-application-456"
       selectedWorkspaceItem="tailored_application"
     />,
-  )
+  );
 
-  expect(screen.getByRole('button', { name: 'Open add a job' })).toBeDefined()
-  expect(screen.getByRole('button', { name: 'Open platform product manager' })).toBeDefined()
-  expect(screen.getByRole('heading', { name: 'Platform Product Manager', level: 1 })).toBeDefined()
-})
+  expect(screen.getByRole('button', { name: 'Open add a job' })).toBeDefined();
+  expect(screen.getByRole('button', { name: 'Open platform product manager' })).toBeDefined();
+  expect(screen.getByRole('heading', { name: 'Platform Product Manager', level: 1 })).toBeDefined();
+});
 
 test('renders the shared page-top alert when a saved job is selected', () => {
   const { container } = render(
@@ -204,14 +206,14 @@ test('renders the shared page-top alert when a saved job is selected', () => {
       selectedTailoredApplicationId="tailored-application-456"
       selectedWorkspaceItem="tailored_application"
     />,
-  )
+  );
 
-  const renderScope = within(container)
+  const renderScope = within(container);
 
-  expect(renderScope.getByRole('alert')).toBeDefined()
-  expect(renderScope.getAllByText("We couldn't save the PDF.")).toHaveLength(1)
-  expect(renderScope.getAllByRole('button', { name: 'Save CV and cover letter' })).toHaveLength(1)
-})
+  expect(renderScope.getByRole('alert')).toBeDefined();
+  expect(renderScope.getAllByText("We couldn't save the PDF.")).toHaveLength(1);
+  expect(renderScope.getAllByRole('button', { name: 'Save CV and cover letter' })).toHaveLength(1);
+});
 
 test('renders the draft alert below the page title and intro copy', () => {
   const { container } = render(
@@ -229,15 +231,15 @@ test('renders the draft alert below the page title and intro copy', () => {
       })}
       selectedWorkspaceItem="draft"
     />,
-  )
+  );
 
-  const contentPane = container.querySelector('aside + div')
-  expect(contentPane).not.toBeNull()
-  const contentText = contentPane?.textContent ?? ''
-  const expectedIntro = 'Check the job details before tailoring your CV and cover letter.'
+  const contentPane = container.querySelector('aside + div');
+  expect(contentPane).not.toBeNull();
+  const contentText = contentPane?.textContent ?? '';
+  const expectedIntro = 'Check the job details before tailoring your CV and cover letter.';
 
-  expect(contentText.indexOf('Add a job')).toBeLessThan(contentText.indexOf(expectedIntro))
+  expect(contentText.indexOf('Add a job')).toBeLessThan(contentText.indexOf(expectedIntro));
   expect(contentText.indexOf(expectedIntro)).toBeLessThan(
     contentText.indexOf("We couldn't save where you left off."),
-  )
-})
+  );
+});

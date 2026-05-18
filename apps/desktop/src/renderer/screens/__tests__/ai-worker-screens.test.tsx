@@ -1,13 +1,13 @@
 // @vitest-environment jsdom
 
-import { render, screen } from '@testing-library/react'
-import { expect, test, vi } from 'vitest'
+import { render, screen } from '@testing-library/react';
+import { expect, test, vi } from 'vitest';
 
-import type { ReadinessRouteViewModel } from '../../../readiness/readiness-route.js'
-import type { RuntimeAlert } from '../../runtime-alerts.js'
-import { AiWorkerCheckingScreen } from '../ai-worker-checking-screen.js'
-import { AiWorkerSignInRequiredScreen } from '../ai-worker-sign-in-required-screen.js'
-import { AiWorkerUnavailableScreen } from '../ai-worker-unavailable-screen.js'
+import type { ReadinessRouteViewModel } from '../../../readiness/readiness-route.js';
+import type { RuntimeAlert } from '../../runtime-alerts.js';
+import { AiWorkerCheckingScreen } from '../ai-worker-checking-screen.js';
+import { AiWorkerSignInRequiredScreen } from '../ai-worker-sign-in-required-screen.js';
+import { AiWorkerUnavailableScreen } from '../ai-worker-unavailable-screen.js';
 
 const baseViewModel: ReadinessRouteViewModel = {
   body: 'AI needs attention before the app can continue.',
@@ -15,7 +15,7 @@ const baseViewModel: ReadinessRouteViewModel = {
   diagnostic: "AI isn't available on this Mac yet.",
   heading: 'Connect AI',
   status: 'unavailable',
-}
+};
 
 const baseRuntimeAlert: RuntimeAlert = {
   body: 'AI needs attention before the app can continue.',
@@ -27,7 +27,7 @@ const baseRuntimeAlert: RuntimeAlert = {
   source: 'ai_worker_preflight',
   title: "AI isn't available on this Mac yet.",
   variant: 'error',
-}
+};
 
 test('renders the unavailable AI worker sidebar inside the shared shell container', () => {
   const { container } = render(
@@ -39,15 +39,17 @@ test('renders the unavailable AI worker sidebar inside the shared shell containe
       runtimeAlert={baseRuntimeAlert}
       viewModel={baseViewModel}
     />,
-  )
+  );
 
-  expect(screen.getAllByRole('heading', { level: 1, name: 'Connect AI' }).length).toBeGreaterThan(0)
+  expect(screen.getAllByRole('heading', { level: 1, name: 'Connect AI' }).length).toBeGreaterThan(
+    0,
+  );
 
-  const sidebarContainer = container.querySelector('aside > div')
+  const sidebarContainer = container.querySelector('aside > div');
 
-  expect(sidebarContainer?.className).toContain('w-[328px]')
-  expect(sidebarContainer?.className).toContain('border-r')
-})
+  expect(sidebarContainer?.className).toContain('w-[328px]');
+  expect(sidebarContainer?.className).toContain('border-r');
+});
 
 test('renders the sign-in-required AI worker sidebar inside the shared shell container', () => {
   const { container } = render(
@@ -71,15 +73,17 @@ test('renders the sign-in-required AI worker sidebar inside the shared shell con
         status: 'sign_in_required',
       }}
     />,
-  )
+  );
 
-  expect(screen.getAllByRole('heading', { level: 1, name: 'Connect AI' }).length).toBeGreaterThan(0)
+  expect(screen.getAllByRole('heading', { level: 1, name: 'Connect AI' }).length).toBeGreaterThan(
+    0,
+  );
 
-  const sidebarContainer = container.querySelector('aside > div')
+  const sidebarContainer = container.querySelector('aside > div');
 
-  expect(sidebarContainer?.className).toContain('w-[328px]')
-  expect(sidebarContainer?.className).toContain('border-r')
-})
+  expect(sidebarContainer?.className).toContain('w-[328px]');
+  expect(sidebarContainer?.className).toContain('border-r');
+});
 
 test('renders the checking AI worker sidebar inside the shared shell container', () => {
   const { container } = render(
@@ -93,12 +97,12 @@ test('renders the checking AI worker sidebar inside the shared shell container',
         status: 'checking',
       }}
     />,
-  )
+  );
 
-  expect(screen.getByRole('heading', { name: 'Getting AI ready' })).toBeDefined()
+  expect(screen.getByRole('heading', { name: 'Getting AI ready' })).toBeDefined();
 
-  const sidebarContainer = container.querySelector('aside > div')
+  const sidebarContainer = container.querySelector('aside > div');
 
-  expect(sidebarContainer?.className).toContain('w-[328px]')
-  expect(sidebarContainer?.className).toContain('border-r')
-})
+  expect(sidebarContainer?.className).toContain('w-[328px]');
+  expect(sidebarContainer?.className).toContain('border-r');
+});

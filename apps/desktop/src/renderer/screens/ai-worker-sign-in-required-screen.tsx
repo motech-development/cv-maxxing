@@ -1,19 +1,19 @@
-import type { ReadinessRouteViewModel } from '../../readiness/readiness-route.js'
-import type { RuntimeAlert } from '../runtime-alerts.js'
-import { DesktopShell } from '../shell/desktop-shell.js'
-import { SidebarContainer } from '../shell/sidebar-container.js'
-import { Button } from '../ui/button.js'
-import { PanelCard } from '../ui/panel-card.js'
-import { RuntimeAlertBanner } from '../ui/runtime-alert.js'
-import { SectionLabel } from '../ui/section-label.js'
+import type { ReadinessRouteViewModel } from '../../readiness/readiness-route.js';
+import type { RuntimeAlert } from '../runtime-alerts.js';
+import { DesktopShell } from '../shell/desktop-shell.js';
+import { SidebarContainer } from '../shell/sidebar-container.js';
+import { Button } from '../ui/button.js';
+import { PanelCard } from '../ui/panel-card.js';
+import { RuntimeAlertBanner } from '../ui/runtime-alert.js';
+import { SectionLabel } from '../ui/section-label.js';
 
 interface AiWorkerSignInRequiredScreenProperties {
-  isPrimaryActionPending: boolean
-  isSecondaryActionPending: boolean
-  onPrimaryAction: () => void
-  onSecondaryAction: () => void
-  runtimeAlert: RuntimeAlert | null
-  viewModel: ReadinessRouteViewModel
+  isPrimaryActionPending: boolean;
+  isSecondaryActionPending: boolean;
+  onPrimaryAction: () => void;
+  onSecondaryAction: () => void;
+  runtimeAlert: RuntimeAlert | null;
+  viewModel: ReadinessRouteViewModel;
 }
 
 export function AiWorkerSignInRequiredScreen({
@@ -79,5 +79,5 @@ export function AiWorkerSignInRequiredScreen({
         </p>
       </PanelCard>
     </DesktopShell>
-  )
+  );
 }

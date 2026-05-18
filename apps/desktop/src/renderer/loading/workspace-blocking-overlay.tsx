@@ -1,16 +1,16 @@
-import { LoaderCircle } from 'lucide-react'
+import { LoaderCircle } from 'lucide-react';
 
-import { Button } from '../ui/button.js'
-import { PanelCard } from '../ui/panel-card.js'
+import { Button } from '../ui/button.js';
+import { PanelCard } from '../ui/panel-card.js';
 
 interface WorkspaceBlockingOverlayProperties {
-  isSecondaryActionPending?: boolean
-  onSecondaryAction?: () => void
-  secondaryActionLabel?: string
-  title?: string
+  isSecondaryActionPending?: boolean;
+  onSecondaryAction?: () => void;
+  secondaryActionLabel?: string;
+  title?: string;
 }
 
-const defaultOverlayTitle = 'Getting things ready'
+const defaultOverlayTitle = 'Getting things ready';
 
 export function WorkspaceBlockingOverlay({
   isSecondaryActionPending = false,
@@ -21,7 +21,7 @@ export function WorkspaceBlockingOverlay({
   const hasSecondaryAction =
     secondaryActionLabel !== undefined &&
     secondaryActionLabel !== '' &&
-    onSecondaryAction !== undefined
+    onSecondaryAction !== undefined;
 
   return (
     <div className="flex h-full w-full items-center justify-center bg-[#DEE6E1E8] p-6">
@@ -49,5 +49,5 @@ export function WorkspaceBlockingOverlay({
         ) : null}
       </PanelCard>
     </div>
-  )
+  );
 }

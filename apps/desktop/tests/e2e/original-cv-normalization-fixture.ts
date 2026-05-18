@@ -1,14 +1,14 @@
 export function createOriginalCvNormalizationFixtureOutput(
   overrides?: Partial<{
     experience: {
-      dateRange: string
-      employer: string
-      roleTitle: string
-      summary: string
-    }[]
-    headline: string
-    skills: string[]
-    summary: string
+      dateRange: string;
+      employer: string;
+      roleTitle: string;
+      summary: string;
+    }[];
+    headline: string;
+    skills: string[];
+    summary: string;
   }>,
 ): string {
   return JSON.stringify({
@@ -40,5 +40,5 @@ export function createOriginalCvNormalizationFixtureOutput(
       firstPersonUsage: 'absent',
       formality: 'direct',
     },
-  })
+  });
 }

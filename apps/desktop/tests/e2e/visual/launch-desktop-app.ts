@@ -1,23 +1,23 @@
-import { mkdtemp, rm } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
-import path from 'node:path'
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 
-import type { Page } from '@playwright/test'
-import { _electron as electron } from 'playwright'
+import type { Page } from '@playwright/test';
+import { _electron as electron } from 'playwright';
 
-import { createOriginalCvNormalizationFixtureOutput } from '../original-cv-normalization-fixture.js'
-import { createVacancyNormalizationFixtureOutput } from './fixtures.js'
+import { createOriginalCvNormalizationFixtureOutput } from '../original-cv-normalization-fixture.js';
+import { createVacancyNormalizationFixtureOutput } from './fixtures.js';
 
-const temporaryDirectories: string[] = []
-const defaultOriginalCvNormalizationOutput = createOriginalCvNormalizationFixtureOutput()
-const defaultVacancyNormalizationOutput = createVacancyNormalizationFixtureOutput()
+const temporaryDirectories: string[] = [];
+const defaultOriginalCvNormalizationOutput = createOriginalCvNormalizationFixtureOutput();
+const defaultVacancyNormalizationOutput = createVacancyNormalizationFixtureOutput();
 
 export interface VisualTestPaths {
-  appDataRoot: string
-  docxPath: string
-  pdfPath: string
-  rootDirectoryPath: string
-  unreadablePdfPath: string
+  appDataRoot: string;
+  docxPath: string;
+  pdfPath: string;
+  rootDirectoryPath: string;
+  unreadablePdfPath: string;
 }
 
 export async function cleanupVisualTestArtifacts(): Promise<void> {
@@ -26,17 +26,17 @@ export async function cleanupVisualTestArtifacts(): Promise<void> {
       await rm(directoryPath, {
         force: true,
         recursive: true,
-      })
+      });
     }),
-  )
+  );
 }
 
 export async function createVisualTestPaths(
   prefix = 'cv-maxxing-e2e-visual-',
 ): Promise<VisualTestPaths> {
-  const rootDirectoryPath = await mkdtemp(path.join(tmpdir(), prefix))
+  const rootDirectoryPath = await mkdtemp(path.join(tmpdir(), prefix));
 
-  temporaryDirectories.push(rootDirectoryPath)
+  temporaryDirectories.push(rootDirectoryPath);
 
   return {
     appDataRoot: path.join(rootDirectoryPath, 'app-data'),
@@ -44,7 +44,7 @@ export async function createVisualTestPaths(
     pdfPath: path.join(rootDirectoryPath, 'ada-lovelace.pdf'),
     rootDirectoryPath,
     unreadablePdfPath: path.join(rootDirectoryPath, 'unreadable.pdf'),
-  }
+  };
 }
 
 export async function hideScrollbars(page: Page): Promise<void> {
@@ -61,11 +61,11 @@ export async function hideScrollbars(page: Page): Promise<void> {
         height: 0 !important;
       }
     `,
-  })
+  });
 }
 
 export function importedTimestampMask(page: Page) {
-  return [page.getByText(/^Imported /u)]
+  return [page.getByText(/^Imported /u)];
 }
 
 export async function launchDesktopApp(environment: NodeJS.ProcessEnv = {}) {
@@ -81,13 +81,13 @@ export async function launchDesktopApp(environment: NodeJS.ProcessEnv = {}) {
         defaultVacancyNormalizationOutput,
       CV_MAXXING_MAIN_WINDOW_SHOW: environment.CV_MAXXING_MAIN_WINDOW_SHOW ?? 'false',
     }).filter((entry): entry is [string, string] => {
-      return typeof entry[1] === 'string'
+      return typeof entry[1] === 'string';
     }),
-  )
+  );
 
   return await electron.launch({
     args: ['dist/main/main.js'],
     cwd: process.cwd(),
     env: combinedEnvironment,
-  })
+  });
 }

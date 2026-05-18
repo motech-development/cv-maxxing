@@ -1,23 +1,23 @@
-import { mkdtemp, mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
-import path from 'node:path'
+import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 
-import { afterEach, expect, test, vi } from 'vitest'
+import { afterEach, expect, test, vi } from 'vitest';
 
 import type {
   AdaptedCvModel,
   TailoredApplicationGenerationResult,
-} from '../../shared/tailored-application.js'
-import type { NormalizedOriginalCvExperienceEntry } from '../original-cv-normalization-service.js'
-import { createAiWorkerReadinessStore } from '../ai-worker-readiness-store.js'
-import { createLocalAppDataPaths, openLocalAppData } from '../local-app-data-service.js'
+} from '../../shared/tailored-application.js';
+import { createAiWorkerReadinessStore } from '../ai-worker-readiness-store.js';
+import { createLocalAppDataPaths, openLocalAppData } from '../local-app-data-service.js';
+import type { NormalizedOriginalCvExperienceEntry } from '../original-cv-normalization-service.js';
 import {
-  createTailoredApplicationSessionService,
   type AdaptedCvRenderer,
-} from '../tailored-application-session-service.js'
-import { createWorkspaceSelectionStore } from '../workspace-selection-store.js'
+  createTailoredApplicationSessionService,
+} from '../tailored-application-session-service.js';
+import { createWorkspaceSelectionStore } from '../workspace-selection-store.js';
 
-const temporaryDirectories: string[] = []
+const temporaryDirectories: string[] = [];
 
 function createNormalizedOriginalCvExperienceEntry(
   overrides: Partial<NormalizedOriginalCvExperienceEntry> = {},
@@ -28,7 +28,7 @@ function createNormalizedOriginalCvExperienceEntry(
     roleTitle: 'Lead Product Designer',
     summary: 'Led product design for AI-assisted desktop tooling.',
     ...overrides,
-  }
+  };
 }
 
 afterEach(async () => {
@@ -37,30 +37,30 @@ afterEach(async () => {
       await rm(directoryPath, {
         force: true,
         recursive: true,
-      })
+      });
     }),
-  )
-})
+  );
+});
 
 test('assembles structured worker inputs and persists immutable tailored-application artifacts after resume', async () => {
-  const harness = await createHarness()
+  const harness = await createHarness();
 
-  await seedOriginalCvAndVacancy(harness)
+  await seedOriginalCvAndVacancy(harness);
 
   const capturedInputs: {
-    files: Record<string, string>
-    taskJson: string
-  }[] = []
+    files: Record<string, string>;
+    taskJson: string;
+  }[] = [];
   const renderAdaptedCvPdf = vi.fn<AdaptedCvRenderer['renderAdaptedCvPdf']>().mockResolvedValue({
     pageCount: 1,
     pageWarning: null,
     pdfBytes: Buffer.from('%PDF-1.7 adapted cv', 'utf8'),
-  })
+  });
   const renderCoverLetterPdf = vi.fn().mockResolvedValue({
     pageCount: 1,
     pageWarning: null,
     pdfBytes: Buffer.from('%PDF-1.7 cover letter', 'utf8'),
-  })
+  });
   const service = createTailoredApplicationSessionService({
     adaptedCvRenderer: {
       renderAdaptedCvPdf,
@@ -78,14 +78,14 @@ test('assembles structured worker inputs and persists immutable tailored-applica
     },
     generateId: createIdGenerator(['command-123', 'run-123', 'tailored-application-123']),
     getCurrentTimestamp: () => {
-      return '2026-04-09T09:30:00.000Z'
+      return '2026-04-09T09:30:00.000Z';
     },
     localAppData: harness.localAppData,
     readinessStore: harness.readinessStore,
     runWorkspaceRootPath: path.join(harness.paths.rootDirectoryPath, 'runs'),
     worker: {
       runGeneration: async ({ runDirectoryPath }) => {
-        const inputDirectoryPath = path.join(runDirectoryPath, 'input')
+        const inputDirectoryPath = path.join(runDirectoryPath, 'input');
         const files = Object.fromEntries(
           await Promise.all(
             [
@@ -96,27 +96,27 @@ test('assembles structured worker inputs and persists immutable tailored-applica
               'writing-style-profile.json',
               'task.json',
             ].map(async (filename) => {
-              const content = await readFile(path.join(inputDirectoryPath, filename), 'utf8')
+              const content = await readFile(path.join(inputDirectoryPath, filename), 'utf8');
 
-              return [filename, content] as const
+              return [filename, content] as const;
             }),
           ),
-        )
-        const taskJson = files['task.json']
+        );
+        const taskJson = files['task.json'];
 
         if (taskJson === undefined) {
-          throw new Error('Expected task.json to be captured.')
+          throw new Error('Expected task.json to be captured.');
         }
 
         capturedInputs.push({
           files,
           taskJson,
-        })
+        });
 
-        return createValidGenerationResult()
+        return createValidGenerationResult();
       },
     },
-  })
+  });
 
   await expect(
     service.startPendingGeneration({
@@ -132,22 +132,22 @@ test('assembles structured worker inputs and persists immutable tailored-applica
     message: 'The local AI worker is ready.',
     provider: 'codex',
     status: 'ready',
-  })
+  });
 
   await expect(service.resumePendingGeneration()).resolves.toEqual({
     generationRunId: 'run-123',
     tailoredApplicationId: 'tailored-application-123',
-  })
+  });
 
-  expect(capturedInputs).toHaveLength(1)
+  expect(capturedInputs).toHaveLength(1);
   expect(capturedInputs[0]?.files['original-cv.txt']).toContain(
     'Led product design for AI-assisted desktop tooling.',
-  )
+  );
   expect(capturedInputs[0]?.files['vacancy.txt']).toContain(
     'Build reliable desktop tooling for technical users.',
-  )
-  expect(capturedInputs[0]?.taskJson).toContain('"workerMustNotGeneratePdf":true')
-  expect(capturedInputs[0]?.taskJson).toContain('"workerMustNotFetchContext":true')
+  );
+  expect(capturedInputs[0]?.taskJson).toContain('"workerMustNotGeneratePdf":true');
+  expect(capturedInputs[0]?.taskJson).toContain('"workerMustNotFetchContext":true');
 
   await expect(
     harness.localAppData.metadata.get({
@@ -165,7 +165,7 @@ test('assembles structured worker inputs and persists immutable tailored-applica
     status: 'ready',
     vacancyId: 'vacancy-123',
     vacancyTitle: 'Senior platform engineer',
-  })
+  });
 
   await expect(
     harness.localAppData.artifacts.list({
@@ -179,14 +179,14 @@ test('assembles structured worker inputs and persists immutable tailored-applica
     'cover-letter.json',
     'cover-letter.pdf',
     'cover-letter.txt',
-  ])
+  ]);
 
-  expect(renderAdaptedCvPdf).toHaveBeenCalledTimes(1)
+  expect(renderAdaptedCvPdf).toHaveBeenCalledTimes(1);
 
-  const renderAdaptedCvCall = renderAdaptedCvPdf.mock.calls[0]
+  const renderAdaptedCvCall = renderAdaptedCvPdf.mock.calls[0];
 
   if (renderAdaptedCvCall === undefined) {
-    throw new Error('Expected the adapted-CV renderer to be called.')
+    throw new Error('Expected the adapted-CV renderer to be called.');
   }
 
   expect(renderAdaptedCvCall[0]).toMatchObject({
@@ -206,12 +206,12 @@ test('assembles structured worker inputs and persists immutable tailored-applica
     },
     employer: 'Example Labs',
     vacancyTitle: 'Senior platform engineer',
-  })
+  });
   expect(renderCoverLetterPdf).toHaveBeenCalledWith({
     coverLetter: createValidGenerationResult().coverLetter,
     employer: 'Example Labs',
     vacancyTitle: 'Senior platform engineer',
-  })
+  });
 
   await expect(
     harness.localAppData.artifacts.read({
@@ -224,17 +224,17 @@ test('assembles structured worker inputs and persists immutable tailored-applica
       buildExpectedCoverLetterPlainText(createValidGenerationResult().coverLetter),
       'utf8',
     ),
-  )
+  );
 
   await expect(
     stat(path.join(harness.paths.rootDirectoryPath, 'runs', 'run-123')),
-  ).rejects.toThrow()
-})
+  ).rejects.toThrow();
+});
 
 test('renders adapted-CV header contact from the stored normalized original CV instead of reparsing extracted text', async () => {
-  const harness = await createHarness()
+  const harness = await createHarness();
 
-  await seedOriginalCvAndVacancy(harness)
+  await seedOriginalCvAndVacancy(harness);
   await harness.localAppData.artifacts.write({
     content: Buffer.from(
       [
@@ -249,7 +249,7 @@ test('renders adapted-CV header contact from the stored normalized original CV i
     id: 'original-cv-123',
     name: 'extracted.txt',
     scope: 'original-cvs',
-  })
+  });
   await harness.localAppData.artifacts.write({
     content: Buffer.from(
       JSON.stringify({
@@ -276,13 +276,13 @@ test('renders adapted-CV header contact from the stored normalized original CV i
     id: 'original-cv-123',
     name: 'normalized.json',
     scope: 'original-cvs',
-  })
+  });
 
   const renderAdaptedCvPdf = vi.fn().mockResolvedValue({
     pageCount: 1,
     pageWarning: null,
     pdfBytes: Buffer.from('%PDF-1.7 adapted cv', 'utf8'),
-  })
+  });
   const service = createTailoredApplicationSessionService({
     adaptedCvRenderer: {
       renderAdaptedCvPdf,
@@ -304,17 +304,17 @@ test('renders adapted-CV header contact from the stored normalized original CV i
     },
     generateId: createIdGenerator(['command-123', 'run-123', 'tailored-application-123']),
     getCurrentTimestamp: () => {
-      return '2026-04-09T09:30:00.000Z'
+      return '2026-04-09T09:30:00.000Z';
     },
     localAppData: harness.localAppData,
     readinessStore: harness.readinessStore,
     runWorkspaceRootPath: path.join(harness.paths.rootDirectoryPath, 'runs'),
     worker: {
       runGeneration: () => {
-        return Promise.resolve(createValidGenerationResult())
+        return Promise.resolve(createValidGenerationResult());
       },
     },
-  })
+  });
 
   await service.startPendingGeneration({
     originalCvId: 'original-cv-123',
@@ -323,31 +323,31 @@ test('renders adapted-CV header contact from the stored normalized original CV i
       text: 'Senior platform engineer',
       url: 'https://jobs.example.com/roles/123',
     },
-  })
-  await service.resumePendingGeneration()
+  });
+  await service.resumePendingGeneration();
 
-  expect(renderAdaptedCvPdf).toHaveBeenCalledTimes(1)
+  expect(renderAdaptedCvPdf).toHaveBeenCalledTimes(1);
 
   const renderAdaptedCvCalls = renderAdaptedCvPdf.mock.calls as Parameters<
     AdaptedCvRenderer['renderAdaptedCvPdf']
-  >[]
-  const renderAdaptedCvInput = renderAdaptedCvCalls[0]?.[0]
+  >[];
+  const renderAdaptedCvInput = renderAdaptedCvCalls[0]?.[0];
 
-  expect(renderAdaptedCvInput?.employer).toBe('Example Labs')
-  expect(renderAdaptedCvInput?.vacancyTitle).toBe('Senior platform engineer')
+  expect(renderAdaptedCvInput?.employer).toBe('Example Labs');
+  expect(renderAdaptedCvInput?.vacancyTitle).toBe('Senior platform engineer');
   expect(renderAdaptedCvInput?.adaptedCv.header.contact).toEqual({
     email: 'ada@lovelace.dev',
     location: 'London, United Kingdom',
     phone: '+44 7700 900123',
     professionalLink: 'ada-lovelace.dev',
-  })
+  });
   expect(renderAdaptedCvInput?.adaptedCv.header.intro).toEqual({
     text: 'Design leader shaping truthful desktop workflow products for technical users.',
-  })
-})
+  });
+});
 
 test('preserves optional adapted-CV sections through rendering and artifact persistence', async () => {
-  const harness = await createHarness()
+  const harness = await createHarness();
   const expectedOptionalSections = [
     {
       items: [
@@ -368,15 +368,15 @@ test('preserves optional adapted-CV sections through rendering and artifact pers
       ],
       kind: 'impact_highlights' as const,
     },
-  ]
+  ];
 
-  await seedOriginalCvAndVacancy(harness)
+  await seedOriginalCvAndVacancy(harness);
 
   const renderAdaptedCvPdf = vi.fn().mockResolvedValue({
     pageCount: 1,
     pageWarning: null,
     pdfBytes: Buffer.from('%PDF-1.7 adapted cv', 'utf8'),
-  })
+  });
 
   const service = createTailoredApplicationSessionService({
     adaptedCvRenderer: {
@@ -399,14 +399,14 @@ test('preserves optional adapted-CV sections through rendering and artifact pers
     },
     generateId: createIdGenerator(['command-123', 'run-123', 'tailored-application-123']),
     getCurrentTimestamp: () => {
-      return '2026-04-09T09:30:00.000Z'
+      return '2026-04-09T09:30:00.000Z';
     },
     localAppData: harness.localAppData,
     readinessStore: harness.readinessStore,
     runWorkspaceRootPath: path.join(harness.paths.rootDirectoryPath, 'runs'),
     worker: {
       runGeneration: () => {
-        const result = createValidGenerationResult()
+        const result = createValidGenerationResult();
 
         return Promise.resolve({
           ...result,
@@ -420,10 +420,10 @@ test('preserves optional adapted-CV sections through rendering and artifact pers
               },
             ],
           },
-        })
+        });
       },
     },
-  })
+  });
 
   await service.startPendingGeneration({
     originalCvId: 'original-cv-123',
@@ -432,53 +432,53 @@ test('preserves optional adapted-CV sections through rendering and artifact pers
       text: 'Senior platform engineer',
       url: 'https://jobs.example.com/roles/123',
     },
-  })
+  });
 
   await expect(service.resumePendingGeneration()).resolves.toEqual({
     generationRunId: 'run-123',
     tailoredApplicationId: 'tailored-application-123',
-  })
+  });
 
   const renderedAdaptedCvInput = renderAdaptedCvPdf.mock.calls.at(0)?.[0] as
     | {
-        adaptedCv: Pick<TailoredApplicationGenerationResult['adaptedCv'], 'sections'>
+        adaptedCv: Pick<TailoredApplicationGenerationResult['adaptedCv'], 'sections'>;
       }
-    | undefined
+    | undefined;
 
-  expect(renderedAdaptedCvInput).toBeDefined()
+  expect(renderedAdaptedCvInput).toBeDefined();
   expect(renderedAdaptedCvInput?.adaptedCv.sections).toEqual(
     expect.arrayContaining(expectedOptionalSections),
-  )
+  );
 
   const persistedAdaptedCvBuffer = await harness.localAppData.artifacts.read({
     id: 'tailored-application-123',
     name: 'adapted-cv.json',
     scope: 'tailored-applications',
-  })
+  });
 
-  expect(persistedAdaptedCvBuffer).not.toBeNull()
+  expect(persistedAdaptedCvBuffer).not.toBeNull();
   const persistedAdaptedCv = JSON.parse(persistedAdaptedCvBuffer?.toString('utf8') ?? '{}') as Pick<
     TailoredApplicationGenerationResult['adaptedCv'],
     'sections'
-  >
+  >;
 
-  expect(persistedAdaptedCv.sections).toEqual(expect.arrayContaining(expectedOptionalSections))
-})
+  expect(persistedAdaptedCv.sections).toEqual(expect.arrayContaining(expectedOptionalSections));
+});
 
 test('persists the renderer-applied adapted CV when sidebar fit omits optional items', async () => {
-  const harness = await createHarness()
+  const harness = await createHarness();
 
-  await seedOriginalCvAndVacancy(harness)
+  await seedOriginalCvAndVacancy(harness);
 
   const renderAdaptedCvPdf = vi
     .fn<AdaptedCvRenderer['renderAdaptedCvPdf']>()
     .mockImplementation(({ adaptedCv }) => {
       const toolsSection = adaptedCv.sections.find((section) => {
-        return section.kind === 'tools'
-      })
+        return section.kind === 'tools';
+      });
 
       if (toolsSection?.kind !== 'tools') {
-        throw new Error('Expected tools to be present in the adapted CV fixture.')
+        throw new Error('Expected tools to be present in the adapted CV fixture.');
       }
 
       return Promise.resolve({
@@ -486,20 +486,20 @@ test('persists the renderer-applied adapted CV when sidebar fit omits optional i
           ...adaptedCv,
           sections: adaptedCv.sections.map((section: AdaptedCvModel['sections'][number]) => {
             if (section.kind !== 'tools') {
-              return section
+              return section;
             }
 
             return {
               ...section,
               items: section.items.slice(0, 1),
-            }
+            };
           }),
         },
         pageCount: 1,
         pageWarning: null,
         pdfBytes: Buffer.from('%PDF-1.7 adapted cv', 'utf8'),
-      })
-    })
+      });
+    });
   const service = createTailoredApplicationSessionService({
     adaptedCvRenderer: {
       renderAdaptedCvPdf,
@@ -521,14 +521,14 @@ test('persists the renderer-applied adapted CV when sidebar fit omits optional i
     },
     generateId: createIdGenerator(['command-123', 'run-123', 'tailored-application-123']),
     getCurrentTimestamp: () => {
-      return '2026-04-09T09:30:00.000Z'
+      return '2026-04-09T09:30:00.000Z';
     },
     localAppData: harness.localAppData,
     readinessStore: harness.readinessStore,
     runWorkspaceRootPath: path.join(harness.paths.rootDirectoryPath, 'runs'),
     worker: {
       runGeneration: () => {
-        const result = createValidGenerationResult()
+        const result = createValidGenerationResult();
 
         return Promise.resolve({
           ...result,
@@ -552,10 +552,10 @@ test('persists the renderer-applied adapted CV when sidebar fit omits optional i
               },
             ],
           },
-        })
+        });
       },
     },
-  })
+  });
 
   await service.startPendingGeneration({
     originalCvId: 'original-cv-123',
@@ -564,27 +564,27 @@ test('persists the renderer-applied adapted CV when sidebar fit omits optional i
       text: 'Senior platform engineer',
       url: 'https://jobs.example.com/roles/123',
     },
-  })
+  });
 
   await expect(service.resumePendingGeneration()).resolves.toEqual({
     generationRunId: 'run-123',
     tailoredApplicationId: 'tailored-application-123',
-  })
+  });
 
   const persistedAdaptedCvBuffer = await harness.localAppData.artifacts.read({
     id: 'tailored-application-123',
     name: 'adapted-cv.json',
     scope: 'tailored-applications',
-  })
+  });
 
-  expect(persistedAdaptedCvBuffer).not.toBeNull()
+  expect(persistedAdaptedCvBuffer).not.toBeNull();
   const persistedAdaptedCv = JSON.parse(persistedAdaptedCvBuffer?.toString('utf8') ?? '{}') as Pick<
     TailoredApplicationGenerationResult['adaptedCv'],
     'sections'
-  >
+  >;
   const persistedToolsSection = persistedAdaptedCv.sections.find((section) => {
-    return section.kind === 'tools'
-  })
+    return section.kind === 'tools';
+  });
 
   expect(persistedToolsSection).toEqual({
     items: [
@@ -593,13 +593,13 @@ test('persists the renderer-applied adapted CV when sidebar fit omits optional i
       },
     ],
     kind: 'tools',
-  })
-})
+  });
+});
 
 test('passes derived original-CV normalization artifacts through to the tailored-application worker unchanged', async () => {
-  const harness = await createHarness()
+  const harness = await createHarness();
 
-  await seedOriginalCvAndVacancy(harness)
+  await seedOriginalCvAndVacancy(harness);
   await harness.localAppData.metadata.put({
     id: 'original-cv-123',
     scope: 'original-cvs',
@@ -635,7 +635,7 @@ test('passes derived original-CV normalization artifacts through to the tailored
         formality: 'formal',
       },
     },
-  })
+  });
   await harness.localAppData.artifacts.write({
     content: Buffer.from(
       JSON.stringify({
@@ -662,9 +662,9 @@ test('passes derived original-CV normalization artifacts through to the tailored
     id: 'original-cv-123',
     name: 'normalized.json',
     scope: 'original-cvs',
-  })
+  });
 
-  const capturedOriginalCvJson: string[] = []
+  const capturedOriginalCvJson: string[] = [];
   const service = createTailoredApplicationSessionService({
     adaptedCvRenderer: {
       renderAdaptedCvPdf: vi.fn().mockResolvedValue({
@@ -690,7 +690,7 @@ test('passes derived original-CV normalization artifacts through to the tailored
     },
     generateId: createIdGenerator(['command-123', 'run-123', 'tailored-application-123']),
     getCurrentTimestamp: () => {
-      return '2026-04-09T09:30:00.000Z'
+      return '2026-04-09T09:30:00.000Z';
     },
     localAppData: harness.localAppData,
     readinessStore: harness.readinessStore,
@@ -699,12 +699,12 @@ test('passes derived original-CV normalization artifacts through to the tailored
       runGeneration: async ({ runDirectoryPath }) => {
         capturedOriginalCvJson.push(
           await readFile(path.join(runDirectoryPath, 'input', 'original-cv.json'), 'utf8'),
-        )
+        );
 
-        return createValidGenerationResult()
+        return createValidGenerationResult();
       },
     },
-  })
+  });
 
   await service.startPendingGeneration({
     originalCvId: 'original-cv-123',
@@ -713,8 +713,8 @@ test('passes derived original-CV normalization artifacts through to the tailored
       text: 'Senior platform engineer',
       url: 'https://jobs.example.com/roles/123',
     },
-  })
-  await service.resumePendingGeneration()
+  });
+  await service.resumePendingGeneration();
 
   expect(capturedOriginalCvJson).toEqual([
     JSON.stringify({
@@ -736,19 +736,19 @@ test('passes derived original-CV normalization artifacts through to the tailored
       summary:
         'Design leader shaping truthful workflow products for technical users and regulated content teams.',
     }),
-  ])
-})
+  ]);
+});
 
 test('bounds oversized original-CV and vacancy extracted text before invoking the tailored-generation worker', async () => {
-  const harness = await createHarness()
+  const harness = await createHarness();
 
-  await seedOriginalCvAndVacancy(harness)
+  await seedOriginalCvAndVacancy(harness);
   await harness.localAppData.artifacts.write({
     content: Buffer.from(`Ada Lovelace\nPrincipal Product Designer\n${'A'.repeat(40_000)}`, 'utf8'),
     id: 'original-cv-123',
     name: 'extracted.txt',
     scope: 'original-cvs',
-  })
+  });
   await harness.localAppData.artifacts.write({
     content: Buffer.from(
       `Full Stack Engineer | TypeScript, React, Node.js, AWS\n${'B'.repeat(40_000)}`,
@@ -757,12 +757,12 @@ test('bounds oversized original-CV and vacancy extracted text before invoking th
     id: 'vacancy-123',
     name: 'extracted.txt',
     scope: 'vacancies',
-  })
+  });
 
   const capturedInputTexts: {
-    originalCvText: string
-    vacancyText: string
-  }[] = []
+    originalCvText: string;
+    vacancyText: string;
+  }[] = [];
 
   const service = createTailoredApplicationSessionService({
     adaptedCvRenderer: {
@@ -789,7 +789,7 @@ test('bounds oversized original-CV and vacancy extracted text before invoking th
     },
     generateId: createIdGenerator(['command-123', 'run-123', 'tailored-application-123']),
     getCurrentTimestamp: () => {
-      return '2026-04-09T09:30:00.000Z'
+      return '2026-04-09T09:30:00.000Z';
     },
     localAppData: harness.localAppData,
     readinessStore: harness.readinessStore,
@@ -802,12 +802,12 @@ test('bounds oversized original-CV and vacancy extracted text before invoking th
             'utf8',
           ),
           vacancyText: await readFile(path.join(runDirectoryPath, 'input', 'vacancy.txt'), 'utf8'),
-        })
+        });
 
-        return createValidGenerationResult()
+        return createValidGenerationResult();
       },
     },
-  })
+  });
 
   await service.startPendingGeneration({
     originalCvId: 'original-cv-123',
@@ -816,24 +816,24 @@ test('bounds oversized original-CV and vacancy extracted text before invoking th
       text: 'Senior platform engineer',
       url: 'https://jobs.example.com/roles/123',
     },
-  })
-  await service.resumePendingGeneration()
+  });
+  await service.resumePendingGeneration();
 
-  expect(capturedInputTexts).toHaveLength(1)
-  expect(capturedInputTexts[0]?.originalCvText.length).toBeLessThanOrEqual(24_000)
-  expect(capturedInputTexts[0]?.vacancyText.length).toBeLessThanOrEqual(24_000)
-  expect(capturedInputTexts[0]?.originalCvText.startsWith('Ada Lovelace')).toBe(true)
-  expect(capturedInputTexts[0]?.vacancyText.startsWith('Full Stack Engineer')).toBe(true)
-})
+  expect(capturedInputTexts).toHaveLength(1);
+  expect(capturedInputTexts[0]?.originalCvText.length).toBeLessThanOrEqual(24_000);
+  expect(capturedInputTexts[0]?.vacancyText.length).toBeLessThanOrEqual(24_000);
+  expect(capturedInputTexts[0]?.originalCvText.startsWith('Ada Lovelace')).toBe(true);
+  expect(capturedInputTexts[0]?.vacancyText.startsWith('Full Stack Engineer')).toBe(true);
+});
 
 test('keeps existing original CV snapshots unavailable when required artifacts are missing instead of repairing them', async () => {
-  const harness = await createHarness()
+  const harness = await createHarness();
 
-  await seedOriginalCvAndVacancy(harness)
+  await seedOriginalCvAndVacancy(harness);
   await harness.localAppData.deleteScopedData({
     id: 'original-cv-123',
     scope: 'original-cvs',
-  })
+  });
   await harness.localAppData.artifacts.write({
     content: Buffer.from(
       [
@@ -847,9 +847,9 @@ test('keeps existing original CV snapshots unavailable when required artifacts a
     id: 'original-cv-123',
     name: 'extracted.txt',
     scope: 'original-cvs',
-  })
+  });
 
-  const runGeneration = vi.fn()
+  const runGeneration = vi.fn();
   const service = createTailoredApplicationSessionService({
     adaptedCvRenderer: {
       renderAdaptedCvPdf: vi.fn(),
@@ -867,7 +867,7 @@ test('keeps existing original CV snapshots unavailable when required artifacts a
     },
     generateId: createIdGenerator(['command-123', 'run-123', 'tailored-application-123']),
     getCurrentTimestamp: () => {
-      return '2026-04-09T09:30:00.000Z'
+      return '2026-04-09T09:30:00.000Z';
     },
     localAppData: harness.localAppData,
     readinessStore: harness.readinessStore,
@@ -875,7 +875,7 @@ test('keeps existing original CV snapshots unavailable when required artifacts a
     worker: {
       runGeneration,
     },
-  })
+  });
 
   await service.startPendingGeneration({
     originalCvId: 'original-cv-123',
@@ -884,30 +884,30 @@ test('keeps existing original CV snapshots unavailable when required artifacts a
       text: 'Senior platform engineer',
       url: 'https://jobs.example.com/roles/123',
     },
-  })
+  });
 
-  await expect(service.resumePendingGeneration()).rejects.toThrow("We couldn't load your CV.")
+  await expect(service.resumePendingGeneration()).rejects.toThrow("We couldn't load your CV.");
   await expect(
     harness.localAppData.artifacts.read({
       id: 'original-cv-123',
       name: 'normalized.json',
       scope: 'original-cvs',
     }),
-  ).resolves.toBeNull()
-  expect(runGeneration).not.toHaveBeenCalled()
-})
+  ).resolves.toBeNull();
+  expect(runGeneration).not.toHaveBeenCalled();
+});
 
 test('returns both PDF artifacts in the preview payload and exports the cover-letter PDF with overwrite avoidance', async () => {
-  const harness = await createHarness()
+  const harness = await createHarness();
 
-  await seedOriginalCvAndVacancy(harness)
+  await seedOriginalCvAndVacancy(harness);
 
   const exportDialog = {
     showSaveDialog: vi.fn().mockResolvedValue({
       canceled: false,
       filePath: path.join(harness.paths.rootDirectoryPath, 'exports', 'cover-letter.pdf'),
     }),
-  }
+  };
   const service = createTailoredApplicationSessionService({
     adaptedCvRenderer: {
       renderAdaptedCvPdf: vi.fn().mockResolvedValue({
@@ -934,7 +934,7 @@ test('returns both PDF artifacts in the preview payload and exports the cover-le
     exportDialog,
     generateId: createIdGenerator(['command-123', 'run-123', 'tailored-application-123']),
     getCurrentTimestamp: () => {
-      return '2026-04-09T09:30:00.000Z'
+      return '2026-04-09T09:30:00.000Z';
     },
     localAppData: harness.localAppData,
     readinessStore: harness.readinessStore,
@@ -942,7 +942,7 @@ test('returns both PDF artifacts in the preview payload and exports the cover-le
     worker: {
       runGeneration: () => Promise.resolve(createValidGenerationResult()),
     },
-  })
+  });
 
   await service.startPendingGeneration({
     originalCvId: 'original-cv-123',
@@ -951,16 +951,16 @@ test('returns both PDF artifacts in the preview payload and exports the cover-le
       text: 'Senior platform engineer',
       url: 'https://jobs.example.com/roles/123',
     },
-  })
-  await service.resumePendingGeneration()
+  });
+  await service.resumePendingGeneration();
   await mkdir(path.join(harness.paths.rootDirectoryPath, 'exports'), {
     recursive: true,
-  })
+  });
   await writeFile(
     path.join(harness.paths.rootDirectoryPath, 'exports', 'cover-letter.pdf'),
     'existing',
     'utf8',
-  )
+  );
 
   await expect(service.getTailoredApplicationPreview('tailored-application-123')).resolves.toEqual({
     adaptedCv: {
@@ -1013,18 +1013,18 @@ test('returns both PDF artifacts in the preview payload and exports the cover-le
       title: 'Senior platform engineer',
     },
     vacancyTitle: 'Senior platform engineer',
-  })
+  });
   await expect(service.exportCoverLetterPdf('tailored-application-123')).resolves.toEqual({
     filePath: path.join(harness.paths.rootDirectoryPath, 'exports', 'cover-letter (2).pdf'),
     overwriteAvoided: true,
     pageWarning: 'This cover letter runs to 2 pages. Export and copy remain available.',
-  })
-})
+  });
+});
 
 test('uses a consumer-friendly saved-job fallback title when vacancy metadata is incomplete', async () => {
-  const harness = await createHarness()
+  const harness = await createHarness();
 
-  await seedOriginalCvAndVacancy(harness)
+  await seedOriginalCvAndVacancy(harness);
 
   const service = createTailoredApplicationSessionService({
     adaptedCvRenderer: {
@@ -1051,7 +1051,7 @@ test('uses a consumer-friendly saved-job fallback title when vacancy metadata is
     },
     generateId: createIdGenerator(['command-123', 'run-123', 'tailored-application-123']),
     getCurrentTimestamp: () => {
-      return '2026-04-09T09:30:00.000Z'
+      return '2026-04-09T09:30:00.000Z';
     },
     localAppData: harness.localAppData,
     readinessStore: harness.readinessStore,
@@ -1059,7 +1059,7 @@ test('uses a consumer-friendly saved-job fallback title when vacancy metadata is
     worker: {
       runGeneration: () => Promise.resolve(createValidGenerationResult()),
     },
-  })
+  });
 
   await service.startPendingGeneration({
     originalCvId: 'original-cv-123',
@@ -1068,8 +1068,8 @@ test('uses a consumer-friendly saved-job fallback title when vacancy metadata is
       text: 'Senior platform engineer',
       url: 'https://jobs.example.com/roles/123',
     },
-  })
-  await service.resumePendingGeneration()
+  });
+  await service.resumePendingGeneration();
 
   await harness.localAppData.metadata.put({
     id: 'tailored-application-123',
@@ -1087,7 +1087,7 @@ test('uses a consumer-friendly saved-job fallback title when vacancy metadata is
       vacancyId: 'vacancy-123',
       vacancyTitle: null,
     },
-  })
+  });
 
   await expect(service.getWorkspaceState()).resolves.toEqual({
     activeApplicationId: null,
@@ -1102,7 +1102,7 @@ test('uses a consumer-friendly saved-job fallback title when vacancy metadata is
         vacancyTitle: null,
       },
     ],
-  })
+  });
 
   await expect(
     service.getTailoredApplicationPreview('tailored-application-123'),
@@ -1110,7 +1110,7 @@ test('uses a consumer-friendly saved-job fallback title when vacancy metadata is
     employer: null,
     title: 'Saved job',
     vacancyTitle: null,
-  })
+  });
 
   await harness.localAppData.metadata.put({
     id: 'tailored-application-123',
@@ -1128,7 +1128,7 @@ test('uses a consumer-friendly saved-job fallback title when vacancy metadata is
       vacancyId: 'vacancy-123',
       vacancyTitle: null,
     },
-  })
+  });
 
   await expect(service.getWorkspaceState()).resolves.toEqual({
     activeApplicationId: null,
@@ -1143,7 +1143,7 @@ test('uses a consumer-friendly saved-job fallback title when vacancy metadata is
         vacancyTitle: null,
       },
     ],
-  })
+  });
 
   await expect(
     service.getTailoredApplicationPreview('tailored-application-123'),
@@ -1151,13 +1151,13 @@ test('uses a consumer-friendly saved-job fallback title when vacancy metadata is
     employer: 'Example Labs',
     title: 'Saved job · Example Labs',
     vacancyTitle: null,
-  })
-})
+  });
+});
 
 test('deletes a tailored application without removing original CV or job vacancy snapshots used elsewhere', async () => {
-  const harness = await createHarness()
+  const harness = await createHarness();
 
-  await seedOriginalCvAndVacancy(harness)
+  await seedOriginalCvAndVacancy(harness);
   await harness.localAppData.metadata.put({
     id: 'tailored-application-456',
     scope: 'tailored-applications',
@@ -1174,7 +1174,7 @@ test('deletes a tailored application without removing original CV or job vacancy
       vacancyId: 'vacancy-123',
       vacancyTitle: 'Senior platform engineer',
     },
-  })
+  });
   await harness.localAppData.metadata.put({
     id: 'run-456',
     scope: 'generation-runs',
@@ -1185,13 +1185,13 @@ test('deletes a tailored application without removing original CV or job vacancy
       status: 'ready',
       tailoredApplicationId: 'tailored-application-456',
     },
-  })
+  });
   await harness.localAppData.artifacts.write({
     content: Buffer.from('{}', 'utf8'),
     id: 'tailored-application-456',
     name: 'adapted-cv.json',
     scope: 'tailored-applications',
-  })
+  });
 
   const service = createTailoredApplicationSessionService({
     adaptedCvRenderer: {
@@ -1215,30 +1215,30 @@ test('deletes a tailored application without removing original CV or job vacancy
     worker: {
       runGeneration: vi.fn(),
     },
-  })
+  });
 
   await expect(
     service.deleteTailoredApplication('tailored-application-456'),
-  ).resolves.toBeUndefined()
+  ).resolves.toBeUndefined();
 
   await expect(
     harness.localAppData.metadata.get({
       id: 'tailored-application-456',
       scope: 'tailored-applications',
     }),
-  ).resolves.toBeNull()
+  ).resolves.toBeNull();
   await expect(
     harness.localAppData.metadata.get({
       id: 'run-456',
       scope: 'generation-runs',
     }),
-  ).resolves.toBeNull()
+  ).resolves.toBeNull();
   await expect(
     harness.localAppData.artifacts.list({
       id: 'tailored-application-456',
       scope: 'tailored-applications',
     }),
-  ).resolves.toEqual([])
+  ).resolves.toEqual([]);
   await expect(
     harness.localAppData.metadata.get({
       id: 'original-cv-123',
@@ -1246,7 +1246,7 @@ test('deletes a tailored application without removing original CV or job vacancy
     }),
   ).resolves.toMatchObject({
     originalFilename: 'ada-lovelace.pdf',
-  })
+  });
   await expect(
     harness.localAppData.metadata.get({
       id: 'vacancy-123',
@@ -1254,13 +1254,13 @@ test('deletes a tailored application without removing original CV or job vacancy
     }),
   ).resolves.toMatchObject({
     title: 'Senior platform engineer',
-  })
-})
+  });
+});
 
 test('returns null when a saved adaptation summary artifact is malformed', async () => {
-  const harness = await createHarness()
+  const harness = await createHarness();
 
-  await seedOriginalCvAndVacancy(harness)
+  await seedOriginalCvAndVacancy(harness);
 
   const service = createTailoredApplicationSessionService({
     adaptedCvRenderer: {
@@ -1287,7 +1287,7 @@ test('returns null when a saved adaptation summary artifact is malformed', async
     },
     generateId: createIdGenerator(['command-123', 'run-123', 'tailored-application-123']),
     getCurrentTimestamp: () => {
-      return '2026-04-09T09:30:00.000Z'
+      return '2026-04-09T09:30:00.000Z';
     },
     localAppData: harness.localAppData,
     readinessStore: harness.readinessStore,
@@ -1295,7 +1295,7 @@ test('returns null when a saved adaptation summary artifact is malformed', async
     worker: {
       runGeneration: () => Promise.resolve(createValidGenerationResult()),
     },
-  })
+  });
 
   await service.startPendingGeneration({
     originalCvId: 'original-cv-123',
@@ -1304,24 +1304,24 @@ test('returns null when a saved adaptation summary artifact is malformed', async
       text: 'Senior platform engineer',
       url: 'https://jobs.example.com/roles/123',
     },
-  })
-  await service.resumePendingGeneration()
+  });
+  await service.resumePendingGeneration();
   await harness.localAppData.artifacts.write({
     content: Buffer.from('{invalid json', 'utf8'),
     id: 'tailored-application-123',
     name: 'adaptation-summary.json',
     scope: 'tailored-applications',
-  })
+  });
 
   await expect(
     service.getTailoredApplicationPreview('tailored-application-123'),
-  ).resolves.toBeNull()
-})
+  ).resolves.toBeNull();
+});
 
 test('accepts adapted output without numeric truthfulness validation', async () => {
-  const harness = await createHarness()
+  const harness = await createHarness();
 
-  await seedOriginalCvAndVacancy(harness)
+  await seedOriginalCvAndVacancy(harness);
 
   const service = createTailoredApplicationSessionService({
     adaptedCvRenderer: {
@@ -1348,7 +1348,7 @@ test('accepts adapted output without numeric truthfulness validation', async () 
     },
     generateId: createIdGenerator(['command-123', 'run-123', 'tailored-application-123']),
     getCurrentTimestamp: () => {
-      return '2026-04-09T09:30:00.000Z'
+      return '2026-04-09T09:30:00.000Z';
     },
     localAppData: harness.localAppData,
     readinessStore: harness.readinessStore,
@@ -1369,10 +1369,10 @@ test('accepts adapted output without numeric truthfulness validation', async () 
               ...createValidGenerationResult().adaptedCv.sections.slice(1),
             ],
           },
-        })
+        });
       },
     },
-  })
+  });
 
   await service.startPendingGeneration({
     originalCvId: 'original-cv-123',
@@ -1381,14 +1381,14 @@ test('accepts adapted output without numeric truthfulness validation', async () 
       text: 'Senior platform engineer',
       url: 'https://jobs.example.com/roles/123',
     },
-  })
+  });
 
-  const resumePromise = service.resumePendingGeneration()
+  const resumePromise = service.resumePendingGeneration();
 
   await expect(resumePromise).resolves.toEqual({
     generationRunId: 'run-123',
     tailoredApplicationId: 'tailored-application-123',
-  })
+  });
   await expect(
     harness.localAppData.metadata.get({
       id: 'tailored-application-123',
@@ -1396,16 +1396,16 @@ test('accepts adapted output without numeric truthfulness validation', async () 
     }),
   ).resolves.toMatchObject({
     status: 'ready',
-  })
+  });
   await expect(
     stat(path.join(harness.paths.rootDirectoryPath, 'runs', 'run-123')),
-  ).rejects.toThrow()
-})
+  ).rejects.toThrow();
+});
 
 test('rejects generation output when the JSON contract shape is invalid', async () => {
-  const harness = await createHarness()
+  const harness = await createHarness();
 
-  await seedOriginalCvAndVacancy(harness)
+  await seedOriginalCvAndVacancy(harness);
 
   const service = createTailoredApplicationSessionService({
     adaptedCvRenderer: {
@@ -1432,14 +1432,14 @@ test('rejects generation output when the JSON contract shape is invalid', async 
     },
     generateId: createIdGenerator(['command-123', 'run-123', 'tailored-application-123']),
     getCurrentTimestamp: () => {
-      return '2026-04-09T09:30:00.000Z'
+      return '2026-04-09T09:30:00.000Z';
     },
     localAppData: harness.localAppData,
     readinessStore: harness.readinessStore,
     runWorkspaceRootPath: path.join(harness.paths.rootDirectoryPath, 'runs'),
     worker: {
       runGeneration: () => {
-        const result = createValidGenerationResult()
+        const result = createValidGenerationResult();
 
         return Promise.resolve({
           ...result,
@@ -1447,10 +1447,10 @@ test('rejects generation output when the JSON contract shape is invalid', async 
             ...result.adaptedCv,
             headline: {} as never,
           },
-        })
+        });
       },
     },
-  })
+  });
 
   await service.startPendingGeneration({
     originalCvId: 'original-cv-123',
@@ -1459,24 +1459,24 @@ test('rejects generation output when the JSON contract shape is invalid', async 
       text: 'Senior platform engineer',
       url: 'https://jobs.example.com/roles/123',
     },
-  })
+  });
 
-  const resumePromise = service.resumePendingGeneration()
+  const resumePromise = service.resumePendingGeneration();
 
   await expect(resumePromise).rejects.toMatchObject({
     code: 'adapted_cv_invalid',
     detail: 'Expected adaptedCv.headline.text to be a string.',
     path: 'adaptedCv',
-  })
+  });
   await expect(resumePromise).rejects.toThrow(
     "We couldn't finish your CV and cover letter. Try tailoring this job again.",
-  )
-})
+  );
+});
 
 test('rejects adapted output when structured experience semantics are incomplete', async () => {
-  const harness = await createHarness()
+  const harness = await createHarness();
 
-  await seedOriginalCvAndVacancy(harness)
+  await seedOriginalCvAndVacancy(harness);
 
   const service = createTailoredApplicationSessionService({
     adaptedCvRenderer: {
@@ -1503,18 +1503,18 @@ test('rejects adapted output when structured experience semantics are incomplete
     },
     generateId: createIdGenerator(['command-123', 'run-123', 'tailored-application-123']),
     getCurrentTimestamp: () => {
-      return '2026-04-09T09:30:00.000Z'
+      return '2026-04-09T09:30:00.000Z';
     },
     localAppData: harness.localAppData,
     readinessStore: harness.readinessStore,
     runWorkspaceRootPath: path.join(harness.paths.rootDirectoryPath, 'runs'),
     worker: {
       runGeneration: () => {
-        const result = createValidGenerationResult()
-        const [profileSection] = result.adaptedCv.sections
+        const result = createValidGenerationResult();
+        const [profileSection] = result.adaptedCv.sections;
 
         if (profileSection === undefined) {
-          throw new Error('Expected the profile section to exist in the test fixture.')
+          throw new Error('Expected the profile section to exist in the test fixture.');
         }
 
         return Promise.resolve({
@@ -1530,10 +1530,10 @@ test('rejects adapted output when structured experience semantics are incomplete
               ...result.adaptedCv.sections.slice(2),
             ],
           },
-        })
+        });
       },
     },
-  })
+  });
 
   await service.startPendingGeneration({
     originalCvId: 'original-cv-123',
@@ -1542,21 +1542,21 @@ test('rejects adapted output when structured experience semantics are incomplete
       text: 'Senior platform engineer',
       url: 'https://jobs.example.com/roles/123',
     },
-  })
+  });
 
-  const resumePromise = service.resumePendingGeneration()
+  const resumePromise = service.resumePendingGeneration();
 
   await expect(resumePromise).rejects.toMatchObject({
     code: 'adapted_cv_invalid',
     detail: 'Expected adaptedCv.sections[1] to match the section contract.',
     path: 'adaptedCv',
-  })
-})
+  });
+});
 
 test('normalizes a stacked vacancy-style headline to the role name before rendering and persistence', async () => {
-  const harness = await createHarness()
+  const harness = await createHarness();
 
-  await seedOriginalCvAndVacancy(harness)
+  await seedOriginalCvAndVacancy(harness);
   await harness.localAppData.metadata.put({
     id: 'vacancy-123',
     scope: 'vacancies',
@@ -1576,7 +1576,7 @@ test('normalizes a stacked vacancy-style headline to the role name before render
       textPreview: 'Build reliable desktop tooling for technical users.',
       title: 'Full Stack Engineer | TypeScript, React, Node.js, AWS',
     },
-  })
+  });
   await harness.localAppData.artifacts.write({
     content: Buffer.from(
       JSON.stringify({
@@ -1592,7 +1592,7 @@ test('normalizes a stacked vacancy-style headline to the role name before render
     id: 'vacancy-123',
     name: 'normalized.json',
     scope: 'vacancies',
-  })
+  });
   await harness.localAppData.metadata.put({
     id: 'current',
     scope: 'vacancy-workspace',
@@ -1601,13 +1601,13 @@ test('normalizes a stacked vacancy-style headline to the role name before render
       url: 'https://jobs.example.com/roles/123',
       vacancyId: 'vacancy-123',
     },
-  })
+  });
 
   const renderAdaptedCvPdf = vi.fn().mockResolvedValue({
     pageCount: 1,
     pageWarning: null,
     pdfBytes: new Uint8Array([37, 80, 68, 70]),
-  })
+  });
 
   const service = createTailoredApplicationSessionService({
     adaptedCvRenderer: {
@@ -1630,14 +1630,14 @@ test('normalizes a stacked vacancy-style headline to the role name before render
     },
     generateId: createIdGenerator(['command-123', 'run-123', 'tailored-application-123']),
     getCurrentTimestamp: () => {
-      return '2026-04-09T09:30:00.000Z'
+      return '2026-04-09T09:30:00.000Z';
     },
     localAppData: harness.localAppData,
     readinessStore: harness.readinessStore,
     runWorkspaceRootPath: path.join(harness.paths.rootDirectoryPath, 'runs'),
     worker: {
       runGeneration: () => {
-        const result = createValidGenerationResult()
+        const result = createValidGenerationResult();
 
         return Promise.resolve({
           ...result,
@@ -1647,10 +1647,10 @@ test('normalizes a stacked vacancy-style headline to the role name before render
               text: 'Full Stack Engineer | TypeScript, React, Node.js, AWS',
             },
           },
-        })
+        });
       },
     },
-  })
+  });
 
   await service.startPendingGeneration({
     originalCvId: 'original-cv-123',
@@ -1659,17 +1659,17 @@ test('normalizes a stacked vacancy-style headline to the role name before render
       text: 'Full Stack Engineer | TypeScript, React, Node.js, AWS',
       url: 'https://jobs.example.com/roles/123',
     },
-  })
+  });
 
   await expect(service.resumePendingGeneration()).resolves.toEqual({
     generationRunId: 'run-123',
     tailoredApplicationId: 'tailored-application-123',
-  })
+  });
 
-  const renderAdaptedCvCall = renderAdaptedCvPdf.mock.calls[0]
+  const renderAdaptedCvCall = renderAdaptedCvPdf.mock.calls[0];
 
   if (renderAdaptedCvCall === undefined) {
-    throw new Error('Expected the adapted-CV renderer to be called.')
+    throw new Error('Expected the adapted-CV renderer to be called.');
   }
 
   expect(renderAdaptedCvCall[0]).toMatchObject({
@@ -1680,7 +1680,7 @@ test('normalizes a stacked vacancy-style headline to the role name before render
     },
     employer: 'Example Labs',
     vacancyTitle: 'Full Stack Engineer | TypeScript, React, Node.js, AWS',
-  })
+  });
 
   await expect(
     harness.localAppData.artifacts.read({
@@ -1688,26 +1688,26 @@ test('normalizes a stacked vacancy-style headline to the role name before render
       name: 'adapted-cv.json',
       scope: 'tailored-applications',
     }),
-  ).resolves.toEqual(expect.any(Buffer))
+  ).resolves.toEqual(expect.any(Buffer));
 
   const persistedAdaptedCvBuffer = await harness.localAppData.artifacts.read({
     id: 'tailored-application-123',
     name: 'adapted-cv.json',
     scope: 'tailored-applications',
-  })
+  });
 
-  expect(persistedAdaptedCvBuffer).not.toBeNull()
+  expect(persistedAdaptedCvBuffer).not.toBeNull();
   expect(JSON.parse(persistedAdaptedCvBuffer?.toString('utf8') ?? '{}')).toMatchObject({
     headline: {
       text: 'Full Stack Engineer',
     },
-  })
-})
+  });
+});
 
 test('normalizes a slash-separated vacancy-style headline to the role name before rendering', async () => {
-  const harness = await createHarness()
+  const harness = await createHarness();
 
-  await seedOriginalCvAndVacancy(harness)
+  await seedOriginalCvAndVacancy(harness);
   await harness.localAppData.metadata.put({
     id: 'vacancy-123',
     scope: 'vacancies',
@@ -1727,7 +1727,7 @@ test('normalizes a slash-separated vacancy-style headline to the role name befor
       textPreview: 'Build reliable desktop tooling for technical users.',
       title: 'Full Stack Engineer',
     },
-  })
+  });
   await harness.localAppData.artifacts.write({
     content: Buffer.from(
       JSON.stringify({
@@ -1743,7 +1743,7 @@ test('normalizes a slash-separated vacancy-style headline to the role name befor
     id: 'vacancy-123',
     name: 'normalized.json',
     scope: 'vacancies',
-  })
+  });
   await harness.localAppData.metadata.put({
     id: 'current',
     scope: 'vacancy-workspace',
@@ -1752,13 +1752,13 @@ test('normalizes a slash-separated vacancy-style headline to the role name befor
       url: 'https://jobs.example.com/roles/123',
       vacancyId: 'vacancy-123',
     },
-  })
+  });
 
   const renderAdaptedCvPdf = vi.fn().mockResolvedValue({
     pageCount: 1,
     pageWarning: null,
     pdfBytes: new Uint8Array([37, 80, 68, 70]),
-  })
+  });
 
   const service = createTailoredApplicationSessionService({
     adaptedCvRenderer: {
@@ -1781,14 +1781,14 @@ test('normalizes a slash-separated vacancy-style headline to the role name befor
     },
     generateId: createIdGenerator(['command-123', 'run-123', 'tailored-application-123']),
     getCurrentTimestamp: () => {
-      return '2026-04-09T09:30:00.000Z'
+      return '2026-04-09T09:30:00.000Z';
     },
     localAppData: harness.localAppData,
     readinessStore: harness.readinessStore,
     runWorkspaceRootPath: path.join(harness.paths.rootDirectoryPath, 'runs'),
     worker: {
       runGeneration: () => {
-        const result = createValidGenerationResult()
+        const result = createValidGenerationResult();
 
         return Promise.resolve({
           ...result,
@@ -1798,10 +1798,10 @@ test('normalizes a slash-separated vacancy-style headline to the role name befor
               text: 'Full Stack Engineer / TypeScript, React, Node.js',
             },
           },
-        })
+        });
       },
     },
-  })
+  });
 
   await service.startPendingGeneration({
     originalCvId: 'original-cv-123',
@@ -1810,17 +1810,17 @@ test('normalizes a slash-separated vacancy-style headline to the role name befor
       text: 'Full Stack Engineer',
       url: 'https://jobs.example.com/roles/123',
     },
-  })
+  });
 
   await expect(service.resumePendingGeneration()).resolves.toEqual({
     generationRunId: 'run-123',
     tailoredApplicationId: 'tailored-application-123',
-  })
+  });
 
-  const renderAdaptedCvCall = renderAdaptedCvPdf.mock.calls[0]
+  const renderAdaptedCvCall = renderAdaptedCvPdf.mock.calls[0];
 
   if (renderAdaptedCvCall === undefined) {
-    throw new Error('Expected the adapted-CV renderer to be called.')
+    throw new Error('Expected the adapted-CV renderer to be called.');
   }
 
   expect(renderAdaptedCvCall[0]).toMatchObject({
@@ -1829,13 +1829,13 @@ test('normalizes a slash-separated vacancy-style headline to the role name befor
         text: 'Full Stack Engineer',
       },
     },
-  })
-})
+  });
+});
 
 test('persists raw generation output and validation details when required sections are omitted', async () => {
-  const harness = await createHarness()
+  const harness = await createHarness();
 
-  await seedOriginalCvAndVacancy(harness)
+  await seedOriginalCvAndVacancy(harness);
 
   const service = createTailoredApplicationSessionService({
     adaptedCvRenderer: {
@@ -1862,27 +1862,27 @@ test('persists raw generation output and validation details when required sectio
     },
     generateId: createIdGenerator(['command-123', 'run-123', 'tailored-application-123']),
     getCurrentTimestamp: () => {
-      return '2026-04-09T09:30:00.000Z'
+      return '2026-04-09T09:30:00.000Z';
     },
     localAppData: harness.localAppData,
     readinessStore: harness.readinessStore,
     runWorkspaceRootPath: path.join(harness.paths.rootDirectoryPath, 'runs'),
     worker: {
       runGeneration: () => {
-        const result = createValidGenerationResult()
+        const result = createValidGenerationResult();
 
         return Promise.resolve({
           ...result,
           adaptedCv: {
             ...result.adaptedCv,
             sections: result.adaptedCv.sections.filter((section) => {
-              return section.kind === 'profile' || section.kind === 'references'
+              return section.kind === 'profile' || section.kind === 'references';
             }),
           },
-        })
+        });
       },
     },
-  })
+  });
 
   await service.startPendingGeneration({
     originalCvId: 'original-cv-123',
@@ -1891,16 +1891,16 @@ test('persists raw generation output and validation details when required sectio
       text: 'Senior platform engineer',
       url: 'https://jobs.example.com/roles/123',
     },
-  })
+  });
 
-  const resumePromise = service.resumePendingGeneration()
+  const resumePromise = service.resumePendingGeneration();
 
   await expect(resumePromise).rejects.toMatchObject({
     code: 'adapted_cv_invalid',
     detail:
       'Expected adaptedCv.sections to include experience, core_skills. Received sections: profile, references.',
     path: 'adaptedCv',
-  })
+  });
 
   await expect(
     harness.localAppData.artifacts.read({
@@ -1920,22 +1920,22 @@ test('persists raw generation output and validation details when required sectio
       }),
       'utf8',
     ),
-  )
+  );
 
   const rawGenerationResultBuffer = await harness.localAppData.artifacts.read({
     id: 'run-123',
     name: 'raw-generation-result.json',
     scope: 'generation-runs',
-  })
+  });
 
-  expect(rawGenerationResultBuffer).not.toBeNull()
+  expect(rawGenerationResultBuffer).not.toBeNull();
   const rawGenerationResult = JSON.parse(rawGenerationResultBuffer?.toString('utf8') ?? '{}') as {
     adaptedCv?: {
       sections?: {
-        kind?: string
-      }[]
-    }
-  }
+        kind?: string;
+      }[];
+    };
+  };
 
   expect(rawGenerationResult.adaptedCv?.sections).toMatchObject([
     {
@@ -1944,13 +1944,13 @@ test('persists raw generation output and validation details when required sectio
     {
       kind: 'references',
     },
-  ])
-})
+  ]);
+});
 
 test('rejects adapted output when it omits source experience roles from the original CV chronology', async () => {
-  const harness = await createHarness()
+  const harness = await createHarness();
 
-  await seedOriginalCvAndVacancy(harness)
+  await seedOriginalCvAndVacancy(harness);
   await harness.localAppData.artifacts.write({
     content: Buffer.from(
       JSON.stringify({
@@ -1985,7 +1985,7 @@ test('rejects adapted output when it omits source experience roles from the orig
     id: 'original-cv-123',
     name: 'normalized.json',
     scope: 'original-cvs',
-  })
+  });
 
   const service = createTailoredApplicationSessionService({
     adaptedCvRenderer: {
@@ -2012,26 +2012,26 @@ test('rejects adapted output when it omits source experience roles from the orig
     },
     generateId: createIdGenerator(['command-123', 'run-123', 'tailored-application-123']),
     getCurrentTimestamp: () => {
-      return '2026-04-09T09:30:00.000Z'
+      return '2026-04-09T09:30:00.000Z';
     },
     localAppData: harness.localAppData,
     readinessStore: harness.readinessStore,
     runWorkspaceRootPath: path.join(harness.paths.rootDirectoryPath, 'runs'),
     worker: {
       runGeneration: () => {
-        const result = createValidGenerationResult()
-        const [profileSection, experienceSection] = result.adaptedCv.sections
+        const result = createValidGenerationResult();
+        const [profileSection, experienceSection] = result.adaptedCv.sections;
 
         if (profileSection === undefined || experienceSection?.kind !== 'experience') {
           throw new Error(
             'Expected the profile and experience sections to exist in the test fixture.',
-          )
+          );
         }
 
-        const [firstExperienceItem] = experienceSection.items
+        const [firstExperienceItem] = experienceSection.items;
 
         if (firstExperienceItem === undefined) {
-          throw new Error('Expected at least one experience item in the test fixture.')
+          throw new Error('Expected at least one experience item in the test fixture.');
         }
 
         return Promise.resolve({
@@ -2060,10 +2060,10 @@ test('rejects adapted output when it omits source experience roles from the orig
               ...result.adaptedCv.sections.slice(2),
             ],
           },
-        })
+        });
       },
     },
-  })
+  });
 
   await service.startPendingGeneration({
     originalCvId: 'original-cv-123',
@@ -2072,22 +2072,22 @@ test('rejects adapted output when it omits source experience roles from the orig
       text: 'Senior platform engineer',
       url: 'https://jobs.example.com/roles/123',
     },
-  })
+  });
 
-  const resumePromise = service.resumePendingGeneration()
+  const resumePromise = service.resumePendingGeneration();
 
   await expect(resumePromise).rejects.toMatchObject({
     code: 'adapted_cv_invalid',
     detail:
       'Expected adaptedCv.sections experience items to retain every source role from originalCv.experience. Missing: Web Developer | Leighton | October 2014 - April 2015.',
     path: 'adaptedCv',
-  })
-})
+  });
+});
 
 test('accepts adapted output when source experience entries are stored as single-line summaries', async () => {
-  const harness = await createHarness()
+  const harness = await createHarness();
 
-  await seedOriginalCvAndVacancy(harness)
+  await seedOriginalCvAndVacancy(harness);
   await harness.localAppData.artifacts.write({
     content: Buffer.from(
       JSON.stringify({
@@ -2113,13 +2113,13 @@ test('accepts adapted output when source experience entries are stored as single
     id: 'original-cv-123',
     name: 'normalized.json',
     scope: 'original-cvs',
-  })
+  });
 
   const renderAdaptedCvPdf = vi.fn().mockResolvedValue({
     pageCount: 1,
     pageWarning: null,
     pdfBytes: new Uint8Array([37, 80, 68, 70]),
-  })
+  });
   const service = createTailoredApplicationSessionService({
     adaptedCvRenderer: {
       renderAdaptedCvPdf,
@@ -2141,17 +2141,17 @@ test('accepts adapted output when source experience entries are stored as single
     },
     generateId: createIdGenerator(['command-123', 'run-123', 'tailored-application-123']),
     getCurrentTimestamp: () => {
-      return '2026-04-09T09:30:00.000Z'
+      return '2026-04-09T09:30:00.000Z';
     },
     localAppData: harness.localAppData,
     readinessStore: harness.readinessStore,
     runWorkspaceRootPath: path.join(harness.paths.rootDirectoryPath, 'runs'),
     worker: {
       runGeneration: () => {
-        return Promise.resolve(createValidGenerationResult())
+        return Promise.resolve(createValidGenerationResult());
       },
     },
-  })
+  });
 
   await service.startPendingGeneration({
     originalCvId: 'original-cv-123',
@@ -2160,19 +2160,19 @@ test('accepts adapted output when source experience entries are stored as single
       text: 'Senior platform engineer',
       url: 'https://jobs.example.com/roles/123',
     },
-  })
+  });
 
   await expect(service.resumePendingGeneration()).resolves.toEqual({
     generationRunId: 'run-123',
     tailoredApplicationId: 'tailored-application-123',
-  })
-  expect(renderAdaptedCvPdf).toHaveBeenCalledTimes(1)
-})
+  });
+  expect(renderAdaptedCvPdf).toHaveBeenCalledTimes(1);
+});
 
 test('rejects adapted output when the headline is not a canonical role label', async () => {
-  const harness = await createHarness()
+  const harness = await createHarness();
 
-  await seedOriginalCvAndVacancy(harness)
+  await seedOriginalCvAndVacancy(harness);
 
   const service = createTailoredApplicationSessionService({
     adaptedCvRenderer: {
@@ -2199,14 +2199,14 @@ test('rejects adapted output when the headline is not a canonical role label', a
     },
     generateId: createIdGenerator(['command-123', 'run-123', 'tailored-application-123']),
     getCurrentTimestamp: () => {
-      return '2026-04-09T09:30:00.000Z'
+      return '2026-04-09T09:30:00.000Z';
     },
     localAppData: harness.localAppData,
     readinessStore: harness.readinessStore,
     runWorkspaceRootPath: path.join(harness.paths.rootDirectoryPath, 'runs'),
     worker: {
       runGeneration: () => {
-        const result = createValidGenerationResult()
+        const result = createValidGenerationResult();
 
         return Promise.resolve({
           ...result,
@@ -2216,10 +2216,10 @@ test('rejects adapted output when the headline is not a canonical role label', a
               text: 'Distributed Systems Builder',
             },
           },
-        })
+        });
       },
     },
-  })
+  });
 
   await service.startPendingGeneration({
     originalCvId: 'original-cv-123',
@@ -2228,23 +2228,23 @@ test('rejects adapted output when the headline is not a canonical role label', a
       text: 'Senior platform engineer',
       url: 'https://jobs.example.com/roles/123',
     },
-  })
+  });
 
-  const resumePromise = service.resumePendingGeneration()
+  const resumePromise = service.resumePendingGeneration();
 
   await expect(resumePromise).rejects.toMatchObject({
     code: 'adapted_cv_invalid',
     path: 'adaptedCv',
-  })
+  });
   await expect(resumePromise).rejects.toThrow(
     "We couldn't finish your CV and cover letter. Try tailoring this job again.",
-  )
-})
+  );
+});
 
 test('rejects adapted output when capped sidebar sections exceed their contract limits', async () => {
-  const harness = await createHarness()
+  const harness = await createHarness();
 
-  await seedOriginalCvAndVacancy(harness)
+  await seedOriginalCvAndVacancy(harness);
 
   const service = createTailoredApplicationSessionService({
     adaptedCvRenderer: {
@@ -2271,14 +2271,14 @@ test('rejects adapted output when capped sidebar sections exceed their contract 
     },
     generateId: createIdGenerator(['command-123', 'run-123', 'tailored-application-123']),
     getCurrentTimestamp: () => {
-      return '2026-04-09T09:30:00.000Z'
+      return '2026-04-09T09:30:00.000Z';
     },
     localAppData: harness.localAppData,
     readinessStore: harness.readinessStore,
     runWorkspaceRootPath: path.join(harness.paths.rootDirectoryPath, 'runs'),
     worker: {
       runGeneration: () => {
-        const result = createValidGenerationResult()
+        const result = createValidGenerationResult();
 
         return Promise.resolve({
           ...result,
@@ -2290,16 +2290,16 @@ test('rejects adapted output when capped sidebar sections exceed their contract 
                 items: Array.from({ length: 4 }, (_, index) => {
                   return {
                     text: `Language ${String(index + 1)}`,
-                  }
+                  };
                 }),
                 kind: 'languages',
               },
             ],
           },
-        })
+        });
       },
     },
-  })
+  });
 
   await service.startPendingGeneration({
     originalCvId: 'original-cv-123',
@@ -2308,26 +2308,26 @@ test('rejects adapted output when capped sidebar sections exceed their contract 
       text: 'Senior platform engineer',
       url: 'https://jobs.example.com/roles/123',
     },
-  })
+  });
 
-  const resumePromise = service.resumePendingGeneration()
+  const resumePromise = service.resumePendingGeneration();
 
   await expect(resumePromise).rejects.toMatchObject({
     code: 'adapted_cv_invalid',
     path: 'adaptedCv',
-  })
-})
+  });
+});
 
 test('rejects adapted output when core skills degrade into sentence-like sidebar content', async () => {
-  const harness = await createHarness()
+  const harness = await createHarness();
 
-  await seedOriginalCvAndVacancy(harness)
+  await seedOriginalCvAndVacancy(harness);
 
   const renderAdaptedCvPdf = vi.fn().mockResolvedValue({
     pageCount: 1,
     pageWarning: null,
     pdfBytes: new Uint8Array([37, 80, 68, 70]),
-  })
+  });
   const service = createTailoredApplicationSessionService({
     adaptedCvRenderer: {
       renderAdaptedCvPdf,
@@ -2349,19 +2349,19 @@ test('rejects adapted output when core skills degrade into sentence-like sidebar
     },
     generateId: createIdGenerator(['command-123', 'run-123', 'tailored-application-123']),
     getCurrentTimestamp: () => {
-      return '2026-04-09T09:30:00.000Z'
+      return '2026-04-09T09:30:00.000Z';
     },
     localAppData: harness.localAppData,
     readinessStore: harness.readinessStore,
     runWorkspaceRootPath: path.join(harness.paths.rootDirectoryPath, 'runs'),
     worker: {
       runGeneration: () => {
-        const result = createValidGenerationResult()
-        const profileSection = result.adaptedCv.sections[0]
-        const experienceSection = result.adaptedCv.sections[1]
+        const result = createValidGenerationResult();
+        const profileSection = result.adaptedCv.sections[0];
+        const experienceSection = result.adaptedCv.sections[1];
 
         if (profileSection === undefined || experienceSection === undefined) {
-          throw new Error('Expected mandatory profile and experience sections in the fixture.')
+          throw new Error('Expected mandatory profile and experience sections in the fixture.');
         }
 
         return Promise.resolve({
@@ -2382,10 +2382,10 @@ test('rejects adapted output when core skills degrade into sentence-like sidebar
               ...result.adaptedCv.sections.slice(3),
             ],
           },
-        })
+        });
       },
     },
-  })
+  });
 
   await service.startPendingGeneration({
     originalCvId: 'original-cv-123',
@@ -2394,29 +2394,29 @@ test('rejects adapted output when core skills degrade into sentence-like sidebar
       text: 'Senior platform engineer',
       url: 'https://jobs.example.com/roles/123',
     },
-  })
+  });
 
-  const resumePromise = service.resumePendingGeneration()
+  const resumePromise = service.resumePendingGeneration();
 
   await expect(resumePromise).rejects.toMatchObject({
     code: 'adapted_cv_invalid',
     detail:
       'Expected adaptedCv.sections[2] core_skills items to be concise sidebar labels rather than sentence-like content.',
     path: 'adaptedCv',
-  })
-  expect(renderAdaptedCvPdf).not.toHaveBeenCalled()
-})
+  });
+  expect(renderAdaptedCvPdf).not.toHaveBeenCalled();
+});
 
 test('rejects adapted output when selected work degrades into bare tool labels', async () => {
-  const harness = await createHarness()
+  const harness = await createHarness();
 
-  await seedOriginalCvAndVacancy(harness)
+  await seedOriginalCvAndVacancy(harness);
 
   const renderAdaptedCvPdf = vi.fn().mockResolvedValue({
     pageCount: 1,
     pageWarning: null,
     pdfBytes: new Uint8Array([37, 80, 68, 70]),
-  })
+  });
   const service = createTailoredApplicationSessionService({
     adaptedCvRenderer: {
       renderAdaptedCvPdf,
@@ -2438,14 +2438,14 @@ test('rejects adapted output when selected work degrades into bare tool labels',
     },
     generateId: createIdGenerator(['command-123', 'run-123', 'tailored-application-123']),
     getCurrentTimestamp: () => {
-      return '2026-04-09T09:30:00.000Z'
+      return '2026-04-09T09:30:00.000Z';
     },
     localAppData: harness.localAppData,
     readinessStore: harness.readinessStore,
     runWorkspaceRootPath: path.join(harness.paths.rootDirectoryPath, 'runs'),
     worker: {
       runGeneration: () => {
-        const result = createValidGenerationResult()
+        const result = createValidGenerationResult();
 
         return Promise.resolve({
           ...result,
@@ -2467,10 +2467,10 @@ test('rejects adapted output when selected work degrades into bare tool labels',
               ...result.adaptedCv.sections.slice(2),
             ],
           },
-        })
+        });
       },
     },
-  })
+  });
 
   await service.startPendingGeneration({
     originalCvId: 'original-cv-123',
@@ -2479,29 +2479,29 @@ test('rejects adapted output when selected work degrades into bare tool labels',
       text: 'Senior platform engineer',
       url: 'https://jobs.example.com/roles/123',
     },
-  })
+  });
 
-  const resumePromise = service.resumePendingGeneration()
+  const resumePromise = service.resumePendingGeneration();
 
   await expect(resumePromise).rejects.toMatchObject({
     code: 'adapted_cv_invalid',
     detail:
       'Expected adaptedCv.sections[2] selected_work items to contain grounded evidence lines rather than bare skill or tool labels.',
     path: 'adaptedCv',
-  })
-  expect(renderAdaptedCvPdf).not.toHaveBeenCalled()
-})
+  });
+  expect(renderAdaptedCvPdf).not.toHaveBeenCalled();
+});
 
 test('rejects adapted output when tools duplicate core skills', async () => {
-  const harness = await createHarness()
+  const harness = await createHarness();
 
-  await seedOriginalCvAndVacancy(harness)
+  await seedOriginalCvAndVacancy(harness);
 
   const renderAdaptedCvPdf = vi.fn().mockResolvedValue({
     pageCount: 1,
     pageWarning: null,
     pdfBytes: new Uint8Array([37, 80, 68, 70]),
-  })
+  });
   const service = createTailoredApplicationSessionService({
     adaptedCvRenderer: {
       renderAdaptedCvPdf,
@@ -2523,14 +2523,14 @@ test('rejects adapted output when tools duplicate core skills', async () => {
     },
     generateId: createIdGenerator(['command-123', 'run-123', 'tailored-application-123']),
     getCurrentTimestamp: () => {
-      return '2026-04-09T09:30:00.000Z'
+      return '2026-04-09T09:30:00.000Z';
     },
     localAppData: harness.localAppData,
     readinessStore: harness.readinessStore,
     runWorkspaceRootPath: path.join(harness.paths.rootDirectoryPath, 'runs'),
     worker: {
       runGeneration: () => {
-        const result = createValidGenerationResult()
+        const result = createValidGenerationResult();
 
         return Promise.resolve({
           ...result,
@@ -2554,10 +2554,10 @@ test('rejects adapted output when tools duplicate core skills', async () => {
               },
             ],
           },
-        })
+        });
       },
     },
-  })
+  });
 
   await service.startPendingGeneration({
     originalCvId: 'original-cv-123',
@@ -2566,29 +2566,29 @@ test('rejects adapted output when tools duplicate core skills', async () => {
       text: 'Senior platform engineer',
       url: 'https://jobs.example.com/roles/123',
     },
-  })
+  });
 
-  const resumePromise = service.resumePendingGeneration()
+  const resumePromise = service.resumePendingGeneration();
 
   await expect(resumePromise).rejects.toMatchObject({
     code: 'adapted_cv_invalid',
     detail:
       'Expected adaptedCv tools items to avoid duplicating core_skills entries. Overlap: Product strategy.',
     path: 'adaptedCv',
-  })
-  expect(renderAdaptedCvPdf).not.toHaveBeenCalled()
-})
+  });
+  expect(renderAdaptedCvPdf).not.toHaveBeenCalled();
+});
 
 test('rejects grouped tool labels so Codex must return ungrouped tool items', async () => {
-  const harness = await createHarness()
+  const harness = await createHarness();
 
-  await seedOriginalCvAndVacancy(harness)
+  await seedOriginalCvAndVacancy(harness);
 
   const renderAdaptedCvPdf = vi.fn().mockResolvedValue({
     pageCount: 1,
     pageWarning: null,
     pdfBytes: new Uint8Array([37, 80, 68, 70]),
-  })
+  });
   const service = createTailoredApplicationSessionService({
     adaptedCvRenderer: {
       renderAdaptedCvPdf,
@@ -2610,14 +2610,14 @@ test('rejects grouped tool labels so Codex must return ungrouped tool items', as
     },
     generateId: createIdGenerator(['command-123', 'run-123', 'tailored-application-123']),
     getCurrentTimestamp: () => {
-      return '2026-04-09T09:30:00.000Z'
+      return '2026-04-09T09:30:00.000Z';
     },
     localAppData: harness.localAppData,
     readinessStore: harness.readinessStore,
     runWorkspaceRootPath: path.join(harness.paths.rootDirectoryPath, 'runs'),
     worker: {
       runGeneration: () => {
-        const result = createValidGenerationResult()
+        const result = createValidGenerationResult();
 
         return Promise.resolve({
           ...result,
@@ -2641,10 +2641,10 @@ test('rejects grouped tool labels so Codex must return ungrouped tool items', as
               },
             ],
           },
-        })
+        });
       },
     },
-  })
+  });
 
   await service.startPendingGeneration({
     originalCvId: 'original-cv-123',
@@ -2653,13 +2653,13 @@ test('rejects grouped tool labels so Codex must return ungrouped tool items', as
       text: 'Senior platform engineer',
       url: 'https://jobs.example.com/roles/123',
     },
-  })
+  });
 
   await expect(service.resumePendingGeneration()).rejects.toMatchObject({
     code: 'adapted_cv_invalid',
     detail: 'Expected adaptedCv.sections[3] tools items to be concise ungrouped sidebar labels.',
     path: 'adaptedCv',
-  })
+  });
 
   await expect(
     harness.localAppData.artifacts.read({
@@ -2689,21 +2689,21 @@ test('rejects grouped tool labels so Codex must return ungrouped tool items', as
       }),
       'utf8',
     ),
-  )
+  );
 
-  expect(renderAdaptedCvPdf).not.toHaveBeenCalled()
-})
+  expect(renderAdaptedCvPdf).not.toHaveBeenCalled();
+});
 
 test('accepts concise tool labels with internal periods such as Node.js', async () => {
-  const harness = await createHarness()
+  const harness = await createHarness();
 
-  await seedOriginalCvAndVacancy(harness)
+  await seedOriginalCvAndVacancy(harness);
 
   const renderAdaptedCvPdf = vi.fn().mockResolvedValue({
     pageCount: 1,
     pageWarning: null,
     pdfBytes: new Uint8Array([37, 80, 68, 70]),
-  })
+  });
   const service = createTailoredApplicationSessionService({
     adaptedCvRenderer: {
       renderAdaptedCvPdf,
@@ -2725,14 +2725,14 @@ test('accepts concise tool labels with internal periods such as Node.js', async 
     },
     generateId: createIdGenerator(['command-123', 'run-123', 'tailored-application-123']),
     getCurrentTimestamp: () => {
-      return '2026-04-09T09:30:00.000Z'
+      return '2026-04-09T09:30:00.000Z';
     },
     localAppData: harness.localAppData,
     readinessStore: harness.readinessStore,
     runWorkspaceRootPath: path.join(harness.paths.rootDirectoryPath, 'runs'),
     worker: {
       runGeneration: () => {
-        const result = createValidGenerationResult()
+        const result = createValidGenerationResult();
 
         return Promise.resolve({
           ...result,
@@ -2768,10 +2768,10 @@ test('accepts concise tool labels with internal periods such as Node.js', async 
               },
             ],
           },
-        })
+        });
       },
     },
-  })
+  });
 
   await service.startPendingGeneration({
     originalCvId: 'original-cv-123',
@@ -2780,25 +2780,25 @@ test('accepts concise tool labels with internal periods such as Node.js', async 
       text: 'Senior platform engineer',
       url: 'https://jobs.example.com/roles/123',
     },
-  })
+  });
 
   await expect(service.resumePendingGeneration()).resolves.toEqual({
     generationRunId: 'run-123',
     tailoredApplicationId: 'tailored-application-123',
-  })
-  expect(renderAdaptedCvPdf).toHaveBeenCalledTimes(1)
-})
+  });
+  expect(renderAdaptedCvPdf).toHaveBeenCalledTimes(1);
+});
 
 test('rejects adapted output when a mandatory tailored-CV section is empty', async () => {
-  const harness = await createHarness()
+  const harness = await createHarness();
 
-  await seedOriginalCvAndVacancy(harness)
+  await seedOriginalCvAndVacancy(harness);
 
   const renderAdaptedCvPdf = vi.fn().mockResolvedValue({
     pageCount: 1,
     pageWarning: null,
     pdfBytes: new Uint8Array([37, 80, 68, 70]),
-  })
+  });
   const service = createTailoredApplicationSessionService({
     adaptedCvRenderer: {
       renderAdaptedCvPdf,
@@ -2820,14 +2820,14 @@ test('rejects adapted output when a mandatory tailored-CV section is empty', asy
     },
     generateId: createIdGenerator(['command-123', 'run-123', 'tailored-application-123']),
     getCurrentTimestamp: () => {
-      return '2026-04-09T09:30:00.000Z'
+      return '2026-04-09T09:30:00.000Z';
     },
     localAppData: harness.localAppData,
     readinessStore: harness.readinessStore,
     runWorkspaceRootPath: path.join(harness.paths.rootDirectoryPath, 'runs'),
     worker: {
       runGeneration: () => {
-        const result = createValidGenerationResult()
+        const result = createValidGenerationResult();
 
         return Promise.resolve({
           ...result,
@@ -2843,10 +2843,10 @@ test('rejects adapted output when a mandatory tailored-CV section is empty', asy
               ...result.adaptedCv.sections.slice(1),
             ],
           },
-        })
+        });
       },
     },
-  })
+  });
 
   await service.startPendingGeneration({
     originalCvId: 'original-cv-123',
@@ -2855,27 +2855,27 @@ test('rejects adapted output when a mandatory tailored-CV section is empty', asy
       text: 'Senior platform engineer',
       url: 'https://jobs.example.com/roles/123',
     },
-  })
+  });
 
-  const resumePromise = service.resumePendingGeneration()
+  const resumePromise = service.resumePendingGeneration();
 
   await expect(resumePromise).rejects.toMatchObject({
     code: 'adapted_cv_invalid',
     path: 'adaptedCv',
-  })
-  expect(renderAdaptedCvPdf).not.toHaveBeenCalled()
-})
+  });
+  expect(renderAdaptedCvPdf).not.toHaveBeenCalled();
+});
 
 test('rejects adapted output when the profile breaches the page-one template-fit limit', async () => {
-  const harness = await createHarness()
+  const harness = await createHarness();
 
-  await seedOriginalCvAndVacancy(harness)
+  await seedOriginalCvAndVacancy(harness);
 
   const renderAdaptedCvPdf = vi.fn().mockResolvedValue({
     pageCount: 1,
     pageWarning: null,
     pdfBytes: new Uint8Array([37, 80, 68, 70]),
-  })
+  });
   const service = createTailoredApplicationSessionService({
     adaptedCvRenderer: {
       renderAdaptedCvPdf,
@@ -2897,14 +2897,14 @@ test('rejects adapted output when the profile breaches the page-one template-fit
     },
     generateId: createIdGenerator(['command-123', 'run-123', 'tailored-application-123']),
     getCurrentTimestamp: () => {
-      return '2026-04-09T09:30:00.000Z'
+      return '2026-04-09T09:30:00.000Z';
     },
     localAppData: harness.localAppData,
     readinessStore: harness.readinessStore,
     runWorkspaceRootPath: path.join(harness.paths.rootDirectoryPath, 'runs'),
     worker: {
       runGeneration: () => {
-        const result = createValidGenerationResult()
+        const result = createValidGenerationResult();
 
         return Promise.resolve({
           ...result,
@@ -2920,10 +2920,10 @@ test('rejects adapted output when the profile breaches the page-one template-fit
               ...result.adaptedCv.sections.slice(1),
             ],
           },
-        })
+        });
       },
     },
-  })
+  });
 
   await service.startPendingGeneration({
     originalCvId: 'original-cv-123',
@@ -2932,27 +2932,27 @@ test('rejects adapted output when the profile breaches the page-one template-fit
       text: 'Senior platform engineer',
       url: 'https://jobs.example.com/roles/123',
     },
-  })
+  });
 
-  const resumePromise = service.resumePendingGeneration()
+  const resumePromise = service.resumePendingGeneration();
 
   await expect(resumePromise).rejects.toMatchObject({
     code: 'adapted_cv_invalid',
     path: 'adaptedCv',
-  })
-  expect(renderAdaptedCvPdf).not.toHaveBeenCalled()
-})
+  });
+  expect(renderAdaptedCvPdf).not.toHaveBeenCalled();
+});
 
 test('rejects adapted output when the header intro breaches the concise intro limit', async () => {
-  const harness = await createHarness()
+  const harness = await createHarness();
 
-  await seedOriginalCvAndVacancy(harness)
+  await seedOriginalCvAndVacancy(harness);
 
   const renderAdaptedCvPdf = vi.fn().mockResolvedValue({
     pageCount: 1,
     pageWarning: null,
     pdfBytes: new Uint8Array([37, 80, 68, 70]),
-  })
+  });
   const service = createTailoredApplicationSessionService({
     adaptedCvRenderer: {
       renderAdaptedCvPdf,
@@ -2974,14 +2974,14 @@ test('rejects adapted output when the header intro breaches the concise intro li
     },
     generateId: createIdGenerator(['command-123', 'run-123', 'tailored-application-123']),
     getCurrentTimestamp: () => {
-      return '2026-04-09T09:30:00.000Z'
+      return '2026-04-09T09:30:00.000Z';
     },
     localAppData: harness.localAppData,
     readinessStore: harness.readinessStore,
     runWorkspaceRootPath: path.join(harness.paths.rootDirectoryPath, 'runs'),
     worker: {
       runGeneration: () => {
-        const result = createValidGenerationResult()
+        const result = createValidGenerationResult();
 
         return Promise.resolve({
           ...result,
@@ -2993,10 +2993,10 @@ test('rejects adapted output when the header intro breaches the concise intro li
               },
             },
           },
-        })
+        });
       },
     },
-  })
+  });
 
   await service.startPendingGeneration({
     originalCvId: 'original-cv-123',
@@ -3005,21 +3005,21 @@ test('rejects adapted output when the header intro breaches the concise intro li
       text: 'Senior platform engineer',
       url: 'https://jobs.example.com/roles/123',
     },
-  })
+  });
 
-  const resumePromise = service.resumePendingGeneration()
+  const resumePromise = service.resumePendingGeneration();
 
   await expect(resumePromise).rejects.toMatchObject({
     code: 'adapted_cv_invalid',
     path: 'adaptedCv',
-  })
-  expect(renderAdaptedCvPdf).not.toHaveBeenCalled()
-})
+  });
+  expect(renderAdaptedCvPdf).not.toHaveBeenCalled();
+});
 
 test('derives the persisted cover-letter plain text from the canonical cover-letter model', async () => {
-  const harness = await createHarness()
+  const harness = await createHarness();
 
-  await seedOriginalCvAndVacancy(harness)
+  await seedOriginalCvAndVacancy(harness);
 
   const service = createTailoredApplicationSessionService({
     adaptedCvRenderer: {
@@ -3046,7 +3046,7 @@ test('derives the persisted cover-letter plain text from the canonical cover-let
     },
     generateId: createIdGenerator(['command-123', 'run-123', 'tailored-application-123']),
     getCurrentTimestamp: () => {
-      return '2026-04-09T09:30:00.000Z'
+      return '2026-04-09T09:30:00.000Z';
     },
     localAppData: harness.localAppData,
     readinessStore: harness.readinessStore,
@@ -3056,10 +3056,10 @@ test('derives the persisted cover-letter plain text from the canonical cover-let
         return Promise.resolve({
           ...createValidGenerationResult(),
           coverLetterPlainText: 'incorrect plain text from worker',
-        })
+        });
       },
     },
-  })
+  });
 
   await service.startPendingGeneration({
     originalCvId: 'original-cv-123',
@@ -3068,12 +3068,12 @@ test('derives the persisted cover-letter plain text from the canonical cover-let
       text: 'Senior platform engineer',
       url: 'https://jobs.example.com/roles/123',
     },
-  })
+  });
 
   await expect(service.resumePendingGeneration()).resolves.toEqual({
     generationRunId: 'run-123',
     tailoredApplicationId: 'tailored-application-123',
-  })
+  });
   await expect(
     harness.localAppData.artifacts.read({
       id: 'tailored-application-123',
@@ -3085,14 +3085,14 @@ test('derives the persisted cover-letter plain text from the canonical cover-let
       buildExpectedCoverLetterPlainText(createValidGenerationResult().coverLetter),
       'utf8',
     ),
-  )
-})
+  );
+});
 
 test('preserves the underlying generation failure as the thrown error cause', async () => {
-  const harness = await createHarness()
-  const generationFailure = new Error('disk full')
+  const harness = await createHarness();
+  const generationFailure = new Error('disk full');
 
-  await seedOriginalCvAndVacancy(harness)
+  await seedOriginalCvAndVacancy(harness);
 
   const service = createTailoredApplicationSessionService({
     adaptedCvRenderer: {
@@ -3119,17 +3119,17 @@ test('preserves the underlying generation failure as the thrown error cause', as
     },
     generateId: createIdGenerator(['command-123', 'run-123', 'tailored-application-123']),
     getCurrentTimestamp: () => {
-      return '2026-04-09T09:30:00.000Z'
+      return '2026-04-09T09:30:00.000Z';
     },
     localAppData: harness.localAppData,
     readinessStore: harness.readinessStore,
     runWorkspaceRootPath: path.join(harness.paths.rootDirectoryPath, 'runs'),
     worker: {
       runGeneration: () => {
-        return Promise.reject(generationFailure)
+        return Promise.reject(generationFailure);
       },
     },
-  })
+  });
 
   await service.startPendingGeneration({
     originalCvId: 'original-cv-123',
@@ -3138,18 +3138,18 @@ test('preserves the underlying generation failure as the thrown error cause', as
       text: 'Senior platform engineer',
       url: 'https://jobs.example.com/roles/123',
     },
-  })
+  });
 
   await expect(service.resumePendingGeneration()).rejects.toMatchObject({
     cause: generationFailure,
     message: "We couldn't tailor your CV right now. Try again.",
-  })
-})
+  });
+});
 
 test('accepts cover-letter prose when only the JSON contract is validated', async () => {
-  const harness = await createHarness()
+  const harness = await createHarness();
 
-  await seedOriginalCvAndVacancy(harness)
+  await seedOriginalCvAndVacancy(harness);
 
   const service = createTailoredApplicationSessionService({
     adaptedCvRenderer: {
@@ -3176,14 +3176,14 @@ test('accepts cover-letter prose when only the JSON contract is validated', asyn
     },
     generateId: createIdGenerator(['command-123', 'run-123', 'tailored-application-123']),
     getCurrentTimestamp: () => {
-      return '2026-04-09T09:30:00.000Z'
+      return '2026-04-09T09:30:00.000Z';
     },
     localAppData: harness.localAppData,
     readinessStore: harness.readinessStore,
     runWorkspaceRootPath: path.join(harness.paths.rootDirectoryPath, 'runs'),
     worker: {
       runGeneration: () => {
-        const result = createValidGenerationResult()
+        const result = createValidGenerationResult();
         const coverLetter = {
           ...result.coverLetter,
           body: [
@@ -3191,15 +3191,15 @@ test('accepts cover-letter prose when only the JSON contract is validated', asyn
               text: 'I am passionate about joining your world-class team and bringing a results-driven approach to the role.',
             },
           ],
-        }
+        };
 
         return Promise.resolve({
           ...result,
           coverLetter,
-        })
+        });
       },
     },
-  })
+  });
 
   await service.startPendingGeneration({
     originalCvId: 'original-cv-123',
@@ -3208,12 +3208,12 @@ test('accepts cover-letter prose when only the JSON contract is validated', asyn
       text: 'Senior platform engineer',
       url: 'https://jobs.example.com/roles/123',
     },
-  })
+  });
 
   await expect(service.resumePendingGeneration()).resolves.toEqual({
     generationRunId: 'run-123',
     tailoredApplicationId: 'tailored-application-123',
-  })
+  });
   await expect(
     harness.localAppData.metadata.get({
       id: 'tailored-application-123',
@@ -3221,13 +3221,13 @@ test('accepts cover-letter prose when only the JSON contract is validated', asyn
     }),
   ).resolves.toMatchObject({
     status: 'ready',
-  })
-})
+  });
+});
 
 test('blocks generation before queueing when the selected original CV is non-English', async () => {
-  const harness = await createHarness()
+  const harness = await createHarness();
 
-  await seedOriginalCvAndVacancy(harness)
+  await seedOriginalCvAndVacancy(harness);
   await harness.localAppData.artifacts.write({
     content: Buffer.from(
       [
@@ -3246,7 +3246,7 @@ test('blocks generation before queueing when the selected original CV is non-Eng
     id: 'original-cv-123',
     name: 'extracted.txt',
     scope: 'original-cvs',
-  })
+  });
   const service = createTailoredApplicationSessionService({
     aiWorker: {
       retryAiWorkerPreflight: vi.fn(),
@@ -3254,7 +3254,7 @@ test('blocks generation before queueing when the selected original CV is non-Eng
     localAppData: harness.localAppData,
     readinessStore: harness.readinessStore,
     runWorkspaceRootPath: path.join(harness.paths.rootDirectoryPath, 'runs'),
-  })
+  });
 
   await expect(
     service.startPendingGeneration({
@@ -3267,14 +3267,14 @@ test('blocks generation before queueing when the selected original CV is non-Eng
     }),
   ).rejects.toThrow(
     'CV Maxxing v1 supports British English only. Use an English original CV to continue.',
-  )
-  await expect(service.getPendingGenerationCommand()).resolves.toBeNull()
-})
+  );
+  await expect(service.getPendingGenerationCommand()).resolves.toBeNull();
+});
 
 test('blocks generation before queueing when the reviewed vacancy is non-English', async () => {
-  const harness = await createHarness()
+  const harness = await createHarness();
 
-  await seedOriginalCvAndVacancy(harness)
+  await seedOriginalCvAndVacancy(harness);
   await harness.localAppData.metadata.put({
     id: 'vacancy-123',
     scope: 'vacancies',
@@ -3294,7 +3294,7 @@ test('blocks generation before queueing when the reviewed vacancy is non-English
       textPreview: 'Diseñar productos para usuarios técnicos con equipos de ingeniería.',
       title: 'Ingeniero de plataforma',
     },
-  })
+  });
   await harness.localAppData.artifacts.write({
     content: Buffer.from(
       [
@@ -3315,7 +3315,7 @@ test('blocks generation before queueing when the reviewed vacancy is non-English
     id: 'vacancy-123',
     name: 'extracted.txt',
     scope: 'vacancies',
-  })
+  });
   const service = createTailoredApplicationSessionService({
     aiWorker: {
       retryAiWorkerPreflight: vi.fn(),
@@ -3323,7 +3323,7 @@ test('blocks generation before queueing when the reviewed vacancy is non-English
     localAppData: harness.localAppData,
     readinessStore: harness.readinessStore,
     runWorkspaceRootPath: path.join(harness.paths.rootDirectoryPath, 'runs'),
-  })
+  });
 
   await expect(
     service.startPendingGeneration({
@@ -3336,14 +3336,14 @@ test('blocks generation before queueing when the reviewed vacancy is non-English
     }),
   ).rejects.toThrow(
     'CV Maxxing v1 supports British English only. Review an English job before tailoring your CV.',
-  )
-  await expect(service.getPendingGenerationCommand()).resolves.toBeNull()
-})
+  );
+  await expect(service.getPendingGenerationCommand()).resolves.toBeNull();
+});
 
 test('preserves the tailored-application generation timeout message for the loading-screen UI', async () => {
-  const harness = await createHarness()
+  const harness = await createHarness();
 
-  await seedOriginalCvAndVacancy(harness)
+  await seedOriginalCvAndVacancy(harness);
 
   const service = createTailoredApplicationSessionService({
     adaptedCvRenderer: {
@@ -3362,17 +3362,17 @@ test('preserves the tailored-application generation timeout message for the load
     },
     generateId: createIdGenerator(['command-123', 'run-123', 'tailored-application-123']),
     getCurrentTimestamp: () => {
-      return '2026-04-09T09:30:00.000Z'
+      return '2026-04-09T09:30:00.000Z';
     },
     localAppData: harness.localAppData,
     readinessStore: harness.readinessStore,
     runWorkspaceRootPath: path.join(harness.paths.rootDirectoryPath, 'runs'),
     worker: {
       runGeneration: () => {
-        return Promise.reject(new Error('Tailored application generation timed out.'))
+        return Promise.reject(new Error('Tailored application generation timed out.'));
       },
     },
-  })
+  });
 
   await service.startPendingGeneration({
     originalCvId: 'original-cv-123',
@@ -3381,19 +3381,19 @@ test('preserves the tailored-application generation timeout message for the load
       text: 'Senior platform engineer',
       url: 'https://jobs.example.com/roles/123',
     },
-  })
+  });
 
   await expect(service.resumePendingGeneration()).rejects.toThrow(
     'Tailoring your CV took too long. Try again.',
-  )
-})
+  );
+});
 
 test('cancels an active generation, removes transient workspaces, and preserves the vacancy workspace', async () => {
-  const harness = await createHarness()
+  const harness = await createHarness();
 
-  await seedOriginalCvAndVacancy(harness)
+  await seedOriginalCvAndVacancy(harness);
 
-  let abortSignalTriggered = false
+  let abortSignalTriggered = false;
   const service = createTailoredApplicationSessionService({
     adaptedCvRenderer: {
       renderAdaptedCvPdf: vi.fn(),
@@ -3411,7 +3411,7 @@ test('cancels an active generation, removes transient workspaces, and preserves 
     },
     generateId: createIdGenerator(['command-123', 'run-123', 'tailored-application-123']),
     getCurrentTimestamp: () => {
-      return '2026-04-09T09:30:00.000Z'
+      return '2026-04-09T09:30:00.000Z';
     },
     localAppData: harness.localAppData,
     readinessStore: harness.readinessStore,
@@ -3420,20 +3420,20 @@ test('cancels an active generation, removes transient workspaces, and preserves 
       runGeneration: async ({ signal }) => {
         return await new Promise<never>((_resolve, reject) => {
           if (signal.aborted) {
-            abortSignalTriggered = true
-            reject(new Error('Generation cancelled.'))
+            abortSignalTriggered = true;
+            reject(new Error('Generation cancelled.'));
 
-            return
+            return;
           }
 
           signal.addEventListener('abort', () => {
-            abortSignalTriggered = true
-            reject(new Error('Generation cancelled.'))
-          })
-        })
+            abortSignalTriggered = true;
+            reject(new Error('Generation cancelled.'));
+          });
+        });
       },
     },
-  })
+  });
 
   await service.startPendingGeneration({
     originalCvId: 'original-cv-123',
@@ -3442,18 +3442,18 @@ test('cancels an active generation, removes transient workspaces, and preserves 
       text: 'Senior platform engineer',
       url: 'https://jobs.example.com/roles/123',
     },
-  })
+  });
 
-  const resumePromise = service.resumePendingGeneration()
+  const resumePromise = service.resumePendingGeneration();
 
   await mkdir(path.join(harness.paths.rootDirectoryPath, 'runs'), {
     recursive: true,
-  })
-  await service.abandonPendingGeneration()
+  });
+  await service.abandonPendingGeneration();
 
-  await expect(resumePromise).rejects.toThrow('Generation cancelled.')
-  expect(abortSignalTriggered).toBe(true)
-  await expect(service.getPendingGenerationCommand()).resolves.toBeNull()
+  await expect(resumePromise).rejects.toThrow('Generation cancelled.');
+  expect(abortSignalTriggered).toBe(true);
+  await expect(service.getPendingGenerationCommand()).resolves.toBeNull();
   await expect(
     harness.localAppData.metadata.get({
       id: 'current',
@@ -3461,16 +3461,16 @@ test('cancels an active generation, removes transient workspaces, and preserves 
     }),
   ).resolves.toMatchObject({
     vacancyId: 'vacancy-123',
-  })
+  });
   await expect(
     stat(path.join(harness.paths.rootDirectoryPath, 'runs', 'run-123')),
-  ).rejects.toThrow()
-})
+  ).rejects.toThrow();
+});
 
 test('persists a resumable pending command before sign-in repair and resumes the exact vacancy after readiness succeeds', async () => {
-  const harness = await createHarness()
+  const harness = await createHarness();
 
-  await seedOriginalCvAndVacancy(harness)
+  await seedOriginalCvAndVacancy(harness);
 
   const retryAiWorkerPreflight = vi
     .fn()
@@ -3486,7 +3486,7 @@ test('persists a resumable pending command before sign-in repair and resumes the
       message: 'The local AI worker is ready.',
       provider: 'codex',
       status: 'ready',
-    })
+    });
   const service = createTailoredApplicationSessionService({
     adaptedCvRenderer: {
       renderAdaptedCvPdf: vi.fn().mockResolvedValue({
@@ -3507,7 +3507,7 @@ test('persists a resumable pending command before sign-in repair and resumes the
     },
     generateId: createIdGenerator(['command-123', 'run-123', 'tailored-application-123']),
     getCurrentTimestamp: () => {
-      return '2026-04-09T09:30:00.000Z'
+      return '2026-04-09T09:30:00.000Z';
     },
     localAppData: harness.localAppData,
     readinessStore: harness.readinessStore,
@@ -3515,7 +3515,7 @@ test('persists a resumable pending command before sign-in repair and resumes the
     worker: {
       runGeneration: () => Promise.resolve(createValidGenerationResult()),
     },
-  })
+  });
 
   await expect(
     service.startPendingGeneration({
@@ -3530,7 +3530,7 @@ test('persists a resumable pending command before sign-in repair and resumes the
     canResumeGeneration: true,
     failureCode: 'auth_missing',
     status: 'sign_in_required',
-  })
+  });
 
   await expect(service.getPendingGenerationCommand()).resolves.toEqual({
     commandId: 'command-123',
@@ -3541,18 +3541,18 @@ test('persists a resumable pending command before sign-in repair and resumes the
       url: 'https://jobs.example.com/roles/123',
     },
     vacancyId: 'vacancy-123',
-  })
+  });
 
   await expect(service.resumePendingGeneration()).resolves.toEqual({
     generationRunId: 'run-123',
     tailoredApplicationId: 'tailored-application-123',
-  })
-})
+  });
+});
 
 test('returns the updated saved-application list when completing generation so the renderer can replace the draft row atomically', async () => {
-  const harness = await createHarness()
+  const harness = await createHarness();
 
-  await seedOriginalCvAndVacancy(harness)
+  await seedOriginalCvAndVacancy(harness);
   await harness.localAppData.metadata.put({
     id: 'tailored-application-456',
     scope: 'tailored-applications',
@@ -3569,7 +3569,7 @@ test('returns the updated saved-application list when completing generation so t
       vacancyId: 'vacancy-123',
       vacancyTitle: 'Platform Product Manager',
     },
-  })
+  });
 
   const service = createTailoredApplicationSessionService({
     adaptedCvRenderer: {
@@ -3596,7 +3596,7 @@ test('returns the updated saved-application list when completing generation so t
     },
     generateId: createIdGenerator(['command-123', 'run-123', 'tailored-application-123']),
     getCurrentTimestamp: () => {
-      return '2026-04-09T09:30:00.000Z'
+      return '2026-04-09T09:30:00.000Z';
     },
     localAppData: harness.localAppData,
     readinessStore: harness.readinessStore,
@@ -3604,7 +3604,7 @@ test('returns the updated saved-application list when completing generation so t
     worker: {
       runGeneration: () => Promise.resolve(createValidGenerationResult()),
     },
-  })
+  });
 
   await expect(
     service.startPendingGeneration({
@@ -3618,12 +3618,12 @@ test('returns the updated saved-application list when completing generation so t
   ).resolves.toMatchObject({
     canResumeGeneration: true,
     status: 'ready',
-  })
+  });
 
   await expect(service.resumePendingGeneration()).resolves.toEqual({
     generationRunId: 'run-123',
     tailoredApplicationId: 'tailored-application-123',
-  })
+  });
 
   await expect(service.completePendingGeneration('command-123')).resolves.toEqual({
     workspaceState: {
@@ -3649,25 +3649,25 @@ test('returns the updated saved-application list when completing generation so t
         },
       ],
     },
-  })
+  });
 
-  await expect(harness.readinessStore.getStartupDestination()).resolves.toBe('workspace')
+  await expect(harness.readinessStore.getStartupDestination()).resolves.toBe('workspace');
   await expect(
     harness.localAppData.metadata.get({
       id: 'current',
       scope: 'vacancy-workspace',
     }),
-  ).resolves.toBeNull()
-})
+  ).resolves.toBeNull();
+});
 
 test('restores the explicit saved tailored application selection when no meaningful draft exists', async () => {
-  const harness = await createHarness()
+  const harness = await createHarness();
 
-  await seedOriginalCvAndVacancy(harness)
+  await seedOriginalCvAndVacancy(harness);
   await harness.localAppData.metadata.delete({
     id: 'current',
     scope: 'vacancy-workspace',
-  })
+  });
   await harness.localAppData.metadata.put({
     id: 'tailored-application-123',
     scope: 'tailored-applications',
@@ -3684,7 +3684,7 @@ test('restores the explicit saved tailored application selection when no meaning
       vacancyId: 'vacancy-123',
       vacancyTitle: 'Senior platform engineer',
     },
-  })
+  });
   await harness.localAppData.metadata.put({
     id: 'tailored-application-456',
     scope: 'tailored-applications',
@@ -3701,7 +3701,7 @@ test('restores the explicit saved tailored application selection when no meaning
       vacancyId: 'vacancy-123',
       vacancyTitle: 'Platform Product Manager',
     },
-  })
+  });
   await harness.workspaceSelectionStore.setSelection({
     jobs: {
       kind: 'tailored_application',
@@ -3712,7 +3712,7 @@ test('restores the explicit saved tailored application selection when no meaning
       originalCvId: 'original-cv-123',
     },
     topLevelSection: 'original_cv',
-  })
+  });
 
   const service = createTailoredApplicationSessionService({
     aiWorker: {
@@ -3722,7 +3722,7 @@ test('restores the explicit saved tailored application selection when no meaning
     readinessStore: harness.readinessStore,
     runWorkspaceRootPath: path.join(harness.paths.rootDirectoryPath, 'runs'),
     workspaceSelectionStore: harness.workspaceSelectionStore,
-  })
+  });
 
   await expect(service.getWorkspaceState()).resolves.toEqual({
     activeApplicationId: 'tailored-application-456',
@@ -3746,13 +3746,13 @@ test('restores the explicit saved tailored application selection when no meaning
         vacancyTitle: 'Platform Product Manager',
       },
     ],
-  })
-})
+  });
+});
 
 test('falls back from a stale saved selection to the meaningful current draft before saved history', async () => {
-  const harness = await createHarness()
+  const harness = await createHarness();
 
-  await seedOriginalCvAndVacancy(harness)
+  await seedOriginalCvAndVacancy(harness);
   await harness.localAppData.metadata.put({
     id: 'tailored-application-123',
     scope: 'tailored-applications',
@@ -3769,7 +3769,7 @@ test('falls back from a stale saved selection to the meaningful current draft be
       vacancyId: 'vacancy-123',
       vacancyTitle: 'Senior platform engineer',
     },
-  })
+  });
   await harness.workspaceSelectionStore.setSelection({
     jobs: {
       kind: 'tailored_application',
@@ -3780,7 +3780,7 @@ test('falls back from a stale saved selection to the meaningful current draft be
       originalCvId: 'original-cv-123',
     },
     topLevelSection: 'settings',
-  })
+  });
 
   const service = createTailoredApplicationSessionService({
     aiWorker: {
@@ -3790,7 +3790,7 @@ test('falls back from a stale saved selection to the meaningful current draft be
     readinessStore: harness.readinessStore,
     runWorkspaceRootPath: path.join(harness.paths.rootDirectoryPath, 'runs'),
     workspaceSelectionStore: harness.workspaceSelectionStore,
-  })
+  });
 
   await expect(service.getWorkspaceState()).resolves.toEqual({
     activeApplicationId: null,
@@ -3805,17 +3805,17 @@ test('falls back from a stale saved selection to the meaningful current draft be
         vacancyTitle: 'Senior platform engineer',
       },
     ],
-  })
-})
+  });
+});
 
 test('falls back from a stale saved selection to the newest saved tailored application when no meaningful draft exists', async () => {
-  const harness = await createHarness()
+  const harness = await createHarness();
 
-  await seedOriginalCvAndVacancy(harness)
+  await seedOriginalCvAndVacancy(harness);
   await harness.localAppData.metadata.delete({
     id: 'current',
     scope: 'vacancy-workspace',
-  })
+  });
   await harness.localAppData.metadata.put({
     id: 'tailored-application-123',
     scope: 'tailored-applications',
@@ -3832,7 +3832,7 @@ test('falls back from a stale saved selection to the newest saved tailored appli
       vacancyId: 'vacancy-123',
       vacancyTitle: 'Senior platform engineer',
     },
-  })
+  });
   await harness.localAppData.metadata.put({
     id: 'tailored-application-456',
     scope: 'tailored-applications',
@@ -3849,7 +3849,7 @@ test('falls back from a stale saved selection to the newest saved tailored appli
       vacancyId: 'vacancy-123',
       vacancyTitle: 'Platform Product Manager',
     },
-  })
+  });
   await harness.workspaceSelectionStore.setSelection({
     jobs: {
       kind: 'tailored_application',
@@ -3860,7 +3860,7 @@ test('falls back from a stale saved selection to the newest saved tailored appli
       originalCvId: 'original-cv-123',
     },
     topLevelSection: 'original_cv',
-  })
+  });
 
   const service = createTailoredApplicationSessionService({
     aiWorker: {
@@ -3870,7 +3870,7 @@ test('falls back from a stale saved selection to the newest saved tailored appli
     readinessStore: harness.readinessStore,
     runWorkspaceRootPath: path.join(harness.paths.rootDirectoryPath, 'runs'),
     workspaceSelectionStore: harness.workspaceSelectionStore,
-  })
+  });
 
   await expect(service.getWorkspaceState()).resolves.toEqual({
     activeApplicationId: 'tailored-application-123',
@@ -3894,11 +3894,11 @@ test('falls back from a stale saved selection to the newest saved tailored appli
         vacancyTitle: 'Platform Product Manager',
       },
     ],
-  })
-})
+  });
+});
 
 test('falls back from a stale saved selection to blank workspace when no draft or saved history remains', async () => {
-  const harness = await createHarness()
+  const harness = await createHarness();
 
   await harness.workspaceSelectionStore.setSelection({
     jobs: {
@@ -3909,7 +3909,7 @@ test('falls back from a stale saved selection to blank workspace when no draft o
       kind: 'none',
     },
     topLevelSection: 'settings',
-  })
+  });
 
   const service = createTailoredApplicationSessionService({
     aiWorker: {
@@ -3919,18 +3919,18 @@ test('falls back from a stale saved selection to blank workspace when no draft o
     readinessStore: harness.readinessStore,
     runWorkspaceRootPath: path.join(harness.paths.rootDirectoryPath, 'runs'),
     workspaceSelectionStore: harness.workspaceSelectionStore,
-  })
+  });
 
   await expect(service.getWorkspaceState()).resolves.toEqual({
     activeApplicationId: null,
     applications: [],
-  })
-})
+  });
+});
 
 test('cleans interrupted running sessions on startup recovery without deleting the saved vacancy snapshot', async () => {
-  const harness = await createHarness()
+  const harness = await createHarness();
 
-  await seedOriginalCvAndVacancy(harness)
+  await seedOriginalCvAndVacancy(harness);
 
   await harness.readinessStore.savePendingGenerationCommand({
     commandId: 'command-123',
@@ -3941,8 +3941,8 @@ test('cleans interrupted running sessions on startup recovery without deleting t
       url: 'https://jobs.example.com/roles/123',
     },
     vacancyId: 'vacancy-123',
-  })
-  await harness.readinessStore.setStartupDestination('workspace')
+  });
+  await harness.readinessStore.setStartupDestination('workspace');
   await harness.localAppData.metadata.put({
     id: 'active-session',
     scope: 'pending-generation-session',
@@ -3952,7 +3952,7 @@ test('cleans interrupted running sessions on startup recovery without deleting t
       stage: 'running',
       tailoredApplicationId: 'tailored-application-123',
     },
-  })
+  });
   await harness.localAppData.metadata.put({
     id: 'run-123',
     scope: 'generation-runs',
@@ -3961,7 +3961,7 @@ test('cleans interrupted running sessions on startup recovery without deleting t
       status: 'running',
       tailoredApplicationId: 'tailored-application-123',
     },
-  })
+  });
   await harness.localAppData.metadata.put({
     id: 'tailored-application-123',
     scope: 'tailored-applications',
@@ -3971,16 +3971,16 @@ test('cleans interrupted running sessions on startup recovery without deleting t
       status: 'generating',
       vacancyId: 'vacancy-123',
     },
-  })
+  });
   await harness.localAppData.artifacts.write({
     content: Buffer.from('{}', 'utf8'),
     id: 'tailored-application-123',
     name: 'adapted-cv.json',
     scope: 'tailored-applications',
-  })
+  });
   await mkdir(path.join(harness.paths.rootDirectoryPath, 'runs', 'run-123', 'output'), {
     recursive: true,
-  })
+  });
 
   const service = createTailoredApplicationSessionService({
     adaptedCvRenderer: {
@@ -3999,7 +3999,7 @@ test('cleans interrupted running sessions on startup recovery without deleting t
     },
     generateId: createIdGenerator([]),
     getCurrentTimestamp: () => {
-      return '2026-04-09T10:00:00.000Z'
+      return '2026-04-09T10:00:00.000Z';
     },
     localAppData: harness.localAppData,
     readinessStore: harness.readinessStore,
@@ -4007,18 +4007,18 @@ test('cleans interrupted running sessions on startup recovery without deleting t
     worker: {
       runGeneration: vi.fn(),
     },
-  })
+  });
 
-  await expect(service.recoverInterruptedGeneration()).resolves.toBeUndefined()
+  await expect(service.recoverInterruptedGeneration()).resolves.toBeUndefined();
 
-  await expect(service.getPendingGenerationCommand()).resolves.toBeNull()
-  await expect(harness.readinessStore.getStartupDestination()).resolves.toBe('workspace')
+  await expect(service.getPendingGenerationCommand()).resolves.toBeNull();
+  await expect(harness.readinessStore.getStartupDestination()).resolves.toBe('workspace');
   await expect(
     harness.localAppData.metadata.get({
       id: 'tailored-application-123',
       scope: 'tailored-applications',
     }),
-  ).resolves.toBeNull()
+  ).resolves.toBeNull();
   await expect(
     harness.localAppData.metadata.get({
       id: 'current',
@@ -4026,43 +4026,43 @@ test('cleans interrupted running sessions on startup recovery without deleting t
     }),
   ).resolves.toMatchObject({
     vacancyId: 'vacancy-123',
-  })
+  });
   await expect(
     stat(path.join(harness.paths.rootDirectoryPath, 'runs', 'run-123')),
-  ).rejects.toThrow()
-})
+  ).rejects.toThrow();
+});
 
 function createIdGenerator(values: string[]) {
-  let index = 0
+  let index = 0;
 
   return () => {
-    const value = values[index]
+    const value = values[index];
 
     if (value === undefined) {
-      throw new Error('Ran out of deterministic IDs for the test.')
+      throw new Error('Ran out of deterministic IDs for the test.');
     }
 
-    index += 1
+    index += 1;
 
-    return value
-  }
+    return value;
+  };
 }
 
 async function createHarness() {
   const rootDirectoryPath = await mkdtemp(
     path.join(tmpdir(), 'cv-maxxing-tailored-application-service-'),
-  )
+  );
 
-  temporaryDirectories.push(rootDirectoryPath)
+  temporaryDirectories.push(rootDirectoryPath);
 
-  const paths = createLocalAppDataPaths(rootDirectoryPath)
+  const paths = createLocalAppDataPaths(rootDirectoryPath);
   const localAppData = await openLocalAppData({
     keychain: {
       clearAppDataKey: vi.fn().mockImplementation(() => Promise.resolve()),
       getOrCreateAppDataKey: vi.fn().mockResolvedValue(Buffer.alloc(32, 7)),
     },
     paths,
-  })
+  });
 
   return {
     localAppData,
@@ -4073,11 +4073,11 @@ async function createHarness() {
     workspaceSelectionStore: createWorkspaceSelectionStore({
       localAppData,
     }),
-  }
+  };
 }
 
 async function seedOriginalCvAndVacancy(harness: {
-  localAppData: Awaited<ReturnType<typeof openLocalAppData>>
+  localAppData: Awaited<ReturnType<typeof openLocalAppData>>;
 }) {
   await harness.localAppData.metadata.put({
     id: 'original-cv-123',
@@ -4117,7 +4117,7 @@ async function seedOriginalCvAndVacancy(harness: {
         formality: 'direct',
       },
     },
-  })
+  });
   await harness.localAppData.artifacts.write({
     content: Buffer.from(
       JSON.stringify({
@@ -4138,7 +4138,7 @@ async function seedOriginalCvAndVacancy(harness: {
     id: 'original-cv-123',
     name: 'normalized.json',
     scope: 'original-cvs',
-  })
+  });
   await harness.localAppData.artifacts.write({
     content: Buffer.from(
       [
@@ -4159,7 +4159,7 @@ async function seedOriginalCvAndVacancy(harness: {
     id: 'original-cv-123',
     name: 'extracted.txt',
     scope: 'original-cvs',
-  })
+  });
   await harness.localAppData.artifacts.write({
     content: Buffer.from(
       JSON.stringify({
@@ -4173,7 +4173,7 @@ async function seedOriginalCvAndVacancy(harness: {
     id: 'original-cv-123',
     name: 'writing-style-profile.json',
     scope: 'original-cvs',
-  })
+  });
   await harness.localAppData.metadata.put({
     id: 'vacancy-123',
     scope: 'vacancies',
@@ -4193,7 +4193,7 @@ async function seedOriginalCvAndVacancy(harness: {
       textPreview: 'Build reliable desktop tooling for technical users.',
       title: 'Senior platform engineer',
     },
-  })
+  });
   await harness.localAppData.artifacts.write({
     content: Buffer.from(
       [
@@ -4212,7 +4212,7 @@ async function seedOriginalCvAndVacancy(harness: {
     id: 'vacancy-123',
     name: 'extracted.txt',
     scope: 'vacancies',
-  })
+  });
   await harness.localAppData.artifacts.write({
     content: Buffer.from(
       JSON.stringify({
@@ -4228,7 +4228,7 @@ async function seedOriginalCvAndVacancy(harness: {
     id: 'vacancy-123',
     name: 'normalized.json',
     scope: 'vacancies',
-  })
+  });
   await harness.localAppData.metadata.put({
     id: 'current',
     scope: 'vacancy-workspace',
@@ -4237,7 +4237,7 @@ async function seedOriginalCvAndVacancy(harness: {
       url: 'https://jobs.example.com/roles/123',
       vacancyId: 'vacancy-123',
     },
-  })
+  });
 }
 
 function createValidGenerationResult(): TailoredApplicationGenerationResult {
@@ -4328,7 +4328,7 @@ function createValidGenerationResult(): TailoredApplicationGenerationResult {
       provider: 'codex',
       sessionId: 'session-123',
     },
-  }
+  };
 }
 
 function buildExpectedCoverLetterPlainText(
@@ -4342,10 +4342,10 @@ function buildExpectedCoverLetterPlainText(
     coverLetter.opening.text,
     '',
     ...coverLetter.body.flatMap((paragraph) => {
-      return [paragraph.text, '']
+      return [paragraph.text, ''];
     }),
     coverLetter.closing.text,
     '',
     coverLetter.signature,
-  ].join('\n')
+  ].join('\n');
 }

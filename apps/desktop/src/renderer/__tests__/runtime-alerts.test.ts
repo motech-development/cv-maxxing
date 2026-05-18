@@ -1,11 +1,11 @@
-import { expect, test } from 'vitest'
+import { expect, test } from 'vitest';
 
 import {
   createRuntimeAlert,
   pickHigherPriorityAlert,
   resolveNextRuntimeAlert,
   resolveRuntimeAlertOwnerKey,
-} from '../runtime-alerts.js'
+} from '../runtime-alerts.js';
 
 test('creates a structured runtime alert with grouped items', () => {
   const alert = createRuntimeAlert({
@@ -25,16 +25,16 @@ test('creates a structured runtime alert with grouped items', () => {
     source: 'ai_worker_sign_in',
     title: 'Sign in to continue.',
     variant: 'warning',
-  })
+  });
 
-  expect(alert.owner.scope).toBe('setup')
-  expect(alert.owner.view).toBe('ai_worker_sign_in_required')
-  expect(alert.source).toBe('ai_worker_sign_in')
-  expect(alert.variant).toBe('warning')
-  expect(alert.priority).toBe(200)
-  expect(alert.items).toHaveLength(1)
-  expect(resolveRuntimeAlertOwnerKey(alert.owner)).toBe('setup:ai_worker_sign_in_required')
-})
+  expect(alert.owner.scope).toBe('setup');
+  expect(alert.owner.view).toBe('ai_worker_sign_in_required');
+  expect(alert.source).toBe('ai_worker_sign_in');
+  expect(alert.variant).toBe('warning');
+  expect(alert.priority).toBe(200);
+  expect(alert.items).toHaveLength(1);
+  expect(resolveRuntimeAlertOwnerKey(alert.owner)).toBe('setup:ai_worker_sign_in_required');
+});
 
 test('prefers higher-priority unresolved alerts', () => {
   const current = createRuntimeAlert({
@@ -47,7 +47,7 @@ test('prefers higher-priority unresolved alerts', () => {
     source: 'ai_worker_preflight',
     title: 'Current',
     variant: 'error',
-  })
+  });
   const next = createRuntimeAlert({
     body: 'Lower priority alert.',
     owner: {
@@ -58,10 +58,10 @@ test('prefers higher-priority unresolved alerts', () => {
     source: 'ai_worker_secondary_action',
     title: 'Next',
     variant: 'warning',
-  })
+  });
 
-  expect(pickHigherPriorityAlert(current, next)).toBe(current)
-})
+  expect(pickHigherPriorityAlert(current, next)).toBe(current);
+});
 
 test('keeps the current alert when the next alert is equivalent', () => {
   const current = createRuntimeAlert({
@@ -81,7 +81,7 @@ test('keeps the current alert when the next alert is equivalent', () => {
     source: 'draft_validation',
     title: 'Add a bit more detail before tailoring your CV.',
     variant: 'warning',
-  })
+  });
   const next = createRuntimeAlert({
     body: 'Check the current field and try again.',
     items: [
@@ -99,7 +99,7 @@ test('keeps the current alert when the next alert is equivalent', () => {
     source: 'draft_validation',
     title: 'Add a bit more detail before tailoring your CV.',
     variant: 'warning',
-  })
+  });
 
-  expect(resolveNextRuntimeAlert(current, next)).toBe(current)
-})
+  expect(resolveNextRuntimeAlert(current, next)).toBe(current);
+});
