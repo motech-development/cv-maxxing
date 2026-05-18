@@ -4333,7 +4333,7 @@ function createValidGenerationResult(): TailoredApplicationGenerationResult {
 
 function buildExpectedCoverLetterPlainText(
   coverLetter: TailoredApplicationGenerationResult['coverLetter'],
-): string {
+) {
   return [
     coverLetter.date,
     '',

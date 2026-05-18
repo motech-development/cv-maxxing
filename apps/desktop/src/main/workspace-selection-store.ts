@@ -44,11 +44,13 @@ export interface WorkspaceSelectionStore {
   setSelection: (selection: WorkspaceSelection) => Promise<void>;
 }
 
+interface WorkspaceSelectionStoreInput {
+  localAppData: Pick<LocalAppDataStore, 'metadata'>;
+}
+
 export function createWorkspaceSelectionStore({
   localAppData,
-}: {
-  localAppData: Pick<LocalAppDataStore, 'metadata'>;
-}): WorkspaceSelectionStore {
+}: WorkspaceSelectionStoreInput): WorkspaceSelectionStore {
   return {
     getSelection: async () => {
       const value: unknown = await localAppData.metadata.get({

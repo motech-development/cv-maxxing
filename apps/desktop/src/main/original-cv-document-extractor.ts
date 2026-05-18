@@ -106,7 +106,7 @@ export function extractTextFromDocx(content: Buffer): Promise<ExtractedDocumentT
   });
 }
 
-function readDocxExtendedPropertiesPageCount(archiveEntries: Record<string, Uint8Array>): number {
+function readDocxExtendedPropertiesPageCount(archiveEntries: Record<string, Uint8Array>) {
   const appPropertiesXml = archiveEntries['docProps/app.xml'];
 
   if (appPropertiesXml === undefined) {
@@ -123,7 +123,7 @@ function readDocxExtendedPropertiesPageCount(archiveEntries: Record<string, Uint
   return parsedPageCount;
 }
 
-function decodeXmlText(value: string): string {
+function decodeXmlText(value: string) {
   return value
     .replaceAll('&amp;', '&')
     .replaceAll('&lt;', '<')

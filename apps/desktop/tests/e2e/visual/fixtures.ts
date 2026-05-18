@@ -40,7 +40,7 @@ export function createBaseOriginalCvLines(): string[] {
   ];
 }
 
-export function createPastedVacancyFixture(): string {
+export function createPastedVacancyFixture() {
   return [
     'Senior platform engineer',
     'Example Labs',
@@ -56,7 +56,7 @@ export function createPastedVacancyFixture(): string {
   ].join('\n');
 }
 
-export function createEditableDraftVacancyFixture(): string {
+export function createEditableDraftVacancyFixture() {
   return [
     'Staff platform designer',
     'North Star Systems',
@@ -193,7 +193,7 @@ export function createMultiPageGenerationResultFixture() {
 
 export function createVacancyNormalizationFixtureOutput(
   overrides: VacancyNormalizationFixtureOverrides = {},
-): string {
+) {
   const normalizedVacancy = {
     bodyText:
       overrides.bodyText ??
@@ -297,14 +297,14 @@ ${String(xrefOffset)}
   return Buffer.from(pdf, 'utf8');
 }
 
-function escapePdfText(value: string): string {
+function escapePdfText(value: string) {
   return value
     .replaceAll('\\', String.raw`\\`)
     .replaceAll('(', String.raw`\(`)
     .replaceAll(')', String.raw`\)`);
 }
 
-function escapeXmlText(value: string): string {
+function escapeXmlText(value: string) {
   return value
     .replaceAll('&', '&amp;')
     .replaceAll('<', '&lt;')

@@ -57,6 +57,11 @@ interface CreateAiWorkerPreflightServiceOptions {
   ) => Promise<CommandExecutionResult>;
 }
 
+interface ResolveCheckingTimeoutInput {
+  environment: AiWorkerPreflightEnvironment;
+  persistedCheckingTimeout: number | null;
+}
+
 const DEFAULT_CHECKING_TIMEOUT_MS = 12_000;
 const resolveNullPendingGenerationCommand = (): Promise<PendingGenerationCommand | null> => {
   return Promise.resolve(null);
@@ -154,10 +159,7 @@ export function getAiWorkerPreflight(
 export function resolveCheckingTimeoutMs({
   environment,
   persistedCheckingTimeout,
-}: {
-  environment: AiWorkerPreflightEnvironment;
-  persistedCheckingTimeout: number | null;
-}): number {
+}: ResolveCheckingTimeoutInput) {
   const runtimeCheckingTimeout = parseCheckingTimeout(environment.CHECKING_TIMEOUT_MS);
 
   if (runtimeCheckingTimeout !== null) {

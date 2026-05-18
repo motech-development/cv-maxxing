@@ -364,7 +364,7 @@ function isSafeReadingActionArray(value: unknown): value is VacancyBrowserReadin
   );
 }
 
-function parseDelay(value: string | undefined): number {
+function parseDelay(value: string | undefined) {
   const parsedValue = Number.parseInt(value ?? '', 10);
 
   if (!Number.isFinite(parsedValue) || parsedValue < 0) {
@@ -374,7 +374,7 @@ function parseDelay(value: string | undefined): number {
   return parsedValue;
 }
 
-function buildOutputPreview(outputText: string): string {
+function buildOutputPreview(outputText: string) {
   const preview = outputText.length > 200 ? `${outputText.slice(0, 200)}...` : outputText;
 
   return JSON.stringify(preview);

@@ -31,6 +31,137 @@ const projectTerminologyAbbreviations = {
   ui: true,
 };
 
+const inferrableReturnTypeNodes = new Set([
+  'TSBooleanKeyword',
+  'TSNullKeyword',
+  'TSNumberKeyword',
+  'TSStringKeyword',
+  'TSUndefinedKeyword',
+  'TSVoidKeyword',
+]);
+
+function isFunctionNode(node) {
+  return (
+    node.type === 'ArrowFunctionExpression' ||
+    node.type === 'FunctionDeclaration' ||
+    node.type === 'FunctionExpression'
+  );
+}
+
+function isFunctionReturnType(node) {
+  const parent = node.parent;
+
+  return parent !== undefined && isFunctionNode(parent) && parent.returnType === node;
+}
+
+function isExportedFunctionSignature(functionNode) {
+  const parent = functionNode.parent;
+
+  if (parent?.type === 'ExportDefaultDeclaration' || parent?.type === 'ExportNamedDeclaration') {
+    return true;
+  }
+
+  if (parent?.type !== 'VariableDeclarator') {
+    return false;
+  }
+
+  return parent.parent?.parent?.type === 'ExportNamedDeclaration';
+}
+
+const localTypeStylePlugin = {
+  rules: {
+    'no-inferrable-primitive-function-return-type': {
+      create(context) {
+        function checkFunctionReturnType(node) {
+          if (node.returnType === undefined || node.body === null) {
+            return;
+          }
+
+          if (!inferrableReturnTypeNodes.has(node.returnType.typeAnnotation.type)) {
+            return;
+          }
+
+          context.report({
+            fix(fixer) {
+              return fixer.removeRange(node.returnType.range);
+            },
+            message:
+              'Omit primitive and void function return types that TypeScript can infer from the implementation.',
+            node: node.returnType,
+          });
+        }
+
+        return {
+          ArrowFunctionExpression: checkFunctionReturnType,
+          FunctionDeclaration: checkFunctionReturnType,
+          FunctionExpression: checkFunctionReturnType,
+        };
+      },
+      meta: {
+        fixable: 'code',
+        schema: [],
+        type: 'suggestion',
+      },
+    },
+    'no-inline-object-function-type': {
+      create(context) {
+        function isFunctionParameterType(node) {
+          const parent = node.parent;
+
+          if (parent === undefined) {
+            return false;
+          }
+
+          const ancestors = context.sourceCode.getAncestors(node);
+          const functionAncestor = ancestors.findLast((ancestor) => isFunctionNode(ancestor));
+
+          return (
+            functionAncestor !== undefined &&
+            functionAncestor.params.includes(parent) &&
+            isExportedFunctionSignature(functionAncestor)
+          );
+        }
+
+        return {
+          TSTypeAnnotation(node) {
+            if (node.typeAnnotation.type !== 'TSTypeLiteral') {
+              return;
+            }
+
+            if (isFunctionReturnType(node)) {
+              context.report({
+                fix(fixer) {
+                  return fixer.removeRange(node.range);
+                },
+                message:
+                  'Omit inline object return types that TypeScript can infer from the implementation.',
+                node,
+              });
+
+              return;
+            }
+
+            if (!isFunctionParameterType(node)) {
+              return;
+            }
+
+            context.report({
+              message:
+                'Use a named interface or type alias instead of an inline object type in function signatures.',
+              node,
+            });
+          },
+        };
+      },
+      meta: {
+        fixable: 'code',
+        schema: [],
+        type: 'problem',
+      },
+    },
+  },
+};
+
 export default tseslint.config(
   {
     ignores: [
@@ -177,7 +308,11 @@ export default tseslint.config(
       },
     },
     name: 'cv-maxxing/typescript',
+    plugins: {
+      'cv-maxxing-local': localTypeStylePlugin,
+    },
     rules: {
+      '@typescript-eslint/consistent-type-definitions': ['error', 'interface'],
       '@typescript-eslint/consistent-type-imports': [
         'error',
         {
@@ -193,6 +328,8 @@ export default tseslint.config(
           ignoreProperties: false,
         },
       ],
+      'cv-maxxing-local/no-inferrable-primitive-function-return-type': 'error',
+      'cv-maxxing-local/no-inline-object-function-type': 'error',
       '@typescript-eslint/no-floating-promises': [
         'error',
         {

@@ -1,6 +1,22 @@
 import type { Page } from '@playwright/test';
 import { expect } from '@playwright/test';
 
+interface ImportOriginalCvFromFirstLaunchInput {
+  filename: string;
+  filePath: string;
+  page: Page;
+}
+
+interface ReviewPastedVacancyInput {
+  page: Page;
+  vacancyText: string;
+}
+
+interface CreateTailoredApplicationFromPastedVacancyInput extends ReviewPastedVacancyInput {
+  expectedTitle?: string;
+  expectPreview?: boolean;
+}
+
 export async function expectActiveOriginalCv(page: Page, filename: string): Promise<void> {
   await expect(page.getByRole('heading', { name: 'Your CV' })).toBeVisible();
   await expect(page.getByText('Extracted profile')).toBeVisible();
@@ -11,11 +27,7 @@ export async function importOriginalCvFromFirstLaunch({
   filename,
   filePath,
   page,
-}: {
-  filename: string;
-  filePath: string;
-  page: Page;
-}): Promise<void> {
+}: ImportOriginalCvFromFirstLaunchInput): Promise<void> {
   await expect(page.getByRole('heading', { name: 'Add a CV' })).toBeVisible();
   await page.getByLabel('Your CV file').setInputFiles(filePath);
   await expectActiveOriginalCv(page, filename);
@@ -48,10 +60,7 @@ export async function openLocalDataSettings(page: Page): Promise<void> {
 export async function reviewPastedVacancy({
   page,
   vacancyText,
-}: {
-  page: Page;
-  vacancyText: string;
-}): Promise<void> {
+}: ReviewPastedVacancyInput): Promise<void> {
   await page.getByLabel('Job description').fill(vacancyText);
   await page.getByLabel('Job description').press('Tab');
   await page.getByRole('button', { name: 'Check job details' }).nth(1).dispatchEvent('click');
@@ -63,12 +72,7 @@ export async function createTailoredApplicationFromPastedVacancy({
   page,
   vacancyText,
   expectedTitle = 'Senior platform engineer',
-}: {
-  expectPreview?: boolean;
-  expectedTitle?: string;
-  page: Page;
-  vacancyText: string;
-}): Promise<void> {
+}: CreateTailoredApplicationFromPastedVacancyInput): Promise<void> {
   await reviewPastedVacancy({
     page,
     vacancyText,

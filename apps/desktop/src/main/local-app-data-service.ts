@@ -71,6 +71,11 @@ export interface LocalAppDataStore {
   reset: () => Promise<void>;
 }
 
+interface OpenLocalAppDataInput {
+  keychain: KeychainBoundary;
+  paths: LocalAppDataPaths;
+}
+
 export class LocalAppDataUnlockError extends Error {
   override name = 'LocalAppDataUnlockError';
 }
@@ -133,10 +138,7 @@ export function createLocalAppDataPaths(rootDirectoryPath: string): LocalAppData
 export async function openLocalAppData({
   keychain,
   paths,
-}: {
-  keychain: KeychainBoundary;
-  paths: LocalAppDataPaths;
-}): Promise<LocalAppDataStore> {
+}: OpenLocalAppDataInput): Promise<LocalAppDataStore> {
   let context = await initializeStorageContext({
     keychain,
     paths,
@@ -626,7 +628,7 @@ class EncryptedArtifactStore {
     }
   }
 
-  #artifactPath({ id, name, scope }: Required<ArtifactSelector>): string {
+  #artifactPath({ id, name, scope }: Required<ArtifactSelector>) {
     const fileName = createHash('sha256').update(name).digest('hex');
 
     return path.join(
@@ -703,7 +705,7 @@ class EncryptedArtifactStore {
     await writeFile(path.join(scopeDirectoryPath, 'manifest.bin'), encryptedBytes);
   }
 
-  #scopeDirectory({ id, scope }: MetadataSelector): string {
+  #scopeDirectory({ id, scope }: MetadataSelector) {
     return path.join(this.#artifactsRoot, scope, id);
   }
 }

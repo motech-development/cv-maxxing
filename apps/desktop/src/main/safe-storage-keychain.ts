@@ -10,6 +10,11 @@ export interface SafeStorageLike {
   isEncryptionAvailable: () => boolean;
 }
 
+interface SafeStorageKeychainInput {
+  keychainRecordPath: string;
+  safeStorage: SafeStorageLike;
+}
+
 export class SafeStorageUnavailableError extends Error {
   override name = 'SafeStorageUnavailableError';
 }
@@ -17,10 +22,7 @@ export class SafeStorageUnavailableError extends Error {
 export function createSafeStorageKeychain({
   keychainRecordPath,
   safeStorage,
-}: {
-  keychainRecordPath: string;
-  safeStorage: SafeStorageLike;
-}): KeychainBoundary {
+}: SafeStorageKeychainInput): KeychainBoundary {
   return {
     clearAppDataKey: async () => {
       await rm(keychainRecordPath, {
@@ -52,7 +54,7 @@ export function createSafeStorageKeychain({
   };
 }
 
-function ensureSafeStorageAvailability(safeStorage: SafeStorageLike): void {
+function ensureSafeStorageAvailability(safeStorage: SafeStorageLike) {
   if (!safeStorage.isEncryptionAvailable()) {
     throw new SafeStorageUnavailableError('OS-backed encryption is unavailable.');
   }

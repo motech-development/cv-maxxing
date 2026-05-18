@@ -206,7 +206,7 @@ function DetailSection({ children, title }: { children: ReactNode; title: string
   );
 }
 
-function formatTimestamp(value: string): string {
+function formatTimestamp(value: string) {
   return new Intl.DateTimeFormat('en-GB', {
     day: 'numeric',
     month: 'short',

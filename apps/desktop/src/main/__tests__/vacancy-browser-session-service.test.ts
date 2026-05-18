@@ -29,7 +29,7 @@ class WebFrameDouble {
     return Promise.resolve(this.snapshot);
   }
 
-  isDestroyed(): boolean {
+  isDestroyed() {
     return false;
   }
 }
@@ -69,20 +69,20 @@ class WebContentsDouble extends EventTarget {
     return this.currentSnapshot;
   }
 
-  finishLoad(snapshot: Snapshot, frameSnapshots: (Error | Snapshot)[] = []): void {
+  finishLoad(snapshot: Snapshot, frameSnapshots: (Error | Snapshot)[] = []) {
     this.currentSnapshot = snapshot;
     this.frameSnapshots = frameSnapshots;
     this.mainFrame = this.createMainFrame();
     this.dispatchEvent(new Event('did-finish-load'));
   }
 
-  updateSnapshot(snapshot: Snapshot, frameSnapshots: (Error | Snapshot)[] = []): void {
+  updateSnapshot(snapshot: Snapshot, frameSnapshots: (Error | Snapshot)[] = []) {
     this.currentSnapshot = snapshot;
     this.frameSnapshots = frameSnapshots;
     this.mainFrame = this.createMainFrame();
   }
 
-  on(eventName: string, listener: () => void): void {
+  on(eventName: string, listener: () => void) {
     this.addEventListener(eventName, listener as EventListener);
   }
 
@@ -109,12 +109,12 @@ class BrowserWindowDouble extends EventTarget {
     this.webContents = new WebContentsDouble(snapshot, [], scriptHandler);
   }
 
-  close(): void {
+  close() {
     this.destroyed = true;
     this.dispatchEvent(new Event('closed'));
   }
 
-  isDestroyed(): boolean {
+  isDestroyed() {
     return this.destroyed;
   }
 
@@ -122,12 +122,12 @@ class BrowserWindowDouble extends EventTarget {
     return Promise.resolve();
   }
 
-  finishLoad(snapshot: Snapshot): void {
+  finishLoad(snapshot: Snapshot) {
     this.webContents.finishLoad(snapshot);
   }
 
-  once(eventName: string, listener: () => void): void {
-    const wrappedListener = (): void => {
+  once(eventName: string, listener: () => void) {
+    const wrappedListener = () => {
       this.removeEventListener(eventName, wrappedListener as EventListener);
       listener();
     };

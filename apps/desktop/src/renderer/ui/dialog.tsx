@@ -66,7 +66,7 @@ export function Dialog({
       return;
     }
 
-    const handleBackdropClick = (event: Event): void => {
+    const handleBackdropClick = (event: Event) => {
       if (event.target !== dialogElement) {
         return;
       }
@@ -91,7 +91,7 @@ export function Dialog({
     return null;
   }
 
-  const handleCancel = (event: SyntheticEvent<HTMLDialogElement>): void => {
+  const handleCancel = (event: SyntheticEvent<HTMLDialogElement>) => {
     event.preventDefault();
 
     if (!isDismissable) {

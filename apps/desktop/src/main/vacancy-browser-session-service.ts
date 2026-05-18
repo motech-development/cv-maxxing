@@ -128,7 +128,7 @@ export function createVacancyBrowserSessionService({
       let observationTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
       return await new Promise<VacancyBrowserPageSnapshot | null>((resolve) => {
-        const settle = (snapshot: VacancyBrowserPageSnapshot | null): void => {
+        const settle = (snapshot: VacancyBrowserPageSnapshot | null) => {
           if (hasSettled) {
             return;
           }
@@ -153,7 +153,7 @@ export function createVacancyBrowserSessionService({
           resolve(snapshot);
         };
 
-        const closeWindow = (): void => {
+        const closeWindow = () => {
           if (vacancyBrowserWindow.isDestroyed()) {
             return;
           }
@@ -215,7 +215,7 @@ export function createVacancyBrowserSessionService({
           }, SILENT_CAPTURE_SETTLE_AFTER_VALID_MS);
         };
 
-        const startSilentObservation = (): void => {
+        const startSilentObservation = () => {
           if (observationIntervalId !== null) {
             return;
           }
@@ -281,7 +281,7 @@ export function createVacancyBrowserSessionService({
         readingActions.length === 0 ? 'complete' : 'pending';
 
       return await new Promise<VacancyBrowserPageSnapshot | null>((resolve) => {
-        const settle = (snapshot: VacancyBrowserPageSnapshot | null): void => {
+        const settle = (snapshot: VacancyBrowserPageSnapshot | null) => {
           if (hasSettled) {
             return;
           }
@@ -296,7 +296,7 @@ export function createVacancyBrowserSessionService({
           resolve(snapshot);
         };
 
-        const closeWindow = (): void => {
+        const closeWindow = () => {
           if (vacancyBrowserWindow.isDestroyed()) {
             return;
           }
@@ -343,14 +343,14 @@ export function createVacancyBrowserSessionService({
           }
         };
 
-        const observeAndSettleOnFailure = (): void => {
+        const observeAndSettleOnFailure = () => {
           observeCurrentPage().catch(() => {
             closeWindow();
             settle(latestValidSnapshot);
           });
         };
 
-        const startInteractiveObservation = (): void => {
+        const startInteractiveObservation = () => {
           if (observationIntervalId !== null) {
             if (readingActionsState !== 'pending') {
               observeAndSettleOnFailure();
@@ -452,7 +452,7 @@ async function runSafeReadingActions({
   };
 }
 
-function createSafeReadingActionScript(action: VacancyBrowserReadingActionRequest): string {
+function createSafeReadingActionScript(action: VacancyBrowserReadingActionRequest) {
   return String.raw`(() => {
     const marker = ${JSON.stringify(SAFE_READING_ACTION_MARKER)};
     const action = ${JSON.stringify(action)};
@@ -594,7 +594,7 @@ function createBrowserSessionUrl({
 }: {
   testSnapshotHtml: string | undefined;
   url: string;
-}): string {
+}) {
   if (testSnapshotHtml === undefined) {
     return url;
   }
@@ -713,7 +713,7 @@ function appendEmbeddedFrameEvidence({
 }: {
   frameSnapshots: VacancyBrowserPageSnapshot[];
   html: string;
-}): string {
+}) {
   if (frameSnapshots.length === 0) {
     return html;
   }
@@ -729,7 +729,7 @@ function appendEmbeddedFrameEvidence({
   return `${html}\n<section data-cv-maxxing-embedded-frames="true">${frameEvidenceHtml}</section>`;
 }
 
-function escapeHtmlAttribute(value: string): string {
+function escapeHtmlAttribute(value: string) {
   return value
     .replaceAll('&', '&amp;')
     .replaceAll('"', '&quot;')

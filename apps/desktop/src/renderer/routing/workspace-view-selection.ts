@@ -8,13 +8,22 @@ export interface ResolvedWorkspaceViewSelection {
   kind: WorkspaceViewKind;
 }
 
+interface ResolveTailoredApplicationIdInput {
+  preferredTailoredApplicationId: string | null;
+  workspaceState: TailoredApplicationWorkspaceState;
+}
+
+interface ResolveWorkspaceViewSelectionInput {
+  forcedSelection: WorkspaceSelectionOverride;
+  hasMeaningfulDraft: boolean;
+  hasPendingGeneration: boolean;
+  resolvedTailoredApplicationId: string | null;
+}
+
 export function resolveTailoredApplicationId({
   preferredTailoredApplicationId,
   workspaceState,
-}: {
-  preferredTailoredApplicationId: string | null;
-  workspaceState: TailoredApplicationWorkspaceState;
-}): string | null {
+}: ResolveTailoredApplicationIdInput): string | null {
   const preferredTailoredApplicationStillExists = workspaceState.applications.some(
     (application) => {
       return application.id === preferredTailoredApplicationId;
@@ -33,12 +42,7 @@ export function resolveWorkspaceViewSelection({
   hasMeaningfulDraft,
   hasPendingGeneration,
   resolvedTailoredApplicationId,
-}: {
-  forcedSelection: WorkspaceSelectionOverride;
-  hasMeaningfulDraft: boolean;
-  hasPendingGeneration: boolean;
-  resolvedTailoredApplicationId: string | null;
-}): ResolvedWorkspaceViewSelection {
+}: ResolveWorkspaceViewSelectionInput): ResolvedWorkspaceViewSelection {
   if (forcedSelection?.kind === 'tailored_application') {
     return {
       kind: 'tailored_application',

@@ -14,7 +14,11 @@ export interface VacancyNormalizationArtifacts {
   sanitizedHtml: string;
 }
 
-export function extractTextFromHtml(html: string): string {
+interface VacancyNormalizationArtifactsInput {
+  html: string;
+}
+
+export function extractTextFromHtml(html: string) {
   const strippedHtml = html
     .replaceAll(/<head[\s\S]*?<\/head>/gi, ' ')
     .replaceAll(/<script[\s\S]*?<\/script>/gi, ' ')
@@ -31,7 +35,7 @@ export function extractTextFromHtml(html: string): string {
   return strippedHtml.trim();
 }
 
-export function sanitizeSnapshotHtml(html: string): string {
+export function sanitizeSnapshotHtml(html: string) {
   return html
     .replaceAll(/<head[\s\S]*?<\/head>/gi, ' ')
     .replaceAll(/<script[\s\S]*?<\/script>/gi, ' ')
@@ -51,9 +55,7 @@ export function sanitizeSnapshotHtml(html: string): string {
 
 export function prepareVacancyNormalizationArtifacts({
   html,
-}: {
-  html: string;
-}): VacancyNormalizationArtifacts {
+}: VacancyNormalizationArtifactsInput): VacancyNormalizationArtifacts {
   const sanitizedHtml = sanitizeSnapshotHtml(html);
   const focusedHtml = focusPrimaryContent(sanitizedHtml);
   const boundedHtml = truncateContent(focusedHtml, MAX_NORMALIZATION_HTML_LENGTH);
@@ -84,7 +86,7 @@ export function inferPageTitle(html: string): string | null {
   return title.trim();
 }
 
-function focusPrimaryContent(html: string): string {
+function focusPrimaryContent(html: string) {
   const primaryContent = extractPrimaryContentBlock(html);
 
   if (primaryContent === null) {
@@ -112,7 +114,7 @@ function extractPrimaryContentBlock(html: string): string | null {
   });
 }
 
-function trimTrailingRelatedContent(html: string): string {
+function trimTrailingRelatedContent(html: string) {
   const markerIndexes = TRAILING_RELATED_CONTENT_MARKERS.map((pattern) => {
     return html.search(pattern);
   }).filter((index) => {
@@ -136,7 +138,7 @@ function trimTrailingRelatedContent(html: string): string {
   return html.slice(0, cutIndex).trim();
 }
 
-function truncateContent(value: string, maxLength: number): string {
+function truncateContent(value: string, maxLength: number) {
   if (value.length <= maxLength) {
     return value;
   }

@@ -148,11 +148,13 @@ interface RuntimeDependencyOptions {
   vacancy: VacancyService;
 }
 
+interface HandleOriginalCvImportedInput {
+  tailoredApplication: Pick<TailoredApplicationSessionService, 'abandonPendingGeneration'>;
+}
+
 export async function handleOriginalCvImported({
   tailoredApplication,
-}: {
-  tailoredApplication: Pick<TailoredApplicationSessionService, 'abandonPendingGeneration'>;
-}): Promise<void> {
+}: HandleOriginalCvImportedInput): Promise<void> {
   await tailoredApplication.abandonPendingGeneration();
 }
 
@@ -252,8 +254,8 @@ export function createDesktopAppBootstrap({
   tailoredApplicationPreviewDelayMs = 0,
   tailoredApplication,
   vacancy,
-}: DesktopAppBootstrapDependencies): { start: () => Promise<void> } {
-  function registerIpcHandlers(): void {
+}: DesktopAppBootstrapDependencies) {
+  function registerIpcHandlers() {
     registerDesktopIpcHandlers({
       aiWorker,
       ipcMain,
@@ -405,7 +407,7 @@ export function createElectronRuntimeDependencies({
 export function assertPackagedRuntimeHasNoFixtureOverrides({
   environment,
   isPackaged,
-}: PackagedRuntimeFixtureGuardInput): void {
+}: PackagedRuntimeFixtureGuardInput) {
   if (!isPackaged) {
     return;
   }
@@ -661,7 +663,7 @@ function parseTimeoutOverride(value: string | undefined): number | undefined {
   return Math.trunc(parsedValue);
 }
 
-function parseDelay(value: string | undefined): number {
+function parseDelay(value: string | undefined) {
   if (value === undefined || value.trim() === '') {
     return 0;
   }
@@ -675,7 +677,7 @@ function parseDelay(value: string | undefined): number {
   return Math.trunc(parsedValue);
 }
 
-function parseMainWindowShow(value: string | undefined): boolean {
+function parseMainWindowShow(value: string | undefined) {
   return value !== 'false';
 }
 
