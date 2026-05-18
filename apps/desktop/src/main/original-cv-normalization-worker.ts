@@ -1,7 +1,6 @@
 import { spawn } from 'node:child_process';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-
 import type { OriginalCvWritingStyle } from '../shared/original-cv.js';
 import { OriginalCvNormalizationError } from './original-cv-normalization-error.js';
 import type {

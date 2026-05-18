@@ -1,5 +1,4 @@
 import type { ChangeEvent, DragEvent, KeyboardEvent, ReactNode } from 'react';
-
 import type { OriginalCvDetail, OriginalCvSummary } from '../../shared/original-cv.js';
 import type { RuntimeAlert } from '../runtime-alerts.js';
 import { DesktopShell, type RailItemId } from '../shell/desktop-shell.js';

@@ -2,7 +2,6 @@
 
 import { render, screen, within } from '@testing-library/react';
 import { expect, test, vi } from 'vitest';
-
 import { createRuntimeAlert } from '../../runtime-alerts.js';
 import { WorkspaceScreen } from '../workspace-screen.js';
 

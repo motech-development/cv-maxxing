@@ -1,5 +1,4 @@
 import { expect, test, vi } from 'vitest';
-
 import { AI_WORKER_IPC_CHANNELS, type DesktopIpcChannel } from '../../shared/ipc.js';
 import type { IpcRendererLike } from '../expose-desktop-api.js';
 import { exposeDesktopApi } from '../expose-desktop-api.js';

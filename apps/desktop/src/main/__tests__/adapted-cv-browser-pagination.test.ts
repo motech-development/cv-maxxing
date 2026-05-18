@@ -1,7 +1,6 @@
 // @vitest-environment jsdom
 
 import { expect, test } from 'vitest';
-
 import type { AdaptedCvExperienceEntry } from '../../shared/tailored-application.js';
 import {
   type AdaptedCvBrowserRenderPayload,

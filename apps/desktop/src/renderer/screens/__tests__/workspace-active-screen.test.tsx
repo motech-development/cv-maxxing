@@ -2,7 +2,6 @@
 
 import { render, screen } from '@testing-library/react';
 import { expect, test, vi } from 'vitest';
-
 import { WorkspaceApplicationView } from '../workspace-active-screen.js';
 
 test('keeps the document preview column shrinkable beside the vacancy panel', () => {

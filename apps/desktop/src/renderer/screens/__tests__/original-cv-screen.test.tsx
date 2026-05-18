@@ -2,7 +2,6 @@
 
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, expect, test, vi } from 'vitest';
-
 import type { OriginalCvDetail } from '../../../shared/original-cv.js';
 import { createRuntimeAlert } from '../../runtime-alerts.js';
 

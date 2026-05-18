@@ -1,6 +1,5 @@
 import { strToU8, zipSync } from 'fflate';
 import { expect, test } from 'vitest';
-
 import { extractTextFromDocx, extractTextFromPdf } from '../original-cv-document-extractor.js';
 
 test('extracts readable text from PDF original CV files', async () => {

@@ -1,7 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { access, mkdir, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-
 import type { AiWorkerPreflightResult } from '../shared/ai-worker-preflight.js';
 import {
   assessEnglishLanguageSupport,

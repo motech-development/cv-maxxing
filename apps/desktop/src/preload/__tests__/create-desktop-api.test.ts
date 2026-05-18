@@ -1,5 +1,4 @@
 import { expect, test, vi } from 'vitest';
-
 import {
   AI_WORKER_IPC_CHANNELS,
   ORIGINAL_CV_IPC_CHANNELS,

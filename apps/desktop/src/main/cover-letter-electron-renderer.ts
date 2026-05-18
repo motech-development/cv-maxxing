@@ -1,9 +1,7 @@
 import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
-
 import { BrowserWindow } from 'electron';
 import { getDocument } from 'pdfjs-dist/legacy/build/pdf.mjs';
-
 import { buildCoverLetterPageWarning, createCoverLetterDocument } from './cover-letter-document.js';
 import type { CoverLetterRenderer } from './tailored-application-session-service.js';
 

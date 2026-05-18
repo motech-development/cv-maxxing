@@ -1,6 +1,5 @@
 import { Briefcase, FileText, LoaderCircle, Settings, Sparkles } from 'lucide-react';
 import type { ReactNode } from 'react';
-
 import { StatusPill } from '../ui/status-pill.js';
 
 export type RailItemId = 'job_vacancies' | 'original_cv' | 'settings' | 'setup';

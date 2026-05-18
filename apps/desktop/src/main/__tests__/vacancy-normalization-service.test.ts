@@ -1,9 +1,7 @@
 import { mkdtemp, readdir, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-
 import { afterEach, expect, test, vi } from 'vitest';
-
 import { VacancyNormalizationError } from '../vacancy-normalization-error.js';
 import {
   createVacancyNormalizationService,

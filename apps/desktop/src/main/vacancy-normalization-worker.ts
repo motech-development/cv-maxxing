@@ -1,7 +1,6 @@
 import { spawn } from 'node:child_process';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-
 import type { VacancyBrowserReadingActionRequest } from './vacancy-browser-actions.js';
 import { VacancyNormalizationError } from './vacancy-normalization-error.js';
 import type {

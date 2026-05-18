@@ -1,5 +1,4 @@
 import { rm } from 'node:fs/promises';
-
 import type { AiWorkerProvider } from '../shared/ai-worker-preflight.js';
 import type { ResetLocalAppDataInput, SettingsSnapshot } from '../shared/settings.js';
 import { SETTINGS_RESET_CONFIRMATION_PHRASE } from '../shared/settings.js';

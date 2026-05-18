@@ -1,9 +1,7 @@
 import { access, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-
 import { afterEach, expect, test, vi } from 'vitest';
-
 import { SETTINGS_RESET_CONFIRMATION_PHRASE } from '../../shared/settings.js';
 import {
   createLocalAppDataPaths,

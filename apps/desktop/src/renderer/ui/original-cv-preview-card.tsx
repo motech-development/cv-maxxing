@@ -1,6 +1,5 @@
 import { renderAsync } from 'docx-preview';
 import { useEffect, useRef, useState } from 'react';
-
 import type { OriginalCvDocxPreview, OriginalCvPreview } from '../../shared/original-cv.js';
 import { PdfPreviewCard } from './pdf-preview-card.js';
 

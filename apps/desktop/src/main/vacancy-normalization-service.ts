@@ -1,7 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { mkdir, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-
 import type { VacancyInputType, VacancySource } from '../shared/vacancy.js';
 import type { VacancyBrowserReadingActionRequest } from './vacancy-browser-actions.js';
 import { VacancyNormalizationError } from './vacancy-normalization-error.js';

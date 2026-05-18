@@ -1,5 +1,4 @@
 import { expect, test } from 'vitest';
-
 import {
   resolveRendererLoadingState,
   type ResolveRendererLoadingStateInput,

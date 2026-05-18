@@ -1,5 +1,4 @@
 import { expect, test } from 'vitest';
-
 import {
   createRuntimeAlert,
   pickHigherPriorityAlert,

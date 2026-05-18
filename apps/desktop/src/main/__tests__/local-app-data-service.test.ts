@@ -2,9 +2,7 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
-
 import { afterEach, expect, test, vi } from 'vitest';
-
 import type { KeychainBoundary, LocalAppDataPaths } from '../local-app-data-service.js';
 import {
   createLocalAppDataPaths,

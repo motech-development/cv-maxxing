@@ -1,6 +1,5 @@
 import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { useEffect, useRef, useState } from 'react';
-
 import { Button } from './button.js';
 
 GlobalWorkerOptions.workerSrc = new URL(

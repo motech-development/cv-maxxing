@@ -1,6 +1,5 @@
 import { Shield, Sparkles } from 'lucide-react';
 import type { ReactNode } from 'react';
-
 import type { AiWorkerPreflightStatus } from '../../shared/ai-worker-preflight.js';
 import { formatAiWorkerProviderName } from '../../shared/ai-worker-provider-display.js';
 import type { SettingsSnapshot } from '../../shared/settings.js';

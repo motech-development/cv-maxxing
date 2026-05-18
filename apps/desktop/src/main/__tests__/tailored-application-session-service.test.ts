@@ -1,9 +1,7 @@
 import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-
 import { afterEach, expect, test, vi } from 'vitest';
-
 import type {
   AdaptedCvModel,
   TailoredApplicationGenerationResult,

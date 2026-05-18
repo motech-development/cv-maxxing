@@ -1,7 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { mkdir, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-
 import type { OriginalCvFileType, OriginalCvWritingStyle } from '../shared/original-cv.js';
 import { OriginalCvNormalizationError } from './original-cv-normalization-error.js';
 import type { OriginalCvNormalizationWorker } from './original-cv-normalization-worker.js';

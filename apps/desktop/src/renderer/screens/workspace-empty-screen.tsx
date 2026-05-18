@@ -1,5 +1,4 @@
 import type { ChangeEvent } from 'react';
-
 import type { VacancyReviewState, VacancySummary } from '../../shared/vacancy.js';
 import { Button } from '../ui/button.js';
 import { PanelCard } from '../ui/panel-card.js';

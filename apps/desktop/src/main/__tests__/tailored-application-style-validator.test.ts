@@ -1,5 +1,4 @@
 import { expect, test } from 'vitest';
-
 import {
   INVALID_WRITING_STYLE_PROFILE_ERROR_MESSAGE,
   parseWritingStyleProfileJson,

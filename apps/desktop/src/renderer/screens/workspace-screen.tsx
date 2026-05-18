@@ -1,5 +1,4 @@
 import type { ChangeEvent, ReactNode } from 'react';
-
 import type {
   TailoredApplicationListItem,
   TailoredApplicationPreview,

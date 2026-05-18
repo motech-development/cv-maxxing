@@ -2,10 +2,8 @@ import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import path from 'node:path';
-
 import { and, eq } from 'drizzle-orm';
 import { type AsyncRemoteCallback, drizzle } from 'drizzle-orm/sqlite-proxy';
-
 import { metadataEntries } from './local-app-data-schema.js';
 
 export interface JsonObject {

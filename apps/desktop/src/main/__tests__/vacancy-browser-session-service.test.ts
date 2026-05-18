@@ -1,6 +1,5 @@
 import type { Session } from 'electron';
 import { expect, test, vi } from 'vitest';
-
 import { createVacancyBrowserSessionService } from '../vacancy-browser-session-service.js';
 
 async function flushObservation(): Promise<void> {

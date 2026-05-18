@@ -1,12 +1,10 @@
 import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-
 import { expect, type Page, test } from '@playwright/test';
 import { strToU8, zipSync } from 'fflate';
 import { getDocument } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { _electron as electron } from 'playwright';
-
 import { createOriginalCvNormalizationFixtureOutput } from './original-cv-normalization-fixture.js';
 
 const temporaryDirectories: string[] = [];

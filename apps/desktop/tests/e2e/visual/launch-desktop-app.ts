@@ -1,10 +1,8 @@
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-
 import type { Page } from '@playwright/test';
 import { _electron as electron } from 'playwright';
-
 import { createOriginalCvNormalizationFixtureOutput } from '../original-cv-normalization-fixture.js';
 import { createVacancyNormalizationFixtureOutput } from './fixtures.js';
 

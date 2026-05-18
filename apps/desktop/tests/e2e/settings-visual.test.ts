@@ -1,8 +1,6 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-
 import { expect, test } from '@playwright/test';
-
 import {
   importOriginalCvFromFirstLaunch,
   openLocalDataSettings,

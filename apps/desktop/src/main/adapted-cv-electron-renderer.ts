@@ -1,8 +1,6 @@
 import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
-
 import { BrowserWindow } from 'electron';
-
 import type { AdaptedCvBrowserSidebarSection } from './adapted-cv-browser-pagination.js';
 import {
   applyPlannedSidebarSectionsToAdaptedCv,

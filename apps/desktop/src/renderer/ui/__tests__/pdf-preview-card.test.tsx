@@ -2,7 +2,6 @@
 
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
-
 import type { TailoredApplicationPdfPreview } from '../../../shared/tailored-application.js';
 
 const detachedBufferErrorMessage =

@@ -1,5 +1,4 @@
 import { queryOptions } from '@tanstack/react-query';
-
 import { createReadinessRouteViewModel } from '../readiness/readiness-route.js';
 
 export const rendererQueryKeys = {

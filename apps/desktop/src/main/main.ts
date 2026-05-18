@@ -1,7 +1,6 @@
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-
 import type { PendingGenerationCommand } from '../shared/pending-generation.js';
 import type { StartupDestination } from '../shared/startup-destination.js';
 import {
