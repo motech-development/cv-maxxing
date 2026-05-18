@@ -1261,7 +1261,7 @@ function createGenerationResultFixture(overrides?: {
 
 function createVacancyNormalizationFixtureOutput(
   overrides: VacancyNormalizationFixtureOverrides = {},
-): string {
+) {
   const normalizedVacancy = {
     bodyText:
       overrides.bodyText ??
@@ -1401,14 +1401,14 @@ async function extractPdfTextFromFile(pdfPath: string): Promise<string> {
   return pageTexts.join('\n');
 }
 
-function escapePdfText(value: string): string {
+function escapePdfText(value: string) {
   return value
     .replaceAll('\\', String.raw`\\`)
     .replaceAll('(', String.raw`\(`)
     .replaceAll(')', String.raw`\)`);
 }
 
-function escapeXmlText(value: string): string {
+function escapeXmlText(value: string) {
   return value
     .replaceAll('&', '&amp;')
     .replaceAll('<', '&lt;')

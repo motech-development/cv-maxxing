@@ -15,6 +15,11 @@ interface AdaptedCvDocumentInput {
   vacancyTitle: string | null;
 }
 
+interface AdaptedCvExportFilenameInput {
+  candidateName: string;
+  vacancyTitle: string | null;
+}
+
 export interface AdaptedCvDocument {
   html: string;
 }
@@ -97,10 +102,7 @@ export function buildAdaptedCvPageWarning(pageCount: number): string | null {
 export function buildAdaptedCvExportFilename({
   candidateName,
   vacancyTitle,
-}: {
-  candidateName: string;
-  vacancyTitle: string | null;
-}): string {
+}: AdaptedCvExportFilenameInput) {
   const safeCandidateName = sanitizeFilenamePart(candidateName);
   const safeVacancyTitle = sanitizeFilenamePart(vacancyTitle ?? 'adapted cv');
 
@@ -352,7 +354,7 @@ function getOptionalSection<K extends AdaptedCvSection['kind']>(
     : (matchingSection as Extract<AdaptedCvSection, { kind: K }>);
 }
 
-function buildDocumentHtml(payload: AdaptedCvBrowserRenderPayload): string {
+function buildDocumentHtml(payload: AdaptedCvBrowserRenderPayload) {
   const serializedPayload = JSON.stringify(payload)
     .replaceAll('<', String.raw`\u003c`)
     .replaceAll('\u2028', String.raw`\u2028`)
@@ -380,7 +382,7 @@ function buildDocumentHtml(payload: AdaptedCvBrowserRenderPayload): string {
   ].join('');
 }
 
-function buildPaginationBootstrapScript(): string {
+function buildPaginationBootstrapScript() {
   return [
     '(() => {',
     `const renderPages = ${String(renderAdaptedCvPagesInBrowser)};`,
@@ -413,7 +415,7 @@ function buildPaginationBootstrapScript(): string {
   ].join('\n');
 }
 
-function buildDocumentStyles(): string {
+function buildDocumentStyles() {
   return `
     :root {
       --bg: #ffffff;
@@ -760,7 +762,7 @@ function buildHeaderContactLines(contact: AdaptedCvModel['header']['contact']): 
   );
 }
 
-function sanitizeFilenamePart(value: string): string {
+function sanitizeFilenamePart(value: string) {
   const collapsedWhitespace = value
     .normalize('NFKD')
     .replaceAll(/\p{Diacritic}/gu, '')

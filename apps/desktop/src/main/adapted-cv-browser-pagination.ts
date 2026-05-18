@@ -63,10 +63,7 @@ export function renderAdaptedCvPagesInBrowser(
   const documentReference = options.document ?? globalThis.document;
   const rootElementId = options.rootElementId ?? 'cv-document-root';
   const pageBottomClearance = 24;
-  const doesElementOverflowPage = (
-    pageElement: HTMLElement,
-    appendedElement: HTMLElement,
-  ): boolean => {
+  const doesElementOverflowPage = (pageElement: HTMLElement, appendedElement: HTMLElement) => {
     const pageRectangle = pageElement.getBoundingClientRect();
     const appendedRectangle = appendedElement.getBoundingClientRect();
 
@@ -105,11 +102,7 @@ export function renderAdaptedCvPagesInBrowser(
     return labelElement;
   };
 
-  const createMainPage = (): {
-    contentContainerElement: HTMLElement;
-    pageElement: HTMLElement;
-    sidebarElement: HTMLElement;
-  } => {
+  const createMainPage = () => {
     pageNumber += 1;
 
     const pageElement = documentReference.createElement('section');
@@ -170,10 +163,7 @@ export function renderAdaptedCvPagesInBrowser(
     };
   };
 
-  const createContinuedPage = (): {
-    contentContainerElement: HTMLElement;
-    pageElement: HTMLElement;
-  } => {
+  const createContinuedPage = () => {
     pageNumber += 1;
 
     const pageElement = documentReference.createElement('section');
@@ -235,7 +225,7 @@ export function renderAdaptedCvPagesInBrowser(
         kind: 'list';
       }
     >,
-  ): boolean => {
+  ) => {
     return (
       section.sectionKind === 'core_skills' ||
       section.sectionKind === 'focus' ||
@@ -300,13 +290,7 @@ export function renderAdaptedCvPagesInBrowser(
     return sectionElement;
   };
 
-  const createExperienceSection = (
-    label: string,
-    isContinued: boolean,
-  ): {
-    itemsContainerElement: HTMLElement;
-    sectionElement: HTMLElement;
-  } => {
+  const createExperienceSection = (label: string, isContinued: boolean) => {
     const sectionElement = documentReference.createElement('section');
     sectionElement.className = isContinued ? 'section-experience-continued' : 'section-experience';
 
@@ -365,13 +349,7 @@ export function renderAdaptedCvPagesInBrowser(
     return itemElement;
   };
 
-  const createTextBlockSection = (
-    label: string,
-    isContinued: boolean,
-  ): {
-    itemsContainerElement: HTMLElement;
-    sectionElement: HTMLElement;
-  } => {
+  const createTextBlockSection = (label: string, isContinued: boolean) => {
     const sectionElement = documentReference.createElement('section');
     sectionElement.className = 'section-text-block';
 
@@ -423,7 +401,7 @@ export function renderAdaptedCvPagesInBrowser(
     });
   };
 
-  const sidebarOverflowsPage = (pageElement: HTMLElement, sidebarElement: HTMLElement): boolean => {
+  const sidebarOverflowsPage = (pageElement: HTMLElement, sidebarElement: HTMLElement) => {
     const sidebarElements = [sidebarElement, ...sidebarElement.querySelectorAll<HTMLElement>('*')];
 
     return sidebarElements.some((sidebarElementNode) => {
@@ -440,7 +418,7 @@ export function renderAdaptedCvPagesInBrowser(
       }
     >['sectionKind'],
     minimumItems: number,
-  ): boolean => {
+  ) => {
     const section = rightSections.find((candidateSection) => {
       return candidateSection.kind === 'list' && candidateSection.sectionKind === sectionKind;
     });
@@ -472,7 +450,7 @@ export function renderAdaptedCvPagesInBrowser(
             kind: 'list';
           }
         >['sectionKind'],
-  ): boolean => {
+  ) => {
     const sectionIndex = rightSections.findIndex((section) => {
       if (section.kind === 'education') {
         return sectionKind === 'education';
@@ -490,7 +468,7 @@ export function renderAdaptedCvPagesInBrowser(
     return true;
   };
 
-  const applySidebarOmissionStep = (rightSections: AdaptedCvBrowserSidebarSection[]): boolean => {
+  const applySidebarOmissionStep = (rightSections: AdaptedCvBrowserSidebarSection[]) => {
     return (
       trimSidebarListSection(rightSections, 'focus', 0) ||
       trimSidebarListSection(rightSections, 'certifications', 0) ||
@@ -611,7 +589,7 @@ export function renderAdaptedCvPagesInBrowser(
   };
 }
 
-export function doesPageOverflowWithBottomClearance(pageElement: HTMLElement): boolean {
+export function doesPageOverflowWithBottomClearance(pageElement: HTMLElement) {
   const descendantElements = [...pageElement.querySelectorAll<HTMLElement>('*')];
 
   return (
@@ -629,7 +607,7 @@ export function doesElementOverflowPageWithBottomClearance(
   pageElement: HTMLElement,
   appendedElement: HTMLElement,
   bottomClearance: number = PAGE_BOTTOM_CLEARANCE_PX,
-): boolean {
+) {
   const pageRectangle = pageElement.getBoundingClientRect();
   const appendedRectangle = appendedElement.getBoundingClientRect();
 

@@ -46,7 +46,7 @@ class MockEventTarget extends EventTarget {
     return this;
   }
 
-  emit(eventName: string, detail?: unknown): void {
+  emit(eventName: string, detail?: unknown) {
     this.dispatchEvent(new CustomEvent(eventName, { detail }));
   }
 }

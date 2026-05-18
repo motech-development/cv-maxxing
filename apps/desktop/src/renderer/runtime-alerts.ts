@@ -58,7 +58,7 @@ export function createRuntimeAlert(alert: RuntimeAlert): RuntimeAlert {
   };
 }
 
-export function resolveRuntimeAlertOwnerKey(owner: RuntimeAlertOwner): string {
+export function resolveRuntimeAlertOwnerKey(owner: RuntimeAlertOwner) {
   return `${owner.scope}:${owner.view}`;
 }
 
@@ -146,27 +146,23 @@ export function createSetupStatusRuntimeAlert({
   });
 }
 
-export function getRuntimeAlertLiveRegionProperties(variant: RuntimeAlertVariant): {
-  'aria-atomic': 'true';
-  'aria-live': 'assertive' | 'polite';
-  role: 'alert' | 'status';
-} {
+export function getRuntimeAlertLiveRegionProperties(variant: RuntimeAlertVariant) {
   if (variant === 'error') {
     return {
       'aria-atomic': 'true',
       'aria-live': 'assertive',
       role: 'alert',
-    };
+    } as const;
   }
 
   return {
     'aria-atomic': 'true',
     'aria-live': 'polite',
     role: 'status',
-  };
+  } as const;
 }
 
-export function resolveRuntimeAlertLabel(variant: RuntimeAlertVariant): string {
+export function resolveRuntimeAlertLabel(variant: RuntimeAlertVariant) {
   if (variant === 'success') {
     return 'Ready';
   }
@@ -192,7 +188,7 @@ function resolveSetupRuntimeAlertView(
   return 'ai_worker_checking';
 }
 
-function areRuntimeAlertsEquivalent(currentAlert: RuntimeAlert, nextAlert: RuntimeAlert): boolean {
+function areRuntimeAlertsEquivalent(currentAlert: RuntimeAlert, nextAlert: RuntimeAlert) {
   return (
     currentAlert.body === nextAlert.body &&
     areRuntimeAlertItemsEquivalent(currentAlert.items, nextAlert.items) &&
@@ -208,7 +204,7 @@ function areRuntimeAlertsEquivalent(currentAlert: RuntimeAlert, nextAlert: Runti
 function areRuntimeAlertItemsEquivalent(
   currentItems: RuntimeAlertItem[] | undefined,
   nextItems: RuntimeAlertItem[] | undefined,
-): boolean {
+) {
   if (currentItems === undefined || nextItems === undefined) {
     return currentItems === nextItems;
   }

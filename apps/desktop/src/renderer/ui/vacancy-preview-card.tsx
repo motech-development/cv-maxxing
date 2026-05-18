@@ -170,30 +170,27 @@ function PreviewList({ emptyState, items, title }: PreviewListProperties) {
   );
 }
 
-function isBrowserSessionAvailable(preview: VacancySummary): boolean {
+function isBrowserSessionAvailable(preview: VacancySummary) {
   return preview.inputType === 'url' && preview.originalUrl !== null && !preview.canGenerate;
 }
 
-function getPreviewStatusPill(preview: VacancySummary): {
-  label: string;
-  tone: 'danger' | 'muted' | 'ready' | 'warning';
-} {
+function getPreviewStatusPill(preview: VacancySummary) {
   if (preview.canGenerate) {
     return {
       label: 'Ready to tailor',
       tone: 'ready',
-    };
+    } as const;
   }
 
   if (isBrowserSessionAvailable(preview)) {
     return {
       label: 'Open the job page',
       tone: 'warning',
-    };
+    } as const;
   }
 
   return {
     label: 'Needs more detail',
     tone: 'warning',
-  };
+  } as const;
 }

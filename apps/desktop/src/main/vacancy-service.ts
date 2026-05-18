@@ -967,7 +967,7 @@ function isExpectedBrowserSessionVacancyPage({
   originalUrl: string;
   pageTitle: string | null;
   resolvedUrl: string;
-}): boolean {
+}) {
   try {
     const requestedUrl = new URL(originalUrl);
     const currentUrl = new URL(resolvedUrl);
@@ -990,13 +990,7 @@ function isExpectedBrowserSessionVacancyPage({
   }
 }
 
-function hasRenderedPageEvidence({
-  html,
-  pageTitle,
-}: {
-  html: string;
-  pageTitle: string | null;
-}): boolean {
+function hasRenderedPageEvidence({ html, pageTitle }: { html: string; pageTitle: string | null }) {
   const extractedText = extractTextFromHtml(sanitizeSnapshotHtml(html));
 
   if (extractedText === '') {
@@ -1025,13 +1019,13 @@ function hasRenderedPageEvidence({
   return extractedText.length >= MIN_RENDERED_PAGE_TEXT_LENGTH;
 }
 
-function hasVacancyRenderedPageEvidence(extractedText: string): boolean {
+function hasVacancyRenderedPageEvidence(extractedText: string) {
   return VACANCY_RENDERED_PAGE_EVIDENCE_PATTERNS.some((pattern) => {
     return pattern.test(extractedText);
   });
 }
 
-function looksLikeGenericCareersShell(extractedText: string): boolean {
+function looksLikeGenericCareersShell(extractedText: string) {
   const shellSignalsCount = GENERIC_CAREERS_SHELL_PATTERNS.filter((pattern) => {
     return pattern.test(extractedText);
   }).length;
@@ -1039,11 +1033,11 @@ function looksLikeGenericCareersShell(extractedText: string): boolean {
   return shellSignalsCount >= 2;
 }
 
-function normalizeComparableHostname(hostname: string): string {
+function normalizeComparableHostname(hostname: string) {
   return hostname.toLowerCase().replace(/^www\./u, '');
 }
 
-function normalizeComparablePathname(pathname: string): string {
+function normalizeComparablePathname(pathname: string) {
   const normalizedPathname = pathname.replace(/\/+$/u, '');
 
   return normalizedPathname === '' ? '/' : normalizedPathname;
@@ -1071,7 +1065,7 @@ function normalizeUrl(url: string | undefined): string | null {
   }
 }
 
-function isNoJobContentNormalizationError(error: unknown): boolean {
+function isNoJobContentNormalizationError(error: unknown) {
   return error instanceof VacancyNormalizationError && error.code === 'no_job_content';
 }
 
@@ -1086,7 +1080,7 @@ function isPageInteractionRequestedError(error: unknown): error is VacancyNormal
   );
 }
 
-function requireUrl(url: string): string {
+function requireUrl(url: string) {
   const normalizedUrl = normalizeUrl(url);
 
   if (normalizedUrl === null) {
@@ -1096,11 +1090,11 @@ function requireUrl(url: string): string {
   return normalizedUrl;
 }
 
-function createPastedVacancyHtml(text: string): string {
+function createPastedVacancyHtml(text: string) {
   return `<main><pre>${escapeHtml(text)}</pre></main>`;
 }
 
-function escapeHtml(value: string): string {
+function escapeHtml(value: string) {
   return value
     .replaceAll('&', '&amp;')
     .replaceAll('<', '&lt;')
@@ -1109,7 +1103,7 @@ function escapeHtml(value: string): string {
     .replaceAll("'", '&#39;');
 }
 
-function isVacancyReady(vacancy: NormalizedVacancy): boolean {
+function isVacancyReady(vacancy: NormalizedVacancy) {
   const substantiveSectionsCount = vacancy.requirements.length + vacancy.responsibilities.length;
 
   if (substantiveSectionsCount >= 2 && vacancy.bodyText.length >= 80) {

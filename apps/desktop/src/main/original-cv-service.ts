@@ -560,7 +560,7 @@ function getOriginalCvFileType(filename: string): OriginalCvFileType {
   });
 }
 
-function isReadableExtraction(extractedText: string): boolean {
+function isReadableExtraction(extractedText: string) {
   const trimmedText = extractedText.trim();
   const letters = trimmedText.match(/[a-z]/giu)?.length ?? 0;
   const alphaRatio = trimmedText.length === 0 ? 0 : letters / trimmedText.length;
@@ -574,7 +574,7 @@ function validateNormalizedOriginalCv({
 }: {
   extractedText: string;
   normalizedCv: NormalizedOriginalCv;
-}): void {
+}) {
   const hasReadableIdentity =
     countWords(normalizedCv.fullName) >= 2 || countWords(normalizedCv.headline) >= 2;
   const hasSubstantiveExperience = normalizedCv.experience.some((entry) => {
@@ -601,7 +601,7 @@ function validateGroundedHighRiskFields({
 }: {
   extractedText: string;
   normalizedCv: NormalizedOriginalCv;
-}): void {
+}) {
   if (!isGroundedIdentityFieldInSource(normalizedCv.fullName, extractedText)) {
     throwUnsupportedGroundingError();
   }
@@ -619,7 +619,7 @@ function validateGroundedHighRiskFields({
   normalizedCv.contact = sanitizeGroundedContactFields(normalizedCv.contact, extractedText);
 }
 
-function isGroundedIdentityFieldInSource(value: string, extractedText: string): boolean {
+function isGroundedIdentityFieldInSource(value: string, extractedText: string) {
   const normalizedValue = normalizeGroundingText(value);
 
   if (normalizedValue === '') {
@@ -631,7 +631,7 @@ function isGroundedIdentityFieldInSource(value: string, extractedText: string): 
   return normalizedSource.includes(normalizedValue);
 }
 
-function isGroundedSkillInSource(skill: string, extractedText: string): boolean {
+function isGroundedSkillInSource(skill: string, extractedText: string) {
   const normalizedSkill = normalizeGroundingText(skill);
 
   if (normalizedSkill === '') {
@@ -667,7 +667,7 @@ function isGroundedSkillInSource(skill: string, extractedText: string): boolean 
   });
 }
 
-function isGroundedTextFieldInSource(value: string, extractedText: string): boolean {
+function isGroundedTextFieldInSource(value: string, extractedText: string) {
   const trimmedValue = value.trim();
 
   if (trimmedValue === '') {
@@ -701,7 +701,7 @@ function sanitizeGroundedContactFields(
   };
 }
 
-function isGroundedEmailInSource(value: string, extractedText: string): boolean {
+function isGroundedEmailInSource(value: string, extractedText: string) {
   const trimmedValue = value.trim().toLowerCase();
 
   if (trimmedValue === '') {
@@ -715,7 +715,7 @@ function isGroundedEmailInSource(value: string, extractedText: string): boolean 
   return extractedText.toLowerCase().includes(trimmedValue);
 }
 
-function isGroundedLocationFieldInSource(value: string, extractedText: string): boolean {
+function isGroundedLocationFieldInSource(value: string, extractedText: string) {
   if (isGroundedTextFieldInSource(value, extractedText)) {
     return true;
   }
@@ -738,7 +738,7 @@ function isGroundedLocationFieldInSource(value: string, extractedText: string): 
   return isGroundedTextFieldInSource(groundedLocationCore, extractedText);
 }
 
-function isGroundedPhoneInSource(value: string, extractedText: string): boolean {
+function isGroundedPhoneInSource(value: string, extractedText: string) {
   const canonicalPhone = canonicalizePhoneForGrounding(value);
 
   if (canonicalPhone === '') {
@@ -748,7 +748,7 @@ function isGroundedPhoneInSource(value: string, extractedText: string): boolean 
   return canonicalizePhoneForGrounding(extractedText).includes(canonicalPhone);
 }
 
-function isGroundedProfessionalLinkInSource(value: string, extractedText: string): boolean {
+function isGroundedProfessionalLinkInSource(value: string, extractedText: string) {
   const trimmedValue = value.trim().toLowerCase();
 
   if (trimmedValue === '') {
@@ -768,7 +768,7 @@ function isGroundedProfessionalLinkInSource(value: string, extractedText: string
   return canonicalizeProfessionalLinkForGrounding(extractedText).includes(canonicalValue);
 }
 
-function resolvePrioritizedProfessionalLink(value: string, extractedText: string): string {
+function resolvePrioritizedProfessionalLink(value: string, extractedText: string) {
   const sourceCandidates = extractProfessionalLinkCandidates(extractedText);
 
   if (sourceCandidates.length > 0) {
@@ -830,7 +830,7 @@ function extractProfessionalLinkCandidates(extractedText: string): {
   return [...uniqueCandidates.values()];
 }
 
-function isProfessionalLinkCandidateGroundedInLine(candidate: string, line: string): boolean {
+function isProfessionalLinkCandidateGroundedInLine(candidate: string, line: string) {
   const trimmedLine = line.trim();
 
   if (trimmedLine === '') {
@@ -870,11 +870,11 @@ function getProfessionalLinkPriority(value: string): number | null {
   return null;
 }
 
-function canonicalizePhoneForGrounding(value: string): string {
+function canonicalizePhoneForGrounding(value: string) {
   return value.replaceAll(/\D+/gu, '');
 }
 
-function canonicalizeProfessionalLinkForGrounding(value: string): string {
+function canonicalizeProfessionalLinkForGrounding(value: string) {
   return value
     .toLowerCase()
     .replaceAll(/https?:\/\//gu, '')
@@ -906,7 +906,7 @@ function getMeaningfulSkillTokens(skill: string): string[] {
   });
 }
 
-function groundingTokensMatch(skillToken: string, candidateToken: string): boolean {
+function groundingTokensMatch(skillToken: string, candidateToken: string) {
   if (skillToken === candidateToken) {
     return true;
   }
@@ -923,7 +923,7 @@ function groundingTokensMatch(skillToken: string, candidateToken: string): boole
   return longerToken.startsWith(shorterToken);
 }
 
-function normalizeGroundingText(value: string): string {
+function normalizeGroundingText(value: string) {
   return value
     .toLowerCase()
     .replaceAll(/[^\p{L}\p{N}#+]+/gu, ' ')
@@ -931,14 +931,14 @@ function normalizeGroundingText(value: string): string {
     .replaceAll(/\s+/gu, ' ');
 }
 
-function throwUnsupportedGroundingError(): never {
+function throwUnsupportedGroundingError() {
   throw new OriginalCvImportError({
     code: 'weak_normalization',
     message: INVALID_NORMALIZATION_MESSAGE,
   });
 }
 
-function countWords(value: string): number {
+function countWords(value: string) {
   return value
     .trim()
     .split(/\s+/u)

@@ -10,7 +10,7 @@ const toneClassNames: Record<StatusPillProperties['tone'], string> = {
   warning: 'bg-[var(--color-chip-background)] text-[var(--color-surface-3)]',
 };
 
-function getDotClassName(tone: StatusPillProperties['tone']): string {
+function getDotClassName(tone: StatusPillProperties['tone']) {
   if (tone === 'ready') {
     return 'bg-[var(--color-status-ready)]';
   }

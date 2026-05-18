@@ -47,6 +47,13 @@ export interface OriginalCvNormalizationService {
   ) => Promise<OriginalCvNormalizationResult>;
 }
 
+interface OriginalCvNormalizationServiceInput {
+  generateId?: () => string;
+  runWorkspaceRootPath: string;
+  timeoutMs?: number;
+  worker?: OriginalCvNormalizationWorker;
+}
+
 const ORIGINAL_CV_NORMALIZATION_EXAMPLES = [
   {
     normalizedCv: {
@@ -111,12 +118,7 @@ export function createOriginalCvNormalizationService({
   runWorkspaceRootPath,
   timeoutMs = DEFAULT_ORIGINAL_CV_NORMALIZATION_TIMEOUT_MS,
   worker = missingOriginalCvNormalizationWorker,
-}: {
-  generateId?: () => string;
-  runWorkspaceRootPath: string;
-  timeoutMs?: number;
-  worker?: OriginalCvNormalizationWorker;
-}): OriginalCvNormalizationService {
+}: OriginalCvNormalizationServiceInput): OriginalCvNormalizationService {
   const resolvedTimeoutMs = resolveTimeoutMs(timeoutMs);
 
   return {
@@ -202,7 +204,7 @@ async function writeRunWorkspaceInput({
   ]);
 }
 
-function resolveTimeoutMs(timeoutMs: number): number {
+function resolveTimeoutMs(timeoutMs: number) {
   if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
     return DEFAULT_ORIGINAL_CV_NORMALIZATION_TIMEOUT_MS;
   }

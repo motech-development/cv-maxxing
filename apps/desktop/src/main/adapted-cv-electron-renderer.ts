@@ -73,7 +73,7 @@ export function createElectronAdaptedCvRenderer(): AdaptedCvRenderer {
   };
 }
 
-function injectFontFaceCss(html: string): string {
+function injectFontFaceCss(html: string) {
   const fontFaceCss = `
     @font-face {
       font-family: "Manrope";

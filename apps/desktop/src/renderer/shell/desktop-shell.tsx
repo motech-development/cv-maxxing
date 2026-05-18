@@ -73,7 +73,7 @@ function RailButton({ icon, isActive, label, onSelect }: RailButtonProperties) {
   );
 }
 
-function getRailLabel(icon: RailItemId): string {
+function getRailLabel(icon: RailItemId) {
   if (icon === 'setup') {
     return 'AI';
   }

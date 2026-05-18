@@ -11,6 +11,11 @@ interface CoverLetterDocumentInput {
   vacancyTitle: string | null;
 }
 
+interface CoverLetterExportFilenameInput {
+  candidateName: string;
+  vacancyTitle: string | null;
+}
+
 type CoverLetterBlock =
   | {
       kind: 'body' | 'closing' | 'opening';
@@ -51,10 +56,7 @@ export function buildCoverLetterPageWarning(pageCount: number): string | null {
 export function buildCoverLetterExportFilename({
   candidateName,
   vacancyTitle,
-}: {
-  candidateName: string;
-  vacancyTitle: string | null;
-}): string {
+}: CoverLetterExportFilenameInput) {
   const safeCandidateName = sanitizeFilenamePart(candidateName);
   const safeVacancyTitle = sanitizeFilenamePart(vacancyTitle ?? 'cover letter');
 
@@ -118,7 +120,7 @@ function buildDocumentHtml({
   blocks: CoverLetterBlock[];
   documentTitle: string | null;
   title: string;
-}): string {
+}) {
   return [
     '<!doctype html>',
     '<html lang="en">',
@@ -150,7 +152,7 @@ function buildDocumentHtml({
   ].join('');
 }
 
-function buildBlocksMarkup(blocks: CoverLetterBlock[]): string {
+function buildBlocksMarkup(blocks: CoverLetterBlock[]) {
   return blocks
     .map((block) => {
       let className = 'letter-paragraph';
@@ -178,7 +180,7 @@ function buildBlocksMarkup(blocks: CoverLetterBlock[]): string {
     .join('');
 }
 
-function sanitizeFilenamePart(value: string): string {
+function sanitizeFilenamePart(value: string) {
   const collapsedWhitespace = value
     .normalize('NFKD')
     .replaceAll(/\p{Diacritic}/gu, '')
@@ -189,7 +191,7 @@ function sanitizeFilenamePart(value: string): string {
   return collapsedWhitespace === '' ? 'cover-letter' : collapsedWhitespace;
 }
 
-function escapeHtml(value: string): string {
+function escapeHtml(value: string) {
   return value
     .replaceAll('&', '&amp;')
     .replaceAll('<', '&lt;')
@@ -198,7 +200,7 @@ function escapeHtml(value: string): string {
     .replaceAll("'", '&#39;');
 }
 
-function buildDocumentStyles(): string {
+function buildDocumentStyles() {
   return `
     :root {
       --bg: #ffffff;

@@ -19,11 +19,13 @@ export interface AiWorkerReadinessStore {
   setStartupDestination: (destination: StartupDestination) => Promise<void>;
 }
 
+interface AiWorkerReadinessStoreInput {
+  localAppData: Pick<LocalAppDataStore, 'metadata'>;
+}
+
 export function createAiWorkerReadinessStore({
   localAppData,
-}: {
-  localAppData: Pick<LocalAppDataStore, 'metadata'>;
-}): AiWorkerReadinessStore {
+}: AiWorkerReadinessStoreInput): AiWorkerReadinessStore {
   return {
     clearPendingGenerationCommand: async () => {
       await localAppData.metadata.delete({

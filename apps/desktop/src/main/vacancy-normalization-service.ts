@@ -44,6 +44,13 @@ export interface VacancyNormalizationService {
   normalizeVacancy: (input: VacancyNormalizationInput) => Promise<NormalizedVacancy>;
 }
 
+interface VacancyNormalizationServiceInput {
+  generateId?: () => string;
+  runWorkspaceRootPath: string;
+  timeoutMs?: number;
+  worker?: VacancyNormalizationWorker;
+}
+
 const DEFAULT_VACANCY_NORMALIZATION_TIMEOUT_MS = 120_000;
 const VACANCY_NORMALIZATION_TIMEOUT_REASON = Symbol('vacancy-normalization-timeout');
 
@@ -58,12 +65,7 @@ export function createVacancyNormalizationService({
   runWorkspaceRootPath,
   timeoutMs = DEFAULT_VACANCY_NORMALIZATION_TIMEOUT_MS,
   worker = missingVacancyNormalizationWorker,
-}: {
-  generateId?: () => string;
-  runWorkspaceRootPath: string;
-  timeoutMs?: number;
-  worker?: VacancyNormalizationWorker;
-}): VacancyNormalizationService {
+}: VacancyNormalizationServiceInput): VacancyNormalizationService {
   const resolvedTimeoutMs = resolveTimeoutMs(timeoutMs);
 
   return {
@@ -190,7 +192,7 @@ async function writeRunWorkspaceInput({
   ]);
 }
 
-function resolveTimeoutMs(timeoutMs: number): number {
+function resolveTimeoutMs(timeoutMs: number) {
   if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
     return DEFAULT_VACANCY_NORMALIZATION_TIMEOUT_MS;
   }
@@ -228,7 +230,7 @@ function sanitizeNormalizedVacancy(normalizedVacancy: NormalizedVacancy): Normal
   };
 }
 
-function normalizeBodyText(value: string): string {
+function normalizeBodyText(value: string) {
   return value.replaceAll(/\s+/g, ' ').trim();
 }
 
@@ -254,7 +256,7 @@ function normalizeList(values: string[]): string[] {
   return [...new Set(normalizedValues)];
 }
 
-function looksLikeSemanticJunk(value: string): boolean {
+function looksLikeSemanticJunk(value: string) {
   const normalizedValue = value.toLowerCase();
 
   if (
@@ -278,6 +280,6 @@ function looksLikeSemanticJunk(value: string): boolean {
   return false;
 }
 
-function isCancellationError(error: unknown): boolean {
+function isCancellationError(error: unknown) {
   return error instanceof Error && error.message === 'Vacancy normalization cancelled.';
 }

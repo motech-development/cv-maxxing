@@ -46,7 +46,7 @@ export function registerDesktopIpcHandlers({
   tailoredApplicationPreviewDelayMs = 0,
   tailoredApplication,
   vacancy,
-}: RegisterDesktopIpcHandlersOptions): void {
+}: RegisterDesktopIpcHandlersOptions) {
   ipcMain.handle(AI_WORKER_IPC_CHANNELS.getPreflight, async () => {
     return await aiWorker.getAiWorkerPreflight();
   });
@@ -395,7 +395,7 @@ function isCompletePendingGenerationInput(
   );
 }
 
-function parseTailoredApplicationIdInput(payload: unknown): { tailoredApplicationId: string } {
+function parseTailoredApplicationIdInput(payload: unknown) {
   if (
     payload === null ||
     typeof payload !== 'object' ||

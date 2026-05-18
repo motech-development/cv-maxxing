@@ -112,7 +112,7 @@ function tokenizeText(text: string): string[] {
   );
 }
 
-function countMatchingSignals(tokens: string[], signals: readonly string[]): number {
+function countMatchingSignals(tokens: string[], signals: readonly string[]) {
   const tokenSet = new Set(tokens);
 
   return signals.filter((signal) => {

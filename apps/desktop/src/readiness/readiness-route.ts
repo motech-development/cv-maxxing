@@ -19,13 +19,15 @@ export interface ReadinessRouteViewModel {
   status: AiWorkerPreflightResult['status'];
 }
 
+interface ReadinessRouteViewModelInput {
+  preflight: AiWorkerPreflightResult;
+  startupDestination?: StartupDestination;
+}
+
 export function mapReadinessRouteViewModel({
   preflight,
   startupDestination,
-}: {
-  preflight: AiWorkerPreflightResult;
-  startupDestination?: StartupDestination;
-}): ReadinessRouteViewModel {
+}: ReadinessRouteViewModelInput): ReadinessRouteViewModel {
   if (preflight.status === 'checking') {
     return {
       body: 'Getting AI ready before you enter the app.',
@@ -95,7 +97,7 @@ export async function createReadinessRouteViewModel({
 
 function buildDiagnostic(
   preflight: Extract<AiWorkerPreflightResult, { status: 'sign_in_required' | 'unavailable' }>,
-): string {
+) {
   if (preflight.failureCode === 'auth_expired') {
     return 'Your sign-in expired on this Mac.';
   }
@@ -115,7 +117,7 @@ function buildDiagnostic(
   return "AI isn't available on this Mac yet.";
 }
 
-function buildReadyBody(startupDestination: StartupDestination): string {
+function buildReadyBody(startupDestination: StartupDestination) {
   if (startupDestination === 'workspace') {
     return 'AI is ready. Opening your jobs.';
   }
@@ -123,7 +125,7 @@ function buildReadyBody(startupDestination: StartupDestination): string {
   return 'AI is ready. Add your CV to get started.';
 }
 
-function buildReadyHeading(startupDestination: StartupDestination): string {
+function buildReadyHeading(startupDestination: StartupDestination) {
   void startupDestination;
 
   return 'Ready';

@@ -237,7 +237,7 @@ function WorkspaceSidebarItem({
   );
 }
 
-function resolveDraftDescription(vacancyPreview: VacancySummary | null): string {
+function resolveDraftDescription(vacancyPreview: VacancySummary | null) {
   if (vacancyPreview?.canGenerate === true) {
     return 'Ready to tailor';
   }

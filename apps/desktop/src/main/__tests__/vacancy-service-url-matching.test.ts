@@ -13,7 +13,7 @@ import type {
 } from '../vacancy-normalization-service.js';
 import { createVacancyService } from '../vacancy-service.js';
 
-function createRecordKey({ id, scope }: { id: string; scope: string }): string {
+function createRecordKey({ id, scope }: { id: string; scope: string }) {
   return `${scope}:${id}`;
 }
 

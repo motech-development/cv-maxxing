@@ -306,7 +306,7 @@ function createTailoredApplicationTitle({
 }: {
   employer: string | null;
   vacancyTitle: string | null;
-}): string {
+}) {
   const normalizedVacancyTitle = vacancyTitle?.trim() ?? '';
   const normalizedEmployer = employer?.trim() ?? '';
 
@@ -1713,14 +1713,17 @@ function validateTailoredApplicationGenerationResult(
   }
 
   const candidate = result as Record<string, unknown>;
+  const adaptedCv = candidate.adaptedCv;
 
-  if (!isGeneratedAdaptedCvModel(candidate.adaptedCv, context)) {
+  if (!isGeneratedAdaptedCvModel(adaptedCv, context)) {
     throwContractValidationError({
       code: 'adapted_cv_invalid',
-      detail: describeGeneratedAdaptedCvValidationFailure(candidate.adaptedCv, context),
+      detail: describeGeneratedAdaptedCvValidationFailure(adaptedCv, context),
       path: 'adaptedCv',
     });
   }
+
+  const validatedAdaptedCv: GeneratedAdaptedCvModel = adaptedCv;
 
   if (!isCoverLetterModel(candidate.coverLetter)) {
     throwContractValidationError({
@@ -1747,7 +1750,7 @@ function validateTailoredApplicationGenerationResult(
   }
 
   const missingSourceExperienceEntries = getMissingSourceExperienceEntries(
-    candidate.adaptedCv.sections,
+    validatedAdaptedCv.sections,
     context.originalCvExperience,
   );
 
@@ -1843,7 +1846,7 @@ function describeGeneratedAdaptedCvValidationFailure(
     originalCvHeadline: string;
     vacancyTitle: string | null;
   },
-): string {
+) {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) {
     return 'Expected adaptedCv to be an object.';
   }
@@ -1972,7 +1975,7 @@ function isGeneratedAdaptedCvSection(
   return candidate.kind === 'references';
 }
 
-function hasRequiredAdaptedCvSections(sections: unknown[]): boolean {
+function hasRequiredAdaptedCvSections(sections: unknown[]) {
   return getMissingRequiredAdaptedCvSectionKinds(sections).length === 0;
 }
 
@@ -2086,7 +2089,7 @@ function isAdaptedCvSkill(value: unknown): value is AdaptedCvSkill {
   );
 }
 
-function isRequiredAdaptedCvSkillList(value: unknown, maximumItems: number): boolean {
+function isRequiredAdaptedCvSkillList(value: unknown, maximumItems: number) {
   return (
     Array.isArray(value) &&
     value.length > 0 &&
@@ -2104,7 +2107,7 @@ function isConciseGroundedTextListWithinCap(
     maximumLength?: number;
     maximumWords?: number;
   },
-): boolean {
+) {
   return (
     Array.isArray(value) &&
     value.length <= maximumItems &&
@@ -2114,7 +2117,7 @@ function isConciseGroundedTextListWithinCap(
   );
 }
 
-function isUngroupedToolListWithinCap(value: unknown, maximumItems: number): boolean {
+function isUngroupedToolListWithinCap(value: unknown, maximumItems: number) {
   return (
     Array.isArray(value) &&
     value.length <= maximumItems &&
@@ -2124,7 +2127,7 @@ function isUngroupedToolListWithinCap(value: unknown, maximumItems: number): boo
   );
 }
 
-function isNarrativeEvidenceTextList(value: unknown): boolean {
+function isNarrativeEvidenceTextList(value: unknown) {
   return (
     Array.isArray(value) &&
     value.length > 0 &&
@@ -2149,7 +2152,7 @@ function isConciseSidebarLabel(
     maximumLength?: number;
     maximumWords?: number;
   } = {},
-): boolean {
+) {
   const normalizedValue = value.trim();
 
   if (
@@ -2163,17 +2166,17 @@ function isConciseSidebarLabel(
   return countWords(normalizedValue) <= maximumWords;
 }
 
-function countWords(value: string): number {
+function countWords(value: string) {
   const matches = value.match(/[A-Za-z0-9+#./&'-]+/gu);
 
   return matches?.length ?? 0;
 }
 
-function normalizeSidebarLabel(value: string): string {
+function normalizeSidebarLabel(value: string) {
   return value.trim().toLowerCase();
 }
 
-function isUngroupedToolLabel(value: string): boolean {
+function isUngroupedToolLabel(value: string) {
   return (
     isConciseSidebarLabel(value) &&
     !/[()]/u.test(value) &&
@@ -2237,11 +2240,11 @@ function isAdaptedCvEducationEntry(
   );
 }
 
-function isGeneratedAdaptedCvHeaderIntroFit(value: GeneratedAdaptedCvModel): boolean {
+function isGeneratedAdaptedCvHeaderIntroFit(value: GeneratedAdaptedCvModel) {
   return value.header.intro.text.length <= MAX_HEADER_INTRO_LENGTH;
 }
 
-function isGeneratedAdaptedCvProfileFit(value: GeneratedAdaptedCvModel): boolean {
+function isGeneratedAdaptedCvProfileFit(value: GeneratedAdaptedCvModel) {
   const profileSection = value.sections.find((section) => {
     return section.kind === 'profile';
   });
@@ -2429,7 +2432,7 @@ function createExperienceIdentityKey({
   dateRange: string;
   employer: string;
   roleTitle: string;
-}): string {
+}) {
   return [roleTitle, employer, dateRange]
     .map((value) => {
       return normalizeExperienceIdentityPart(value);
@@ -2437,7 +2440,7 @@ function createExperienceIdentityKey({
     .join('::');
 }
 
-function normalizeExperienceIdentityPart(value: string): string {
+function normalizeExperienceIdentityPart(value: string) {
   return value
     .replaceAll(/[‐‑‒–—−]/gu, '-')
     .replaceAll(/\s+/gu, ' ')
@@ -2505,7 +2508,7 @@ function isCoverLetterModel(value: unknown): value is CoverLetterModel {
   );
 }
 
-function buildCoverLetterPlainText(coverLetter: CoverLetterModel): string {
+function buildCoverLetterPlainText(coverLetter: CoverLetterModel) {
   return [
     coverLetter.date,
     '',
@@ -2522,7 +2525,7 @@ function buildCoverLetterPlainText(coverLetter: CoverLetterModel): string {
   ].join('\n');
 }
 
-function boundTailoredApplicationSourceText(value: string): string {
+function boundTailoredApplicationSourceText(value: string) {
   if (value.length <= MAX_TAILORED_APPLICATION_SOURCE_TEXT_LENGTH) {
     return value;
   }

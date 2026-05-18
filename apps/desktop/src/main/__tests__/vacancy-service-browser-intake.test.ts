@@ -98,19 +98,11 @@ function createMemoryLocalAppData(): TestLocalAppData {
   return localAppData as unknown as TestLocalAppData;
 }
 
-function createStorageKey({
-  id,
-  name,
-  scope,
-}: {
-  id: string;
-  name?: string;
-  scope: string;
-}): string {
+function createStorageKey({ id, name, scope }: { id: string; name?: string; scope: string }) {
   return name === undefined ? `${scope}:${id}` : `${scope}:${id}:${name}`;
 }
 
-function createStorageKeyPrefix({ id, scope }: { id: string; scope: string }): string {
+function createStorageKeyPrefix({ id, scope }: { id: string; scope: string }) {
   return `${scope}:${id}:`;
 }
 

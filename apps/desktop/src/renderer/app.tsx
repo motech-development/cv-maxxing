@@ -107,7 +107,7 @@ const exportPdfErrorMessage =
   "We couldn't save the PDF. Check that the destination folder is available on this Mac, then try again.";
 const originalCvFileTypeErrorMessage = 'Choose a PDF or DOCX file.';
 
-function isSupportedOriginalCvFile(file: File): boolean {
+function isSupportedOriginalCvFile(file: File) {
   const normalizedName = file.name.toLowerCase();
 
   return (
@@ -296,11 +296,11 @@ function resolveActiveOriginalCvRuntimeAlertView({
   return 'detail';
 }
 
-function resolveDraftFieldTargetId(inputType: VacancySummary['inputType']): string {
+function resolveDraftFieldTargetId(inputType: VacancySummary['inputType']) {
   return inputType === 'url' ? 'workspace-vacancy-url' : 'workspace-vacancy-text';
 }
 
-function resolveDraftFieldLabel(inputType: VacancySummary['inputType']): string {
+function resolveDraftFieldLabel(inputType: VacancySummary['inputType']) {
   return inputType === 'url' ? 'Job link' : 'Job description';
 }
 
@@ -757,7 +757,7 @@ export function App() {
       await globalThis.window.cvMaxxing.tailoredApplication.setWorkspaceSelection(selection);
     },
   });
-  const setPersistedWorkspaceSelection = (selection: WorkspaceSelection): void => {
+  const setPersistedWorkspaceSelection = (selection: WorkspaceSelection) => {
     queryClient.setQueryData(rendererQueryKeys.workspaceSelection, selection);
   };
   const saveWorkspaceSelection = (selection: WorkspaceSelection): Promise<void> => {
@@ -894,7 +894,7 @@ export function App() {
         commandId,
       );
     },
-    onSuccess: ({ workspaceState }, { tailoredApplicationId }): void => {
+    onSuccess: ({ workspaceState }, { tailoredApplicationId }) => {
       const nextSelectedTailoredApplicationId =
         workspaceState.activeApplicationId ?? tailoredApplicationId;
 
@@ -1273,25 +1273,25 @@ export function App() {
     }
   };
 
-  const clearSettingsRuntimeAlerts = (): void => {
+  const clearSettingsRuntimeAlerts = () => {
     setSettingsRuntimeAlerts(createEmptySettingsRuntimeAlerts());
   };
 
-  const clearSettingsRuntimeAlertBySource = (source: string): void => {
+  const clearSettingsRuntimeAlertBySource = (source: string) => {
     setSettingsRuntimeAlerts((currentAlerts) => {
       return clearSettingsRuntimeAlertsBySource(currentAlerts, source);
     });
   };
 
-  const clearOriginalCvRuntimeAlerts = (): void => {
+  const clearOriginalCvRuntimeAlerts = () => {
     setOriginalCvRuntimeAlerts(createEmptyOriginalCvRuntimeAlerts());
   };
 
-  const clearSavedApplicationRuntimeAlert = (): void => {
+  const clearSavedApplicationRuntimeAlert = () => {
     setSavedApplicationRuntimeAlertState(null);
   };
 
-  const clearDraftWorkspaceAlert = (source?: string): void => {
+  const clearDraftWorkspaceAlert = (source?: string) => {
     setDraftWorkspaceAlertState((currentAlert) => {
       if (source !== undefined && currentAlert?.source !== source) {
         return currentAlert;
@@ -1301,7 +1301,7 @@ export function App() {
     });
   };
 
-  const clearDraftActionAlert = (source?: string): void => {
+  const clearDraftActionAlert = (source?: string) => {
     setDraftActionAlertState((currentAlert) => {
       if (source !== undefined && currentAlert?.source !== source) {
         return currentAlert;
@@ -1311,22 +1311,19 @@ export function App() {
     });
   };
 
-  const setDraftWorkspaceAlert = (nextAlert: RuntimeAlert | null): void => {
+  const setDraftWorkspaceAlert = (nextAlert: RuntimeAlert | null) => {
     setDraftWorkspaceAlertState((currentAlert) => {
       return resolveNextRuntimeAlert(currentAlert, nextAlert);
     });
   };
 
-  const setDraftActionAlert = (nextAlert: RuntimeAlert | null): void => {
+  const setDraftActionAlert = (nextAlert: RuntimeAlert | null) => {
     setDraftActionAlertState((currentAlert) => {
       return resolveNextRuntimeAlert(currentAlert, nextAlert);
     });
   };
 
-  const setSettingsRuntimeAlert = (
-    section: SettingsSection,
-    nextAlert: RuntimeAlert | null,
-  ): void => {
+  const setSettingsRuntimeAlert = (section: SettingsSection, nextAlert: RuntimeAlert | null) => {
     setSettingsRuntimeAlerts((currentAlerts) => {
       const resolvedAlert = resolveNextRuntimeAlert(currentAlerts[section], nextAlert);
 
@@ -1344,7 +1341,7 @@ export function App() {
   const setOriginalCvRuntimeAlert = (
     view: OriginalCvRuntimeAlertView,
     nextAlert: RuntimeAlert | null,
-  ): void => {
+  ) => {
     setOriginalCvRuntimeAlerts((currentAlerts) => {
       return {
         ...currentAlerts,
@@ -1353,7 +1350,7 @@ export function App() {
     });
   };
 
-  const setSavedApplicationRuntimeAlert = (nextAlert: RuntimeAlert | null): void => {
+  const setSavedApplicationRuntimeAlert = (nextAlert: RuntimeAlert | null) => {
     setSavedApplicationRuntimeAlertState((currentAlert) => {
       return resolveNextRuntimeAlert(currentAlert, nextAlert);
     });
@@ -1364,7 +1361,7 @@ export function App() {
     options?: {
       originalCvTargetView?: OriginalCvRuntimeAlertView;
     },
-  ): void => {
+  ) => {
     if (selection.topLevelSection === 'settings') {
       setSettingsRuntimeAlert(
         settingsSection,
@@ -1423,7 +1420,7 @@ export function App() {
     options?: {
       originalCvTargetView?: OriginalCvRuntimeAlertView;
     },
-  ): void => {
+  ) => {
     if (selection.topLevelSection === 'settings') {
       clearSettingsRuntimeAlertBySource('settings_selection');
 
@@ -1451,7 +1448,7 @@ export function App() {
     clearDraftWorkspaceAlert('draft_selection');
   };
 
-  const handleOriginalCvDetailPreviewErrorChange = (message: string | null): void => {
+  const handleOriginalCvDetailPreviewErrorChange = (message: string | null) => {
     if (message === null) {
       setOriginalCvRuntimeAlerts((currentAlerts) => {
         if (currentAlerts.detail?.source !== 'original_cv_preview') {
@@ -1478,7 +1475,7 @@ export function App() {
     );
   };
 
-  const handleSavedApplicationPreviewErrorChange = (message: string | null): void => {
+  const handleSavedApplicationPreviewErrorChange = (message: string | null) => {
     if (message === null) {
       setSavedApplicationRuntimeAlertState((currentAlert) => {
         if (currentAlert?.source !== 'saved_application_preview') {
@@ -1595,7 +1592,7 @@ export function App() {
     }
   };
 
-  const handleOpenResetLocalAppDataDialog = (): void => {
+  const handleOpenResetLocalAppDataDialog = () => {
     if (resetLocalAppDataMutation.isPending) {
       return;
     }
@@ -1708,7 +1705,7 @@ export function App() {
     });
   };
 
-  const handleOriginalCvSectionSelection = (event: ChangeEvent<HTMLInputElement>): void => {
+  const handleOriginalCvSectionSelection = (event: ChangeEvent<HTMLInputElement>) => {
     handleOriginalCvFile({
       nextFile: event.target.files?.[0] ?? null,
       nextStartupDestination: 'workspace',
@@ -1717,7 +1714,7 @@ export function App() {
     }).catch(() => null);
   };
 
-  const handleOriginalCvSectionDrop = (event: DragEvent<HTMLElement>): void => {
+  const handleOriginalCvSectionDrop = (event: DragEvent<HTMLElement>) => {
     event.preventDefault();
 
     handleOriginalCvFile({
@@ -1728,7 +1725,7 @@ export function App() {
     }).catch(() => null);
   };
 
-  const handleStartOriginalCvReplacement = (): void => {
+  const handleStartOriginalCvReplacement = () => {
     setOriginalCvSectionFile(null);
     setOriginalCvSectionMode('replace');
   };
@@ -1782,7 +1779,7 @@ export function App() {
     }
   };
 
-  const handleSelectTailoredApplication = (tailoredApplicationId: string): void => {
+  const handleSelectTailoredApplication = (tailoredApplicationId: string) => {
     if (tailoredApplicationPreview?.id === tailoredApplicationId || exportPdfMutation.isPending) {
       return;
     }
@@ -1802,7 +1799,7 @@ export function App() {
     setWorkspaceSelectionOverride(null);
   };
 
-  const handleOpenDeleteTailoredApplicationDialog = (): void => {
+  const handleOpenDeleteTailoredApplicationDialog = () => {
     if (tailoredApplicationPreview === null || deleteTailoredApplicationMutation.isPending) {
       return;
     }
@@ -1832,7 +1829,7 @@ export function App() {
     }
   };
 
-  const showBlankDraftWorkspace = (): void => {
+  const showBlankDraftWorkspace = () => {
     setDeleteTailoredApplicationDialogAlert(null);
     setDraftDiscardDialogAlert(null);
     setIsDeleteTailoredApplicationDialogOpen(false);
@@ -2729,7 +2726,7 @@ function applyStartupDestinationOverride({
 function isVacancyDraftReviewed(
   nextDraft: VacancyDraft,
   previewedVacancyDraft: VacancyDraft | null,
-): boolean {
+) {
   if (previewedVacancyDraft === null) {
     return false;
   }
@@ -2745,11 +2742,11 @@ function isVacancyDraftMeaningful({
 }: {
   draft: VacancyDraft;
   vacancyPreview: VacancySummary | null;
-}): boolean {
+}) {
   return draft.text.trim() !== '' || draft.url.trim() !== '' || vacancyPreview !== null;
 }
 
-function resolveErrorMessage(error: unknown, fallbackMessage: string): string {
+function resolveErrorMessage(error: unknown, fallbackMessage: string) {
   if (typeof error === 'string' && error !== '') {
     return resolveRendererErrorMessage(error, fallbackMessage);
   }
@@ -2767,7 +2764,7 @@ function resolveErrorMessage(error: unknown, fallbackMessage: string): string {
   return fallbackMessage;
 }
 
-function resolveRendererErrorMessage(errorMessage: string, fallbackMessage: string): string {
+function resolveRendererErrorMessage(errorMessage: string, fallbackMessage: string) {
   const electronInvokeMessage = extractElectronInvokeMessage(errorMessage);
 
   if (electronInvokeMessage === null) {
@@ -2809,7 +2806,7 @@ function extractElectronInvokeMessage(errorMessage: string): string | null {
   return wrappedMessageSummary;
 }
 
-function resolveWorkerStatusLabel(status: ReadinessRouteViewModel['status']): string {
+function resolveWorkerStatusLabel(status: ReadinessRouteViewModel['status']) {
   if (status === 'ready') {
     return 'Connected';
   }

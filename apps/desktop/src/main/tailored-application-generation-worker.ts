@@ -362,21 +362,21 @@ async function runCodexCliGeneration({
       return;
     });
 
-    const clearTimeoutTimer = (): void => {
+    const clearTimeoutTimer = () => {
       if (timeoutId !== undefined) {
         clearTimeout(timeoutId);
         timeoutId = undefined;
       }
     };
 
-    const clearForceKillTimer = (): void => {
+    const clearForceKillTimer = () => {
       if (forceKillTimeoutId !== undefined) {
         clearTimeout(forceKillTimeoutId);
         forceKillTimeoutId = undefined;
       }
     };
 
-    const rejectOnce = (error: Error): void => {
+    const rejectOnce = (error: Error) => {
       if (hasSettled) {
         return;
       }
@@ -389,7 +389,7 @@ async function runCodexCliGeneration({
       reject(error);
     };
 
-    const resolveOnce = (): void => {
+    const resolveOnce = () => {
       if (hasSettled) {
         return;
       }
@@ -403,7 +403,7 @@ async function runCodexCliGeneration({
       resolve();
     };
 
-    const scheduleForceKill = (): void => {
+    const scheduleForceKill = () => {
       if (forceKillTimeoutId !== undefined) {
         return;
       }
@@ -424,10 +424,10 @@ async function runCodexCliGeneration({
       once: true,
     });
 
-    const errorHandler = (error: Error): void => {
+    const errorHandler = (error: Error) => {
       rejectOnce(error);
     };
-    const closeHandler = (code: number | null): void => {
+    const closeHandler = (code: number | null) => {
       if (signal.aborted) {
         rejectOnce(new Error('Generation cancelled.'));
 
@@ -698,7 +698,7 @@ function nullableEducationSectionSchema() {
   };
 }
 
-function parseDelay(value: string | undefined): number {
+function parseDelay(value: string | undefined) {
   const parsedValue = Number.parseInt(value ?? '', 10);
 
   if (!Number.isFinite(parsedValue) || parsedValue < 0) {
@@ -842,7 +842,7 @@ function isStructuredWorkerAdaptedCv(
   return !('sections' in value);
 }
 
-function buildOutputPreview(outputText: string): string {
+function buildOutputPreview(outputText: string) {
   const preview = outputText.length > 200 ? `${outputText.slice(0, 200)}...` : outputText;
 
   return JSON.stringify(preview);

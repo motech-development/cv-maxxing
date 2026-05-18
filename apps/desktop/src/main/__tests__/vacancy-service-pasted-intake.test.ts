@@ -57,7 +57,7 @@ function createLocalAppDataDouble(): TestLocalAppData {
   };
 }
 
-function createRecordKey({ id, scope }: { id: string; scope: string }): string {
+function createRecordKey({ id, scope }: { id: string; scope: string }) {
   return `${scope}:${id}`;
 }
 

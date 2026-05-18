@@ -32,7 +32,7 @@ interface OriginalCvScreenProperties {
 
 const originalCvFileInputId = 'original-cv-file-input';
 
-function handleDropzoneKeyDown(event: KeyboardEvent<HTMLDivElement>): void {
+function handleDropzoneKeyDown(event: KeyboardEvent<HTMLDivElement>) {
   if (event.key !== 'Enter' && event.key !== ' ') {
     return;
   }
@@ -58,7 +58,7 @@ export function OriginalCvScreen({
   runtimeAlert,
   workspaceOverlay,
 }: OriginalCvScreenProperties) {
-  const handleSidebarAction = (): void => {
+  const handleSidebarAction = () => {
     if (isImportingOriginalCv) {
       return;
     }
@@ -425,7 +425,7 @@ function ProfileSection({ children, title }: { children: ReactNode; title: strin
   );
 }
 
-function formatPageCount(pageCount: number): string {
+function formatPageCount(pageCount: number) {
   if (pageCount <= 0) {
     return 'Page count unavailable';
   }
@@ -433,7 +433,7 @@ function formatPageCount(pageCount: number): string {
   return `${String(pageCount)} page${pageCount === 1 ? '' : 's'}`;
 }
 
-function formatTimestamp(value: string): string {
+function formatTimestamp(value: string) {
   return new Intl.DateTimeFormat('en-GB', {
     day: 'numeric',
     month: 'short',

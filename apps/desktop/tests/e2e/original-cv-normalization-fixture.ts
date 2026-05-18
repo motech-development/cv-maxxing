@@ -10,7 +10,7 @@ export function createOriginalCvNormalizationFixtureOutput(
     skills: string[];
     summary: string;
   }>,
-): string {
+) {
   return JSON.stringify({
     normalizedCv: {
       contact: {

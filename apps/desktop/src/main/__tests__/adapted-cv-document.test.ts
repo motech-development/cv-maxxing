@@ -12,78 +12,76 @@ import {
   resolveUniqueExportFilePath,
 } from '../adapted-cv-document.js';
 
-function createAdaptedCvInput(): {
-  adaptedCv: AdaptedCvModel;
-  employer: string;
-  vacancyTitle: string;
-} {
-  return {
-    adaptedCv: {
-      candidateName: 'Ada Lovelace',
-      header: {
-        contact: {
-          email: 'ada@lovelace.dev',
-          location: 'London, United Kingdom',
-          phone: '+44 7700 900123',
-          professionalLink: 'ada-lovelace.dev',
-        },
-        intro: {
-          text: 'Design leader shaping truthful desktop workflow products for technical users.',
-        },
+function createAdaptedCvInput() {
+  const adaptedCv: AdaptedCvModel = {
+    candidateName: 'Ada Lovelace',
+    header: {
+      contact: {
+        email: 'ada@lovelace.dev',
+        location: 'London, United Kingdom',
+        phone: '+44 7700 900123',
+        professionalLink: 'ada-lovelace.dev',
       },
-      headline: {
-        text: 'Principal Product Designer',
+      intro: {
+        text: 'Design leader shaping truthful desktop workflow products for technical users.',
       },
-      sections: [
-        {
-          kind: 'profile',
-          summary: {
-            text: 'Design leader adapting complex desktop workflow products for technical users.',
-          },
-        },
-        {
-          items: [
-            createExperienceEntry({
-              bullets: [
-                'Led product design for AI-assisted desktop tooling used by technical teams.',
-                'Prioritised workflow evidence in the bullet order used for this tailored CV.',
-              ],
-              dateRange: '2022 — Present',
-              employer: 'Analytical Engines Ltd',
-              location: 'London',
-              roleTitle: 'Lead Product Designer',
-            }),
-            createExperienceEntry({
-              bullets: [
-                'Partnered with engineering on complex workflow software for regulated users.',
-              ],
-              dateRange: '2019 — 2022',
-              employer: 'Difference Engines Studio',
-              location: 'Stockholm',
-              roleTitle: 'Senior Product Designer',
-            }),
-          ],
-          kind: 'experience',
-        },
-        {
-          items: [
-            {
-              text: 'Product strategy',
-            },
-            {
-              text: 'UX research',
-            },
-            {
-              text: 'Prototyping',
-            },
-          ],
-          kind: 'core_skills',
-        },
-        {
-          kind: 'references',
-        },
-      ],
     },
+    headline: {
+      text: 'Principal Product Designer',
+    },
+    sections: [
+      {
+        kind: 'profile',
+        summary: {
+          text: 'Design leader adapting complex desktop workflow products for technical users.',
+        },
+      },
+      {
+        items: [
+          createExperienceEntry({
+            bullets: [
+              'Led product design for AI-assisted desktop tooling used by technical teams.',
+              'Prioritised workflow evidence in the bullet order used for this tailored CV.',
+            ],
+            dateRange: '2022 — Present',
+            employer: 'Analytical Engines Ltd',
+            location: 'London',
+            roleTitle: 'Lead Product Designer',
+          }),
+          createExperienceEntry({
+            bullets: [
+              'Partnered with engineering on complex workflow software for regulated users.',
+            ],
+            dateRange: '2019 — 2022',
+            employer: 'Difference Engines Studio',
+            location: 'Stockholm',
+            roleTitle: 'Senior Product Designer',
+          }),
+        ],
+        kind: 'experience',
+      },
+      {
+        items: [
+          {
+            text: 'Product strategy',
+          },
+          {
+            text: 'UX research',
+          },
+          {
+            text: 'Prototyping',
+          },
+        ],
+        kind: 'core_skills',
+      },
+      {
+        kind: 'references',
+      },
+    ],
+  };
+
+  return {
+    adaptedCv,
     employer: 'Example Labs',
     vacancyTitle: 'Senior platform engineer',
   };
