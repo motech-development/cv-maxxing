@@ -107,6 +107,7 @@ function createMockChildProcess(): MockChildProcess {
 
 afterEach(async () => {
   vi.useRealTimers();
+  vi.restoreAllMocks();
   spawnMock.mockReset();
 
   await Promise.all(
@@ -685,8 +686,20 @@ test('requires explicit adapted-CV section objects in the Codex output schema', 
   spawnMock.mockImplementation((_command: string, args: string[]) => {
     const child = createMockChildProcess();
 
-    const schemaFilePath = args[args.indexOf('--output-schema') + 1];
-    const outputFilePath = args[args.indexOf('--output-last-message') + 1];
+    const schemaFlagIndex = args.indexOf('--output-schema');
+    const outputFlagIndex = args.indexOf('--output-last-message');
+
+    if (
+      schemaFlagIndex === -1 ||
+      outputFlagIndex === -1 ||
+      schemaFlagIndex + 1 >= args.length ||
+      outputFlagIndex + 1 >= args.length
+    ) {
+      throw new Error('Expected Codex CLI schema and output file path arguments.');
+    }
+
+    const schemaFilePath = args[schemaFlagIndex + 1];
+    const outputFilePath = args[outputFlagIndex + 1];
 
     if (schemaFilePath === undefined || outputFilePath === undefined) {
       throw new Error('Expected Codex CLI schema and output file path arguments.');
