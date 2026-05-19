@@ -82,7 +82,7 @@ class WebContentsDouble extends EventTarget {
   }
 
   on(eventName: string, listener: () => void) {
-    this.addEventListener(eventName, listener as EventListener);
+    this.addEventListener(eventName, listener);
   }
 
   private createMainFrame(): WebFrameDouble {
@@ -127,11 +127,11 @@ class BrowserWindowDouble extends EventTarget {
 
   once(eventName: string, listener: () => void) {
     const wrappedListener = () => {
-      this.removeEventListener(eventName, wrappedListener as EventListener);
+      this.removeEventListener(eventName, wrappedListener);
       listener();
     };
 
-    this.addEventListener(eventName, wrappedListener as EventListener);
+    this.addEventListener(eventName, wrappedListener);
   }
 }
 
@@ -146,7 +146,7 @@ test('uses an app-managed browser session path instead of a shared partition and
     });
   });
   const vacancyBrowserSession = createVacancyBrowserSessionService({
-    browserWindowConstructor: constructor as never,
+    browserWindowConstructor: constructor,
     createSession,
     profileRootPath: '/tmp/cv-maxxing/browser-sessions',
   });
@@ -171,7 +171,7 @@ test('uses an app-managed browser session path instead of a shared partition and
   createdWindow?.close();
 
   const result = await resultPromise;
-  const firstConstructorCall = constructor.mock.calls[0] as [Record<string, unknown>] | undefined;
+  const firstConstructorCall = constructor.mock.calls[0];
 
   expect(createSession).toHaveBeenCalledWith(
     '/tmp/cv-maxxing/browser-sessions/vacancy-browser-session',
@@ -202,7 +202,7 @@ test('captures a vacancy page silently with the managed browser session before f
     });
   });
   const vacancyBrowserSession = createVacancyBrowserSessionService({
-    browserWindowConstructor: constructor as never,
+    browserWindowConstructor: constructor,
     createSession,
     profileRootPath: '/tmp/cv-maxxing/browser-sessions',
   });
@@ -225,7 +225,7 @@ test('captures a vacancy page silently with the managed browser session before f
   });
 
   const result = await resultPromise;
-  const firstConstructorCall = constructor.mock.calls[0] as [Record<string, unknown>] | undefined;
+  const firstConstructorCall = constructor.mock.calls[0];
 
   expect(createSession).toHaveBeenCalledWith(
     '/tmp/cv-maxxing/browser-sessions/vacancy-browser-session',
@@ -251,7 +251,7 @@ test('keeps silent capture open long enough for JavaScript-rendered vacancy cont
       });
     });
     const vacancyBrowserSession = createVacancyBrowserSessionService({
-      browserWindowConstructor: constructor as never,
+      browserWindowConstructor: constructor,
       createSession: vi.fn(() => Promise.resolve({} as Session)),
       profileRootPath: '/tmp/cv-maxxing/browser-sessions',
     });
@@ -307,7 +307,7 @@ test('includes rendered embedded frame content in captured vacancy page evidence
     });
   });
   const vacancyBrowserSession = createVacancyBrowserSessionService({
-    browserWindowConstructor: constructor as never,
+    browserWindowConstructor: constructor,
     createSession: vi.fn(() => Promise.resolve({} as Session)),
     profileRootPath: '/tmp/cv-maxxing/browser-sessions',
   });
@@ -385,7 +385,7 @@ test('runs safe same-page reading actions before capturing rendered vacancy evid
     return window;
   });
   const vacancyBrowserSession = createVacancyBrowserSessionService({
-    browserWindowConstructor: constructor as never,
+    browserWindowConstructor: constructor,
     createSession: vi.fn(() => Promise.resolve({} as Session)),
     profileRootPath: '/tmp/cv-maxxing/browser-sessions',
   });
@@ -493,7 +493,7 @@ test('resumes safe reading actions from the first unfinished action while select
       return window;
     });
     const vacancyBrowserSession = createVacancyBrowserSessionService({
-      browserWindowConstructor: constructor as never,
+      browserWindowConstructor: constructor,
       createSession: vi.fn(() => Promise.resolve({} as Session)),
       profileRootPath: '/tmp/cv-maxxing/browser-sessions',
     });
@@ -575,7 +575,7 @@ test('rejects unsafe same-page reading actions without capturing job data', asyn
     return window;
   });
   const vacancyBrowserSession = createVacancyBrowserSessionService({
-    browserWindowConstructor: constructor as never,
+    browserWindowConstructor: constructor,
     createSession: vi.fn(() => Promise.resolve({} as Session)),
     profileRootPath: '/tmp/cv-maxxing/browser-sessions',
   });
@@ -617,7 +617,7 @@ test('keeps readable vacancy page evidence when one embedded frame cannot be cap
     });
   });
   const vacancyBrowserSession = createVacancyBrowserSessionService({
-    browserWindowConstructor: constructor as never,
+    browserWindowConstructor: constructor,
     createSession: vi.fn(() => Promise.resolve({} as Session)),
     profileRootPath: '/tmp/cv-maxxing/browser-sessions',
   });
@@ -672,7 +672,7 @@ test('rejects browser snapshots that omit the page title property', async () => 
     return new BrowserWindowDouble(options, snapshotWithoutPageTitle);
   });
   const vacancyBrowserSession = createVacancyBrowserSessionService({
-    browserWindowConstructor: constructor as never,
+    browserWindowConstructor: constructor,
     createSession: vi.fn(() => Promise.resolve({} as Session)),
     profileRootPath: '/tmp/cv-maxxing/browser-sessions',
   });
@@ -706,7 +706,7 @@ test('tracks the latest valid on-target snapshot across later page loads and ret
     });
   });
   const vacancyBrowserSession = createVacancyBrowserSessionService({
-    browserWindowConstructor: constructor as never,
+    browserWindowConstructor: constructor,
     createSession: vi.fn(() => Promise.resolve({} as Session)),
     profileRootPath: '/tmp/cv-maxxing/browser-sessions',
   });
@@ -765,7 +765,7 @@ test('discards a previously valid snapshot if the user later navigates off-targe
     });
   });
   const vacancyBrowserSession = createVacancyBrowserSessionService({
-    browserWindowConstructor: constructor as never,
+    browserWindowConstructor: constructor,
     createSession: vi.fn(() => Promise.resolve({} as Session)),
     profileRootPath: '/tmp/cv-maxxing/browser-sessions',
   });
@@ -810,7 +810,7 @@ test('returns null when the browser window closes without any valid on-target sn
   });
   const vacancyBrowserSession = createVacancyBrowserSessionService({
     autoCloseAfterFirstObservation: true,
-    browserWindowConstructor: constructor as never,
+    browserWindowConstructor: constructor,
     createSession: vi.fn(() => Promise.resolve({} as Session)),
     profileRootPath: '/tmp/cv-maxxing/browser-sessions',
     testSnapshotHtml: '<main><h1>Fixture</h1></main>',

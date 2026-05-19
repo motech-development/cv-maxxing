@@ -303,7 +303,7 @@ function toOptionalSidebarListSection(
         };
       }),
       kind: sectionKind,
-    } as Extract<AdaptedCvSection, { kind: typeof sectionKind }>,
+    },
   ];
 }
 

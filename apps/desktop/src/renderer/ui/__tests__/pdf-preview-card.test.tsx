@@ -72,7 +72,7 @@ beforeEach(() => {
             target,
           } satisfies ResizeObserverEntry,
         ],
-        this as unknown as ResizeObserver,
+        this,
       );
     }
   }
