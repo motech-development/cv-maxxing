@@ -123,6 +123,11 @@ Before planning or editing anything, perform a read-only scan to build an eviden
 
 - Produce a concise reconnaissance digest before making changes.
 - Do not mutate files during reconnaissance.
+- For new features, UX changes, product behavior changes, material refactors, and non-bug enhancements, treat the user's initial request as permission to investigate and propose, not as permission to implement, unless they explicitly say to proceed immediately.
+- For new features, UX changes, product behavior changes, material refactors, and non-bug enhancements, stop at a planning checkpoint before editing files, adding tests, running formatters, or mutating durable project state.
+- The planning checkpoint must present the reconnaissance digest, objective, success criteria, impact surface, implementation strategy, feature grilling, non-goals, acceptance criteria, and verification strategy, then ask for explicit approval to implement.
+- The planning checkpoint requirement overrides any general instruction to proceed autonomously, assume implementation, or stay with the work end to end.
+- If files are modified before an approved planning checkpoint, stop immediately, disclose the affected files, and ask whether to revert those edits or continue from them.
 - For new features, refactors, and non-bug changes, restate the objective and success criteria, identify the impact surface, and explain the implementation strategy.
 - For every feature request, grill the request before implementation: challenge the user value, domain fit, workflow, edge cases, failure modes, non-goals, acceptance criteria, test strategy, and architectural consequences until the feature is fully thought through or the remaining uncertainty is explicitly accepted.
 - For defects, define the observed behavior, expected behavior, available errors/logs, and the correctness criteria.
