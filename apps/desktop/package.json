@@ -9,7 +9,7 @@
     "build": "pnpm build:main && pnpm build:renderer",
     "build:main": "tsc --project tsconfig.build.json",
     "build:renderer": "vite build",
-    "dev": "pnpm build && electron .",
+    "dev": "node scripts/development.mjs",
     "package:mac": "pnpm build && electron-builder --config electron-builder.config.mjs --mac dir --publish never",
     "package:mac:arm64": "pnpm build && electron-builder --config electron-builder.config.mjs --mac dir --arm64 --publish never",
     "package:mac:x64": "pnpm build && electron-builder --config electron-builder.config.mjs --mac dir --x64 --publish never",
