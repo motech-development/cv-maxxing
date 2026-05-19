@@ -124,6 +124,7 @@ Before planning or editing anything, perform a read-only scan to build an eviden
 - Produce a concise reconnaissance digest before making changes.
 - Do not mutate files during reconnaissance.
 - For new features, refactors, and non-bug changes, restate the objective and success criteria, identify the impact surface, and explain the implementation strategy.
+- For every feature request, grill the request before implementation: challenge the user value, domain fit, workflow, edge cases, failure modes, non-goals, acceptance criteria, test strategy, and architectural consequences until the feature is fully thought through or the remaining uncertainty is explicitly accepted.
 - For defects, define the observed behavior, expected behavior, available errors/logs, and the correctness criteria.
 - Once the course of action is agreed, proceed autonomously unless authoritative sources conflict, critical files or services are unavailable, the action risks irreversible loss or unsafe production impact, or material ambiguity remains after investigation.
 
@@ -258,9 +259,10 @@ Use this protocol for new features, refactors, and non-bug changes.
 
 1. Reconnaissance: perform the required read-only system scan and read `ARCHITECTURE.md` for new functionality or material structural changes.
 2. Planning: document the objective, success criteria, impact surface, and strategy.
-3. Execution: implement incrementally, follow read-write-reread discipline, and update affected consumers in the same session.
-4. Verification: run the shared verification checklist and correct failures autonomously.
-5. Zero-trust audit: re-check git/file state and service health, check at least one related workflow when applicable, and confirm system-wide consistency.
+3. Feature grilling: pressure-test the request against product language, existing domain model, architecture decisions, user workflows, edge cases, failure modes, non-goals, acceptance criteria, and verification strategy before execution.
+4. Execution: implement incrementally, follow read-write-reread discipline, and update affected consumers in the same session.
+5. Verification: run the shared verification checklist and correct failures autonomously.
+6. Zero-trust audit: re-check git/file state and service health, check at least one related workflow when applicable, and confirm system-wide consistency.
 
 ### Feature Final Report
 
