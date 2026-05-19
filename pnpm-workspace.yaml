@@ -1,3 +1,14 @@
+allowBuilds:
+  '@journeyapps/sqlcipher': true
+  '@parcel/watcher': false
+  electron: true
+  electron-winstaller: false
+  esbuild: false
+  msgpackr-extract: false
+  unrs-resolver: false
+
+minimumReleaseAge: 10080
+
 packages:
   - apps/*
   - packages/*
