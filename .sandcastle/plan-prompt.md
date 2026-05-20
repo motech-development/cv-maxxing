@@ -8,6 +8,19 @@ Here are the open issues in the repo:
 
 </issues-json>
 
+# LOCAL PROGRESS
+
+The current integration branch may already contain commits with closing footers for
+issues that still appear open on GitHub because the branch has not been pushed or
+merged yet.
+
+Treat these issue numbers as already done for this Sandcastle run and exclude them
+from the plan:
+
+<completed-issues>
+{{COMPLETED_ISSUES}}
+</completed-issues>
+
 # TASK
 
 Analyze the open issues and build a dependency graph. For each issue, determine whether it **blocks** or **is blocked by** any other open issue.
@@ -24,6 +37,10 @@ For each unblocked issue, assign a branch name using the format `sandcastle/issu
 
 If the issue appears to be a PRD and it has implementation issues which link to it, the PRD cannot be worked on.
 
+Work in dependency order. Select only the single next eligible issue, not every issue
+that is theoretically unblocked. Later iterations will re-run planning after that issue
+has been integrated into the current branch.
+
 # OUTPUT
 
 Output your plan as a JSON object wrapped in `<plan>` tags:
@@ -32,4 +49,6 @@ Output your plan as a JSON object wrapped in `<plan>` tags:
 {"issues": [{"number": 42, "title": "Fix auth bug", "branch": "sandcastle/issue-42-fix-auth-bug"}]}
 </plan>
 
-Include only unblocked issues. If every issue is blocked, include the single highest-priority candidate: the one with the fewest or weakest dependencies.
+Include only the next unblocked issue. If every issue is blocked, include the single
+highest-priority candidate: the one with the fewest or weakest dependencies. If no
+issue is eligible after excluding local progress, output an empty `issues` array.

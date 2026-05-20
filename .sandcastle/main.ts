@@ -52,6 +52,57 @@ function parsePlanOutput(planJson: string): PlanOutput {
   };
 }
 
+function getGitOutput(args: string[]) {
+  return execFileSync('git', args, {
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'ignore'],
+  }).trim();
+}
+
+function getIntegrationBaseReference() {
+  const candidateReferences = ['origin/main', 'main'];
+
+  for (const candidateReference of candidateReferences) {
+    try {
+      getGitOutput(['rev-parse', '--verify', candidateReference]);
+
+      return candidateReference;
+    } catch {
+      continue;
+    }
+  }
+
+  return null;
+}
+
+function getLocallyCompletedIssueNumbers() {
+  const baseReference = getIntegrationBaseReference();
+
+  if (baseReference === null) {
+    return [];
+  }
+
+  const commitMessages = getGitOutput(['log', '--format=%B', `${baseReference}..HEAD`]);
+  const closingPattern = /\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s+#(?<issueNumber>\d+)\b/gi;
+  const issueNumbers = Array.from(commitMessages.matchAll(closingPattern), (match) =>
+    Number(match.groups?.issueNumber),
+  ).filter((issueNumber) => Number.isInteger(issueNumber));
+
+  return [...new Set(issueNumbers)].toSorted((left, right) => left - right);
+}
+
+function formatLocallyCompletedIssues(issueNumbers: number[]) {
+  if (issueNumbers.length === 0) {
+    return 'None';
+  }
+
+  return issueNumbers.map((issueNumber) => `#${String(issueNumber)}`).join('\n');
+}
+
+function hasCompletionPromise(output: string) {
+  return output.includes('<promise>COMPLETE</promise>');
+}
+
 const createSemaphore = (maxParallel: number) => {
   let running = 0;
   const queue: (() => void)[] = [];
@@ -96,7 +147,7 @@ const getLocalGitHubToken = () => {
 };
 
 const MAX_ITERATIONS = 10;
-const MAX_PARALLEL = 4;
+const MAX_PARALLEL = 1;
 const agentProvider = sandcastle.codex('gpt-5.5', {
   effort: 'high',
 });
@@ -126,11 +177,15 @@ const sandboxProvider = docker({
 for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration += 1) {
   console.info(`\n=== Iteration ${String(iteration)}/${String(MAX_ITERATIONS)} ===\n`);
 
+  const locallyCompletedIssueNumbers = getLocallyCompletedIssueNumbers();
   const plan = await sandcastle.run({
     sandbox: sandboxProvider,
     name: 'Planner',
     agent: agentProvider,
     promptFile: './.sandcastle/plan-prompt.md',
+    promptArgs: {
+      COMPLETED_ISSUES: formatLocallyCompletedIssues(locallyCompletedIssueNumbers),
+    },
   });
 
   const planMatch = /<plan>([\s\S]*?)<\/plan>/.exec(plan.stdout);
@@ -150,14 +205,21 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration += 1) {
     throw new Error(`Failed to parse plan JSON: ${String(error)}\n\nPlan content:\n${planJson}`);
   }
 
-  const { issues } = parsedPlan;
+  const plannedIssues = parsedPlan.issues;
+  const issues = plannedIssues.slice(0, 1);
 
   if (issues.length === 0) {
     console.info('No issues to work on. Exiting.');
     break;
   }
 
-  console.info(`Planning complete. ${String(issues.length)} issue(s) to work in parallel:`);
+  if (plannedIssues.length > issues.length) {
+    console.info(
+      `Planner returned ${String(plannedIssues.length)} issues; working the next issue only.`,
+    );
+  }
+
+  console.info(`Planning complete. Working ${String(issues.length)} issue:`);
   for (const issue of issues) {
     console.info(`  #${String(issue.number)}: ${issue.title} -> ${issue.branch}`);
   }
@@ -195,18 +257,16 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration += 1) {
           },
         });
 
-        if (result.commits.length > 0) {
-          await sandbox.run({
-            name: `Reviewer #${String(issue.number)}`,
-            agent: agentProvider,
-            promptFile: './.sandcastle/review-prompt.md',
-            promptArgs: {
-              BRANCH: issue.branch,
-              ISSUE_NUMBER: String(issue.number),
-              ISSUE_TITLE: issue.title,
-            },
-          });
-        }
+        await sandbox.run({
+          name: `Reviewer #${String(issue.number)}`,
+          agent: agentProvider,
+          promptFile: './.sandcastle/review-prompt.md',
+          promptArgs: {
+            BRANCH: issue.branch,
+            ISSUE_NUMBER: String(issue.number),
+            ISSUE_TITLE: issue.title,
+          },
+        });
 
         return {
           issue,
@@ -233,7 +293,15 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration += 1) {
       return [];
     }
 
-    if (outcome.value.result.commits.length === 0) {
+    if (!hasCompletionPromise(outcome.value.result.stdout)) {
+      if (outcome.value.result.commits.length > 0) {
+        console.warn(
+          `  ! #${String(
+            outcome.value.issue.number,
+          )} produced commits but did not emit <promise>COMPLETE</promise>; skipping merge.`,
+        );
+      }
+
       return [];
     }
 

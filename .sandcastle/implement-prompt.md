@@ -60,7 +60,9 @@ Do not close the issue directly through the GitHub API or CLI.
 
 If the task is not complete, leave a comment on the GitHub issue with what was done.
 
-Once complete, output <promise>COMPLETE</promise>.
+Once complete, output <promise>COMPLETE</promise>. The orchestrator treats this marker
+as the signal that the issue branch is ready for integration; commits without this
+marker will not be merged automatically.
 
 # FINAL RULES
 
